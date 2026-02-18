@@ -1,6 +1,6 @@
 ---
 name: latex-hygiene
-description: Run a repeatable LaTeX quality pass to fix build, citation, and formatting issues before review or submission.
+description: Optional downstream pass for LaTeX deliverables after Markdown drafting is complete.
 user-invokable: true
 license: MIT
 metadata:
@@ -13,7 +13,7 @@ metadata:
 
 ## Trigger (when to use)
 
-Use this skill before internal draft circulation or submission to reduce formatting, citation, and build instability issues in LaTeX projects.
+Use this skill only when a LaTeX/PDF artifact is required after Markdown content is finalized.
 
 ## Inputs expected
 
@@ -32,7 +32,7 @@ Use this skill before internal draft circulation or submission to reduce formatt
 6. Remove unused bibliography entries if policy requires.
 7. Verify figure paths, formats, and resolution assumptions.
 8. Normalize label naming style for sections, figures, tables, equations.
-9. Check duplicate labels and broken `\ref` targets.
+9. Check duplicate labels and broken `\\ref` targets.
 10. Ensure table and figure captions are complete and consistent.
 11. Minimize manual spacing commands that hide layout issues.
 12. Resolve overfull/underfull boxes by text edits first, not hacks.

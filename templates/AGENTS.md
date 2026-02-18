@@ -42,9 +42,9 @@ Deliver correct, minimal, reproducible changes. Prefer small diffs, explicit ass
 
 ## Progressive disclosure
 
-Use core rules here by default. For task-specific procedures, pull from `skills/`:
+Use core rules here by default. For task-specific procedures, pull from `.github/skills/`:
 
-- Paper workflows: `skills/paper/*`
-- Experiments: `skills/experiments/*`
-- Software safety: `skills/software/*`
-- Networking ops: `skills/networking/*`
+- Paper workflows: `.github/skills/paper/*`
+- Experiments: `.github/skills/experiments/*`
+- Software safety: `.github/skills/software/*`
+- Networking ops: `.github/skills/networking/*`

@@ -16,13 +16,14 @@ Produce clear, concise, evidence-grounded paper drafts that are easy to review a
 - Prioritize claims with direct evidence.
 - Use consistent terminology and notation.
 - Keep paragraphs single-purpose.
+- Avoid emphasis styling in manuscript text (no bold/italic markers).
 - Flag unsupported claims explicitly.
 
 ## Validation rules
 
 - Check citation completeness and consistency.
 - Verify figure/table references and numbering.
-- Run basic LaTeX hygiene checks before submission.
+- Ensure placeholder tags are consistent (`[CITE: ...]`, `[REF: ...]`, `[FIGURE: ...]`, `[TABLE: ...]`).
 
 ## Definition of done
 
@@ -44,6 +45,6 @@ Produce clear, concise, evidence-grounded paper drafts that are easy to review a
 
 Use skills for procedures:
 
-- `skills/paper/rebuttal/SKILL.md`
-- `skills/paper/latex-hygiene/SKILL.md`
-- `skills/paper/related-work-compress/SKILL.md`
+- `.github/skills/paper/markdown-native-writing/SKILL.md`
+- `.github/skills/paper/rebuttal/SKILL.md`
+- `.github/skills/paper/related-work-compress/SKILL.md`

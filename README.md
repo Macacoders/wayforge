@@ -48,13 +48,22 @@ Installs symlinks for VS Code user-level custom agents.
 
 ### Per repository
 
-Seeds `AGENTS.md` and links shared agent adapters into a target repo.
+Seeds `AGENTS.md` and links shared agent adapters into `.github/agents/` in a target repo.
 
 ```bash
 ./install/bootstrap.sh --repo /path/to/some/repo
 ```
 
-This creates `.github/agents` as a symlink to this repo’s `agents/` directory.
+Choose a profile template during repo bootstrap when needed:
+
+```bash
+./install/bootstrap.sh --repo /path/to/some/repo --profile paper
+```
+
+This creates:
+
+- `.github/agents/<name>.agent.md` → this repo’s `agents/adapters/vscode-copilot/<name>.agent.md`
+- `.github/skills` → this repo’s `skills/` directory
 
 ## VS Code Copilot usage
 
@@ -71,6 +80,7 @@ Use `./install/bootstrap.sh --global` to create symlinks in those folders.
 - `--dry-run` preview operations.
 - `--force` replace only when safe (existing symlinks, or explicit overwrite behavior in script).
 - `--skills-global [path]` link shared skills globally (default target: `~/.skills/ai-config`).
+- `--profile <default|paper|research|software>` select which `templates/AGENTS*.md` to seed into `AGENTS.md` for `--repo`.
 
 ## Getting started
 
@@ -79,6 +89,7 @@ Use `./install/bootstrap.sh --global` to create symlinks in those folders.
 3. Run one of:
    - `./install/bootstrap.sh --global`
    - `./install/bootstrap.sh --repo /path/to/some/repo`
+   - `./install/bootstrap.sh --repo /path/to/some/repo --profile paper`
 4. Open your repo and verify custom agents appear in VS Code.
 
 ## How to add a new role

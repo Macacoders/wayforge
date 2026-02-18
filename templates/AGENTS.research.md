@@ -44,6 +44,6 @@ Produce technically sound, reproducible research outputs with explicit assumptio
 
 Use detailed procedures from:
 
-- `skills/experiments/runbook-5g-testbed/SKILL.md`
-- `skills/experiments/metrics-report/SKILL.md`
-- `skills/networking/troubleshoot-connectivity/SKILL.md`
+- `.github/skills/experiments/runbook-5g-testbed/SKILL.md`
+- `.github/skills/experiments/metrics-report/SKILL.md`
+- `.github/skills/networking/troubleshoot-connectivity/SKILL.md`

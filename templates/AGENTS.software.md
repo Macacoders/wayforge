@@ -44,6 +44,6 @@ Ship maintainable software changes with clear tests, low risk, and minimal disru
 
 Detailed procedures live in:
 
-- `skills/software/refactor-safe/SKILL.md`
-- `skills/software/test-harness-junit/SKILL.md`
-- `skills/experiments/metrics-report/SKILL.md`
+- `.github/skills/software/refactor-safe/SKILL.md`
+- `.github/skills/software/test-harness-junit/SKILL.md`
+- `.github/skills/experiments/metrics-report/SKILL.md`

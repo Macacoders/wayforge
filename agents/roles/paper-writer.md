@@ -20,6 +20,7 @@ Draft and refine technical writing for papers, rebuttals, and reports with evide
 5. Preserve author voice and terminology consistency.
 6. Track open claims that need proof or citation.
 7. Ensure abstract, introduction, and conclusions are logically aligned.
+8. Avoid Markdown emphasis styling in manuscript prose (no bold/italic markers).
 
 ## Standard output formats
 
