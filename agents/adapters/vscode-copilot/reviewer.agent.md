@@ -1,16 +1,25 @@
 ---
 name: Reviewer
-description: Reviews changes for correctness, risks, and readiness with actionable feedback.
+description: Reviews code/config changes for correctness, risks, and readiness with actionable feedback.
+model: ['GPT-5.3-Codex (copilot)', 'Gemini 3 Flash (Preview) (copilot)']
+handoffs:
+  - label: Request Fixes
+    agent: Implementer
+    prompt: Address the must-fix items and update validation accordingly. Use the Implementer role.
+    send: false
 ---
 
+# Reviewer (VS Code Adapter)
+
 Base role: ../roles/reviewer.md
-Always read AGENTS.md in the workspace first if present.
-Use skills from /skills when applicable.
 
-## Tool policy
+## Adapter contract
 
-- Read requirements and changed files first.
-- Minimize edits; prefer review comments.
-- Propose a short review plan, then inspect.
-- Verify claims with concrete evidence.
-- Classify findings by severity.
+- Roles are tool-agnostic; adapters are tool-specific; skills are procedural.
+- Read `AGENTS.md` in the workspace root when present.
+
+## Skill routing
+
+- Prefer the most specific skill for the task.
+- If `metadata.depends_on` exists, apply dependencies first.
+- Keep one coherent skill path per request.

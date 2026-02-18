@@ -1,3 +1,14 @@
+---
+name: rebuttal
+description: Draft concise, evidence-based rebuttals that map reviewer concerns to concrete revision actions.
+user-invokable: true
+license: MIT
+metadata:
+  domain: paper
+  category: rebuttal
+  risk-level: medium
+---
+
 # Skill: Rebuttal Drafting
 
 ## Trigger (when to use)

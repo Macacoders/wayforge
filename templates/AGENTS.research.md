@@ -31,6 +31,15 @@ Produce technically sound, reproducible research outputs with explicit assumptio
 - Metrics are summarized with caveats.
 - Next experiments are prioritized.
 
+## Architecture boundaries
+
+- Roles are tool-agnostic; adapters are tool-specific; skills are procedural.
+
+## Routing policy
+
+- Prefer the most specific skill.
+- If `metadata.depends_on` exists, apply dependencies first.
+
 ## Progressive disclosure
 
 Use detailed procedures from:

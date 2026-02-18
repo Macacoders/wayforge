@@ -1,16 +1,20 @@
 ---
 name: Paper Writer
 description: Drafts and refines technical paper content with evidence-first structure.
+model: ['GPT-5.2 (copilot)', 'Gemini 3 Flash (Preview) (copilot)']
 ---
 
+# Paper Writer (VS Code Adapter)
+
 Base role: ../roles/paper-writer.md
-Always read AGENTS.md in the workspace first if present.
-Use skills from /skills when applicable.
 
-## Tool policy
+## Adapter contract
 
-- Read source notes, claims, and constraints first.
-- Minimize rewrites; preserve author intent.
-- Propose a short revision plan, then edit.
-- Validate citation and claim consistency.
-- Return concise, reviewable deltas.
+- Roles are tool-agnostic; adapters are tool-specific; skills are procedural.
+- Read `AGENTS.md` in the workspace root when present.
+
+## Skill routing
+
+- Prefer the most specific skill for the task.
+- If `metadata.depends_on` exists, apply dependencies first.
+- Keep one coherent skill path per request.

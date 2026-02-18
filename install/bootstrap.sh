@@ -9,7 +9,9 @@ TEMPLATES_DIR="${ROOT_DIR}/templates"
 DRY_RUN=0
 FORCE=0
 DO_GLOBAL=0
+DO_SKILLS_GLOBAL=0
 REPO_PATH=""
+SKILLS_GLOBAL_PATH=""
 
 log() {
   printf '[ai-config] %s\n' "$*"
@@ -155,14 +157,27 @@ install_repo() {
   log "repo bootstrap complete for: $repo"
 }
 
+install_skills_global() {
+  local target_path="$1"
+  local parent_dir
+  parent_dir="$(dirname "$target_path")"
+
+  ensure_dir "$parent_dir"
+  safe_link "$ROOT_DIR/skills" "$target_path"
+  log "skills bootstrap complete: $target_path"
+}
+
 usage() {
   cat <<'EOF'
 Usage:
   ./install/bootstrap.sh --global [--dry-run] [--force]
+  ./install/bootstrap.sh --skills-global [<path>] [--dry-run] [--force]
   ./install/bootstrap.sh --repo <path> [--dry-run] [--force]
 
 Options:
   --global         Link VS Code custom agents into user profile directory.
+  --skills-global [path]
+                   Link shared skills into a global path (default: ~/.skills/ai-config).
   --repo <path>    Seed AGENTS.md and link .github/agents into target repo.
   --dry-run        Print planned operations without modifying files.
   --force          Replace existing symlinks only (never remove normal files).
@@ -180,6 +195,15 @@ while [[ $# -gt 0 ]]; do
     --global)
       DO_GLOBAL=1
       shift
+      ;;
+    --skills-global)
+      DO_SKILLS_GLOBAL=1
+      if [[ $# -gt 1 && "${2}" != -* ]]; then
+        SKILLS_GLOBAL_PATH="$2"
+        shift 2
+      else
+        shift
+      fi
       ;;
     --repo)
       REPO_PATH="${2:-}"
@@ -209,8 +233,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "$DO_GLOBAL" -eq 0 && -z "$REPO_PATH" ]]; then
-  log "error: choose --global and/or --repo <path>"
+if [[ -z "$SKILLS_GLOBAL_PATH" ]]; then
+  SKILLS_GLOBAL_PATH="$HOME/.skills/ai-config"
+fi
+
+if [[ "$DO_GLOBAL" -eq 0 && "$DO_SKILLS_GLOBAL" -eq 0 && -z "$REPO_PATH" ]]; then
+  log "error: choose --global, --skills-global [path], and/or --repo <path>"
   exit 1
 fi
 
@@ -220,6 +248,10 @@ fi
 
 if [[ -n "$REPO_PATH" ]]; then
   install_repo "$REPO_PATH"
+fi
+
+if [[ "$DO_SKILLS_GLOBAL" -eq 1 ]]; then
+  install_skills_global "$SKILLS_GLOBAL_PATH"
 fi
 
 log "done"

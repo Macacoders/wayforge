@@ -1,3 +1,14 @@
+---
+name: runbook-5g-testbed
+description: Plan and execute reproducible 5G or edge-network experiments with controlled runs and variance-aware reporting.
+user-invokable: true
+license: MIT
+metadata:
+  domain: experiments
+  category: runbook
+  risk-level: medium
+---
+
 # Skill: 5G Testbed Runbook
 
 ## Trigger (when to use)

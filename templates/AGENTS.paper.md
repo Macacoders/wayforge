@@ -31,6 +31,15 @@ Produce clear, concise, evidence-grounded paper drafts that are easy to review a
 - Formatting/citation issues are resolved.
 - Open issues are listed for co-authors.
 
+## Architecture boundaries
+
+- Roles are tool-agnostic; adapters are tool-specific; skills are procedural.
+
+## Routing policy
+
+- Prefer the most specific skill.
+- If `metadata.depends_on` exists, apply dependencies first.
+
 ## Progressive disclosure
 
 Use skills for procedures:

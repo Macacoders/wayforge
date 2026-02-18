@@ -13,10 +13,6 @@ metadata:
 
 # Skill: Test Harness (pytest Adapter)
 
-## Depends on
-
-- skills/software/test-harness-core/SKILL.md
-
 ## Composition rule
 
 Apply **Test Harness Core** first. Then apply the pytest-specific guidance below. If there is a conflict, this adapter wins for pytest projects.

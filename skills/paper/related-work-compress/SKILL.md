@@ -1,3 +1,14 @@
+---
+name: related-work-compress
+description: Compress related work sections while preserving positioning, citation coverage, and novelty context.
+user-invokable: true
+license: MIT
+metadata:
+  domain: paper
+  category: related-work
+  risk-level: low
+---
+
 # Skill: Related Work Compression
 
 ## Trigger (when to use)

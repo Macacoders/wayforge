@@ -31,6 +31,15 @@ Ship maintainable software changes with clear tests, low risk, and minimal disru
 - Docs/config updated where needed.
 - Review handoff includes known limitations.
 
+## Architecture boundaries
+
+- Roles are tool-agnostic; adapters are tool-specific; skills are procedural.
+
+## Routing policy
+
+- Prefer the most specific skill.
+- If `metadata.depends_on` exists, apply dependencies first.
+
 ## Progressive disclosure
 
 Detailed procedures live in:

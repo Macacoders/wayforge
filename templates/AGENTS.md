@@ -31,6 +31,15 @@ Deliver correct, minimal, reproducible changes. Prefer small diffs, explicit ass
 - Diff is minimal and easy to review.
 - Risks, assumptions, and follow-ups are stated.
 
+## Architecture boundaries
+
+- Roles are tool-agnostic; adapters are tool-specific; skills are procedural.
+
+## Routing policy
+
+- Prefer the most specific skill.
+- If `metadata.depends_on` exists, apply dependencies first.
+
 ## Progressive disclosure
 
 Use core rules here by default. For task-specific procedures, pull from `skills/`:

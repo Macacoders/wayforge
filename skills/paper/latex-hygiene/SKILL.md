@@ -1,3 +1,14 @@
+---
+name: latex-hygiene
+description: Run a repeatable LaTeX quality pass to fix build, citation, and formatting issues before review or submission.
+user-invokable: true
+license: MIT
+metadata:
+  domain: paper
+  category: writing-quality
+  risk-level: low
+---
+
 # Skill: LaTeX Hygiene
 
 ## Trigger (when to use)
