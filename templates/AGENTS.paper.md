@@ -17,6 +17,7 @@ Produce clear, concise, evidence-grounded paper drafts that are easy to review a
 - Use consistent terminology and notation.
 - Keep paragraphs single-purpose.
 - Avoid emphasis styling in manuscript text (no bold/italic markers).
+- Use British English spelling and phrasing consistently.
 - Flag unsupported claims explicitly.
 
 ## Validation rules

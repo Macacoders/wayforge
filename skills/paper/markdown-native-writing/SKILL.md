@@ -35,16 +35,17 @@ Use this skill when authoring or revising a scientific paper directly in Markdow
 7. Add cross-references as placeholders: `[REF: label]`.
 8. Add figure/table placeholders only when needed: `[FIGURE: label — caption]`, `[TABLE: label — caption]`.
 9. Remove or avoid Markdown emphasis markers in paper prose (`**...**`, `*...*`, `__...__`, `_..._`).
-10. Mark missing support explicitly with `[TODO: ...]` instead of inventing facts.
-11. Align terminology and symbols across all edited sections.
-12. Check section coherence:
+10. Normalise spelling and phrasing to British English across edited text.
+11. Mark missing support explicitly with `[TODO: ...]` instead of inventing facts.
+12. Align terminology and symbols across all edited sections.
+13. Check section coherence:
     - Abstract states problem, method, key result, and impact.
     - Introduction defines gap and explicit contribution list.
     - Method is reproducible and scoped.
     - Results map claims to evidence and baselines.
     - Conclusion reflects only supported claims.
-13. Run a compression pass for concision (remove filler and duplicate claims).
-14. Produce a short revision summary with open citation/evidence gaps.
+14. Run a compression pass for concision (remove filler and duplicate claims).
+15. Produce a short revision summary with open citation/evidence gaps.
 
 ## Output template
 
@@ -67,6 +68,7 @@ Use this skill when authoring or revising a scientific paper directly in Markdow
 - Mixing results interpretation with unsupported speculation.
 - Inconsistent terminology across sections.
 - Using visual emphasis markers instead of precise technical wording.
+- Mixing British and American English within the same manuscript.
 - Missing explicit novelty/gap sentence in introduction.
 - Results section that reports numbers without interpretation.
 - Conclusions that overclaim beyond evidence.

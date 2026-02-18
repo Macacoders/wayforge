@@ -24,6 +24,7 @@ Base role: ../roles/paper-writer.md
   - `[FIGURE: <label> — <caption>]` and `[TABLE: <label> — <caption>]`
   - `[TODO: ...]` for missing content
 - Do not use Markdown emphasis in paper prose (`**bold**`, `*italic*`, `__bold__`, `_italic_`); write emphasis through wording, not styling.
+- Use British English conventions for spelling and phrasing in manuscript text.
 - Focus on argument structure: claim → evidence → implication, and keep author voice/terminology.
 
 ## Skill routing
