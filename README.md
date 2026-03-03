@@ -4,39 +4,39 @@
 
 ## Layering model
 
-This repo uses four layers:
+This repo uses a 3-layer simplified model for AI configuration:
 
-1. **AGENTS templates** (`templates/AGENTS*.md`)
-   - Repo-local contract: setup, tests, style, definition of done.
-   - Keep short, and point to detailed procedures in `skills/`.
-2. **Roles** (`agents/roles/*.md`)
-   - Tool-agnostic behavior contracts for agent personas.
+1. **Roles** (`agents/roles/*.md`)
+   - Tool-agnostic behavior contracts for 3-4 core agent personas (Architect, Engineer, Auditor, Writer).
    - Reusable across editors and runtimes.
-3. **Adapters** (`agents/adapters/vscode-copilot/*.agent.md`)
+2. **Adapters** (`agents/adapters/vscode-copilot/*.agent.md`)
    - Tool-specific wrappers for VS Code custom agents.
    - Bind adapter metadata to a base role.
-4. **Skills** (`skills/**/SKILL.md`)
-   - Reusable operating procedures for specific tasks.
-   - Referenced by roles and adapters when relevant.
+3. **Skills** (`skills/{category}/{subject}/SKILL.md`)
+   - Reusable, dense operating procedures for specific tasks.
+   - Follow a structured [Metadata / Constraints / Procedure] format (< 400 tokens).
 
-### Routing policy
+### Routing policy (Dynamic Skill Discovery)
 
-- Prefer the most specific skill for the task.
-- If a selected skill declares `metadata.depends_on`, apply dependencies first.
+To optimize for token efficiency, this repository implements a "Lazy-load" mechanism:
+- **Manifest Lookup**: Roles first read `skills/MANIFEST.md` to identify the correct skill path for a task.
+- **Just-in-Time Loading**: Only the identified `SKILL.md` is loaded into the prompt context for execution.
+- **Metadata Validation**: Ensure the skill's metadata aligns with the target environment before applying the procedure.
+
 
 ### Boundary contract
 
-- Roles are tool-agnostic principles.
-- Adapters are tool-specific wiring.
-- Skills are concise procedures.
+- Roles: Principles & personas.
+- Adapters: Tool integration & wiring.
+- Skills: Concrete checklists & procedures.
 
 ## Why not organize by model?
 
-Model names, capabilities, and pricing change often. Organizing by model creates churn and duplicates logic. This repository instead organizes by **intent** (role), **tool integration** (adapter), and **task procedure** (skill). You can swap models in your tooling configuration while keeping your operational knowledge stable.
+Model names, capabilities, and pricing change often. This repository organizes by **intent** (role), **tool integration** (adapter), and **task procedure** (skill), keeping operational knowledge stable across model transitions.
 
 ## Install options
 
-VS Code custom agents are Markdown files with YAML frontmatter and should live in discoverable custom agent locations. This repo ships a bootstrap script to link adapter files either globally or per repository.
+VS Code custom agents are Markdown files with YAML frontmatter. Link them globally or per repository using the bootstrap script.
 
 ### Global (user profile)
 
@@ -48,98 +48,31 @@ Installs symlinks for VS Code user-level custom agents.
 
 ### Per repository
 
-Seeds `AGENTS.md` and links shared agent adapters into `.github/agents/` in a target repo.
+Seeds `AGENTS.md` and links shared agent adapters into `.github/agents/`.
 
 ```bash
 ./install/bootstrap.sh --repo /path/to/some/repo
 ```
 
-Choose a profile template during repo bootstrap when needed:
-
-```bash
-./install/bootstrap.sh --repo /path/to/some/repo --profile paper
-```
-
-This creates:
-
-- `.github/agents/<name>.agent.md` → this repo’s `agents/adapters/vscode-copilot/<name>.agent.md`
-- `.github/skills` → this repo’s `skills/` directory
-
 ## VS Code Copilot usage
 
 Adapter files are linked to VS Code custom agent folders:
 
-- Linux: `~/.config/Code/User/agents` (and `Code - Insiders` variant)
-- macOS: `~/Library/Application Support/Code/User/agents` (and `Code - Insiders` variant)
-- Windows: `%APPDATA%/Code/User/agents` (and `Code - Insiders` variant)
-
-Use `./install/bootstrap.sh --global` to create symlinks in those folders.
-
-### Useful flags
-
-- `--dry-run` preview operations.
-- `--force` replace only when safe (existing symlinks, or explicit overwrite behavior in script).
-- `--skills-global [path]` link shared skills globally (default target: `~/.skills/ai-config`).
-- `--profile <default|paper|research|software>` select which `templates/AGENTS*.md` to seed into `AGENTS.md` for `--repo`.
-
-## Getting started
-
-1. Clone this repository.
-2. Optionally copy [profiles/defaults.env.example](profiles/defaults.env.example) to `.env` and customize.
-3. Run one of:
-   - `./install/bootstrap.sh --global`
-   - `./install/bootstrap.sh --repo /path/to/some/repo`
-   - `./install/bootstrap.sh --repo /path/to/some/repo --profile paper`
-4. Open your repo and verify custom agents appear in VS Code.
-
-## How to add a new role
-
-1. Create `agents/roles/<new-role>.md` with the standard sections:
-   - Purpose
-   - Non-goals
-   - Operating principles
-   - Standard output formats
-   - When stuck
-2. Keep role content principle-focused (no tool wiring or step-by-step procedures).
-3. Reference relevant skills by name where useful.
-
-## How to add a new adapter (VS Code)
-
-1. Create `agents/adapters/vscode-copilot/<new-role>.agent.md`.
-2. Keep only VS Code wiring in frontmatter (e.g., `name`, `description`, `model`, optional `handoffs`).
-3. Link to the base role in the body.
-4. Keep routing minimal:
-   - prefer the most specific skill
-   - apply `metadata.depends_on` dependencies first
-
-## How to add a new skill
-
-1. Create `skills/<domain>/<skill-name>/SKILL.md`.
-2. Use YAML frontmatter with supported keys:
-   - `name` (unique)
-   - `description`
-   - `user-invokable`
-   - `license`
-   - `metadata`
-3. Use the standard structure:
-   - Trigger
-   - Inputs expected
-   - Procedure
-   - Output template
-   - Common failure modes
-4. Keep it procedural and specific; avoid repeating base role guidance.
-5. For adapter skills, express composition in `metadata.depends_on` (core + adapter pattern).
-6. Link to the skill from role docs or `AGENTS.md` templates where appropriate.
+- Linux: `~/.config/Code/User/agents`
+- macOS: `~/Library/Application Support/Code/User/agents`
+- Windows: `%APPDATA%/Code/User/agents`
 
 ## Minimal invocation examples
 
-- Planner + skill: “Use Planner and apply `terraform-change-plan` for this infra update.”
-- Implementer + skill chain: “Use Implementer with `test-harness-junit` (and required dependencies) for this Java bugfix.”
-- Reviewer + skill: “Use Reviewer with the most specific testing/review skill and report must-fix items.”
+- **Architect** + skill: “Use Architect and apply `terraform` for this infra update.”
+- **Engineer** + skill: “Use Engineer with `junit` for this Java bugfix.”
+- **Auditor** + skill: “Use Auditor with `testing/pytest` and report must-fix items.”
+- **Writer** + skill: “Use Writer with `writing` to refine the contributions section.”
 
 ## Design principles
 
-- Keep role files stable and concise.
-- Keep adapters thin and tool-specific.
-- Keep skills detailed enough to execute, but short enough to read quickly.
-- Prefer markdown and bash with minimal dependencies.
+- **Token Efficiency**: All skill files are < 400 tokens; no prose, use checklists.
+- **Architectural Clarity**: Flattened 3-layer structure for predictable lookups.
+- **Reference-only Roles**: Roles point to relevant skill paths rather than embedding text.
+- **Audit-ready**: Maintain evidence-first methodology across all roles.
+
