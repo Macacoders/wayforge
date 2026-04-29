@@ -1,15 +1,15 @@
 ---
 name: staged-delivery
-description: Plan, implement, test, review, and document software work through phased delivery with progressive disclosure.
+description: Onboard, plan, implement, test, review, and document software work through phased delivery with progressive disclosure.
 compatibility: opencode
 metadata:
   workflow: staged-delivery
-  agents: plan-code-test
+  agents: plan-research-code-test
 ---
 
 # Staged Delivery
 
-Use this skill for features, bugs, refactors, and repository workflow changes that benefit from controlled phases.
+Use this skill for repository onboarding, features, bugs, refactors, and workflow changes that benefit from controlled phases.
 
 ## Progressive Disclosure
 
@@ -22,10 +22,19 @@ Use this skill for features, bugs, refactors, and repository workflow changes th
 
 ## Planning
 
+- Invoke `research` first for existing repositories that lack useful `docs/ai/` memory.
 - Do lightweight research before questions.
 - Ask about missing constraints, decisions, and acceptance criteria.
 - Split approved work into phases.
 - Give every phase acceptance criteria and validation expectations.
+
+## Repository Onboarding
+
+- Use `research` before planning feature work in an unfamiliar repository.
+- Inspect docs, structure, stack, scripts, tests, CI/CD, entrypoints, conventions, and risks.
+- Create or propose initial `docs/ai/` memory.
+- Do not modify product code or plan implementation during onboarding.
+- Return a compact Repository Research Brief for `plan` and the user to review.
 
 ## Implementation
 

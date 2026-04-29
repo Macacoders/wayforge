@@ -71,6 +71,7 @@ Status: Completed
 - Use OpenCode as the only runtime.
 - Use OpenAI as the only provider.
 - Use `plan` as the only primary agent.
+- Use `research` as the onboarding subagent for unfamiliar repositories.
 - Use `code` and `test` as subagents.
 - Keep one `code` child session per implementation phase.
 - Persist durable memory under `docs/ai/`.

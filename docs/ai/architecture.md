@@ -26,6 +26,7 @@ The installer must not overwrite existing non-symlink files by default.
 ## Agent Topology
 
 - `plan` is the default primary agent.
+- `research` is a subagent used for onboarding existing repositories before implementation planning.
 - `code` is a conservative subagent used once per approved implementation phase, with medium reasoning effort and low temperature.
 - `test` is a subagent used when review identifies meaningful testing or regression risk.
 
@@ -42,17 +43,19 @@ The system uses progressive disclosure:
 
 The intended workflow is:
 
-1. Plan with clarifying questions and acceptance criteria.
-2. Implement one approved phase through `code`.
-3. Pause after each atomic stage for manual validation.
-4. Review the completed phase with git evidence.
-5. Invoke `test` only when useful.
-6. Update docs, decisions, and logs at close.
+1. Onboard unfamiliar repositories through `research` and create initial `docs/ai/` memory.
+2. Plan with clarifying questions and acceptance criteria.
+3. Implement one approved phase through `code`.
+4. Pause after each atomic stage for manual validation.
+5. Review the completed phase with git evidence.
+6. Invoke `test` only when useful.
+7. Update docs, decisions, and logs at close.
 
 ## Invariants
 
 - Keep installation project-local.
 - Keep subagent handoffs compact.
+- Keep repository onboarding separate from feature planning.
 - Keep `test` independent and critical of `code` output.
 - Keep manual validation checkpoints between atomic stages.
 - Keep durable memory under `docs/ai/`.

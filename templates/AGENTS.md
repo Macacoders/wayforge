@@ -2,21 +2,23 @@
 
 ## Mission
 
-Use the installed OpenCode workflow to deliver minimal, reviewed, and documented changes through explicit planning phases.
+Use the installed OpenCode workflow to onboard repositories and deliver minimal, reviewed, and documented changes through explicit planning phases.
 
 ## Workflow
 
-1. Use `plan` for initial research, questions, phased planning, and git-based review.
-2. Use one `code` child session per approved phase.
-3. `code` must stop after each atomic stage and wait for manual validation.
-4. Use `test` when completed changes need critical testing review or regression coverage.
-5. Update durable memory under `docs/ai/` only for approved plans, decisions, architecture changes, and short logs.
+1. Use `plan` for orchestration, questions, phased planning, and git-based review.
+2. Use `research` for repository onboarding before planning changes in unfamiliar repos.
+3. Use one `code` child session per approved phase.
+4. `code` must stop after each atomic stage and wait for manual validation.
+5. Use `test` when completed changes need critical testing review or regression coverage.
+6. Update durable memory under `docs/ai/` only for onboarding findings, approved plans, decisions, architecture changes, and short logs.
 
 ## Progressive Disclosure
 
 - Read this file and the repository `README.md` first.
 - Read `docs/ai/README.md` before loading other AI memory.
 - Load only task-relevant plans, ADRs, architecture notes, or logs.
+- Run onboarding before implementation planning if `docs/ai/` memory is missing or stale.
 - Pass compact handoff briefs with paths and reasons to load references.
 - Do not paste full docs, diffs, logs, or chat transcripts into handoffs.
 
