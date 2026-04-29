@@ -1,78 +1,173 @@
 # ai-config
 
-`ai-config` is a dotfiles-style repository for AI agent ecosystems. It separates stable role intent from tool-specific wiring, so you can evolve prompts and workflows without locking into a single UI or model vendor.
+`ai-config` is a project-local OpenCode configuration repository. It captures a small, repeatable AI-assisted development workflow around planning, phased implementation, critical testing review, and persistent project memory.
 
-## Layering model
+The repository is intentionally narrow:
 
-This repo uses a 3-layer simplified model for AI configuration:
+- **Runtime**: OpenCode only.
+- **Provider**: OpenAI only, authenticated in OpenCode with `/connect` using ChatGPT Plus/Pro.
+- **Installation model**: per-project symlinks, so target repositories keep ownership of their files and can opt in without copying this repository.
+- **Context model**: progressive disclosure, where agents load indexes and targeted references instead of dumping whole documentation trees into context.
 
-1. **Roles** (`agents/roles/*.md`)
-   - Tool-agnostic behavior contracts for 3-4 core agent personas (Architect, Engineer, Auditor, Writer).
-   - Reusable across editors and runtimes.
-2. **Adapters** (`agents/adapters/vscode-copilot/*.agent.md`)
-   - Tool-specific wrappers for VS Code custom agents.
-   - Bind adapter metadata to a base role.
-3. **Skills** (`skills/{category}/{subject}/SKILL.md`)
-   - Reusable, dense operating procedures for specific tasks.
-   - Follow a structured [Metadata / Constraints / Procedure] format (< 400 tokens).
+## Workflow
 
-### Routing policy (Dynamic Skill Discovery)
+The default workflow is phase-oriented and keeps planning, implementation, testing, and memory responsibilities separate.
 
-To optimize for token efficiency, this repository implements a "Lazy-load" mechanism:
-- **Manifest Lookup**: Roles first read `skills/MANIFEST.md` to identify the correct skill path for a task.
-- **Just-in-Time Loading**: Only the identified `SKILL.md` is loaded into the prompt context for execution.
-- **Metadata Validation**: Ensure the skill's metadata aligns with the target environment before applying the procedure.
+1. Start with the `plan` agent.
+2. Describe the feature, bug, refactor, or investigation.
+3. `plan` performs a lightweight repository/documentation review.
+4. `plan` asks clarifying questions before locking in ambiguous decisions.
+5. `plan` creates an implementation plan split into phases.
+6. Each phase includes explicit acceptance criteria.
+7. After user approval, `plan` prepares a compact handoff brief for one phase.
+8. `plan` invokes a single `code` subagent session for that phase.
+9. `code` implements the phase across atomic stages, stopping after each stage.
+10. After every stage, `code` reports changes, proposes manual validation commands, and waits for user approval before continuing in the same child session.
+11. When the phase is complete, `code` updates relevant project documentation and proposes a commit message.
+12. `plan` reviews the phase using git status/diff/log tools and checks alignment with the approved plan.
+13. `plan` decides whether to invoke `test`.
+14. `test` critically reviews `code`'s work, identifies regression risks, and creates or recommends focused tests when justified.
+15. The workflow repeats for the next phase.
+16. At the end, `plan` performs a final documentation, decisions, and change-log review.
 
+## Agents
 
-### Boundary contract
+The target OpenCode setup uses one primary agent and two specialized subagents.
 
-- Roles: Principles & personas.
-- Adapters: Tool integration & wiring.
-- Skills: Concrete checklists & procedures.
+| Agent | Mode | Purpose | Preferred model |
+| :--- | :--- | :--- | :--- |
+| `plan` | Primary | Planning, research, questions, phase design, handoffs, git-based review, memory updates. | `openai/gpt-5.5` |
+| `code` | Subagent | Implements one approved phase across atomic stages and pauses after each stage for manual validation. | `openai/gpt-5.5` |
+| `test` | Subagent | Critically reviews implementation quality and regression risk; adds or recommends tests when valuable. | `openai/gpt-5.5` |
 
-## Why not organize by model?
+Use `openai/gpt-5.5-pro` only for unusually difficult research or review tasks where latency and cost are acceptable. Use a nano or mini OpenAI model for OpenCode's lightweight `small_model` setting when available in your connected account.
 
-Model names, capabilities, and pricing change often. This repository organizes by **intent** (role), **tool integration** (adapter), and **task procedure** (skill), keeping operational knowledge stable across model transitions.
+Model availability depends on what OpenCode exposes after `/connect`. If a preferred model is unavailable, choose the closest available OpenAI reasoning/coding model with `/models`.
 
-## Install options
+## Progressive Disclosure
 
-VS Code custom agents are Markdown files with YAML frontmatter. Link them globally or per repository using the bootstrap script.
+Agents must avoid loading all repository memory by default.
 
-### Global (user profile)
+The standard loading order is:
 
-Installs symlinks for VS Code user-level custom agents.
+1. Read the user's task and the repository root `README.md`.
+2. Read `docs/ai/README.md` if present.
+3. Load the active plan only when working on an existing feature/bug/refactor.
+4. Load architecture notes only when the task touches structure, module boundaries, data flow, deployment, or public contracts.
+5. Load ADRs only when a decision may conflict with or extend previous decisions.
+6. Load logs only for historical continuity, incident follow-up, or unresolved regressions.
 
-```bash
-./install/bootstrap.sh --global
+Handoffs between agents should pass compact briefs with paths and reasons to load references. They should not paste whole documents, terminal logs, or diffs unless the user explicitly asks.
+
+## Persistent Memory
+
+Target projects may keep AI-relevant memory under `docs/ai/`.
+
+Recommended structure:
+
+```text
+docs/ai/
+  README.md
+  architecture.md
+  decisions/
+    ADR-0001-example.md
+  logs/
+    YYYY-MM.md
+  plans/
+    YYYY-MM-DD-short-task-name.md
 ```
 
-### Per repository
+Use this memory for durable information only:
 
-Seeds `AGENTS.md` and links shared agent adapters into `.github/agents/`.
+- Approved plans and phase status.
+- Architecture boundaries and invariants.
+- Decisions that affect future work.
+- Tradeoffs and rejected alternatives.
+- Short monthly change logs.
 
-```bash
-./install/bootstrap.sh --repo /path/to/some/repo
+Do not store full chat transcripts, long terminal output, raw diffs, or trivial implementation notes.
+
+## Installation Model
+
+This repository is intended to be installed into each target project through symlinks.
+
+The bootstrap script should create project-local links such as:
+
+```text
+<target-repo>/opencode.jsonc -> <ai-config>/opencode.jsonc
+<target-repo>/.opencode/agents -> <ai-config>/.opencode/agents
+<target-repo>/.opencode/commands -> <ai-config>/.opencode/commands
+<target-repo>/.opencode/skills -> <ai-config>/.opencode/skills
+<target-repo>/AGENTS.md -> <ai-config>/templates/AGENTS.md
 ```
 
-## VS Code Copilot usage
+The installer must be conservative:
 
-Adapter files are linked to VS Code custom agent folders:
+- Never overwrite existing real files by default.
+- Skip conflicting non-symlink paths and report them.
+- Refresh symlinks only with `--force`.
+- Support `--dry-run` before modifying a target repository.
 
-- Linux: `~/.config/Code/User/agents`
-- macOS: `~/Library/Application Support/Code/User/agents`
-- Windows: `%APPDATA%/Code/User/agents`
+Expected command shape:
 
-## Minimal invocation examples
+```bash
+./install/bootstrap.sh --repo /path/to/repo --dry-run
+./install/bootstrap.sh --repo /path/to/repo
+```
 
-- **Architect** + skill: “Use Architect and apply `terraform` for this infra update.”
-- **Engineer** + skill: “Use Engineer with `junit` for this Java bugfix.”
-- **Auditor** + skill: “Use Auditor with `testing/pytest` and report must-fix items.”
-- **Writer** + skill: “Use Writer with `writing` to refine the contributions section.”
+## Handoff Contracts
 
-## Design principles
+`plan` should hand off one approved phase to `code` using a compact brief:
 
-- **Token Efficiency**: All skill files are < 400 tokens; no prose, use checklists.
-- **Architectural Clarity**: Flattened 3-layer structure for predictable lookups.
-- **Reference-only Roles**: Roles point to relevant skill paths rather than embedding text.
-- **Audit-ready**: Maintain evidence-first methodology across all roles.
+```md
+## Code Handoff Brief
 
+Phase:
+Goal:
+Acceptance criteria:
+Atomic stages:
+Relevant files:
+Confirmed decisions:
+Constraints:
+References to load:
+Stop rule:
+```
+
+`code` owns exactly one phase per child session. It must stop after each atomic stage and wait for explicit user approval before continuing.
+
+`plan` should hand off testing work to `test` only when review indicates meaningful regression risk or missing coverage:
+
+```md
+## Test Handoff Brief
+
+Phase:
+Acceptance criteria:
+Changed files:
+Risk areas:
+Existing validation:
+References to load:
+Expected output:
+```
+
+`test` must be critical. It should challenge assumptions, identify untested behavior, and prefer focused tests that validate observable outcomes instead of implementation details.
+
+## Repository Direction
+
+This repository has been simplified around the OpenCode setup described above.
+
+The old multi-runtime structure has been replaced:
+
+- VS Code Copilot adapters were removed.
+- Tool-agnostic role files that are no longer installed were removed.
+- Broad skill categories were replaced with one staged delivery workflow skill.
+- Profile-specific templates were replaced with a single OpenCode-oriented project template.
+- The bootstrap script now focuses on project-local OpenCode symlinks.
+
+## Design Principles
+
+- Keep the installed configuration small and predictable.
+- Prefer explicit phase gates over long autonomous runs.
+- Preserve user control through manual validation checkpoints.
+- Keep planning context separate from implementation context.
+- Persist decisions and architecture notes, not chat history.
+- Use git evidence for review instead of relying on agent memory.

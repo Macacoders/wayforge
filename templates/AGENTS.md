@@ -2,49 +2,43 @@
 
 ## Mission
 
-Deliver correct, minimal, reproducible changes. Prefer small diffs, explicit assumptions, and verifiable outputs.
+Use the installed OpenCode workflow to deliver minimal, reviewed, and documented changes through explicit planning phases.
 
-## Setup checklist
+## Workflow
 
-1. Read repository docs and this file first.
-2. Detect language/toolchain from existing files.
-3. Run the smallest relevant checks before broad test runs.
-4. Avoid introducing new dependencies unless required.
+1. Use `plan` for initial research, questions, phased planning, and git-based review.
+2. Use one `code` child session per approved phase.
+3. `code` must stop after each atomic stage and wait for manual validation.
+4. Use `test` when completed changes need critical testing review or regression coverage.
+5. Update durable memory under `docs/ai/` only for approved plans, decisions, architecture changes, and short logs.
 
-## Coding style rules
+## Progressive Disclosure
 
-- Follow existing project conventions over personal preference.
-- Keep functions focused and names explicit.
-- Avoid broad refactors unless requested.
-- Update docs when behavior changes.
+- Read this file and the repository `README.md` first.
+- Read `docs/ai/README.md` before loading other AI memory.
+- Load only task-relevant plans, ADRs, architecture notes, or logs.
+- Pass compact handoff briefs with paths and reasons to load references.
+- Do not paste full docs, diffs, logs, or chat transcripts into handoffs.
 
-## Testing rules
+## Engineering Rules
 
-- Start with tests closest to changed code.
-- Expand to broader suites only after local checks pass.
+- Prefer the smallest correct change.
+- Preserve unrelated user changes in the worktree.
+- Avoid speculative abstractions and broad refactors.
+- Update documentation when behavior, configuration, or workflows change.
+- Do not commit unless the user explicitly asks.
+
+## Validation Rules
+
+- Start with checks closest to the changed code.
+- Propose manual validation commands after each atomic stage.
 - Report exactly what was run and what was not run.
+- Treat missing validation as a review risk.
 
-## Definition of done
+## Definition Of Done
 
-- Requested behavior is implemented.
-- Relevant checks pass or failures are clearly explained.
-- Diff is minimal and easy to review.
-- Risks, assumptions, and follow-ups are stated.
-
-## Architecture boundaries
-
-- Roles are tool-agnostic; adapters are tool-specific; skills are procedural.
-
-## Routing policy
-
-- Prefer the most specific skill.
-- If `metadata.depends_on` exists, apply dependencies first.
-
-## Progressive disclosure
-
-Use core rules here by default. For task-specific procedures, pull from `.github/skills/`:
-
-- Paper workflows: `.github/skills/paper/*`
-- Experiments: `.github/skills/experiments/*`
-- Software safety: `.github/skills/software/*`
-- Networking ops: `.github/skills/networking/*`
+- The approved phase acceptance criteria are satisfied.
+- Manual validation checkpoints were offered between atomic stages.
+- Relevant tests or testing rationale were reviewed.
+- Documentation and durable AI memory are updated when needed.
+- The final handoff includes changed files, validation, risks, and a proposed commit message.
