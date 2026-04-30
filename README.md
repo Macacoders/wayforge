@@ -13,24 +13,24 @@ The repository is intentionally narrow:
 
 The default workflow is phase-oriented and keeps repository onboarding, planning, implementation, testing, and memory responsibilities separate.
 
-1. Start with the `plan` agent.
+1. Start with the `planner` agent or the `/plan` command.
 2. For an existing or unfamiliar repository, run onboarding first with `/onboard-repo`.
-3. `plan` invokes `research` to create or propose initial `docs/ai/` memory before feature planning.
+3. `planner` invokes `research` to create or propose initial `docs/ai/` memory before feature planning.
 4. Describe the feature, bug, refactor, or investigation.
-5. `plan` performs a lightweight repository/documentation review.
-6. `plan` asks clarifying questions before locking in ambiguous decisions.
-7. `plan` creates an implementation plan split into phases.
+5. `planner` performs a lightweight repository/documentation review.
+6. `planner` asks clarifying questions before locking in ambiguous decisions.
+7. `planner` creates an implementation plan split into phases.
 8. Each phase includes explicit acceptance criteria.
-9. After user approval, `plan` prepares a compact handoff brief for one phase.
-10. `plan` invokes a single `code` subagent session for that phase.
+9. After user approval, `planner` prepares a compact handoff brief for one phase.
+10. `planner` invokes a single `code` subagent session for that phase.
 11. `code` implements the phase across atomic stages, stopping after each stage.
 12. After every stage, `code` reports changes, proposes manual validation commands, and waits for user approval before continuing in the same child session.
 13. When the phase is complete, `code` updates relevant project documentation and proposes a commit message.
-14. `plan` reviews the phase using git status/diff/log tools and checks alignment with the approved plan.
-15. `plan` decides whether to invoke `test`.
+14. `planner` reviews the phase using git status/diff/log tools and checks alignment with the approved plan.
+15. `planner` decides whether to invoke `test`.
 16. `test` critically reviews `code`'s work, identifies regression risks, and creates or recommends focused tests when justified.
 17. The workflow repeats for the next phase.
-18. At the end, `plan` performs a final documentation, decisions, and change-log review.
+18. At the end, `planner` performs a final documentation, decisions, and change-log review.
 
 ## Agents
 
@@ -38,7 +38,7 @@ The target OpenCode setup uses one primary agent and three specialized subagents
 
 | Agent | Mode | Purpose | Preferred model |
 | :--- | :--- | :--- | :--- |
-| `plan` | Primary | Planning, research, questions, phase design, handoffs, git-based review, memory updates. | `openai/gpt-5.5` |
+| `planner` | Primary | Planning, research, questions, phase design, handoffs, git-based review, memory updates. | `openai/gpt-5.5` |
 | `research` | Subagent | Onboards existing repositories and creates or proposes initial `docs/ai/` memory before implementation planning. | `openai/gpt-5.5-fast` |
 | `code` | Subagent | Implements one approved phase across atomic stages and pauses after each stage for manual validation. | `openai/gpt-5.5` |
 | `test` | Subagent | Critically reviews implementation quality and regression risk; adds or recommends tests when valuable. | `openai/gpt-5.5` |
@@ -120,7 +120,7 @@ Expected command shape:
 
 ## Handoff Contracts
 
-`plan` should hand off unfamiliar repository onboarding to `research` before creating implementation plans:
+`planner` should hand off unfamiliar repository onboarding to `research` before creating implementation plans:
 
 ```md
 ## Research Handoff Brief
@@ -136,7 +136,7 @@ Expected output:
 
 `research` must not modify product code or plan feature work. It may create or update `docs/ai/**` memory when approved.
 
-`plan` should hand off one approved phase to `code` using a compact brief:
+`planner` should hand off one approved phase to `code` using a compact brief:
 
 ```md
 ## Code Handoff Brief
@@ -154,7 +154,7 @@ Stop rule:
 
 `code` owns exactly one phase per child session. It must stop after each atomic stage and wait for explicit user approval before continuing.
 
-`plan` should hand off testing work to `test` only when review indicates meaningful regression risk or missing coverage:
+`planner` should hand off testing work to `test` only when review indicates meaningful regression risk or missing coverage:
 
 ```md
 ## Test Handoff Brief

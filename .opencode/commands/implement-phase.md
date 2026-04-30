@@ -1,6 +1,6 @@
 ---
 description: Prepare and invoke code for the next approved phase.
-agent: plan
+agent: planner
 ---
 
 Prepare the next approved phase for implementation.

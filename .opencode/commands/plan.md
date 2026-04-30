@@ -1,6 +1,6 @@
 ---
 description: Start a progressive-disclosure planning conversation.
-agent: plan
+agent: planner
 ---
 
 Use the staged delivery workflow for this request:

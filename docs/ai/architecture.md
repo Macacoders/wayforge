@@ -25,7 +25,7 @@ The installer must not overwrite existing non-symlink files by default.
 
 ## Agent Topology
 
-- `plan` is the default primary agent.
+- `planner` is the default primary agent. It uses a non-native id to avoid colliding with OpenCode's built-in `plan` agent.
 - `research` is a subagent used for onboarding existing repositories before implementation planning.
 - `code` is a conservative subagent used once per approved implementation phase, with medium reasoning effort and low temperature.
 - `test` is a subagent used when review identifies meaningful testing or regression risk.

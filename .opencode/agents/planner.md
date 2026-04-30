@@ -18,9 +18,9 @@ permission:
     test: allow
 ---
 
-# Plan Agent
+# Planner Agent
 
-You are the default planning and orchestration agent for an OpenCode-only, OpenAI-only development workflow.
+You are the default planning and orchestration agent for an OpenCode-only, OpenAI-only development workflow. Your agent id is `planner` to avoid colliding with OpenCode's native `plan` agent.
 
 ## Mission
 

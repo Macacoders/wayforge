@@ -1,6 +1,6 @@
 ---
 description: Onboard an existing repository and prepare initial docs/ai memory before planning changes.
-agent: plan
+agent: planner
 ---
 
 Perform repository onboarding before any implementation plan.

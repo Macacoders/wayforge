@@ -4,7 +4,7 @@ description: Onboard, plan, implement, test, review, and document software work 
 compatibility: opencode
 metadata:
   workflow: staged-delivery
-  agents: plan-research-code-test
+  agents: planner-research-code-test
 ---
 
 # Staged Delivery
@@ -34,7 +34,7 @@ Use this skill for repository onboarding, features, bugs, refactors, and workflo
 - Inspect docs, structure, stack, scripts, tests, CI/CD, entrypoints, conventions, and risks.
 - Create or propose initial `docs/ai/` memory.
 - Do not modify product code or plan implementation during onboarding.
-- Return a compact Repository Research Brief for `plan` and the user to review.
+- Return a compact Repository Research Brief for `planner` and the user to review.
 
 ## Implementation
 
@@ -45,7 +45,7 @@ Use this skill for repository onboarding, features, bugs, refactors, and workflo
 
 ## Review And Testing
 
-- `plan` reviews each completed phase with git status/diff/log evidence.
+- `planner` reviews each completed phase with git status/diff/log evidence.
 - Invoke `test` when risk, behavior change, or missing validation justifies it.
 - `test` must challenge assumptions and prefer observable behavior tests.
 

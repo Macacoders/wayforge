@@ -6,7 +6,7 @@ Use the installed OpenCode workflow to onboard repositories and deliver minimal,
 
 ## Workflow
 
-1. Use `plan` for orchestration, questions, phased planning, and git-based review.
+1. Use `planner` for orchestration, questions, phased planning, and git-based review.
 2. Use `research` for repository onboarding before planning changes in unfamiliar repos.
 3. Use one `code` child session per approved phase.
 4. `code` must stop after each atomic stage and wait for manual validation.

@@ -11,7 +11,7 @@ The repository previously described a tool-agnostic AI configuration model with 
 
 Use OpenCode as the only supported runtime and OpenAI as the only supported provider.
 
-The installed workflow will use one primary `plan` agent plus specialized `code` and `test` subagents.
+The installed workflow will use one primary `planner` agent plus specialized `research`, `code`, and `test` subagents.
 
 ## Consequences
 

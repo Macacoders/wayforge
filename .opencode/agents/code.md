@@ -75,4 +75,4 @@ When all stages are complete:
 - List validation performed and validation still recommended.
 - Identify residual risks.
 - Propose a concise commit message.
-- Return control to `plan` for git-based review.
+- Return control to `planner` for git-based review.

@@ -28,7 +28,7 @@ Do not persist:
 
 ## Agent Responsibilities
 
-- `plan` owns this memory and decides when it must change.
+- `planner` owns this memory and decides when it must change.
 - `code` updates product or repository docs relevant to its phase and may propose memory updates.
 - `test` may propose risk or coverage notes when they affect future work.
 
