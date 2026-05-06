@@ -9,9 +9,17 @@ The repository is intentionally narrow:
 - **Installation model**: per-project symlinks, so target repositories keep ownership of their files and can opt in without copying this repository.
 - **Context model**: progressive disclosure, where agents load indexes and targeted references instead of dumping whole documentation trees into context.
 
-## Workflow
+## Workflows
 
-The default workflow is phase-oriented and keeps repository onboarding, planning, implementation, testing, and memory responsibilities separate.
+This setup supports two delivery workflows. **Staged delivery** is the default conservative workflow. **Quick delivery** is opt-in for clear, small, low-risk tasks where staged pauses would add unnecessary overhead.
+
+Use `/plan` when the work needs onboarding, planning, architecture or safety review, multiple files or phases, ambiguous decisions, migrations, dependency changes, deployment/release changes, or higher regression risk. Use `/quick` only when the task has a narrow outcome, obvious acceptance criteria, low risk, and safe local validation.
+
+If a quick task turns out to be ambiguous, broad, security-sensitive, operationally risky, or otherwise outside its approved scope, it escalates back to staged delivery.
+
+### Staged delivery
+
+The staged-delivery workflow keeps repository onboarding, planning, implementation, testing, and memory responsibilities separate.
 
 1. Start with the `planner` agent or the `/plan` command.
 2. For an existing or unfamiliar repository, run onboarding first with `/onboard-repo`.
@@ -32,15 +40,26 @@ The default workflow is phase-oriented and keeps repository onboarding, planning
 17. The workflow repeats for the next phase.
 18. At the end, `planner` performs a final documentation, decisions, and change-log review.
 
+### Quick delivery
+
+1. Start with `/quick` or explicitly ask for quick delivery.
+2. `planner` classifies whether the request is eligible for quick delivery.
+3. If eligible, `planner` prepares a compact quick handoff with approved scope, expected files, validation expectations, and escalation conditions.
+4. `planner` invokes one `quickcode` subagent session.
+5. `quickcode` completes the approved low-risk task without staged pauses, using autonomous edits and allowlisted validation/git inspection commands only.
+6. `quickcode` reports once for `planner` review.
+7. `planner` reviews the result with git status/diff/log evidence before responding to the user.
+
 ## Agents
 
-The target OpenCode setup uses one primary agent and three specialized subagents.
+The target OpenCode setup uses one primary agent and four specialized subagents.
 
 | Agent | Mode | Purpose | Preferred model |
 | :--- | :--- | :--- | :--- |
 | `planner` | Primary | Planning, research, questions, phase design, handoffs, git-based review, memory updates. | `openai/gpt-5.5` |
 | `research` | Subagent | Onboards existing repositories and creates or proposes initial `docs/ai/` memory before implementation planning. | `openai/gpt-5.5-fast` |
 | `code` | Subagent | Implements one approved phase across atomic stages and pauses after each stage for manual validation. | `openai/gpt-5.5` |
+| `quickcode` | Subagent | Implements one approved quick-delivery task autonomously within narrow low-risk scope, then reports once for planner review. | `openai/gpt-5.5` |
 | `test` | Subagent | Critically reviews implementation quality and regression risk; adds or recommends tests when valuable. | `openai/gpt-5.5` |
 
 Use `openai/gpt-5.5-pro` only for unusually difficult research or review tasks where latency and cost are acceptable. Use `openai/gpt-5.4-mini-fast` for OpenCode's lightweight `small_model` setting when available in your connected account.
@@ -154,6 +173,24 @@ Stop rule:
 
 `code` owns exactly one phase per child session. It must stop after each atomic stage and wait for explicit user approval before continuing.
 
+For quick delivery, `planner` should hand off one approved low-risk task to `quickcode`:
+
+```md
+## Quick Code Handoff Brief
+
+Task:
+Goal:
+Acceptance criteria:
+Approved scope:
+Expected files:
+References to load:
+Validation expectations:
+Escalation conditions:
+Constraints:
+```
+
+`quickcode` is a subagent invoked by `planner`, not a primary starting point for users. It may edit autonomously within the approved scope and run allowlisted validation/git inspection commands, but it must not invoke subagents, commit, install dependencies, edit secrets, or broaden scope.
+
 `planner` should hand off testing work to `test` only when review indicates meaningful regression risk or missing coverage:
 
 ```md
@@ -185,8 +222,8 @@ The old multi-runtime structure has been replaced:
 ## Design Principles
 
 - Keep the installed configuration small and predictable.
-- Prefer explicit phase gates over long autonomous runs.
-- Preserve user control through manual validation checkpoints.
+- Prefer explicit phase gates for staged delivery and reserve autonomous quick delivery for approved low-risk tasks.
+- Preserve user control through staged manual checkpoints or planner review of quick-delivery results.
 - Keep planning context separate from implementation context.
 - Persist decisions and architecture notes, not chat history.
 - Use git evidence for review instead of relying on agent memory.
