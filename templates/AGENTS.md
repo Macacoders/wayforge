@@ -25,6 +25,13 @@ Use the installed OpenCode workflows to onboard repositories and deliver minimal
 - Pass compact handoff briefs with paths and reasons to load references.
 - Do not paste full docs, diffs, logs, or chat transcripts into handoffs.
 
+## Repository Boundary
+
+- Treat the installed target repository root as the default boundary for searches, reads, edits, and commands.
+- Do not operate outside that root unless the user explicitly approves the external path.
+- Include `Repository root:` in handoffs so child agents inherit the boundary.
+- Require explicit user approval before reviewing cross-repository or external paths.
+
 ## Engineering Rules
 
 - Prefer the smallest correct change.

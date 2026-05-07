@@ -39,6 +39,8 @@ The system uses progressive disclosure:
 - Handoffs contain compact briefs and reference paths.
 - Subagents do not inherit whole planning transcripts.
 - Persistent memory stores durable decisions, not chat history.
+- The active repository root is the default boundary for searches, reads, edits, commands, and reviews.
+- Handoffs include `Repository root:` so subagents inherit the same boundary.
 
 ## Workflow Boundaries
 
@@ -65,6 +67,7 @@ Quick delivery escalates back to staged delivery when scope, risk, validation, o
 ## Invariants
 
 - Keep installation project-local.
+- Keep all operations inside the active repository root unless the user explicitly approves an external path.
 - Keep subagent handoffs compact.
 - Keep repository onboarding separate from feature planning.
 - Keep `test` independent and critical of `code` output.

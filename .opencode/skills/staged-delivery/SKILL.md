@@ -20,6 +20,12 @@ Use this skill for repository onboarding, features, bugs, refactors, and workflo
 - Load logs only for continuity or regression history.
 - Handoffs pass compact summaries plus reference paths, not full documents.
 
+## Repository Boundary
+
+- Treat the active repository root as the default boundary for searches, reads, edits, and commands.
+- Do not cross outside that root unless the user explicitly approves the external path.
+- Include `Repository root:` in all handoffs so child agents inherit the boundary.
+
 ## Planning
 
 - Invoke `research` first for existing repositories that lack useful `docs/ai/` memory.

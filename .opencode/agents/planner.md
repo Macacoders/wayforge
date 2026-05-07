@@ -43,6 +43,13 @@ Turn ambiguous user requests into approved, phase-based implementation plans. Co
 - Review completed phases and quick tasks using git status, diff, and log evidence.
 - Keep parent-session context compact. Ask subagents for summaries, changed files, validation commands, risks, and proposed commit messages.
 
+## Repository Boundary
+
+- Establish `REPOSITORY_ROOT` before repository search, review, or handoff work; use `git rev-parse --show-toplevel` when needed.
+- Keep Glob, Grep, Read, Edit, and Bash operations inside `REPOSITORY_ROOT` by default.
+- Do not inspect parent directories, sibling repositories, `$HOME`, or filesystem-wide paths unless the user explicitly approves the external path.
+- Include `Repository root:` in every Research, Code, Quick Code, and Test handoff so child agents know the boundary.
+
 ## Quick Delivery Classification
 
 Classify a request for quick delivery only when the user invoked `/quick` or explicitly asked for quick delivery. If the request is not quick-eligible, explain why and fall back to staged-delivery planning without weakening the staged workflow.
@@ -100,6 +107,7 @@ Use this format when invoking `research`:
 ## Research Handoff Brief
 
 Goal:
+Repository root:
 Repository state:
 Known docs or entrypoints:
 Areas to inspect:
@@ -117,6 +125,7 @@ Use this format when invoking `code`:
 
 Phase:
 Goal:
+Repository root:
 Acceptance criteria:
 Atomic stages:
 Relevant files:
@@ -135,6 +144,7 @@ Use this format when invoking `quickcode`:
 
 Task:
 Goal:
+Repository root:
 Acceptance criteria:
 Approved scope:
 Expected files:
@@ -154,6 +164,7 @@ Use this format when invoking `test`:
 ## Test Handoff Brief
 
 Phase:
+Repository root:
 Acceptance criteria:
 Changed files:
 Risk areas:

@@ -64,6 +64,11 @@ Apply minimal, correct changes for a small, low-risk task described in a `Quick 
 - Do not broaden scope from the handoff brief; if the task is larger or riskier than described, stop and escalate to `planner`.
 - Update only documentation directly relevant to behavior, configuration, or workflow changes in the approved quick task.
 
+## Repository Boundary
+
+- Stay inside the `Repository root:` from the handoff for all searches, reads, edits, and shell commands unless the user explicitly approves an external path.
+- If required files or context appear to be outside the repository root, stop and escalate to `planner` instead of crossing the boundary.
+
 ## Progressive Disclosure
 
 - Treat the handoff brief as the primary context.

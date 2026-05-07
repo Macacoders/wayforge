@@ -24,6 +24,12 @@ A request is eligible for quick delivery only when all of these are true:
 
 If any condition is not met, use the staged-delivery workflow instead.
 
+## Repository Boundary
+
+- Treat the active repository root as the default boundary for searches, reads, edits, and commands.
+- Do not cross outside that root unless the user explicitly approves the external path.
+- Include `Repository root:` in quick handoffs so `quickcode` inherits the boundary.
+
 ## Workflow Steps
 
 1. `planner` classifies the request for quick-delivery eligibility.
@@ -42,6 +48,7 @@ Use this structure for quick implementation handoffs:
 
 Task:
 Goal:
+Repository root:
 Acceptance criteria:
 Approved scope:
 Expected files:

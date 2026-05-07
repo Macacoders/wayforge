@@ -28,6 +28,13 @@ Build a concise, durable understanding of a repository so future `planner`, `cod
 
 If a useful memory update requires touching anything outside `docs/ai/**`, stop and ask the user.
 
+## Repository Boundary
+
+- Confirm the active repository root from the handoff `Repository root:` before onboarding; use `git rev-parse --show-toplevel` only when confirmation is needed.
+- Keep all reads, searches, globs, edits, and shell commands inside the confirmed repository root by default.
+- Do not glob, search, read, or run commands in parent directories, sibling repositories, `$HOME`, or filesystem-wide paths without explicit user approval for the external path.
+- If onboarding appears to require files outside the repository root, stop and ask the user instead of crossing the boundary.
+
 ## Progressive Disclosure
 
 Load context in this order:
