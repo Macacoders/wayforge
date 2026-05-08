@@ -54,15 +54,15 @@ The staged-delivery workflow keeps repository onboarding, planning, implementati
 
 The target OpenCode setup uses one primary agent and four specialized subagents.
 
-| Agent | Mode | Purpose | Preferred model |
-| :--- | :--- | :--- | :--- |
-| `planner` | Primary | Planning, research, questions, phase design, handoffs, git-based review, memory updates. | `openai/gpt-5.5` |
-| `research` | Subagent | Onboards existing repositories and creates or proposes initial `docs/ai/` memory before implementation planning. | `openai/gpt-5.5-fast` |
-| `code` | Subagent | Implements one approved phase across atomic stages and pauses after each stage for manual validation. | `openai/gpt-5.5` |
-| `quickcode` | Subagent | Implements one approved quick-delivery task autonomously within narrow low-risk scope, then reports once for planner review. | `openai/gpt-5.5` |
-| `test` | Subagent | Critically reviews implementation quality and regression risk; adds or recommends tests when valuable. | `openai/gpt-5.5` |
+| Agent | Mode | Purpose | Preferred model | Reasoning |
+| :--- | :--- | :--- | :--- | :--- |
+| `planner` | Primary | Planning, research, questions, phase design, handoffs, git-based review, memory updates. | `openai/gpt-5.5` | Medium |
+| `research` | Subagent | Onboards existing repositories and creates or proposes initial `docs/ai/` memory before implementation planning. | `openai/gpt-5.5-fast` | Medium |
+| `code` | Subagent | Implements one approved phase across atomic stages and pauses after each stage for manual validation. | `openai/gpt-5.3-codex` | Medium |
+| `quickcode` | Subagent | Implements one approved quick-delivery task autonomously within narrow low-risk scope, then reports once for planner review. | `openai/gpt-5.3-codex` | Low |
+| `test` | Subagent | Critically reviews implementation quality and regression risk; adds or recommends tests when valuable. | `openai/gpt-5.5-fast` | Medium |
 
-Use `openai/gpt-5.5-pro` only for unusually difficult research or review tasks where latency and cost are acceptable. Use `openai/gpt-5.4-mini-fast` for OpenCode's lightweight `small_model` setting when available in your connected account.
+The default model policy balances reasoning quality and implementation cost: planning/research stay on the GPT-5.5 family with medium reasoning, implementation agents use Codex-oriented models, and `test` stays on GPT-5.5-fast for independent critical review rather than Codex. Use `openai/gpt-5.5-pro` only for unusually difficult research or review tasks where latency and cost are acceptable. Use `openai/gpt-5.4-mini-fast` for OpenCode's lightweight `small_model` setting when available in your connected account.
 
 Model availability depends on what OpenCode exposes after `/connect`. If a preferred model is unavailable, choose the closest available OpenAI reasoning/coding model with `/models`.
 

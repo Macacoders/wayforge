@@ -10,6 +10,7 @@ This repository provides reusable OpenCode configuration for target projects thr
 - OpenAI is the only supported provider.
 - Users authenticate OpenAI in OpenCode with `/connect`, preferably using ChatGPT Plus/Pro.
 - Model IDs are recommendations and may need adjustment with `/models` depending on account availability.
+- The default model policy balances GPT-5.5-family reasoning for planning, onboarding, and critical review with Codex-oriented models for implementation.
 
 ## Installed Surface
 
@@ -27,9 +28,9 @@ The installer must not overwrite existing non-symlink files by default.
 
 - `planner` is the default primary agent. It uses a non-native id to avoid colliding with OpenCode's built-in `plan` agent.
 - `research` is a subagent used for onboarding existing repositories before implementation planning.
-- `code` is a conservative subagent used once per approved implementation phase, with medium reasoning effort and low temperature.
-- `quickcode` is a subagent invoked by `planner` for one approved quick-delivery task. It may edit autonomously within narrow low-risk scope, run allowlisted validation/git inspection commands, and must not invoke subagents.
-- `test` is a subagent used when review identifies meaningful testing or regression risk.
+- `code` is a conservative Codex-oriented subagent used once per approved implementation phase, with medium reasoning effort and low temperature.
+- `quickcode` is a Codex-oriented subagent invoked by `planner` for one approved quick-delivery task, with low reasoning effort for small low-risk changes. It may edit autonomously within narrow low-risk scope, run allowlisted validation/git inspection commands, and must not invoke subagents.
+- `test` is a GPT-5.5-fast subagent used when review identifies meaningful testing or regression risk, keeping critical review independent from Codex implementation output.
 
 ## Context Strategy
 

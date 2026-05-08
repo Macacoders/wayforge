@@ -1,8 +1,8 @@
 ---
 description: Implements small, low-risk quick-delivery tasks autonomously and reports once for planner review.
 mode: subagent
-model: openai/gpt-5.5
-reasoningEffort: medium
+model: openai/gpt-5.3-codex
+reasoningEffort: low
 textVerbosity: medium
 temperature: 0.1
 permission:

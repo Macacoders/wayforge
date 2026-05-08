@@ -2,7 +2,7 @@
 description: Onboards existing repositories and creates initial docs/ai memory before implementation planning.
 mode: subagent
 model: openai/gpt-5.5-fast
-reasoningEffort: high
+reasoningEffort: medium
 textVerbosity: medium
 permission:
   edit: ask

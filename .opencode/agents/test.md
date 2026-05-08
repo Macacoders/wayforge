@@ -1,8 +1,8 @@
 ---
 description: Critically reviews implemented changes for regression risk and creates focused tests when justified.
 mode: subagent
-model: openai/gpt-5.5
-reasoningEffort: high
+model: openai/gpt-5.5-fast
+reasoningEffort: medium
 textVerbosity: medium
 permission:
   edit: ask

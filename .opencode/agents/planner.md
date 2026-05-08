@@ -2,7 +2,7 @@
 description: Plans phased work, coordinates research/implementation/testing subagents, reviews changes with git, and maintains project memory.
 mode: primary
 model: openai/gpt-5.5
-reasoningEffort: high
+reasoningEffort: medium
 textVerbosity: medium
 permission:
   edit: ask

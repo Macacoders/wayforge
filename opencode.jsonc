@@ -10,13 +10,13 @@
       "models": {
         "gpt-5.5": {
           "options": {
-            "reasoningEffort": "high",
+            "reasoningEffort": "medium",
             "textVerbosity": "medium"
           }
         },
         "gpt-5.5-fast": {
           "options": {
-            "reasoningEffort": "high",
+            "reasoningEffort": "medium",
             "textVerbosity": "medium"
           }
         }
