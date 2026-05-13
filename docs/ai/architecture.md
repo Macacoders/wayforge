@@ -7,10 +7,12 @@ This repository provides reusable OpenCode configuration for target projects thr
 ## Runtime Boundary
 
 - OpenCode is the only supported AI runtime.
-- OpenAI is the only supported provider.
-- Users authenticate OpenAI in OpenCode with `/connect`, preferably using ChatGPT Plus/Pro.
+- **Primary provider**: OpenAI, authenticated in OpenCode with `/connect` using ChatGPT Plus/Pro.
+- **Secondary provider**: Kimi25 (Azure-hosted Kimi K2.5), configured via environment variables (`KIMI_BASE_URL`, `KIMI_API_KEY`, `KIMI_API_VERSION`).
 - Model IDs are recommendations and may need adjustment with `/models` depending on account availability.
 - The default model policy balances GPT-5.5-family reasoning for planning, onboarding, and critical review with Codex-oriented models for implementation.
+- Users can switch providers interactively: `/model openai/gpt-5.5` or `/model kimi25/Kimi-K2.5`.
+- Agent-specific model assignments can be configured in `opencode.jsonc` to use different providers for different tasks.
 
 ## Installed Surface
 
