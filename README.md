@@ -153,9 +153,16 @@ The installer must be conservative:
 
 Expected command shape:
 
+**Linux/macOS:**
 ```bash
 ./install/bootstrap.sh --repo /path/to/repo --dry-run
 ./install/bootstrap.sh --repo /path/to/repo
+```
+
+**Windows (PowerShell):**
+```powershell
+.\install\bootstrap.ps1 -Repo /path/to/repo -DryRun
+.\install\bootstrap.ps1 -Repo /path/to/repo
 ```
 
 ## Handoff Contracts
