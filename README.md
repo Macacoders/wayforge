@@ -71,49 +71,7 @@ The default model policy balances reasoning quality and implementation cost: pla
 - `/model openai/gpt-5.5` - Use OpenAI (default)
 - `/model kimi25/Kimi-K2.5` - Use Kimi K2.5 via Azure
 
-**Provider-specific agents**: You can also configure specific agents to use different providers by modifying their model assignments in `opencode.jsonc`.
-
 Model availability depends on what OpenCode exposes after `/connect`. If a preferred model is unavailable, choose the closest available reasoning/coding model with `/models`.
-
-## Provider Configuration
-
-This configuration supports multiple AI providers. The default is OpenAI, but Kimi25 (Azure-hosted Kimi K2.5) is also available.
-
-### OpenAI (Default)
-
-- Authenticate with `/connect` in OpenCode
-- Requires ChatGPT Plus/Pro subscription
-- Default models: `openai/gpt-5.5` (primary), `openai/gpt-5.3-codex` (coding agents)
-
-### Kimi25 (Azure-hosted)
-
-- Configure via environment variables in your shell profile:
-  ```powershell
-  $env:KIMI_BASE_URL = "https://your-resource.openai.azure.com/openai/deployments/your-deployment"
-  $env:KIMI_API_KEY = "your-api-key"
-  $env:KIMI_API_VERSION = "2024-12-01-preview"
-  ```
-- Available model: `kimi25/Kimi-K2.5`
-
-### Switching Between Providers
-
-**Interactive switching** (per session):
-```bash
-/model openai/gpt-5.5     # Switch to OpenAI
-/model kimi25/Kimi-K2.5   # Switch to Kimi
-```
-
-**Per-project configuration**: Create a local `opencode.jsonc` in your project root with the desired model.
-
-**Agent-specific models**: Modify `opencode.jsonc` to assign different providers to specific agents:
-```jsonc
-{
-  "agents": {
-    "planner": { "model": "openai/gpt-5.5" },
-    "code": { "model": "kimi25/Kimi-K2.5" }
-  }
-}
-```
 
 ## Progressive Disclosure
 
