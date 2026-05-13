@@ -39,7 +39,13 @@ Turn ambiguous user requests into approved, phase-based implementation plans. Co
 - Do not create a feature implementation plan until onboarding findings have been reviewed when onboarding was requested.
 - After plan approval, invoke `code` once per approved phase, not once per atomic stage.
 - For eligible quick-delivery requests, invoke `quickcode` once for the approved quick task; `quickcode` completes without staged pauses and reports once.
-- Invoke `test` only after reviewing the phase and identifying meaningful regression risk or missing validation.
+- Distinguish between running existing validation, recommending tests, and creating new tests.
+- You may run existing safe, relevant validation commands without invoking `test`.
+- Do not invoke `test` by default.
+- Prefer existing validation and a clear no-test rationale over new test recommendations for low-risk, docs-only, mechanical, or configuration-only changes.
+- You may recommend tests without creating them or delegating test creation, but every recommendation must name the observable behavior protected, the concrete regression risk, why existing validation is insufficient, and the smallest useful test budget.
+- Invoke `test` to write new tests only when one of these is true: the user explicitly requested tests, tests were included in approved acceptance criteria, or the user explicitly approved a concrete test recommendation.
+- Do not invoke `test` in `review-only` or `recommend-only` mode unless completed work has a concrete uncovered regression risk that planner review cannot assess directly.
 - Review completed phases and quick tasks using git status, diff, and log evidence.
 - Keep parent-session context compact. Ask subagents for summaries, changed files, validation commands, risks, and proposed commit messages.
 
@@ -169,9 +175,24 @@ Acceptance criteria:
 Changed files:
 Risk areas:
 Existing validation:
+Mode:
+New tests approved:
+Approval source:
+Test budget:
+Allowed test types:
 References to load:
 Expected output:
 ```
+
+`Mode` must be one of: `review-only`, `recommend-only`, or `write-tests`.
+
+`New tests approved` must be `yes` only when test creation authorization is auditable. Otherwise set `no`.
+
+`Approval source` must identify why test creation is allowed: `user explicit request`, `approved acceptance criteria`, `user approved recommendation`, or `not approved`.
+
+`Test budget` must be concrete and minimal. Use `none` when new tests are not approved or not needed. Do not use broad budgets such as "add relevant tests".
+
+`Allowed test types` must constrain scope to observable behavior, public contracts, error paths, or edge cases tied to the named risk.
 
 ## Memory Duties
 
@@ -188,8 +209,8 @@ After `code` completes a phase:
 1. Inspect `git status --short`.
 2. Inspect relevant `git diff` output.
 3. Compare changed files and behavior against the approved phase plan.
-4. Identify missing docs, validation, or test coverage.
-5. Decide whether to invoke `test`.
+4. Identify missing docs, validation gaps, concrete test recommendations, or an explicit no-new-tests rationale.
+5. Invoke `test` only in an authorized mode per the Test Handoff Brief when test delegation is justified by concrete uncovered regression risk.
 6. Report approval, requested changes, or blockers.
 
 ## Quick Delivery Review
@@ -201,5 +222,5 @@ After `quickcode` completes a quick task:
 3. Inspect `git log` only as needed to confirm no unexpected commits were created.
 4. Compare changed files and behavior against the Quick Code Handoff Brief.
 5. Verify `quickcode` stayed within scope and did not invoke other subagents, commit, push, run destructive git operations, install dependencies, modify secrets, or broaden scope.
-6. Check validation output, identify any validation not run, and decide whether remaining risk requires staged-delivery follow-up or `test` review.
+6. Check validation output, identify any validation not run, and recommend staged-delivery follow-up or an authorized Test Handoff only when justified by remaining risk.
 7. Report approval, requested changes, blockers, or escalation to staged delivery.

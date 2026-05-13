@@ -35,10 +35,13 @@ The staged-delivery workflow keeps repository onboarding, planning, implementati
 12. After every stage, `code` reports changes, proposes manual validation commands, and waits for user approval before continuing in the same child session.
 13. When the phase is complete, `code` updates relevant project documentation and proposes a commit message.
 14. `planner` reviews the phase using git status/diff/log tools and checks alignment with the approved plan.
-15. `planner` decides whether to invoke `test`.
-16. `test` critically reviews `code`'s work, identifies regression risks, and creates or recommends focused tests when justified.
-17. The workflow repeats for the next phase.
-18. At the end, `planner` performs a final documentation, decisions, and change-log review.
+15. `planner` distinguishes running existing validation, recommending tests, and creating new tests.
+16. `planner` runs existing safe, relevant validation as needed, does not invoke `test` by default, and may close low-risk work with a clear no-test rationale.
+17. `planner` may recommend tests only when it can name the observable behavior protected, concrete regression risk, why existing validation is insufficient, and the smallest useful test budget.
+18. `planner` invokes `test` to write tests only when test creation is explicitly authorized (user request, approved acceptance criteria, or user-approved recommendation).
+19. `test` critically reviews `code`'s work, identifies regression risks, and only creates tests within the approved test budget.
+20. The workflow repeats for the next phase.
+21. At the end, `planner` performs a final documentation, decisions, and change-log review.
 
 ### Quick delivery
 
@@ -60,7 +63,7 @@ The target OpenCode setup uses one primary agent and four specialized subagents.
 | `research` | Subagent | Onboards existing repositories and creates or proposes initial `docs/ai/` memory before implementation planning. | `openai/gpt-5.5-fast` | Medium |
 | `code` | Subagent | Implements one approved phase across atomic stages and pauses after each stage for manual validation. | `openai/gpt-5.3-codex` | Medium |
 | `quickcode` | Subagent | Implements one approved quick-delivery task autonomously within narrow low-risk scope, then reports once for planner review. | `openai/gpt-5.3-codex` | Low |
-| `test` | Subagent | Critically reviews implementation quality and regression risk; adds or recommends tests when valuable. | `openai/gpt-5.5-fast` | Medium |
+| `test` | Subagent | Critically reviews implementation quality and regression risk; recommends tests when justified and writes new tests only with explicit approval. | `openai/gpt-5.5-fast` | Medium |
 
 The default model policy balances reasoning quality and implementation cost: planning/research stay on the GPT-5.5 family with medium reasoning, implementation agents use Codex-oriented models, and `test` stays on GPT-5.5-fast for independent critical review rather than Codex. Use `openai/gpt-5.5-pro` only for unusually difficult research or review tasks where latency and cost are acceptable. Use `openai/gpt-5.4-mini-fast` for OpenCode's lightweight `small_model` setting when available in your connected account.
 
@@ -191,7 +194,7 @@ Constraints:
 
 `quickcode` is a subagent invoked by `planner`, not a primary starting point for users. It may edit autonomously within the approved scope and run allowlisted validation/git inspection commands, but it must not invoke subagents, commit, install dependencies, edit secrets, or broaden scope.
 
-`planner` should hand off testing work to `test` only when review indicates meaningful regression risk or missing coverage:
+`planner` should hand off testing work to `test` only when review indicates meaningful regression risk or missing coverage. New test creation is strictly opt-in:
 
 ```md
 ## Test Handoff Brief
@@ -201,11 +204,22 @@ Acceptance criteria:
 Changed files:
 Risk areas:
 Existing validation:
+Mode:
+New tests approved:
+Approval source:
+Test budget:
+Allowed test types:
 References to load:
 Expected output:
 ```
 
-`test` must be critical. It should challenge assumptions, identify untested behavior, and prefer focused tests that validate observable outcomes instead of implementation details.
+`Mode` must be `review-only`, `recommend-only`, or `write-tests`.
+
+`test` must not create or modify test files unless `New tests approved: yes` and mode is `write-tests`.
+
+`Test budget` must be concrete and minimal. Use `none` when new tests are not approved or not needed; avoid vague budgets such as "add relevant tests".
+
+`test` must be critical. It should challenge assumptions, identify untested behavior, and prefer focused tests that validate observable outcomes instead of implementation details. It should also say `No new tests needed` when the change is docs-only, configuration-only, mechanical, already covered by existing validation, or does not change observable behavior.
 
 ## Repository Direction
 

@@ -52,8 +52,11 @@ The default staged-delivery workflow is:
 3. Implement one approved phase through `code`.
 4. Pause after each atomic stage for manual validation.
 5. Review the completed phase with git evidence.
-6. Invoke `test` only when useful.
-7. Update docs, decisions, and logs at close.
+6. Distinguish running existing validation, recommending tests, and creating new tests.
+7. Do not invoke `test` by default.
+8. Prefer existing validation or a no-test rationale for low-risk work before recommending new tests.
+9. Invoke `test` in `write-tests` mode only when new test creation is explicitly approved (user request, approved acceptance criteria, or user-approved recommendation) and constrained by a concrete test budget.
+10. Update docs, decisions, and logs at close.
 
 The opt-in quick-delivery workflow is:
 
@@ -72,6 +75,8 @@ Quick delivery escalates back to staged delivery when scope, risk, validation, o
 - Keep subagent handoffs compact.
 - Keep repository onboarding separate from feature planning.
 - Keep `test` independent and critical of `code` output.
+- Keep new test creation strictly opt-in and auditable through Test Handoff Brief authorization fields.
+- Keep test recommendations tied to observable behavior, concrete risk, insufficient existing validation, and minimal budget.
 - Keep manual validation checkpoints between atomic stages for staged delivery.
 - Keep quick delivery limited to approved low-risk tasks with no staged pauses and mandatory planner review.
 - Keep durable memory under `docs/ai/`.

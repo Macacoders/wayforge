@@ -45,6 +45,10 @@ Use the installed OpenCode workflows to onboard repositories and deliver minimal
 - Start with checks closest to the changed code.
 - For staged delivery, propose manual validation commands after each atomic stage.
 - For quick delivery, report validation run and any validation still recommended in the single completion report.
+- Prefer existing safe validation before recommending new tests.
+- Create or request new tests only for concrete uncovered regression risk tied to observable behavior.
+- Keep test budgets explicit and minimal; use `none` when new tests are not approved or not needed.
+- For low-risk, docs-only, mechanical, or configuration-only changes, a clear no-test rationale is acceptable.
 - Report exactly what was run and what was not run.
 - Treat missing validation as a review risk.
 
@@ -52,6 +56,6 @@ Use the installed OpenCode workflows to onboard repositories and deliver minimal
 
 - The approved phase acceptance criteria are satisfied.
 - Staged-delivery manual checkpoints were offered between atomic stages, or quick-delivery results received planner review.
-- Relevant tests or testing rationale were reviewed.
+- Relevant tests, existing validation, or a no-test rationale were reviewed.
 - Documentation and durable AI memory are updated when needed.
 - The final handoff includes changed files, validation, risks, and a proposed commit message.
