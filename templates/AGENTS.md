@@ -11,15 +11,19 @@ Use the installed OpenCode workflows to onboard repositories and deliver minimal
 3. Use `/quick` only for quick delivery when the task is clear, small, low-risk, and safely validated with local checks.
 4. Use `research` for repository onboarding before planning changes in unfamiliar repos.
 5. For staged delivery, use one `code` child session per approved phase; `code` stops after each atomic stage and waits for manual validation.
-6. For quick delivery, `planner` may invoke `quickcode` for one approved low-risk task; `quickcode` works without staged pauses and reports once for planner review.
-7. Escalate quick delivery back to staged delivery if scope, risk, validation, or acceptance criteria become unclear.
-8. Use `test` when completed changes need critical testing review or regression coverage.
-9. Update durable memory under `docs/ai/` only for onboarding findings, approved plans, decisions, architecture changes, and short logs.
+6. Keep staged plans compact: phases are reviewable deliverables, not technical microtasks.
+7. Justify plans with more than 3 phases, require explicit confirmation for 6-8 phases, and split work that appears to require more than 8 phases.
+8. For quick delivery, `planner` may invoke `quickcode` for one approved low-risk task; `quickcode` works without staged pauses and reports once for planner review.
+9. Escalate quick delivery back to staged delivery if scope, risk, validation, or acceptance criteria become unclear.
+10. Use `test` when completed changes need critical testing review or regression coverage.
+11. Use `/newtask` to capture repository improvement ideas in `docs/ai/backlog/tasks.jsonl` instead of implementing them immediately.
+12. Update durable memory under `docs/ai/` only for onboarding findings, backlog tasks, approved plans, decisions, architecture changes, and short logs.
 
 ## Progressive Disclosure
 
 - Read this file and the repository `README.md` first.
 - Read `docs/ai/README.md` before loading other AI memory.
+- Load `docs/ai/backlog/tasks.jsonl` when selecting or creating repository improvement tasks.
 - Load only task-relevant plans, ADRs, architecture notes, or logs.
 - Run onboarding before implementation planning if `docs/ai/` memory is missing or stale.
 - Pass compact handoff briefs with paths and reasons to load references.
@@ -35,6 +39,7 @@ Use the installed OpenCode workflows to onboard repositories and deliver minimal
 ## Engineering Rules
 
 - Prefer the smallest correct change.
+- Prefer the fewest phases that preserve clear acceptance criteria and safe review.
 - Preserve unrelated user changes in the worktree.
 - Avoid speculative abstractions and broad refactors.
 - Update documentation when behavior, configuration, or workflows change.
