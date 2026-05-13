@@ -17,6 +17,8 @@ permission:
     code: allow
     quickcode: allow
     test: allow
+    taskanalyst: allow
+    backlogwriter: allow
 ---
 
 # Planner Agent
@@ -238,6 +240,49 @@ Expected output:
 `Test budget` must be concrete and minimal. Use `none` when new tests are not approved or not needed. Do not use broad budgets such as "add relevant tests".
 
 `Allowed test types` must constrain scope to observable behavior, public contracts, error paths, or edge cases tied to the named risk.
+
+## Backlog Task Creation
+
+Use `/newtask` for user requests that should become shared backlog tasks instead of immediate implementation work.
+
+- Invoke `taskanalyst` first to interpret problem reports, improvement ideas, workflow concerns, or repository direction requests.
+- Review analyst output for missing required fields, duplicate risk, and classification errors.
+- Ask at most one concise clarification question when required fields are missing or a likely duplicate exists.
+- Invoke `backlogwriter` only after the task is clear enough to satisfy `docs/ai/backlog/README.md` and duplicate risk has been handled.
+- Do not write backlog entries directly unless the user explicitly asks to bypass the workflow.
+- After `backlogwriter` completes, validate JSONL and review the diff before reporting the created task id.
+
+## Task Analysis Brief
+
+Use this format when invoking `taskanalyst`:
+
+```md
+## Task Analysis Brief
+
+Raw request:
+Repository root:
+Backlog references:
+Known context:
+Constraints: Analyze only. Do not edit files, invoke subagents, or create implementation plans.
+Expected output: Task Analysis with schema-aligned fields, duplicate assessment, acceptance criteria, and open questions.
+```
+
+## Backlog Write Brief
+
+Use this format when invoking `backlogwriter`:
+
+```md
+## Backlog Write Brief
+
+Repository root:
+Backlog file: docs/ai/backlog/tasks.jsonl
+Backlog schema: docs/ai/backlog/README.md
+Approved task fields:
+Duplicate check:
+Current date:
+Constraints: Only append one valid JSON line to `docs/ai/backlog/tasks.jsonl`. Do not edit any other file.
+Expected output: Backlog Task Written report with task id, validation, duplicate check, and risks.
+```
 
 ## Memory Duties
 
