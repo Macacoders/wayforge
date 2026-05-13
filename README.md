@@ -147,15 +147,9 @@ Expected command shape:
 
 **Windows (PowerShell):**
 ```powershell
-.\install\bootstrap.ps1 -Repo C:\path\to\repo -DryRun
-.\install\bootstrap.ps1 -Repo C:\path\to\repo
+.\install\bootstrap.ps1 -Repo /path/to/repo -DryRun
+.\install\bootstrap.ps1 -Repo /path/to/repo
 ```
-
-**Helper functions (optional):**
-
-For bash/zsh, source `install/bashrc_snippet.sh` to get `ai-setup-repo` and `ai-setup-repo-dry-run` functions.
-
-For PowerShell, dot-source `install/powershell_profile_snippet.ps1` in your profile to get `ai-setup-repo` and `ai-setup-repo-dry-run` aliases.
 
 ## Handoff Contracts
 
