@@ -17,6 +17,8 @@ Use `/plan` when the work needs onboarding, planning, architecture or safety rev
 
 If a quick task turns out to be ambiguous, broad, security-sensitive, operationally risky, or otherwise outside its approved scope, it escalates back to staged delivery.
 
+Staged delivery still follows phase economy. It should use the fewest phases that preserve clear, reviewable deliverables: 1 phase for simple or single-outcome work, 2-3 phases for moderate work, justification for more than 3 phases, explicit user confirmation for 6-8 phases, and task splitting instead of one large plan when the work appears to require more than 8 phases.
+
 ### Staged delivery
 
 The staged-delivery workflow keeps repository onboarding, planning, implementation, testing, and memory responsibilities separate.
@@ -27,7 +29,7 @@ The staged-delivery workflow keeps repository onboarding, planning, implementati
 4. Describe the feature, bug, refactor, or investigation.
 5. `planner` performs a lightweight repository/documentation review.
 6. `planner` asks clarifying questions before locking in ambiguous decisions.
-7. `planner` creates an implementation plan split into phases.
+7. `planner` classifies scope and creates the smallest useful implementation plan split into reviewable phases.
 8. Each phase includes explicit acceptance criteria.
 9. After user approval, `planner` prepares a compact handoff brief for one phase.
 10. `planner` invokes a single `code` subagent session for that phase.
@@ -158,7 +160,7 @@ Expected output:
 
 `research` must not modify product code or plan feature work. It may create or update `docs/ai/**` memory when approved.
 
-`planner` should hand off one approved phase to `code` using a compact brief:
+`planner` should hand off one approved phase to `code` using a compact brief. Atomic stages are checkpoints inside a phase, not new phases:
 
 ```md
 ## Code Handoff Brief
@@ -175,6 +177,8 @@ Stop rule:
 ```
 
 `code` owns exactly one phase per child session. It must stop after each atomic stage and wait for explicit user approval before continuing.
+
+If planning would require more than 8 phases, `planner` should not produce one large implementation plan. It should explain why the request is too large, propose smaller task splits, and ask which task to plan first.
 
 For quick delivery, `planner` should hand off one approved low-risk task to `quickcode`:
 

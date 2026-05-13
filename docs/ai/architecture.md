@@ -49,14 +49,15 @@ The default staged-delivery workflow is:
 
 1. Onboard unfamiliar repositories through `research` and create initial `docs/ai/` memory.
 2. Plan with clarifying questions and acceptance criteria.
-3. Implement one approved phase through `code`.
-4. Pause after each atomic stage for manual validation.
-5. Review the completed phase with git evidence.
-6. Distinguish running existing validation, recommending tests, and creating new tests.
-7. Do not invoke `test` by default.
-8. Prefer existing validation or a no-test rationale for low-risk work before recommending new tests.
-9. Invoke `test` in `write-tests` mode only when new test creation is explicitly approved (user request, approved acceptance criteria, or user-approved recommendation) and constrained by a concrete test budget.
-10. Update docs, decisions, and logs at close.
+3. Apply phase economy before implementation: 1 phase for simple work, justification above 3 phases, explicit confirmation for 6-8 phases, and task splitting above 8 phases.
+4. Implement one approved phase through `code`.
+5. Pause after each atomic stage for manual validation.
+6. Review the completed phase with git evidence.
+7. Distinguish running existing validation, recommending tests, and creating new tests.
+8. Do not invoke `test` by default.
+9. Prefer existing validation or a no-test rationale for low-risk work before recommending new tests.
+10. Invoke `test` in `write-tests` mode only when new test creation is explicitly approved (user request, approved acceptance criteria, or user-approved recommendation) and constrained by a concrete test budget.
+11. Update docs, decisions, and logs at close.
 
 The opt-in quick-delivery workflow is:
 
@@ -74,6 +75,8 @@ Quick delivery escalates back to staged delivery when scope, risk, validation, o
 - Keep all operations inside the active repository root unless the user explicitly approves an external path.
 - Keep subagent handoffs compact.
 - Keep repository onboarding separate from feature planning.
+- Keep phases as reviewable deliverables, not technical microtasks.
+- Keep plans above 8 apparent implementation phases out of single-task planning; split them into smaller tasks first.
 - Keep `test` independent and critical of `code` output.
 - Keep new test creation strictly opt-in and auditable through Test Handoff Brief authorization fields.
 - Keep test recommendations tied to observable behavior, concrete risk, insufficient existing validation, and minimal budget.
