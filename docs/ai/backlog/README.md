@@ -46,22 +46,23 @@ Duplicate-work prevention is process-based: always check assignee and `status:do
 
 ## Labels
 
-Minimum useful labels:
+Required labels for the shared task workflow (must already exist in the repository):
 
-- Status:
-  - `status:to-do`
-  - `status:doing`
-  - `status:blocked`
-- Type:
-  - `type:task`
-  - `type:feature`
-  - `type:bug`
-  - `type:docs`
-  - `type:chore`
-- Priority:
-  - `priority:high`
-  - `priority:medium`
-  - `priority:low`
+| Label | Hex color | Description |
+| :--- | :--- | :--- |
+| `status:to-do` | `#ededed` | Task is available to be claimed |
+| `status:doing` | `#fbca04` | Task is currently assigned or in progress |
+| `status:blocked` | `#d73a4a` | Task is blocked |
+| `type:task` | `#0e8a16` | General shared task |
+| `type:feature` | `#1d76db` | Feature work |
+| `type:bug` | `#d73a4a` | Bug fix |
+| `type:docs` | `#0075ca` | Documentation work |
+| `type:chore` | `#cfd3d7` | Maintenance or cleanup |
+| `priority:high` | `#b60205` | High priority |
+| `priority:medium` | `#fbca04` | Medium priority |
+| `priority:low` | `#0e8a16` | Low priority |
+
+If required labels are missing, stop task creation/updates and report the missing label names. Create missing labels manually in GitHub repository settings, then retry `/newtask` or `/tasks`. Do not auto-create labels from workflow commands.
 
 ## Maintenance Rules
 

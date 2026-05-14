@@ -26,6 +26,16 @@ Use this skill when working on shared task issue operations for this repository 
 - Use a personal fine-grained token scoped to the repository only (Metadata read-only, Issues read/write).
 - Do not rely on broad/global `gh` credentials for shared task operations.
 
+## Required issue labels for this workflow
+
+Shared task operations assume these labels already exist in the consuming repository:
+
+- Status: `status:to-do`, `status:doing`, `status:blocked`
+- Type: `type:task`, `type:feature`, `type:bug`, `type:docs`, `type:chore`
+- Priority: `priority:high`, `priority:medium`, `priority:low`
+
+Do not auto-create labels from `/newtask` or `/tasks`. If required labels are missing, stop and report the missing names so the user can create them manually in GitHub repository settings.
+
 ## Manual fallback if helper is unavailable
 
 Use plain `gh issue` with equivalent prelude:

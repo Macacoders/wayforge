@@ -27,6 +27,8 @@ Rules:
 
 Use labels (not GitHub Projects) for status tracking in this initial workflow.
 
+Required workflow labels are documented in `.opencode/skills/shared-task/SKILL.md`. If labels needed for an operation are missing, stop and report them so the user can create them manually (do not auto-create labels).
+
 Action contract:
 
 - `list`: query open issues and show number, title, assignee, and status labels (prefer filtering available work as `status:to-do` + no assignee).
