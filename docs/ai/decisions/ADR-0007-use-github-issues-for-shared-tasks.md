@@ -30,7 +30,7 @@ Open unresolved tasks from `docs/ai/backlog/tasks.jsonl` were migrated to GitHub
 
 - Team coordination improves through native issue assignment, comments, and status labels.
 - Task workflow docs and command contracts must stay aligned with GitHub Issues operations.
-- Backlog JSONL continues to hold durable context and mitigation tracking when needed.
+- Durable task state lives in GitHub Issues; historical local JSONL context remains available through git history when needed.
 
 ## Alternatives Considered
 
