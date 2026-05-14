@@ -9,6 +9,21 @@ Use `/tasks` for list/claim/release/close operations.
 
 Rule: each person/collaborator should use one responsible agent/session to interact with GitHub Issues for this repository to reduce duplicate updates and race conditions.
 
+## Credentials and Safe `gh` Usage
+
+- Each collaborator must use their own fine-grained GitHub token scoped only to this repository.
+- Minimum required token permissions:
+  - Metadata: **Read-only**
+  - Issues: **Read and write**
+- Never share tokens between people, sessions, or agents.
+- Do not rely on broad/global `gh` credentials for shared task operations.
+- Prefer repository-local credentials by setting `GH_CONFIG_DIR` to `.gh-config/` in this repository.
+- For issue operations, resolve repository in this order:
+  1. Use `GH_REPO` if set.
+  2. Otherwise derive `OWNER/REPO` from `git remote get-url origin`.
+
+Use `scripts/gh-issue` when available; it enforces repository-local `GH_CONFIG_DIR` and `--repo` for `gh issue` commands without requiring `gh repo view`.
+
 ## GitHub Issues Workflow
 
 1. **Create**: Use `/newtask <description>` to open a new GitHub Issue.

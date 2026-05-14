@@ -16,6 +16,13 @@ Use GitHub Issues as the operational source of truth for shared team tasks in th
 - Status is tracked with labels (`status:to-do`, `status:doing`, `status:blocked`) plus assignee state.
 - Duplicate-claim prevention is process-based: verify assignee and `status:doing`, then assign + label + comment before implementation.
 - Each person/collaborator uses one responsible agent/session for GitHub Issue interactions in this repository.
+- Credentials policy for issue operations:
+  - Each collaborator uses their own fine-grained token scoped to this repository only.
+  - Minimum permissions are Metadata (read-only) and Issues (read/write).
+  - Tokens are not shared and broad/global `gh` credentials are not used for shared task operations.
+  - Use repository-local `GH_CONFIG_DIR` (for example, `.gh-config/`) and explicit repository targeting.
+  - Repository resolution order is `GH_REPO` first, otherwise derive `OWNER/REPO` from `git remote get-url origin`.
+  - Do not require `gh repo view` because issue-scoped tokens may not have broader repository permissions.
 
 `docs/ai/backlog/tasks.jsonl` remains durable local memory/backlog transition history, not the active shared operations tracker.
 

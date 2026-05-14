@@ -19,6 +19,11 @@ Rules:
 3. Claim by assigning yourself, setting `status:doing`, removing `status:to-do` if present, and adding a short claim comment.
 4. Release by removing your assignee and restoring `status:to-do` unless blocked (`status:blocked` + short reason).
 5. Close only after acceptance criteria are addressed; add a short completion summary comment.
+6. For issue operations, prefer `scripts/gh-issue ...` when available.
+7. If the helper is unavailable, use equivalent `gh issue` prelude:
+   - `export GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"`
+   - Use `GH_REPO` when set; otherwise derive `OWNER/REPO` from `git remote get-url origin` and pass `--repo OWNER/REPO`.
+8. Do not require or use `gh repo view` for repository resolution.
 
 Use labels (not GitHub Projects) for status tracking in this initial workflow.
 
@@ -29,4 +34,10 @@ Action contract:
 - `release <issue-number>`: add a short release comment, remove self assignee, then set `status:to-do` (or `status:blocked` with reason).
 - `close <issue-number>`: add a completion summary comment and close the issue only after acceptance criteria are addressed.
 
-Use `gh issue` commands when available for these checks and updates.
+Use `gh issue` commands via the helper when available for these checks and updates.
+
+Credential policy for this workflow:
+
+- Use a personal fine-grained token scoped to this repository only.
+- Minimum permissions: Metadata (read-only) and Issues (read/write).
+- Never share tokens and do not use broad/global `gh` credentials.
