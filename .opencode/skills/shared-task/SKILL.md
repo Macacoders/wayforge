@@ -36,3 +36,5 @@ export GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"
 # If GH_REPO is unset, derive OWNER/REPO from git remote get-url origin
 gh issue --repo OWNER/REPO <subcommand> ...
 ```
+
+For close/completion flow, close only after acceptance criteria are addressed. Add completion text with `gh issue comment <issue-number> --body "<summary>"`, remove active/open status labels (`status:doing`, `status:to-do`, `status:blocked`) if present, and then close with `gh issue close <issue-number>`. Do not use `gh issue close --comment`.

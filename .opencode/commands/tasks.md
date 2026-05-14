@@ -18,7 +18,7 @@ Rules:
 2. Before `claim`, verify the issue is not already assigned and does not already have `status:doing`.
 3. Claim by assigning yourself, setting `status:doing`, removing `status:to-do` if present, and adding a short claim comment.
 4. Release by removing your assignee and restoring `status:to-do` unless blocked (`status:blocked` + short reason).
-5. Close only after acceptance criteria are addressed; add a short completion summary comment.
+5. Close only after acceptance criteria are addressed; add a short completion summary comment and remove any active/open status labels (`status:doing`, `status:to-do`, `status:blocked`).
 6. For issue operations, prefer `.opencode/skills/shared-task/scripts/gh-issue ...`.
 7. Compatibility fallback: use `scripts/gh-issue ...` when this repository provides it.
 8. If no helper path is available, use equivalent `gh issue` prelude:
@@ -33,7 +33,7 @@ Action contract:
 - `list`: query open issues and show number, title, assignee, and status labels (prefer filtering available work as `status:to-do` + no assignee).
 - `claim <issue-number>`: check current assignee/labels first, then assign self, set `status:doing` (remove `status:to-do`), and add a short claim comment.
 - `release <issue-number>`: add a short release comment, remove self assignee, then set `status:to-do` (or `status:blocked` with reason).
-- `close <issue-number>`: add a completion summary comment and close the issue only after acceptance criteria are addressed.
+- `close <issue-number>`: add a completion summary comment and close the issue only after acceptance criteria are addressed; remove `status:doing`, `status:to-do`, and `status:blocked` if present as part of closing; for plain `gh`, prefer `gh issue comment <issue-number> --body "<summary>"` and then `gh issue close <issue-number>`.
 
 Use `gh issue` commands via the helper when available for these checks and updates.
 

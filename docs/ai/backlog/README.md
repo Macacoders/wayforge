@@ -37,7 +37,10 @@ Use `.opencode/skills/shared-task/scripts/gh-issue` for issue operations; it enf
    - Set `status:to-do` unless blocked (then set `status:blocked` with a short reason).
 5. **Close**: Use `/tasks close <issue-number>` after completion and validation.
    - Ensure acceptance criteria are addressed.
-   - Close the issue with a short completion summary comment.
+   - Add a short completion summary comment.
+   - Remove active/open status labels if present: `status:doing`, `status:to-do`, `status:blocked`.
+   - Close the issue.
+   - If using plain `gh` commands, prefer supported usage: `gh issue comment <issue-number> --body "<completion-summary>"` followed by `gh issue close <issue-number>` (do not use unsupported `gh issue close --comment`).
 
 Duplicate-work prevention is process-based: always check assignee and `status:doing` before starting, then claim via assignee + status label + comment.
 
