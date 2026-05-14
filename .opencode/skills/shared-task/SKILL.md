@@ -14,7 +14,6 @@ Use this skill when working on shared task issue operations for this repository 
 
 - Use: `.opencode/skills/shared-task/scripts/gh-issue <issue-subcommand> ...`
 - Example: `.opencode/skills/shared-task/scripts/gh-issue view 8 --json number,title,state`
-- Compatibility fallback (this repository): `scripts/gh-issue ...`
 
 ## Safety and credential contract
 

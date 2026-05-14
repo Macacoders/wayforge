@@ -22,7 +22,7 @@ Rule: each person/collaborator should use one responsible agent/session to inter
 
 Use `.opencode/skills/shared-task/scripts/gh-issue` for issue operations; it enforces repository-local `GH_CONFIG_DIR` and repository resolution for `gh issue` commands without requiring `gh repo view`.
 
-`scripts/gh-issue` may exist in this repository as a compatibility wrapper, but consuming repositories should not require or assume a top-level `scripts/` directory.
+Do not require or assume a top-level `scripts/` directory for shared task issue operations.
 
 ## GitHub Issues Workflow
 
