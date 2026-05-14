@@ -23,7 +23,7 @@ Use the installed OpenCode workflows to onboard repositories and deliver minimal
 
 - Read this file and the repository `README.md` first.
 - Read `docs/ai/README.md` before loading other AI memory.
-- Load `docs/ai/backlog/tasks.jsonl` when selecting or creating repository improvement tasks.
+- Use GitHub Issues through `/newtask` and `/tasks` when selecting or creating repository improvement tasks.
 - Load only task-relevant plans, ADRs, architecture notes, or logs.
 - Run onboarding before implementation planning if `docs/ai/` memory is missing or stale.
 - Pass compact handoff briefs with paths and reasons to load references.

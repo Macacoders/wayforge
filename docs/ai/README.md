@@ -5,7 +5,7 @@ This directory stores durable project memory for AI-assisted work. Use it with p
 ## Documents
 
 - `architecture.md`: Current architecture, boundaries, invariants, and installation model. Load when changing repository structure, agent responsibilities, install behavior, or public workflow contracts.
-- `backlog/`: Shared task workflow docs and durable local backlog memory. Load `backlog/README.md` for GitHub Issues workflow/labels and `backlog/tasks.jsonl` for transition history and durable repository direction context.
+- `backlog/`: Shared task workflow docs. Load `backlog/README.md` for GitHub Issues workflow, credentials, labels, and claim/release rules.
 - `decisions/`: ADRs for durable decisions. Load only ADRs related to the current change or when proposing a decision that may conflict with past choices.
 - `plans/`: Approved implementation plans. Load the active plan for the current feature, bug, refactor, or workflow update.
 - `logs/`: Short monthly change logs. Load only when historical continuity is needed.
@@ -15,7 +15,7 @@ This directory stores durable project memory for AI-assisted work. Use it with p
 Persist:
 
 - Approved plans and phase status.
-- Backlog tasks that describe known problems, target outcomes, status, and acceptance criteria.
+- GitHub Issues task references that describe known problems, target outcomes, status, and acceptance criteria.
 - Architecture boundaries and invariants.
 - Durable decisions and rejected alternatives.
 - Short summaries of completed work.
@@ -31,7 +31,7 @@ Do not persist:
 ## Agent Responsibilities
 
 - `planner` owns this memory and decides when it must change.
-- `planner` keeps shared work aligned between GitHub Issues (operational tracker) and `backlog/tasks.jsonl` (durable local memory when needed).
+- `planner` keeps shared work aligned in GitHub Issues and updates durable memory only for plans, ADRs, architecture, and logs.
 - `code` updates product or repository docs relevant to its phase and may propose memory updates.
 - `test` may propose risk or coverage notes when they affect future work.
 

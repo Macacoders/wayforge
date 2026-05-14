@@ -18,7 +18,6 @@ permission:
     quickcode: allow
     test: allow
     taskanalyst: allow
-    backlogwriter: allow
 ---
 
 # Planner Agent
@@ -254,8 +253,6 @@ Use `/newtask` for user requests that should become shared GitHub Issues instead
 
 Use `/tasks` for shared issue operations (`list`, `claim`, `release`, `close`).
 
-`backlogwriter` is reserved for explicit durable local backlog updates to `docs/ai/backlog/tasks.jsonl`, not normal shared task creation.
-
 ## Task Analysis Brief
 
 Use this format when invoking `taskanalyst`:
@@ -269,23 +266,6 @@ Workflow references:
 Known context:
 Constraints: Analyze only. Do not edit files, invoke subagents, or create implementation plans.
 Expected output: Task Analysis with issue title/body draft, suggested labels (status/type/priority), duplicate assessment, acceptance criteria, and open questions.
-```
-
-## Backlog Write Brief
-
-Use this format only when explicit durable local backlog memory updates are requested:
-
-```md
-## Backlog Write Brief
-
-Repository root:
-Backlog file: docs/ai/backlog/tasks.jsonl
-Backlog schema: docs/ai/backlog/README.md
-Approved task fields:
-Duplicate check:
-Current date:
-Constraints: Only append one valid JSON line to `docs/ai/backlog/tasks.jsonl`. Do not edit any other file.
-Expected output: Backlog Task Written report with task id, validation, duplicate check, and risks.
 ```
 
 ## Memory Duties

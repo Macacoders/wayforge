@@ -24,7 +24,7 @@ Use GitHub Issues as the operational source of truth for shared team tasks in th
   - Repository resolution order is `GH_REPO` first, otherwise derive `OWNER/REPO` from `git remote get-url origin`.
   - Do not require `gh repo view` because issue-scoped tokens may not have broader repository permissions.
 
-`docs/ai/backlog/tasks.jsonl` remains durable local memory/backlog transition history, not the active shared operations tracker.
+Open unresolved tasks from `docs/ai/backlog/tasks.jsonl` were migrated to GitHub Issues, and the local JSONL backlog was removed. Durable task state now belongs in GitHub Issues; durable design context belongs in ADRs, plans, architecture notes, and short logs.
 
 ## Consequences
 

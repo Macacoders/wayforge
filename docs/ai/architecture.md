@@ -34,7 +34,6 @@ The installer must not overwrite existing non-symlink files by default.
 - `quickcode` is a Codex-oriented subagent invoked by `planner` for one approved quick-delivery task, with low reasoning effort for small low-risk changes. It may edit autonomously within narrow low-risk scope, run allowlisted validation/git inspection commands, and must not invoke subagents.
 - `test` is a GPT-5.5-fast subagent used when review identifies meaningful testing or regression risk, keeping critical review independent from Codex implementation output.
 - `taskanalyst` is a GPT-5.5-fast subagent used by `/newtask` to interpret problem reports and propose structured GitHub Issue content without editing files.
-- `backlogwriter` is a GPT-5.5-fast subagent reserved for durable local backlog updates when explicitly requested.
 
 ## Context Strategy
 
@@ -44,7 +43,7 @@ The system uses progressive disclosure:
 - Handoffs contain compact briefs and reference paths.
 - Subagents do not inherit whole planning transcripts.
 - Persistent memory stores durable decisions, not chat history.
-- Shared task operations live in GitHub Issues; `docs/ai/backlog/tasks.jsonl` remains durable local memory for repository direction and transition continuity.
+- Shared task operations live in GitHub Issues; repository direction and transition continuity should be captured through issues, ADRs, plans, architecture notes, and short logs.
 - The active repository root is the default boundary for searches, reads, edits, commands, and reviews.
 - Handoffs include `Repository root:` so subagents inherit the same boundary.
 
@@ -98,5 +97,5 @@ The shared task creation workflow is:
 - Keep quick delivery limited to approved low-risk tasks with no staged pauses and mandatory planner review.
 - Keep durable memory under `docs/ai/`.
 - Keep GitHub Issues as the operational shared source of truth for team tasks.
-- Keep `docs/ai/backlog/tasks.jsonl` as durable local memory, not the active shared tracker.
-- Keep shared task analysis separated from issue operations, and use `backlogwriter` only for explicit durable local backlog updates.
+- Keep shared tasks in GitHub Issues rather than a local JSONL backlog.
+- Keep shared task analysis separated from issue operations.

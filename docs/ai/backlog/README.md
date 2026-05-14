@@ -1,8 +1,6 @@
-# AI Backlog
+# Shared Task Workflow
 
 GitHub Issues is the operational source of truth for shared repository tasks. Use issues for active teamwork: create, list, claim, release, and close work.
-
-`tasks.jsonl` remains durable local memory/backlog transition history for repository context and continuity.
 
 Use `/newtask` to create shared tasks as GitHub Issues.
 Use `/tasks` for list/claim/release/close operations.
@@ -60,62 +58,11 @@ Minimum useful labels:
   - `priority:medium`
   - `priority:low`
 
-## Files
-
-- `tasks.jsonl`: One backlog task per line. Each line must be valid JSON.
-
-## Task Schema
-
-Required fields:
-
-- `id`: Stable task id, using `task-NNN`.
-- `legacy_id`: Previous id when migrated from another inventory, or `null`.
-- `title`: Short actionable title.
-- `status`: Current state.
-- `priority`: Relative priority.
-- `type`: Task kind.
-- `area`: Repository area affected.
-- `source`: Where the task came from.
-- `problem`: Problem or opportunity that motivates the task.
-- `goal`: Desired outcome.
-- `current_state`: Current known state.
-- `affected_components`: Agents, scripts, docs, or config touched by the task.
-- `related_files`: Relevant file paths.
-- `related_decisions`: Relevant ADR ids.
-- `dependencies`: Blocking or related task ids.
-- `acceptance_criteria`: Verifiable completion criteria.
-- `suggested_next_step`: Next concrete action.
-- `risk_if_unresolved`: Risk of leaving the task unresolved.
-- `created_at`: Date the task entered the backlog.
-- `updated_at`: Date the task was last changed.
-
-Optional fields:
-
-- `mitigation_summary`: Required when `status` is `mitigated`.
-- `done_summary`: Required when `status` is `done`.
-
-## Status Values
-
-- `open`: Identified and not started.
-- `in_progress`: Currently being worked on.
-- `blocked`: Waiting on a decision, dependency, or external input.
-- `mitigated`: Partially addressed with controls or policy, but still needs real-world validation.
-- `done`: Completed and validated.
-- `cancelled`: Explicitly discarded.
-
-## Priority Values
-
-- `critical`: Blocks safe or useful repository operation.
-- `high`: Important workflow, quality, or maintainability improvement.
-- `medium`: Useful improvement without immediate operational risk.
-- `low`: Nice-to-have or cleanup.
-
 ## Maintenance Rules
 
 - Keep GitHub Issues as the operational shared tracker.
-- Keep `tasks.jsonl` as durable local memory and transition history.
 - Add new shared tasks through `/newtask` by default.
-- Update `updated_at` whenever a task changes.
-- Prefer `mitigated` over `done` when a policy or guardrail has been added but still needs validation in consuming repositories.
-- Link ADRs when a task creates or changes durable decisions.
-- Do not store raw diffs, transcripts, or long logs in the backlog.
+- Use `/tasks claim <issue-number>` before starting implementation on shared work.
+- Keep issue state current through assignees, status labels, and short comments.
+- Link ADRs, plans, or pull requests from the issue when a task creates durable decisions or implementation work.
+- Do not store raw diffs, transcripts, or long logs in issues; summarize outcomes and link durable references instead.

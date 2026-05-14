@@ -26,7 +26,7 @@ Turn raw user input into a clear shared-task issue proposal that can be reviewed
 - Do not edit files.
 - Do not invoke other subagents.
 - Do not create implementation plans.
-- Compare the request against existing open GitHub Issues and backlog context when provided.
+- Compare the request against existing open GitHub Issues and workflow context when provided.
 - Identify probable duplicates or overlaps instead of creating near-duplicate tasks.
 - Prefer concrete, actionable task language over abstract concerns.
 - If essential information is missing, return concise open questions.
@@ -38,7 +38,7 @@ Turn raw user input into a clear shared-task issue proposal that can be reviewed
 
 ## Progressive Disclosure
 
-- Load only the backlog references and directly relevant files named in the handoff.
+- Load only the workflow references and directly relevant files named in the handoff.
 - Do not load implementation plans, ADRs, architecture docs, or logs unless the handoff identifies a reason.
 - Keep analysis compact enough for `planner` to review without re-reading the whole tracker context.
 

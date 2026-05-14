@@ -61,7 +61,7 @@ The staged-delivery workflow keeps repository onboarding, planning, implementati
 
 ## Agents
 
-The target OpenCode setup uses one primary agent and six specialized subagents.
+The target OpenCode setup uses one primary agent and five specialized subagents.
 
 | Agent | Mode | Purpose | Preferred model | Reasoning |
 | :--- | :--- | :--- | :--- | :--- |
@@ -71,7 +71,6 @@ The target OpenCode setup uses one primary agent and six specialized subagents.
 | `quickcode` | Subagent | Implements one approved quick-delivery task autonomously within narrow low-risk scope, then reports once for planner review. | `openai/gpt-5.3-codex` | Low |
 | `test` | Subagent | Critically reviews implementation quality and regression risk; recommends tests when justified and writes new tests only with explicit approval. | `openai/gpt-5.5-fast` | Medium |
 | `taskanalyst` | Subagent | Interprets problem reports and improvement ideas before shared task issue creation. | `openai/gpt-5.5-fast` | Medium |
-| `backlogwriter` | Subagent | Updates durable local backlog memory (`docs/ai/backlog/tasks.jsonl`) when explicitly requested. | `openai/gpt-5.5-fast` | Medium |
 
 The default model policy balances reasoning quality and implementation cost: planning/research stay on the GPT-5.5 family with medium reasoning, implementation agents use Codex-oriented models, and `test` stays on GPT-5.5-fast for independent critical review rather than Codex. Use `openai/gpt-5.5-pro` only for unusually difficult research or review tasks where latency and cost are acceptable. Use `openai/gpt-5.4-mini-fast` for OpenCode's lightweight `small_model` setting when available in your connected account.
 
@@ -108,7 +107,6 @@ docs/ai/
   architecture.md
   backlog/
     README.md
-    tasks.jsonl
   decisions/
     ADR-0001-example.md
   logs/
@@ -120,15 +118,13 @@ docs/ai/
 Use this memory for durable information only:
 
 - Approved plans and phase status.
-- Shared repository improvement backlog with task status, priorities, goals, and acceptance criteria.
+- Shared repository improvement task references in GitHub Issues with status, priorities, goals, and acceptance criteria.
 - Architecture boundaries and invariants.
 - Decisions that affect future work.
 - Tradeoffs and rejected alternatives.
 - Short monthly change logs.
 
 Use GitHub Issues as the operational source of truth for shared repository work (create, claim, release, close).
-
-Use `docs/ai/backlog/tasks.jsonl` as durable local memory and backlog transition history. Each line is a JSON task object documented by `docs/ai/backlog/README.md`.
 
 Use `/newtask` to create shared tasks as GitHub Issues. Use `/tasks` to list, claim, release, and close shared work.
 
