@@ -2,34 +2,11 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+skill_helper="$repo_root/.opencode/skills/shared-task/scripts/gh-issue"
 
-if [[ -n "${GH_REPO:-}" ]]; then
-  repo="$GH_REPO"
-else
-  origin_url="$(git remote get-url origin 2>/dev/null || true)"
-  if [[ -z "$origin_url" ]]; then
-    printf 'Error: GH_REPO is not set and git remote origin is unavailable.\n' >&2
-    exit 1
-  fi
-
-  case "$origin_url" in
-    git@github.com:*)
-      repo="${origin_url#git@github.com:}"
-      ;;
-    https://github.com/*|http://github.com/*|ssh://git@github.com/*)
-      repo="${origin_url#https://github.com/}"
-      repo="${repo#http://github.com/}"
-      repo="${repo#ssh://git@github.com/}"
-      ;;
-    *)
-      printf 'Error: unsupported origin URL format: %s\n' "$origin_url" >&2
-      exit 1
-      ;;
-  esac
-
-  repo="${repo%.git}"
+if [[ ! -x "$skill_helper" ]]; then
+  printf 'Error: skill helper is missing or not executable: %s\n' "$skill_helper" >&2
+  exit 1
 fi
 
-export GH_CONFIG_DIR="${GH_CONFIG_DIR:-$repo_root/.gh-config}"
-
-exec gh issue --repo "$repo" "$@"
+exec "$skill_helper" "$@"

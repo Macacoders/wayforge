@@ -144,6 +144,8 @@ The bootstrap script should create project-local links such as:
 <target-repo>/AGENTS.md -> <ai-config>/templates/AGENTS.md
 ```
 
+Shared workflow helpers that commands depend on should live inside the installed `.opencode/skills` surface (for example `.opencode/skills/shared-task/scripts/gh-issue`). Consuming repositories should not need a top-level `scripts/` link for shared task workflows.
+
 The installer must be conservative:
 
 - Never overwrite existing real files by default.

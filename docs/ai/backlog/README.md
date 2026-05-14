@@ -20,7 +20,9 @@ Rule: each person/collaborator should use one responsible agent/session to inter
   1. Use `GH_REPO` if set.
   2. Otherwise derive `OWNER/REPO` from `git remote get-url origin`.
 
-Use `scripts/gh-issue` when available; it enforces repository-local `GH_CONFIG_DIR` and `--repo` for `gh issue` commands without requiring `gh repo view`.
+Use `.opencode/skills/shared-task/scripts/gh-issue` for issue operations; it enforces repository-local `GH_CONFIG_DIR` and repository resolution for `gh issue` commands without requiring `gh repo view`.
+
+`scripts/gh-issue` may exist in this repository as a compatibility wrapper, but consuming repositories should not require or assume a top-level `scripts/` directory.
 
 ## GitHub Issues Workflow
 

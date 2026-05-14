@@ -1,0 +1,38 @@
+---
+name: shared-task
+description: Use for shared GitHub Issues task workflow with /tasks, /newtask, and gh-issue helper operations.
+compatibility: opencode
+metadata:
+  workflow: shared-task-github-issues
+---
+
+# Shared Task GitHub Issues Helper
+
+Use this skill when working on shared task issue operations for this repository (`/tasks`, `/newtask`, and direct helper usage).
+
+## Preferred helper
+
+- Use: `.opencode/skills/shared-task/scripts/gh-issue <issue-subcommand> ...`
+- Example: `.opencode/skills/shared-task/scripts/gh-issue view 8 --json number,title,state`
+- Compatibility fallback (this repository): `scripts/gh-issue ...`
+
+## Safety and credential contract
+
+- Keep `GH_CONFIG_DIR` repository-local by default: `$(git rev-parse --show-toplevel)/.gh-config`.
+- Repository resolution order:
+  1. Respect `GH_REPO` when set.
+  2. Otherwise derive `OWNER/REPO` from `git remote get-url origin`.
+  3. Respect explicit `--repo OWNER/REPO` (or `-R OWNER/REPO`) when provided.
+- Do not require or rely on `gh repo view`.
+- Use a personal fine-grained token scoped to the repository only (Metadata read-only, Issues read/write).
+- Do not rely on broad/global `gh` credentials for shared task operations.
+
+## Manual fallback if helper is unavailable
+
+Use plain `gh issue` with equivalent prelude:
+
+```bash
+export GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"
+# If GH_REPO is unset, derive OWNER/REPO from git remote get-url origin
+gh issue --repo OWNER/REPO <subcommand> ...
+```

@@ -26,6 +26,8 @@ Target projects should receive symlinks to:
 
 The installer must not overwrite existing non-symlink files by default.
 
+Portable workflow helpers used by shared commands should be packaged under `.opencode/skills/**` so they are available through the installed surface; consuming repositories should not require a top-level `scripts/` directory for those helpers.
+
 ## Agent Topology
 
 - `planner` is the default primary agent. It uses a non-native id to avoid colliding with OpenCode's built-in `plan` agent.

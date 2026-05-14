@@ -17,10 +17,11 @@ Use the shared task creation workflow:
 4. Review the analysis for missing required fields, duplicate risk, and classification errors.
 5. Ask the user one concise clarification question if required fields are missing or a likely duplicate exists.
 6. If the task is ready, create a GitHub Issue in this repository.
-   - Prefer `scripts/gh-issue create ...` when available.
-   - If the helper is unavailable, use equivalent prelude for `gh issue`:
-     - `export GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"`
-     - If `GH_REPO` is unset, derive `OWNER/REPO` from `git remote get-url origin` and pass `--repo OWNER/REPO`.
+   - Prefer `.opencode/skills/shared-task/scripts/gh-issue create ...`.
+   - Compatibility fallback: use `scripts/gh-issue create ...` when this repository provides it.
+   - If no helper path is available, use equivalent prelude for `gh issue`:
+      - `export GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"`
+      - If `GH_REPO` is unset, derive `OWNER/REPO` from `git remote get-url origin` and pass `--repo OWNER/REPO`.
    - Do not require or use `gh repo view` for repository resolution.
 7. Apply labels using the documented minimum set: one status label (`status:to-do`), one type label (default `type:task`), and one priority label.
 8. Report the created issue number and URL.

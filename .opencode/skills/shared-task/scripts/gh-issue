@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+export GH_CONFIG_DIR="${GH_CONFIG_DIR:-$repo_root/.gh-config}"
+
+has_explicit_repo=0
+prev_arg=""
+for arg in "$@"; do
+  if [[ "$prev_arg" == "--repo" || "$prev_arg" == "-R" ]]; then
+    has_explicit_repo=1
+    break
+  fi
+
+  case "$arg" in
+    --repo=*|-R=*)
+      has_explicit_repo=1
+      break
+      ;;
+  esac
+
+  prev_arg="$arg"
+done
+
+if [[ "$has_explicit_repo" -eq 1 ]]; then
+  exec gh issue "$@"
+fi
+
+if [[ -n "${GH_REPO:-}" ]]; then
+  repo="$GH_REPO"
+else
+  origin_url="$(git remote get-url origin 2>/dev/null || true)"
+  if [[ -z "$origin_url" ]]; then
+    printf 'Error: GH_REPO is not set and git remote origin is unavailable.\n' >&2
+    exit 1
+  fi
+
+  case "$origin_url" in
+    git@github.com:*)
+      repo="${origin_url#git@github.com:}"
+      ;;
+    https://github.com/*|http://github.com/*|ssh://git@github.com/*)
+      repo="${origin_url#https://github.com/}"
+      repo="${repo#http://github.com/}"
+      repo="${repo#ssh://git@github.com/}"
+      ;;
+    *)
+      printf 'Error: unsupported origin URL format: %s\n' "$origin_url" >&2
+      exit 1
+      ;;
+  esac
+
+  repo="${repo%.git}"
+fi
+
+exec gh issue --repo "$repo" "$@"
