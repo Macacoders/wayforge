@@ -33,8 +33,8 @@ The installer must not overwrite existing non-symlink files by default.
 - `code` is a conservative Codex-oriented subagent used once per approved implementation phase, with medium reasoning effort and low temperature.
 - `quickcode` is a Codex-oriented subagent invoked by `planner` for one approved quick-delivery task, with low reasoning effort for small low-risk changes. It may edit autonomously within narrow low-risk scope, run allowlisted validation/git inspection commands, and must not invoke subagents.
 - `test` is a GPT-5.5-fast subagent used when review identifies meaningful testing or regression risk, keeping critical review independent from Codex implementation output.
-- `taskanalyst` is a GPT-5.5-fast subagent used by `/newtask` to interpret problem reports and propose schema-aligned backlog task fields without editing files.
-- `backlogwriter` is a GPT-5.5-fast subagent used by `/newtask` to append exactly one approved task to `docs/ai/backlog/tasks.jsonl` and validate JSONL.
+- `taskanalyst` is a GPT-5.5-fast subagent used by `/newtask` to interpret problem reports and propose structured GitHub Issue content without editing files.
+- `backlogwriter` is a GPT-5.5-fast subagent reserved for durable local backlog updates when explicitly requested.
 
 ## Context Strategy
 
@@ -44,7 +44,7 @@ The system uses progressive disclosure:
 - Handoffs contain compact briefs and reference paths.
 - Subagents do not inherit whole planning transcripts.
 - Persistent memory stores durable decisions, not chat history.
-- Shared backlog state lives in `docs/ai/backlog/tasks.jsonl` so repository direction and pending improvements are reusable across sessions.
+- Shared task operations live in GitHub Issues; `docs/ai/backlog/tasks.jsonl` remains durable local memory for repository direction and transition continuity.
 - The active repository root is the default boundary for searches, reads, edits, commands, and reviews.
 - Handoffs include `Repository root:` so subagents inherit the same boundary.
 
@@ -74,15 +74,14 @@ The opt-in quick-delivery workflow is:
 
 Quick delivery escalates back to staged delivery when scope, risk, validation, or acceptance criteria become unclear.
 
-The backlog task creation workflow is:
+The shared task creation workflow is:
 
 1. Start with `/newtask` and a problem, idea, or repository improvement request.
-2. `planner` loads the backlog schema and current tasks.
-3. `planner` invokes `taskanalyst` to interpret the request and check duplicate risk.
-4. `planner` asks a concise clarification question only when required fields are missing or duplicate risk is unresolved.
-5. `planner` invokes `backlogwriter` with approved task fields.
-6. `backlogwriter` appends one JSONL task and validates `docs/ai/backlog/tasks.jsonl`.
-7. `planner` reviews the diff and reports the created task id.
+2. `planner` checks for potential duplicates in open GitHub Issues.
+3. `planner` invokes `taskanalyst` to interpret the request and draft a concise issue body.
+4. `planner` asks a concise clarification question only when critical details are missing or duplicate risk is unresolved.
+5. `planner` creates a GitHub Issue with type/priority/status labels (initial status `status:to-do`).
+6. `planner` reports the created issue number and URL.
 
 ## Invariants
 
@@ -98,5 +97,6 @@ The backlog task creation workflow is:
 - Keep manual validation checkpoints between atomic stages for staged delivery.
 - Keep quick delivery limited to approved low-risk tasks with no staged pauses and mandatory planner review.
 - Keep durable memory under `docs/ai/`.
-- Keep repository improvement tasks in `docs/ai/backlog/tasks.jsonl` as the shared backlog source of truth.
-- Keep backlog task analysis and backlog writes separated through `taskanalyst` and `backlogwriter`.
+- Keep GitHub Issues as the operational shared source of truth for team tasks.
+- Keep `docs/ai/backlog/tasks.jsonl` as durable local memory, not the active shared tracker.
+- Keep shared task analysis separated from issue operations, and use `backlogwriter` only for explicit durable local backlog updates.

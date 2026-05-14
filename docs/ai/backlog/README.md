@@ -1,8 +1,49 @@
 # AI Backlog
 
-This backlog is the shared source of truth for repository improvement tasks. Use it to track known problems, desired workflow changes, implementation status, and follow-up work.
+GitHub Issues is the operational source of truth for shared repository tasks. Use issues for active teamwork: create, list, claim, release, and close work.
 
-Use `/newtask` to add entries. The command routes the request through `planner`, `taskanalyst`, and `backlogwriter` so analysis, duplicate checking, and writing remain separate.
+`tasks.jsonl` remains durable local memory/backlog transition history for repository context and continuity.
+
+Use `/newtask` to create shared tasks as GitHub Issues.
+Use `/tasks` for list/claim/release/close operations.
+
+Rule: each person/collaborator should use one responsible agent/session to interact with GitHub Issues for this repository to reduce duplicate updates and race conditions.
+
+## GitHub Issues Workflow
+
+1. **Create**: Use `/newtask <description>` to open a new GitHub Issue.
+2. **List available work**: Use `/tasks list` and focus on open issues with `status:to-do` and no assignee.
+3. **Claim**: Use `/tasks claim <issue-number>`.
+   - First verify the issue is not assigned and does not already have `status:doing`.
+   - Then assign yourself and set `status:doing` (remove `status:to-do` if present).
+   - Add a short claim comment before implementation.
+4. **Release**: Use `/tasks release <issue-number>` when pausing or handing off.
+   - Remove self assignee.
+   - Set `status:to-do` unless blocked (then set `status:blocked` with a short reason).
+5. **Close**: Use `/tasks close <issue-number>` after completion and validation.
+   - Ensure acceptance criteria are addressed.
+   - Close the issue with a short completion summary comment.
+
+Duplicate-work prevention is process-based: always check assignee and `status:doing` before starting, then claim via assignee + status label + comment.
+
+## Labels
+
+Minimum useful labels:
+
+- Status:
+  - `status:to-do`
+  - `status:doing`
+  - `status:blocked`
+- Type:
+  - `type:task`
+  - `type:feature`
+  - `type:bug`
+  - `type:docs`
+  - `type:chore`
+- Priority:
+  - `priority:high`
+  - `priority:medium`
+  - `priority:low`
 
 ## Files
 
@@ -56,8 +97,9 @@ Optional fields:
 
 ## Maintenance Rules
 
-- Keep `tasks.jsonl` as the only backlog source of truth.
-- Add new tasks through `/newtask` by default.
+- Keep GitHub Issues as the operational shared tracker.
+- Keep `tasks.jsonl` as durable local memory and transition history.
+- Add new shared tasks through `/newtask` by default.
 - Update `updated_at` whenever a task changes.
 - Prefer `mitigated` over `done` when a policy or guardrail has been added but still needs validation in consuming repositories.
 - Link ADRs when a task creates or changes durable decisions.

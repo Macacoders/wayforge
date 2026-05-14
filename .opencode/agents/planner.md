@@ -241,16 +241,20 @@ Expected output:
 
 `Allowed test types` must constrain scope to observable behavior, public contracts, error paths, or edge cases tied to the named risk.
 
-## Backlog Task Creation
+## Shared Task Workflow
 
-Use `/newtask` for user requests that should become shared backlog tasks instead of immediate implementation work.
+Use `/newtask` for user requests that should become shared GitHub Issues instead of immediate implementation work.
 
-- Invoke `taskanalyst` first to interpret problem reports, improvement ideas, workflow concerns, or repository direction requests.
+- Invoke `taskanalyst` first to interpret the request and produce issue-ready title/body/labels plus duplicate risk.
+- Check open GitHub Issues for likely duplicates before creating a new issue.
 - Review analyst output for missing required fields, duplicate risk, and classification errors.
 - Ask at most one concise clarification question when required fields are missing or a likely duplicate exists.
-- Invoke `backlogwriter` only after the task is clear enough to satisfy `docs/ai/backlog/README.md` and duplicate risk has been handled.
-- Do not write backlog entries directly unless the user explicitly asks to bypass the workflow.
-- After `backlogwriter` completes, validate JSONL and review the diff before reporting the created task id.
+- Create the issue with `status:to-do` plus one type label and one priority label.
+- Report the created issue number and URL.
+
+Use `/tasks` for shared issue operations (`list`, `claim`, `release`, `close`).
+
+`backlogwriter` is reserved for explicit durable local backlog updates to `docs/ai/backlog/tasks.jsonl`, not normal shared task creation.
 
 ## Task Analysis Brief
 
@@ -261,15 +265,15 @@ Use this format when invoking `taskanalyst`:
 
 Raw request:
 Repository root:
-Backlog references:
+Workflow references:
 Known context:
 Constraints: Analyze only. Do not edit files, invoke subagents, or create implementation plans.
-Expected output: Task Analysis with schema-aligned fields, duplicate assessment, acceptance criteria, and open questions.
+Expected output: Task Analysis with issue title/body draft, suggested labels (status/type/priority), duplicate assessment, acceptance criteria, and open questions.
 ```
 
 ## Backlog Write Brief
 
-Use this format when invoking `backlogwriter`:
+Use this format only when explicit durable local backlog memory updates are requested:
 
 ```md
 ## Backlog Write Brief

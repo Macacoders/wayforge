@@ -19,7 +19,9 @@ If a quick task turns out to be ambiguous, broad, security-sensitive, operationa
 
 Staged delivery still follows phase economy. It should use the fewest phases that preserve clear, reviewable deliverables: 1 phase for simple or single-outcome work, 2-3 phases for moderate work, justification for more than 3 phases, explicit user confirmation for 6-8 phases, and task splitting instead of one large plan when the work appears to require more than 8 phases.
 
-Use `/newtask` when the user wants to capture a problem, idea, or repository improvement in the shared backlog instead of implementing it immediately. `planner` analyzes the request through `taskanalyst`, then writes one structured task through `backlogwriter`.
+Use `/newtask` when the user wants to capture a problem, idea, or repository improvement as a GitHub Issue in the shared team tracker instead of implementing it immediately. Use `/tasks` for list/claim/release/close operations.
+
+For shared task operations, each person/collaborator should use one responsible agent/session to interact with GitHub Issues for this repository.
 
 ### Staged delivery
 
@@ -68,8 +70,8 @@ The target OpenCode setup uses one primary agent and six specialized subagents.
 | `code` | Subagent | Implements one approved phase across atomic stages and pauses after each stage for manual validation. | `openai/gpt-5.3-codex` | Medium |
 | `quickcode` | Subagent | Implements one approved quick-delivery task autonomously within narrow low-risk scope, then reports once for planner review. | `openai/gpt-5.3-codex` | Low |
 | `test` | Subagent | Critically reviews implementation quality and regression risk; recommends tests when justified and writes new tests only with explicit approval. | `openai/gpt-5.5-fast` | Medium |
-| `taskanalyst` | Subagent | Interprets problem reports and improvement ideas before backlog task creation. | `openai/gpt-5.5-fast` | Medium |
-| `backlogwriter` | Subagent | Appends one approved structured task to `docs/ai/backlog/tasks.jsonl`. | `openai/gpt-5.5-fast` | Medium |
+| `taskanalyst` | Subagent | Interprets problem reports and improvement ideas before shared task issue creation. | `openai/gpt-5.5-fast` | Medium |
+| `backlogwriter` | Subagent | Updates durable local backlog memory (`docs/ai/backlog/tasks.jsonl`) when explicitly requested. | `openai/gpt-5.5-fast` | Medium |
 
 The default model policy balances reasoning quality and implementation cost: planning/research stay on the GPT-5.5 family with medium reasoning, implementation agents use Codex-oriented models, and `test` stays on GPT-5.5-fast for independent critical review rather than Codex. Use `openai/gpt-5.5-pro` only for unusually difficult research or review tasks where latency and cost are acceptable. Use `openai/gpt-5.4-mini-fast` for OpenCode's lightweight `small_model` setting when available in your connected account.
 
@@ -124,9 +126,11 @@ Use this memory for durable information only:
 - Tradeoffs and rejected alternatives.
 - Short monthly change logs.
 
-Use `docs/ai/backlog/tasks.jsonl` as the source of truth for known repository improvement tasks and current direction. Each line is a JSON task object documented by `docs/ai/backlog/README.md`.
+Use GitHub Issues as the operational source of truth for shared repository work (create, claim, release, close).
 
-Use `/newtask` to add backlog entries. It separates analysis from writing: `taskanalyst` proposes schema-aligned task fields and duplicate checks, then `backlogwriter` appends exactly one JSONL line.
+Use `docs/ai/backlog/tasks.jsonl` as durable local memory and backlog transition history. Each line is a JSON task object documented by `docs/ai/backlog/README.md`.
+
+Use `/newtask` to create shared tasks as GitHub Issues. Use `/tasks` to list, claim, release, and close shared work.
 
 Do not store full chat transcripts, long terminal output, raw diffs, or trivial implementation notes.
 
@@ -241,14 +245,14 @@ Expected output:
 
 `test` must be critical. It should challenge assumptions, identify untested behavior, and prefer focused tests that validate observable outcomes instead of implementation details. It should also say `No new tests needed` when the change is docs-only, configuration-only, mechanical, already covered by existing validation, or does not change observable behavior.
 
-`planner` should hand off backlog task analysis to `taskanalyst` before writing new backlog entries:
+`planner` should hand off shared task analysis to `taskanalyst` before creating new GitHub Issues:
 
 ```md
 ## Task Analysis Brief
 
 Raw request:
 Repository root:
-Backlog references:
+Workflow references:
 Known context:
 Constraints:
 Expected output:
@@ -256,22 +260,7 @@ Expected output:
 
 `taskanalyst` must not edit files or create implementation plans.
 
-`planner` should hand off approved backlog writes to `backlogwriter`:
-
-```md
-## Backlog Write Brief
-
-Repository root:
-Backlog file:
-Backlog schema:
-Approved task fields:
-Duplicate check:
-Current date:
-Constraints:
-Expected output:
-```
-
-`backlogwriter` must only append one valid JSON line to `docs/ai/backlog/tasks.jsonl`, validate JSONL, and report the created task id.
+For shared team task operations, use GitHub Issues through `/newtask` (create) and `/tasks` (list, claim, release, close). Track claim state with assignee + status labels (`status:to-do`, `status:doing`, `status:blocked`) and short comments.
 
 ## Repository Direction
 

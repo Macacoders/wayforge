@@ -16,7 +16,7 @@ Use the installed OpenCode workflows to onboard repositories and deliver minimal
 8. For quick delivery, `planner` may invoke `quickcode` for one approved low-risk task; `quickcode` works without staged pauses and reports once for planner review.
 9. Escalate quick delivery back to staged delivery if scope, risk, validation, or acceptance criteria become unclear.
 10. Use `test` when completed changes need critical testing review or regression coverage.
-11. Use `/newtask` to capture repository improvement ideas in `docs/ai/backlog/tasks.jsonl` instead of implementing them immediately.
+11. Use `/newtask` to create shared repository tasks as GitHub Issues, and `/tasks` to list/claim/release/close shared work.
 12. Update durable memory under `docs/ai/` only for onboarding findings, backlog tasks, approved plans, decisions, architecture changes, and short logs.
 
 ## Progressive Disclosure

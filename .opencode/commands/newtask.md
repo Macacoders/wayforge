@@ -1,22 +1,23 @@
 ---
-description: Analyze a problem or idea and append a structured task to the AI backlog.
+description: Analyze a problem or idea and create a shared GitHub Issue task.
 agent: planner
 ---
 
-Create a new backlog task from this request:
+Create a new shared GitHub Issue task from this request:
 
 $ARGUMENTS
 
 First establish the active repository root. Keep all reads, searches, reviews, and handoff references inside that root unless the user explicitly approves an external path.
 
-Use the backlog task creation workflow:
+Use the shared task creation workflow:
 
-1. Read `docs/ai/backlog/README.md` and `docs/ai/backlog/tasks.jsonl`.
+1. Read `docs/ai/backlog/README.md` and any relevant workflow references.
 2. Invoke `taskanalyst` with a compact Task Analysis Brief.
-3. Review the analysis for missing required fields, duplicate risk, and classification errors.
-4. Ask the user one concise clarification question if required fields are missing or a likely duplicate exists.
-5. If the task is ready, invoke `backlogwriter` with a Backlog Write Brief.
-6. Validate that `docs/ai/backlog/tasks.jsonl` remains valid JSONL.
-7. Review the diff and report the created task id.
+3. Check open GitHub Issues for probable duplicates (title/body/labels) before creating a new issue.
+4. Review the analysis for missing required fields, duplicate risk, and classification errors.
+5. Ask the user one concise clarification question if required fields are missing or a likely duplicate exists.
+6. If the task is ready, create a GitHub Issue in this repository (use `gh issue create` when available).
+7. Apply labels using the documented minimum set: one status label (`status:to-do`), one type label (default `type:task`), and one priority label.
+8. Report the created issue number and URL.
 
-Do not implement the task being created. This command only creates backlog entries.
+Do not implement the task being created. This command only creates shared tasks.

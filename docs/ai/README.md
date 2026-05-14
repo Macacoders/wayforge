@@ -5,7 +5,7 @@ This directory stores durable project memory for AI-assisted work. Use it with p
 ## Documents
 
 - `architecture.md`: Current architecture, boundaries, invariants, and installation model. Load when changing repository structure, agent responsibilities, install behavior, or public workflow contracts.
-- `backlog/`: Shared repository improvement backlog. Load `backlog/tasks.jsonl` when selecting the next workflow/configuration improvement or checking current repository direction.
+- `backlog/`: Shared task workflow docs and durable local backlog memory. Load `backlog/README.md` for GitHub Issues workflow/labels and `backlog/tasks.jsonl` for transition history and durable repository direction context.
 - `decisions/`: ADRs for durable decisions. Load only ADRs related to the current change or when proposing a decision that may conflict with past choices.
 - `plans/`: Approved implementation plans. Load the active plan for the current feature, bug, refactor, or workflow update.
 - `logs/`: Short monthly change logs. Load only when historical continuity is needed.
@@ -31,7 +31,7 @@ Do not persist:
 ## Agent Responsibilities
 
 - `planner` owns this memory and decides when it must change.
-- `planner` keeps `backlog/tasks.jsonl` aligned with approved repository direction and task outcomes.
+- `planner` keeps shared work aligned between GitHub Issues (operational tracker) and `backlog/tasks.jsonl` (durable local memory when needed).
 - `code` updates product or repository docs relevant to its phase and may propose memory updates.
 - `test` may propose risk or coverage notes when they affect future work.
 
