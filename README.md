@@ -5,8 +5,8 @@
 The repository is intentionally narrow:
 
 - **Runtime**: OpenCode only.
-- **Providers**: OpenAI (default) and Kimi25, authenticated in OpenCode with `/connect` using ChatGPT Plus/Pro or Azure credentials.
-- **Installation model**: per-project symlinks, so target repositories keep ownership of their files and can opt in without copying this repository.
+- **Providers**: OpenAI (default) and Kimi25, selectable at install time (`openai`, `kimi25`, or `openai,kimi25`).
+- **Installation model**: generate/copy project-local OpenCode runtime files from reusable sources under `base/opencode/**`.
 - **Context model**: progressive disclosure, where agents load indexes and targeted references instead of dumping whole documentation trees into context.
 
 ## Workflows
@@ -132,40 +132,66 @@ Do not store full chat transcripts, long terminal output, raw diffs, or trivial 
 
 ## Installation Model
 
-This repository is intended to be installed into each target project through symlinks.
+This repository keeps reusable OpenCode sources under `base/opencode/**` and generates project-local runtime configuration in each consuming repository.
 
-The bootstrap script should create project-local links such as:
+Expected generated/local output in a target repository:
 
 ```text
-<target-repo>/opencode.jsonc -> <ai-config>/opencode.jsonc
-<target-repo>/.opencode/agents -> <ai-config>/.opencode/agents
-<target-repo>/.opencode/commands -> <ai-config>/.opencode/commands
-<target-repo>/.opencode/skills -> <ai-config>/.opencode/skills
-<target-repo>/AGENTS.md -> <ai-config>/templates/AGENTS.md
+<target-repo>/opencode.jsonc
+<target-repo>/.opencode/agents/**
+<target-repo>/.opencode/commands/**
+<target-repo>/.opencode/skills/**
+<target-repo>/AGENTS.md
 ```
 
-Shared workflow helpers that commands depend on should live inside the installed `.opencode/skills` surface (for example `.opencode/skills/shared-task/scripts/gh-issue`). Consuming repositories should not need a top-level `scripts/` link for shared task workflows.
+`opencode.jsonc` is generated per installation and acts as the provider/model brain, including centralized per-agent model assignments under the `agent` section.
 
-The installer must be conservative:
+Shared workflow helpers that commands depend on should live inside the installed `.opencode/skills` surface (for example `.opencode/skills/shared-task/scripts/gh-issue`). Consuming repositories should not need a top-level `scripts/` directory for shared task workflows.
 
-- Never overwrite existing real files by default.
-- Skip conflicting non-symlink paths and report them.
-- Refresh symlinks only with `--force`.
-- Support `--dry-run` before modifying a target repository.
-
-Expected command shape:
+Provider-selectable installation commands:
 
 **Linux/macOS:**
 ```bash
-./install/bootstrap.sh --repo /path/to/repo --dry-run
-./install/bootstrap.sh --repo /path/to/repo
+# OpenAI only (default)
+./install/bootstrap.sh --repo /path/to/repo --providers openai
+
+# Kimi25 only
+./install/bootstrap.sh --repo /path/to/repo --providers kimi25
+
+# OpenAI + Kimi25
+./install/bootstrap.sh --repo /path/to/repo --providers openai,kimi25
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\install\bootstrap.ps1 -Repo /path/to/repo -DryRun
-.\install\bootstrap.ps1 -Repo /path/to/repo
+# OpenAI only (default)
+.\install\bootstrap.ps1 -Repo /path/to/repo -Providers openai
+
+# Kimi25 only
+.\install\bootstrap.ps1 -Repo /path/to/repo -Providers kimi25
+
+# OpenAI + Kimi25
+.\install\bootstrap.ps1 -Repo /path/to/repo -Providers openai,kimi25
 ```
+
+Optional overrides:
+
+- `--model` / `-Model` to override the generated default model (`<provider>/<model>` format).
+- `--small-model` / `-SmallModel` to override the generated lightweight `small_model` value.
+
+Conservative installer policy:
+
+- Use `--dry-run` / `-DryRun` to preview changes before modifying a target repository.
+- Do not overwrite unmanaged existing files/directories by default.
+- With `--force` / `-Force`, only refresh managed output (and legacy symlink targets when encountered).
+
+Configuration and secrets boundary:
+
+- **Reusable source config in this repo**: versioned templates/source under `base/opencode/**`.
+- **Generated local config in consuming repos**: local `opencode.jsonc`, `.opencode/**`, and `AGENTS.md` runtime output.
+- **Secrets/auth**:
+  - OpenAI authentication is handled in OpenCode via `/connect` (ChatGPT Plus/Pro or Azure credentials).
+  - Kimi25 uses environment variables documented in `profiles/defaults.env.example`: `KIMI_BASE_URL`, `KIMI_API_KEY`, `KIMI_API_VERSION`.
 
 ## Handoff Contracts
 
@@ -277,7 +303,7 @@ The old multi-runtime structure has been replaced:
 - Tool-agnostic role files that are no longer installed were removed.
 - Broad skill categories were replaced with one staged delivery workflow skill.
 - Profile-specific templates were replaced with a single OpenCode-oriented project template.
-- The bootstrap script now focuses on project-local OpenCode symlinks.
+- The bootstrap script now focuses on provider-selectable generated OpenCode project-local output.
 
 ## Design Principles
 

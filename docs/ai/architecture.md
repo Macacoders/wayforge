@@ -2,29 +2,34 @@
 
 ## Scope
 
-This repository provides reusable OpenCode configuration for target projects through project-local symlinks.
+This repository provides reusable OpenCode source configuration and installs generated project-local runtime output for target projects.
 
 ## Runtime Boundary
 
 - OpenCode is the only supported AI runtime.
-- **Primary provider**: OpenAI, authenticated in OpenCode with `/connect` using ChatGPT Plus/Pro.
-- **Secondary provider**: Kimi25 (Azure-hosted Kimi K2.5), configured via environment variables (`KIMI_BASE_URL`, `KIMI_API_KEY`, `KIMI_API_VERSION`).
+- Supported provider sets during installation: `openai`, `kimi25`, and `openai,kimi25`.
+- OpenAI authentication is handled in OpenCode with `/connect` (ChatGPT Plus/Pro or Azure credentials).
+- Kimi25 (Azure-hosted Kimi K2.5) is configured via environment variables (`KIMI_BASE_URL`, `KIMI_API_KEY`, `KIMI_API_VERSION`).
 - Model IDs are recommendations and may need adjustment with `/models` depending on account availability.
 - The default model policy balances GPT-5.5-family reasoning for planning, onboarding, and critical review with Codex-oriented models for implementation.
 - Users can switch providers interactively: `/model openai/gpt-5.5` or `/model kimi25/Kimi-K2.5`.
-- Agent-specific model assignments can be configured in `opencode.jsonc` to use different providers for different tasks.
+- Generated `opencode.jsonc` is the provider/model brain for each target repository and centralizes per-agent model assignments under `agent`.
 
 ## Installed Surface
 
-Target projects should receive symlinks to:
+Reusable versioned source lives in this repository under `base/opencode/**`.
 
-- `opencode.jsonc`
-- `.opencode/agents`
-- `.opencode/commands`
-- `.opencode/skills`
-- `AGENTS.md`
+Target projects receive generated/local runtime output:
 
-The installer must not overwrite existing non-symlink files by default.
+- `opencode.jsonc` (generated per install)
+- `.opencode/agents/**` (copied/generated local output)
+- `.opencode/commands/**` (copied/generated local output)
+- `.opencode/skills/**` (copied/generated local output)
+- `AGENTS.md` (installed helper surface)
+
+The `.opencode/` directory in consuming repositories is local/generated runtime output, not the reusable source-of-truth for this repository.
+
+The installer must not overwrite unmanaged existing files by default, supports dry-run preview, and only force-refreshes managed output (plus legacy symlink targets when encountered).
 
 Portable workflow helpers used by shared commands should be packaged under `.opencode/skills/**` so they are available through the installed surface; consuming repositories should not require a top-level `scripts/` directory for those helpers.
 
