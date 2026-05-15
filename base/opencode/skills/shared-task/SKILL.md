@@ -12,8 +12,12 @@ Use this skill when working on shared task issue operations for this repository 
 
 ## Preferred helper
 
-- Use: `.opencode/skills/shared-task/scripts/gh-issue <issue-subcommand> ...` (installed target-repository path)
-- Example: `.opencode/skills/shared-task/scripts/gh-issue view 8 --json number,title,state`
+Choose the appropriate script for your platform:
+
+- **Linux/macOS/Git Bash**: `.opencode/skills/shared-task/scripts/gh-issue <issue-subcommand> ...`
+- **Windows PowerShell**: `.opencode/skills/shared-task/scripts/gh-issue.ps1 <issue-subcommand> ...`
+
+Example: `.opencode/skills/shared-task/scripts/gh-issue view 8 --json number,title,state`
 
 ## Safety and credential contract
 
@@ -40,8 +44,16 @@ Do not auto-create labels from `/newtask` or `/tasks`. If required labels are mi
 
 Use plain `gh issue` with equivalent prelude:
 
+**Linux/macOS/Git Bash:**
 ```bash
 export GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"
+# If GH_REPO is unset, derive OWNER/REPO from git remote get-url origin
+gh issue --repo OWNER/REPO <subcommand> ...
+```
+
+**Windows PowerShell:**
+```powershell
+$env:GH_CONFIG_DIR = "$(git rev-parse --show-toplevel)/.gh-config"
 # If GH_REPO is unset, derive OWNER/REPO from git remote get-url origin
 gh issue --repo OWNER/REPO <subcommand> ...
 ```
