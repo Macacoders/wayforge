@@ -24,7 +24,7 @@ Use the shared task creation workflow:
    - Tell the user to create missing labels manually in GitHub repository settings, then rerun `/newtask`.
    - Do not attempt automatic label creation.
 7. If the task is ready, create a GitHub Issue in this repository.
-   - Use `.opencode/skills/shared-task/scripts/gh-issue create ...`.
+   - Use `.opencode/skills/shared-task/scripts/gh-issue create ...` (installed target-repository path).
    - If the skill helper is unavailable, use equivalent prelude for `gh issue`:
       - `export GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"`
       - If `GH_REPO` is unset, derive `OWNER/REPO` from `git remote get-url origin` and pass `--repo OWNER/REPO`.

@@ -12,7 +12,7 @@ Use this skill when working on shared task issue operations for this repository 
 
 ## Preferred helper
 
-- Use: `.opencode/skills/shared-task/scripts/gh-issue <issue-subcommand> ...`
+- Use: `.opencode/skills/shared-task/scripts/gh-issue <issue-subcommand> ...` (installed target-repository path)
 - Example: `.opencode/skills/shared-task/scripts/gh-issue view 8 --json number,title,state`
 
 ## Safety and credential contract

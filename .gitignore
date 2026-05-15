@@ -35,3 +35,6 @@ tmp/
 
 .devcontainer
 .gh-config
+
+# OpenCode generated/local runtime output
+.opencode/

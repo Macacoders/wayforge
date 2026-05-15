@@ -1,7 +1,6 @@
 ---
 description: Critically reviews implemented changes for regression risk, recommends tests when justified, and writes tests only with explicit approval.
 mode: subagent
-model: openai/gpt-5.5-fast
 reasoningEffort: medium
 textVerbosity: medium
 permission:

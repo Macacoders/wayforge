@@ -1,7 +1,6 @@
 ---
 description: Analyzes problem reports and improvement ideas before shared GitHub Issue task creation.
 mode: subagent
-model: openai/gpt-5.5-fast
 reasoningEffort: medium
 textVerbosity: medium
 permission:

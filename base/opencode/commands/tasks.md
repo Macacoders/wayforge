@@ -19,7 +19,7 @@ Rules:
 3. Claim by assigning yourself, setting `status:doing`, removing `status:to-do` if present, and adding a short claim comment.
 4. Release by removing your assignee and restoring `status:to-do` unless blocked (`status:blocked` + short reason).
 5. Close only after acceptance criteria are addressed; add a short completion summary comment and remove any active/open status labels (`status:doing`, `status:to-do`, `status:blocked`).
-6. For issue operations, use `.opencode/skills/shared-task/scripts/gh-issue ...`.
+6. For issue operations, use `.opencode/skills/shared-task/scripts/gh-issue ...` (installed target-repository path).
 7. If the skill helper is unavailable, use equivalent `gh issue` prelude:
    - `export GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"`
    - Use `GH_REPO` when set; otherwise derive `OWNER/REPO` from `git remote get-url origin` and pass `--repo OWNER/REPO`.
@@ -27,7 +27,7 @@ Rules:
 
 Use labels (not GitHub Projects) for status tracking in this initial workflow.
 
-Required workflow labels are documented in `.opencode/skills/shared-task/SKILL.md`. If labels needed for an operation are missing, stop and report them so the user can create them manually (do not auto-create labels).
+Required workflow labels are documented in `.opencode/skills/shared-task/SKILL.md` (installed target-repository path). If labels needed for an operation are missing, stop and report them so the user can create them manually (do not auto-create labels).
 
 Action contract:
 
