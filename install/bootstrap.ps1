@@ -90,7 +90,7 @@ function run-writefile {
         log "DRY-RUN: write file $Path"
         return
     }
-    Set-Content -Path $Path -Value $Content -Encoding UTF8NoBOM
+    [System.IO.File]::WriteAllText($Path, $Content)
 }
 
 function ensure-dir {
