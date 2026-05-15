@@ -271,6 +271,57 @@ $kimi_block"
   printf '%s' "$out"
 }
 
+build_agent_block_json() {
+  if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "kimi25" ]]; then
+    cat <<'EOF'
+"agent": {
+    "planner": {
+      "model": "kimi25/Kimi-K2.5"
+    },
+    "research": {
+      "model": "kimi25/Kimi-K2.5"
+    },
+    "code": {
+      "model": "kimi25/Kimi-K2.5"
+    },
+    "quickcode": {
+      "model": "kimi25/Kimi-K2.5"
+    },
+    "test": {
+      "model": "kimi25/Kimi-K2.5"
+    },
+    "taskanalyst": {
+      "model": "kimi25/Kimi-K2.5"
+    }
+  }
+EOF
+    return
+  fi
+
+  cat <<'EOF'
+"agent": {
+    "planner": {
+      "model": "openai/gpt-5.5"
+    },
+    "research": {
+      "model": "openai/gpt-5.5-fast"
+    },
+    "code": {
+      "model": "openai/gpt-5.3-codex"
+    },
+    "quickcode": {
+      "model": "openai/gpt-5.3-codex"
+    },
+    "test": {
+      "model": "openai/gpt-5.5-fast"
+    },
+    "taskanalyst": {
+      "model": "openai/gpt-5.5-fast"
+    }
+  }
+EOF
+}
+
 generate_opencode_jsonc_content() {
   local default_model="openai/gpt-5.5"
   local default_small_model="openai/gpt-5.4-mini-fast"
@@ -293,6 +344,8 @@ generate_opencode_jsonc_content() {
   enabled_json="$(build_enabled_providers_json)"
   local provider_block
   provider_block="$(build_provider_block_json)"
+  local agent_block
+  agent_block="$(build_agent_block_json)"
 
   cat <<EOF
 $MANAGED_OPENCODE_HEADER
@@ -303,6 +356,7 @@ $MANAGED_OPENCODE_HEADER
   "small_model": "$final_small_model",
   "default_agent": "planner",
   "share": "disabled",
+  $agent_block,
   "provider": {
 $provider_block
   },

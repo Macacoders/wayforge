@@ -285,6 +285,56 @@ function Build-ProviderBlockJson {
     return [string]::Join(",`n", $blocks)
 }
 
+function Build-AgentBlockJson {
+    if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'kimi25') {
+        return @'
+"agent": {
+    "planner": {
+      "model": "kimi25/Kimi-K2.5"
+    },
+    "research": {
+      "model": "kimi25/Kimi-K2.5"
+    },
+    "code": {
+      "model": "kimi25/Kimi-K2.5"
+    },
+    "quickcode": {
+      "model": "kimi25/Kimi-K2.5"
+    },
+    "test": {
+      "model": "kimi25/Kimi-K2.5"
+    },
+    "taskanalyst": {
+      "model": "kimi25/Kimi-K2.5"
+    }
+  }
+'@.TrimEnd()
+    }
+
+    return @'
+"agent": {
+    "planner": {
+      "model": "openai/gpt-5.5"
+    },
+    "research": {
+      "model": "openai/gpt-5.5-fast"
+    },
+    "code": {
+      "model": "openai/gpt-5.3-codex"
+    },
+    "quickcode": {
+      "model": "openai/gpt-5.3-codex"
+    },
+    "test": {
+      "model": "openai/gpt-5.5-fast"
+    },
+    "taskanalyst": {
+      "model": "openai/gpt-5.5-fast"
+    }
+  }
+'@.TrimEnd()
+}
+
 function Generate-OpenCodeJsoncContent {
     $defaultModel = 'openai/gpt-5.5'
     $defaultSmallModel = 'openai/gpt-5.4-mini-fast'
@@ -299,6 +349,7 @@ function Generate-OpenCodeJsoncContent {
 
     $enabledJson = Build-EnabledProvidersJson
     $providerBlock = Build-ProviderBlockJson
+    $agentBlock = Build-AgentBlockJson
 
     return @"
 $MANAGED_OPENCODE_HEADER
@@ -309,6 +360,7 @@ $MANAGED_OPENCODE_HEADER
   "small_model": "$finalSmallModel",
   "default_agent": "planner",
   "share": "disabled",
+  $agentBlock,
   "provider": {
 $providerBlock
   },
