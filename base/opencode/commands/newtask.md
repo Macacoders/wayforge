@@ -11,7 +11,9 @@ First establish the active repository root. Keep all reads, searches, reviews, a
 
 Use the shared task creation workflow:
 
-1. Read `docs/ai/backlog/README.md` and any relevant workflow references.
+1. Check if `docs/ai/backlog/README.md` exists:
+   - If it exists: Read `docs/ai/backlog/README.md` and any relevant workflow references.
+   - If it is missing: Read `.opencode/skills/shared-task/SKILL.md` as the fallback workflow reference.
 2. Invoke `taskanalyst` with a compact Task Analysis Brief.
 3. Check open GitHub Issues for probable duplicates (title/body/labels) before creating a new issue.
 4. Review the analysis for missing required fields, duplicate risk, and classification errors.
