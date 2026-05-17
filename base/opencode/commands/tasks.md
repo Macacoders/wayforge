@@ -34,7 +34,7 @@ Action contract:
 - `list`: query open issues and show number, title, assignee, and status labels (prefer filtering available work as `status:to-do` + no assignee; when using `--json` or `--label` with comma-separated values, always quote the argument, e.g., `--json 'number,title,assignees,labels'`).
 - `claim <issue-number>`: check current assignee/labels first, then assign self, set `status:doing` (remove `status:to-do`), and add a short claim comment.
 - `release <issue-number>`: add a short release comment, remove self assignee, then set `status:to-do` (or `status:blocked` with reason).
-- `close <issue-number>`: add a completion summary comment and close the issue only after acceptance criteria are addressed; remove `status:doing`, `status:to-do`, and `status:blocked` if present as part of closing; for plain `gh`, prefer `gh issue comment <issue-number> --body "<summary>"` and then `gh issue close <issue-number>`.
+- `close <issue-number>`: add a completion summary comment and close the issue only after acceptance criteria are addressed; remove `status:doing`, `status:to-do`, and `status:blocked` if present as part of closing; for plain `gh`, use `gh issue comment <issue-number> --body-file <path>` (write summary to a temporary file first, then remove it after use) and then `gh issue close <issue-number>`.
 
 Use `gh issue` commands via the helper when available for these checks and updates.
 
