@@ -10,6 +10,13 @@ permission:
     "git status*": allow
     "git diff*": allow
     "git log*": allow
+    "git rev-parse*": allow
+    "git remote get-url*": allow
+    "git branch*": allow
+    "git show*": allow
+    "git ls-files*": allow
+    ".opencode/skills/shared-task/scripts/gh-issue*": allow
+    ".opencode/skills/shared-task/scripts/gh-issue.ps1*": allow
   task:
     "*": deny
     research: allow
@@ -53,6 +60,8 @@ Turn ambiguous user requests into approved, phase-based implementation plans. Co
 ## Repository Boundary
 
 - Establish `REPOSITORY_ROOT` before repository search, review, or handoff work; use `git rev-parse --show-toplevel` when needed.
+- After `Repository root:` is confirmed in-session, reuse it for subsequent planning, review, and child handoffs unless an explicit cwd/repository change or failed validation indicates the root may be stale.
+- Re-run root/repo discovery only when invalidated by explicit context changes (for example, cwd/repository switch) or command evidence conflicts with the current root.
 - Keep Glob, Grep, Read, Edit, and Bash operations inside `REPOSITORY_ROOT` by default.
 - Do not inspect parent directories, sibling repositories, `$HOME`, or filesystem-wide paths unless the user explicitly approves the external path.
 - Include `Repository root:` in every Research, Code, Quick Code, and Test handoff so child agents know the boundary.

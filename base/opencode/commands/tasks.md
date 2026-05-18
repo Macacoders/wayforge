@@ -5,6 +5,8 @@ agent: planner
 
 Manage shared tasks in GitHub Issues for this repository.
 
+Establish the active `Repository root:` once per session, then reuse it (and already-derived repo context) unless explicit cwd/repository changes or failed validation indicate context is stale.
+
 Usage:
 
 - `/tasks list`
@@ -19,11 +21,12 @@ Rules:
 3. Claim by assigning yourself, setting `status:doing`, removing `status:to-do` if present, and adding a short claim comment.
 4. Release by removing your assignee and restoring `status:to-do` unless blocked (`status:blocked` + short reason).
 5. Close only after acceptance criteria are addressed; add a short completion summary comment and remove any active/open status labels (`status:doing`, `status:to-do`, `status:blocked`).
-6. For issue operations, use `.opencode/skills/shared-task/scripts/gh-issue ...` (installed target-repository path).
-7. If the skill helper is unavailable, use equivalent `gh issue` prelude:
-   - `export GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"`
-   - Use `GH_REPO` when set; otherwise derive `OWNER/REPO` from `git remote get-url origin` and pass `--repo OWNER/REPO`.
-8. Do not require or use `gh repo view` for repository resolution.
+6. For issue operations, prefer `.opencode/skills/shared-task/scripts/gh-issue ...` (installed target-repository path).
+7. Reuse already-confirmed root/repo context when available; avoid redundant rediscovery in the same session.
+8. If the skill helper is unavailable, use equivalent `gh issue` prelude:
+   - `export GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"` (or reuse existing session value when already set correctly).
+   - Use `GH_REPO` when already set for this repository; otherwise derive `OWNER/REPO` from `git remote get-url origin` and pass `--repo OWNER/REPO`.
+9. Do not require or use `gh repo view` for repository resolution.
 
 Use labels (not GitHub Projects) for status tracking in this initial workflow.
 
