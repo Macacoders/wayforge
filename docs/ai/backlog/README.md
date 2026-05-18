@@ -35,10 +35,17 @@ Do not require or assume a top-level `scripts/` directory for shared task issue 
 4. **Release**: Use `/tasks release <issue-number>` when pausing or handing off.
    - Remove self assignee.
    - Set `status:to-do` unless blocked (then set `status:blocked` with a short reason).
-5. **Close**: Use `/tasks close <issue-number>` after completion and validation.
+5. **prclose**: Use `/tasks prclose <issue-number>` when ready for code review (follows the close workflow but creates a PR instead of closing).
+   - If on protected branch (develop/main/master), create feature branch and commit changes first.
+   - Ensure acceptance criteria are addressed in the PR.
+   - Add a short completion summary comment.
+   - Remove `status:doing` and add `status:in-review` label.
+   - Create the Pull Request (issue remains open, will auto-close on merge).
+6. **Close**: Use `/tasks close <issue-number>` after completion and validation.
+   - Use for tasks completed without code review or when closing rejected/abandoned work.
    - Ensure acceptance criteria are addressed.
    - Add a short completion summary comment.
-   - Remove active/open status labels if present: `status:doing`, `status:to-do`, `status:blocked`.
+   - Remove active/open status labels if present: `status:doing`, `status:to-do`, `status:in-review`, `status:blocked`.
    - Close the issue.
    - If using plain `gh` commands, prefer supported usage: `gh issue comment <issue-number> --body "<completion-summary>"` followed by `gh issue close <issue-number>` (do not use unsupported `gh issue close --comment`).
 
@@ -52,6 +59,7 @@ Required labels for the shared task workflow (must already exist in the reposito
 | :--- | :--- | :--- |
 | `status:to-do` | `#ededed` | Task is available to be claimed |
 | `status:doing` | `#fbca04` | Task is currently assigned or in progress |
+| `status:in-review` | `#1d76db` | Issue has an open Pull Request under review |
 | `status:blocked` | `#d73a4a` | Task is blocked |
 | `type:task` | `#0e8a16` | General shared task |
 | `type:feature` | `#1d76db` | Feature work |
