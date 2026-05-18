@@ -420,6 +420,7 @@ is_managed_dir() {
 sync_managed_tree() {
   local src="$1"
   local dst="$2"
+  local force_replace_unmanaged="${3:-0}"
   local parent
   parent="$(dirname "$dst")"
 
@@ -439,7 +440,7 @@ sync_managed_tree() {
       log "skip existing non-symlink: $dst"
       return
     fi
-    if [[ ! -d "$dst" ]] || ! is_managed_dir "$dst"; then
+    if [[ ! -d "$dst" ]] || { [[ "$force_replace_unmanaged" -ne 1 ]] && ! is_managed_dir "$dst"; }; then
       log "skip existing non-managed path (not replacing): $dst"
       return
     fi
@@ -472,9 +473,9 @@ install_repo() {
 
   sync_generated_opencode_jsonc "$repo/opencode.jsonc"
   safe_link "$ROOT_DIR/templates/AGENTS.md" "$repo/AGENTS.md"
-  sync_managed_tree "$ROOT_DIR/base/opencode/agents" "$repo/.opencode/agents"
-  sync_managed_tree "$ROOT_DIR/base/opencode/commands" "$repo/.opencode/commands"
-  sync_managed_tree "$ROOT_DIR/base/opencode/skills" "$repo/.opencode/skills"
+  sync_managed_tree "$ROOT_DIR/base/opencode/agents" "$repo/.opencode/agents" 1
+  sync_managed_tree "$ROOT_DIR/base/opencode/commands" "$repo/.opencode/commands" 1
+  sync_managed_tree "$ROOT_DIR/base/opencode/skills" "$repo/.opencode/skills" 1
 
   log "repo bootstrap complete for: $repo"
 }
@@ -490,7 +491,7 @@ Options:
   --model        Override default model (must belong to an enabled provider)
   --small-model  Override default small model (must belong to an enabled provider)
   --dry-run      Print planned operations without modifying files.
-  --force        Replace existing installer-managed targets/symlinks. Never overwrites unmanaged real files.
+  --force        Replace generated OpenCode runtime trees and managed targets/symlinks.
   -h, --help     Show this help.
 EOF
 }

@@ -29,7 +29,7 @@ Target projects receive generated/local runtime output:
 
 The `.opencode/` directory in consuming repositories is local/generated runtime output, not the reusable source-of-truth for this repository.
 
-The installer must not overwrite unmanaged existing files by default, supports dry-run preview, and only force-refreshes managed output (plus legacy symlink targets when encountered).
+The installer must not overwrite unmanaged existing files by default and supports dry-run preview. With force enabled, it refreshes generated OpenCode runtime trees (`.opencode/agents`, `.opencode/commands`, `.opencode/skills`) plus managed output and legacy symlink targets when encountered.
 
 Portable workflow helpers used by shared commands should be packaged under `.opencode/skills/**` so they are available through the installed surface; consuming repositories should not require a top-level `scripts/` directory for those helpers.
 

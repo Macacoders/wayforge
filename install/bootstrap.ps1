@@ -427,7 +427,8 @@ function Is-ManagedDir {
 function Sync-ManagedTree {
     param(
         [string]$Src,
-        [string]$Dst
+        [string]$Dst,
+        [bool]$ForceReplaceUnmanaged = $false
     )
 
     if (-not (Test-Path $Src -PathType Container)) {
@@ -446,7 +447,7 @@ function Sync-ManagedTree {
         } elseif (-not $FORCE) {
             log "skip existing non-symlink: $Dst"
             return
-        } elseif (-not ($item.PSIsContainer) -or -not (Is-ManagedDir $Dst)) {
+        } elseif (-not ($item.PSIsContainer) -or (-not $ForceReplaceUnmanaged -and -not (Is-ManagedDir $Dst))) {
             log "skip existing non-managed path (not replacing): $Dst"
             return
         } else {
@@ -481,9 +482,9 @@ function install-repo {
 
     Sync-GeneratedOpenCodeJsonc (Join-Path $Repo 'opencode.jsonc')
     safe-link (Join-Path (Join-Path $ROOT_DIR 'templates') 'AGENTS.md') (Join-Path $Repo 'AGENTS.md')
-    Sync-ManagedTree (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/agents') (Join-Path (Join-Path $Repo '.opencode') 'agents')
-    Sync-ManagedTree (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/commands') (Join-Path (Join-Path $Repo '.opencode') 'commands')
-    Sync-ManagedTree (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/skills') (Join-Path (Join-Path $Repo '.opencode') 'skills')
+    Sync-ManagedTree (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/agents') (Join-Path (Join-Path $Repo '.opencode') 'agents') $true
+    Sync-ManagedTree (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/commands') (Join-Path (Join-Path $Repo '.opencode') 'commands') $true
+    Sync-ManagedTree (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/skills') (Join-Path (Join-Path $Repo '.opencode') 'skills') $true
 
     log "repo bootstrap complete for: $Repo"
 }
@@ -499,7 +500,7 @@ Options:
   -Model         Override default model (must belong to an enabled provider)
   -SmallModel    Override default small model (must belong to an enabled provider)
   -DryRun        Print planned operations without modifying files.
-  -Force         Replace existing installer-managed targets/symlinks. Never overwrites unmanaged real files.
+  -Force         Replace generated OpenCode runtime trees and managed targets/symlinks.
   -h, -Help      Show this help.
 '@ | Write-Host
 }

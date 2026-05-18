@@ -183,7 +183,7 @@ Conservative installer policy:
 
 - Use `--dry-run` / `-DryRun` to preview changes before modifying a target repository.
 - Do not overwrite unmanaged existing files/directories by default.
-- With `--force` / `-Force`, only refresh managed output (and legacy symlink targets when encountered).
+- With `--force` / `-Force`, refresh generated OpenCode runtime trees (`.opencode/agents`, `.opencode/commands`, `.opencode/skills`) plus managed output and legacy symlink targets when encountered.
 
 Configuration and secrets boundary:
 
