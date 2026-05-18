@@ -11,7 +11,7 @@ Usage:
 - `/tasks claim <issue-number>`
 - `/tasks release <issue-number>`
 - `/tasks close <issue-number>`
-- `/tasks closePR <issue-number>`
+- `/tasks prclose <issue-number>`
 
 Rules:
 
@@ -36,7 +36,7 @@ Action contract:
 - `claim <issue-number>`: check current assignee/labels first, then assign self, set `status:doing` (remove `status:to-do`), and add a short claim comment.
 - `release <issue-number>`: add a short release comment, remove self assignee, then set `status:to-do` (or `status:blocked` with reason).
 - `close <issue-number>`: add a completion summary comment and close the issue only after acceptance criteria are addressed; remove `status:doing`, `status:to-do`, and `status:blocked` if present as part of closing; for plain `gh`, use `gh issue comment <issue-number> --body-file <path>` (write summary to a temporary file first, then remove it after use) and then `gh issue close <issue-number>`.
-- `closePR <issue-number>`: add a completion summary comment, remove `status:doing`, add `status:in-review`, and create a Pull Request instead of closing the issue; if on protected branch (develop/main/master), first create and switch to feature branch `feature/issue-{number}-{slugified-title}` and commit any uncommitted changes; push branch, then create PR with `gh pr create --title "<issue-title>" --body "Fixes #<issue-number>"`; the issue remains open and will auto-close when the PR merges.
+- `prclose <issue-number>`: add a completion summary comment, remove `status:doing`, add `status:in-review`, and create a Pull Request instead of closing the issue; if on protected branch (develop/main/master), first create and switch to feature branch `feature/issue-{number}-{slugified-title}` and commit any uncommitted changes; push branch, then create PR with `gh pr create --title "<issue-title>" --body "Fixes #<issue-number>"`; the issue remains open and will auto-close when the PR merges.
 
 Use `gh issue` commands via the helper when available for these checks and updates.
 

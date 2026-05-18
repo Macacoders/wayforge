@@ -35,13 +35,13 @@ Do not require or assume a top-level `scripts/` directory for shared task issue 
 4. **Release**: Use `/tasks release <issue-number>` when pausing or handing off.
    - Remove self assignee.
    - Set `status:to-do` unless blocked (then set `status:blocked` with a short reason).
-5. **Request review with closePR**: Use `/tasks closePR <issue-number>` when ready for code review (follows the close workflow but creates a PR instead of closing).
+5. **prclose**: Use `/tasks prclose <issue-number>` when ready for code review (follows the close workflow but creates a PR instead of closing).
    - If on protected branch (develop/main/master), create feature branch and commit changes first.
    - Ensure acceptance criteria are addressed in the PR.
    - Add a short completion summary comment.
    - Remove `status:doing` and add `status:in-review` label.
    - Create the Pull Request (issue remains open, will auto-close on merge).
-6. **Close**: Use `/tasks close <issue-number>` to close an issue directly (without PR review) after completion and validation.
+6. **Close**: Use `/tasks close <issue-number>` after completion and validation.
    - Use for tasks completed without code review or when closing rejected/abandoned work.
    - Ensure acceptance criteria are addressed.
    - Add a short completion summary comment.
