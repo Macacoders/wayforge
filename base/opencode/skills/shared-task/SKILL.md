@@ -34,7 +34,7 @@ Example: `.opencode/skills/shared-task/scripts/gh-issue view 8 --json number,tit
 
 Shared task operations assume these labels already exist in the consuming repository:
 
-- Status: `status:to-do`, `status:doing`, `status:blocked`
+- Status: `status:to-do`, `status:doing`, `status:in-review`, `status:blocked`
 - Type: `type:task`, `type:feature`, `type:bug`, `type:docs`, `type:chore`
 - Priority: `priority:high`, `priority:medium`, `priority:low`
 
