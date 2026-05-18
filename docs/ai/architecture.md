@@ -19,6 +19,8 @@ This repository provides reusable OpenCode source configuration and installs gen
 
 Reusable versioned source lives in this repository under `base/opencode/**`.
 
+Agent permissions are centrally maintained in `base/opencode/permissions/agents.yml`. The installer renders those permissions into generated target `.opencode/agents/*.md` frontmatter because OpenCode consumes native agent metadata and does not natively import shared permission fragments from secondary files.
+
 Target projects receive generated/local runtime output:
 
 - `opencode.jsonc` (generated per install)

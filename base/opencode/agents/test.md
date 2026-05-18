@@ -3,10 +3,6 @@ description: Critically reviews implemented changes for regression risk, recomme
 mode: subagent
 reasoningEffort: medium
 textVerbosity: medium
-permission:
-  edit: ask
-  bash: ask
-  task: deny
 ---
 
 # Test Agent

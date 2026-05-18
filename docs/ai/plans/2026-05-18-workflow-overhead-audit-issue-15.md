@@ -13,6 +13,54 @@ Slice A was implemented in source-of-truth files under `base/opencode/**`:
 
 Potential follow-up remains unchanged: evaluate a shared/imported allowlist mechanism to reduce duplication across agents while preserving safety defaults.
 
+## Implementation Note (Phase 1: Centralized Permission Source)
+
+Phase 1 introduces a centralized ai-config-owned permission source at:
+
+- `base/opencode/permissions/agents.yml`
+
+This file is a source-of-truth for future bootstrap rendering only. It is **not** an OpenCode runtime import feature.
+
+Precedence notes recorded for follow-up phases:
+
+- OpenCode does not natively import permission fragments from secondary files.
+- Agent-specific permissions override top-level `opencode.jsonc` permissions for that agent.
+- Within a permission map, the last matching rule wins.
+- Therefore, centralized permission data must be rendered into runtime-consumed files during bootstrap in a later phase.
+
+## Implementation Note (Phase 2: Bootstrap Permission Rendering)
+
+Phase 2 updates installer bootstrap scripts to render centralized agent permissions from:
+
+- `base/opencode/permissions/agents.yml`
+
+into installed target agent markdown frontmatter under `.opencode/agents/*.md` during managed agent-tree sync. Rendering is intentionally shape-constrained to the current `agents -> agent -> permission` YAML structure and uses no external parser dependencies.
+
+Behavior notes:
+
+- Existing source `base/opencode/agents/*.md` permission blocks remain in place for now (Phase 3 handles source cleanup).
+- Dry-run mode reports intended permission-render writes and does not modify target files.
+- Force/unmanaged protections are preserved: permission rendering runs only when the managed agent tree is copied/refreshed (or would be copied in dry-run), and skipped destinations are not overwritten.
+
+## Implementation Note (Phase 3: Source Permission Cleanup + Validation)
+
+Phase 3 removed duplicated source `permission:` frontmatter blocks from:
+
+- `base/opencode/agents/planner.md`
+- `base/opencode/agents/research.md`
+- `base/opencode/agents/code.md`
+- `base/opencode/agents/quickcode.md`
+- `base/opencode/agents/test.md`
+- `base/opencode/agents/taskanalyst.md`
+
+Validation summary:
+
+- Bash bootstrap validation passed against temporary output under `/tmp/opencode`.
+- Generated target agent files still include expected `permission:` blocks rendered from centralized `base/opencode/permissions/agents.yml` (verified for representative agents including `planner`, `quickcode`, `code`, and `taskanalyst`).
+- Source `base/opencode/agents/*.md` files no longer contain `permission:` blocks.
+- Repository local generated `.opencode/**` output was not modified.
+- PowerShell bootstrap parity validation remains manual/pending as appropriate for environment availability.
+
 ## Goal
 
 Identify avoidable workflow overhead across `/plan`, staged phase implementation/review, `/quick`, `/newtask`, and `/tasks`, and propose low-risk implementation slices that preserve existing safety decisions.

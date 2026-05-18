@@ -3,27 +3,6 @@ description: Plans phased work, coordinates research/implementation/testing suba
 mode: primary
 reasoningEffort: medium
 textVerbosity: medium
-permission:
-  edit: ask
-  bash:
-    "*": ask
-    "git status*": allow
-    "git diff*": allow
-    "git log*": allow
-    "git rev-parse*": allow
-    "git remote get-url*": allow
-    "git branch*": allow
-    "git show*": allow
-    "git ls-files*": allow
-    ".opencode/skills/shared-task/scripts/gh-issue*": allow
-    ".opencode/skills/shared-task/scripts/gh-issue.ps1*": allow
-  task:
-    "*": deny
-    research: allow
-    code: allow
-    quickcode: allow
-    test: allow
-    taskanalyst: allow
 ---
 
 # Planner Agent

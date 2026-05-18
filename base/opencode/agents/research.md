@@ -3,10 +3,6 @@ description: Onboards existing repositories and creates initial docs/ai memory b
 mode: subagent
 reasoningEffort: medium
 textVerbosity: medium
-permission:
-  edit: ask
-  bash: ask
-  task: deny
 ---
 
 # Research Agent

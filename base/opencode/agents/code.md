@@ -4,10 +4,6 @@ mode: subagent
 reasoningEffort: medium
 textVerbosity: medium
 temperature: 0.1
-permission:
-  edit: ask
-  bash: ask
-  task: deny
 ---
 
 # Code Agent
