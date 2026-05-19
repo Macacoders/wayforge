@@ -425,6 +425,11 @@ function Is-ManagedDir {
     return (Test-Path (Join-Path $Path $MANAGED_DIR_MARKER) -PathType Leaf)
 }
 
+function Is-ManagedFile {
+    param([string]$Path)
+    return (Test-Path "${Path}.ai-config-managed" -PathType Leaf)
+}
+
 function Sync-ManagedTree {
     param(
         [string]$Src,
@@ -641,6 +646,47 @@ function Sync-AgentsTreeWithPermissions {
     }
 }
 
+function Sync-ManagedFile {
+    param(
+        [string]$Src,
+        [string]$Dst
+    )
+
+    if (-not (Test-Path $Src -PathType Leaf)) {
+        log "error: source file does not exist: $Src"
+        exit 1
+    }
+
+    if (Test-Path $Dst) {
+        $item = Get-Item $Dst -ErrorAction SilentlyContinue
+        if ($item -and $item.Attributes -match 'ReparsePoint') {
+            if (-not $FORCE) {
+                log "skip existing file (use -Force to replace): $Dst"
+                return
+            }
+            run-rm $Dst
+        } elseif (-not $FORCE) {
+            log "skip existing file (use -Force to replace): $Dst"
+            return
+        } elseif (-not (Is-ManagedFile $Dst)) {
+            log "skip existing unmanaged file (use -Force to replace): $Dst"
+            return
+        } else {
+            run-rm $Dst
+        }
+    }
+
+    $parent = Split-Path -Parent $Dst
+    ensure-dir $parent
+    Copy-Item -Path $Src -Destination $Dst
+    run-writefile "${Dst}.ai-config-managed" 'generated-by=ai-config-bootstrap.sh'
+    if ($DRY_RUN) {
+        log "DRY-RUN: would copy managed file: $Dst"
+    } else {
+        log "copied managed file: $Dst"
+    }
+}
+
 function install-repo {
     param([string]$Repo)
 
@@ -657,7 +703,7 @@ function install-repo {
 
     Sync-GeneratedOpenCodeJsonc (Join-Path $Repo 'opencode.jsonc')
     safe-link (Join-Path (Join-Path $ROOT_DIR 'templates') 'AGENTS.md') (Join-Path $Repo 'AGENTS.md')
-    Sync-AgentsTreeWithPermissions (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/agents') (Join-Path (Join-Path $Repo '.opencode') 'agents') (Join-Path (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/permissions') 'agents.yml')
+    Sync-ManagedTree (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/agents') (Join-Path (Join-Path $Repo '.opencode') 'agents') $true
     Sync-ManagedTree (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/commands') (Join-Path (Join-Path $Repo '.opencode') 'commands') $true
     Sync-ManagedTree (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/skills') (Join-Path (Join-Path $Repo '.opencode') 'skills') $true
 
