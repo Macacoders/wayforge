@@ -4,42 +4,6 @@ mode: subagent
 reasoningEffort: low
 textVerbosity: medium
 temperature: 0.1
-permission:
-  edit: allow
-  bash:
-    "*": ask
-    "git status*": allow
-    "git diff*": allow
-    "git log*": allow
-    "git show*": allow
-    "git branch*": allow
-    "git ls-files*": allow
-    "npm test*": allow
-    "npm run test*": allow
-    "npm run lint*": allow
-    "npm run typecheck*": allow
-    "npm run build*": allow
-    "pnpm test*": allow
-    "pnpm run test*": allow
-    "pnpm run lint*": allow
-    "pnpm run typecheck*": allow
-    "pnpm run build*": allow
-    "yarn test*": allow
-    "yarn lint*": allow
-    "yarn typecheck*": allow
-    "yarn build*": allow
-    "yarn run test*": allow
-    "yarn run lint*": allow
-    "yarn run typecheck*": allow
-    "yarn run build*": allow
-    "pytest*": allow
-    "python -m pytest*": allow
-    "ruff check*": allow
-    "mypy*": allow
-    "cargo test*": allow
-    "go test*": allow
-    "make test*": allow
-  task: deny
 ---
 
 # Quick Code Agent

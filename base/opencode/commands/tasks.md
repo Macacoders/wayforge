@@ -1,14 +1,17 @@
 ---
-description: Manage shared GitHub Issues tasks (list, claim, release, close).
+description: Manage shared GitHub Issues tasks (list, claim, assign, release, close).
 agent: planner
 ---
 
 Manage shared tasks in GitHub Issues for this repository.
 
+Establish the active `Repository root:` once per session, then reuse it (and already-derived repo context) unless explicit cwd/repository changes or failed validation indicate context is stale.
+
 Usage:
 
 - `/tasks list`
 - `/tasks claim <issue-number>`
+- `/tasks assign <issue-number> <collaborator>`
 - `/tasks release <issue-number>`
 - `/tasks close <issue-number>`
 - `/tasks prclose <issue-number>`
@@ -16,15 +19,16 @@ Usage:
 Rules:
 
 1. Use one responsible agent/session per person/collaborator when interacting with GitHub Issues for this repository.
-2. Before `claim`, verify the issue is not already assigned and does not already have `status:doing`.
+2. Before `claim` or `assign`, verify the issue is not already assigned and does not already have `status:doing`.
 3. Claim by assigning yourself, setting `status:doing`, removing `status:to-do` if present, and adding a short claim comment.
 4. Release by removing your assignee and restoring `status:to-do` unless blocked (`status:blocked` + short reason).
 5. Close only after acceptance criteria are addressed; add a short completion summary comment and remove any active/open status labels (`status:doing`, `status:to-do`, `status:blocked`).
-6. For issue operations, use `.opencode/skills/shared-task/scripts/gh-issue ...` (installed target-repository path).
-7. If the skill helper is unavailable, use equivalent `gh issue` prelude:
-   - `export GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"`
-   - Use `GH_REPO` when set; otherwise derive `OWNER/REPO` from `git remote get-url origin` and pass `--repo OWNER/REPO`.
-8. Do not require or use `gh repo view` for repository resolution.
+6. For issue operations, prefer `.opencode/skills/shared-task/scripts/gh-issue ...` (installed target-repository path).
+7. Reuse already-confirmed root/repo context when available; avoid redundant rediscovery in the same session.
+8. If the skill helper is unavailable, use equivalent `gh issue` prelude:
+   - `export GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"` (or reuse existing session value when already set correctly).
+   - Use `GH_REPO` when already set for this repository; otherwise derive `OWNER/REPO` from `git remote get-url origin` and pass `--repo OWNER/REPO`.
+9. Do not require or use `gh repo view` for repository resolution.
 
 Use labels (not GitHub Projects) for status tracking in this initial workflow.
 
@@ -34,6 +38,7 @@ Action contract:
 
 - `list`: query open issues and show number, title, assignee, and status labels (prefer filtering available work as `status:to-do` + no assignee; when using `--json` or `--label` with comma-separated values, always quote the argument, e.g., `--json 'number,title,assignees,labels'`).
 - `claim <issue-number>`: check current assignee/labels first, then assign self, set `status:doing` (remove `status:to-do`), and add a short claim comment.
+- `assign <issue-number> <collaborator>`: check current assignee first, warn and require confirmation if already assigned; attempt `gh issue edit --add-assignee` (fails with error if invalid user, no partial changes); on success set `status:doing` (remove `status:to-do`) and add assignment comment.
 - `release <issue-number>`: add a short release comment, remove self assignee, then set `status:to-do` (or `status:blocked` with reason).
 - `close <issue-number>`: add a completion summary comment and close the issue only after acceptance criteria are addressed; remove `status:doing`, `status:to-do`, and `status:blocked` if present as part of closing; for plain `gh`, use `gh issue comment <issue-number> --body-file <path>` (write summary to a temporary file first, then remove it after use) and then `gh issue close <issue-number>`.
 - `prclose <issue-number>`: add a completion summary comment, remove `status:doing`, add `status:in-review`, and create a Pull Request instead of closing the issue; if on protected branch (develop/main/master), first create and switch to feature branch `feature/issue-{number}-{slugified-title}` and commit any uncommitted changes; push branch, then create PR with `gh pr create --title "<issue-title>" --body "Fixes #<issue-number>"`; the issue remains open and will auto-close when the PR merges.

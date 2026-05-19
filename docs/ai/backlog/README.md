@@ -1,9 +1,9 @@
 # Shared Task Workflow
 
-GitHub Issues is the operational source of truth for shared repository tasks. Use issues for active teamwork: create, list, claim, release, and close work.
+GitHub Issues is the operational source of truth for shared repository tasks. Use issues for active teamwork: create, list, claim, assign, release, and close work.
 
 Use `/newtask` to create shared tasks as GitHub Issues.
-Use `/tasks` for list/claim/release/close operations.
+Use `/tasks` for list/claim/assign/release/close operations.
 
 Rule: each person/collaborator should use one responsible agent/session to interact with GitHub Issues for this repository to reduce duplicate updates and race conditions.
 
@@ -32,16 +32,21 @@ Do not require or assume a top-level `scripts/` directory for shared task issue 
    - First verify the issue is not assigned and does not already have `status:doing`.
    - Then assign yourself and set `status:doing` (remove `status:to-do` if present).
    - Add a short claim comment before implementation.
-4. **Release**: Use `/tasks release <issue-number>` when pausing or handing off.
+4. **Assign**: Use `/tasks assign <issue-number> <collaborator>` to assign an issue to another collaborator.
+   - First check the current assignee; if already assigned, warn the user and require explicit confirmation before proceeding.
+   - Then attempt to assign to the specified collaborator; if GitHub rejects the username (invalid user, not a collaborator, etc.), the command fails with an error and no changes are made.
+   - On success, assign to the collaborator and set `status:doing` (remove `status:to-do` if present), then add a short assignment comment.
+   - Note: `claim` is for self-assignment; `assign` is for assigning to others.
+5. **Release**: Use `/tasks release <issue-number>` when pausing or handing off.
    - Remove self assignee.
    - Set `status:to-do` unless blocked (then set `status:blocked` with a short reason).
-5. **prclose**: Use `/tasks prclose <issue-number>` when ready for code review (follows the close workflow but creates a PR instead of closing).
+6. **prclose**: Use `/tasks prclose <issue-number>` when ready for code review (follows the close workflow but creates a PR instead of closing).
    - If on protected branch (develop/main/master), create feature branch and commit changes first.
    - Ensure acceptance criteria are addressed in the PR.
    - Add a short completion summary comment.
    - Remove `status:doing` and add `status:in-review` label.
    - Create the Pull Request (issue remains open, will auto-close on merge).
-6. **Close**: Use `/tasks close <issue-number>` after completion and validation.
+7. **Close**: Use `/tasks close <issue-number>` after completion and validation.
    - Use for tasks completed without code review or when closing rejected/abandoned work.
    - Ensure acceptance criteria are addressed.
    - Add a short completion summary comment.
@@ -76,7 +81,7 @@ If required labels are missing, stop task creation/updates and report the missin
 
 - Keep GitHub Issues as the operational shared tracker.
 - Add new shared tasks through `/newtask` by default.
-- Use `/tasks claim <issue-number>` before starting implementation on shared work.
+- Use `/tasks claim <issue-number>` for self-assignment or `/tasks assign <issue-number> <collaborator>` to assign to others before starting implementation on shared work.
 - Keep issue state current through assignees, status labels, and short comments.
 - Link ADRs, plans, or pull requests from the issue when a task creates durable decisions or implementation work.
 - Do not store raw diffs, transcripts, or long logs in issues; summarize outcomes and link durable references instead.

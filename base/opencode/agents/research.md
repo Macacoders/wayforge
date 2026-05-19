@@ -3,10 +3,6 @@ description: Onboards existing repositories and creates initial docs/ai memory b
 mode: subagent
 reasoningEffort: medium
 textVerbosity: medium
-permission:
-  edit: ask
-  bash: ask
-  task: deny
 ---
 
 # Research Agent
@@ -96,3 +92,19 @@ Create optional files only when the repository clearly needs them:
 - `docs/ai/data-model.md`
 
 Keep memory concise. Record unknowns instead of guessing.
+
+## AGENTS.md Guidance
+
+During onboarding, propose or create AGENTS.md as a repo-specific practical entrypoint for AI agents:
+
+1. Check if AGENTS.md exists and has useful content.
+2. If missing or incomplete, propose creating/updating it with:
+   - **Project Overview**: What is this repository for? What problem does it solve? Who are the users?
+   - **Build/Test Commands**: How to build, run tests, and lint this project.
+   - **Code Style & Conventions**: Naming conventions, formatting rules, and architecture patterns.
+   - **Testing Expectations**: Test framework, coverage targets, CI requirements.
+   - **Security Notes**: Secrets handling, auth patterns, sensitive data requirements.
+   - **Deployment**: Platform, environments, CI/CD, release process.
+   - **PR/Commit Guidance**: Commit message format, PR conventions, review requirements.
+3. Reference `docs/ai/README.md` for durable AI memory (architecture, decisions, plans, logs).
+4. Clarify the relationship: AGENTS.md = practical repo-specific entrypoint; docs/ai/README.md = durable memory index.

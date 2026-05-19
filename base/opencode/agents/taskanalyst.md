@@ -3,12 +3,6 @@ description: Analyzes problem reports and improvement ideas before shared GitHub
 mode: subagent
 reasoningEffort: medium
 textVerbosity: medium
-permission:
-  edit: deny
-  bash:
-    "*": ask
-    "git status*": allow
-  task: deny
 ---
 
 # Task Analyst Agent

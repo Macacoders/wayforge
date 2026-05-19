@@ -7,7 +7,7 @@ Create a new shared GitHub Issue task from this request:
 
 $ARGUMENTS
 
-First establish the active repository root. Keep all reads, searches, reviews, and handoff references inside that root unless the user explicitly approves an external path.
+Establish the active `Repository root:` once per session, then reuse it (and already-derived repo context) unless explicit cwd/repository changes or failed validation indicate context is stale. Keep all reads, searches, reviews, and handoff references inside that root unless the user explicitly approves an external path.
 
 Use the shared task creation workflow:
 
@@ -26,10 +26,11 @@ Use the shared task creation workflow:
    - Tell the user to create missing labels manually in GitHub repository settings, then rerun `/newtask`.
    - Do not attempt automatic label creation.
 7. If the task is ready, create a GitHub Issue in this repository.
-   - Use `.opencode/skills/shared-task/scripts/gh-issue create ...` (installed target-repository path).
+   - Prefer `.opencode/skills/shared-task/scripts/gh-issue create ...` (installed target-repository path).
+   - Reuse already-confirmed root/repo context when available; avoid redundant rediscovery in the same session.
    - If the skill helper is unavailable, use equivalent prelude for `gh issue`:
-      - `export GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"`
-      - If `GH_REPO` is unset, derive `OWNER/REPO` from `git remote get-url origin` and pass `--repo OWNER/REPO`.
+      - `export GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"` (or reuse existing session value when already set correctly).
+      - Use `GH_REPO` when already set for this repository; if unset, derive `OWNER/REPO` from `git remote get-url origin` and pass `--repo OWNER/REPO`.
    - Do not require or use `gh repo view` for repository resolution.
 8. Apply labels using the documented minimum set: one status label (`status:to-do`), one type label (default `type:task`), and one priority label.
 9. Report the created issue number and URL.
