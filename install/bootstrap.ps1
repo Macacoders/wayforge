@@ -486,7 +486,7 @@ function Sync-ManagedFile {
         $item = Get-Item $Dst -ErrorAction SilentlyContinue
         if ($item -and $item.Attributes -match 'ReparsePoint') {
             if (-not $FORCE) {
-                log "skip existing symlink (use -Force to replace): $Dst -> $($item.Target)"
+                log "skip existing file (use -Force to replace): $Dst"
                 return
             }
             run-rm $Dst
