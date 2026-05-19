@@ -183,14 +183,14 @@ function Parse-Providers {
                     $result.Add('openai')
                 }
             }
-            'kimi25' {
-                if (-not $result.Contains('kimi25')) {
-                    $result.Add('kimi25')
+            'laberit' {
+                if (-not $result.Contains('laberit')) {
+                    $result.Add('laberit')
                 }
             }
             default {
                 log "error: invalid provider '$token' in -Providers"
-                log '       allowed values: openai, kimi25, openai,kimi25'
+                log '       allowed values: openai, laberit, openai,laberit'
                 exit 1
             }
         }
@@ -258,25 +258,24 @@ function Build-ProviderBlockJson {
 '@.TrimEnd())
     }
 
-    if (Contains-Provider 'kimi25') {
+    if (Contains-Provider 'laberit') {
         $blocks.Add(@'
-    "kimi25": {
+    "laberit": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Kimi 2.5 Azure",
+      "name": "Laberit AI",
       "options": {
-        "baseURL": "{env:KIMI_BASE_URL}",
-        "apiKey": "{env:KIMI_API_KEY}",
+        "baseURL": "{env:OPENAI_BASE_URL}",
+        "apiKey": "{env:OPENAI_API_KEY}",
         "headers": {
-          "api-key": "{env:KIMI_API_KEY}",
           "Content-Type": "application/json"
-        },
-        "queryParams": {
-          "api-version": "{env:KIMI_API_VERSION}"
         }
       },
       "models": {
-        "Kimi-K2.5": {
-          "name": "Kimi K2.5"
+        "laberit-ai-preview": {
+          "name": "Laberit AI Preview"
+        },
+        "laberit-ai": {
+          "name": "Laberit AI"
         }
       }
     }
@@ -287,26 +286,26 @@ function Build-ProviderBlockJson {
 }
 
 function Build-AgentBlockJson {
-    if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'kimi25') {
+    if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'laberit') {
         return @'
 "agent": {
     "planner": {
-      "model": "kimi25/Kimi-K2.5"
+      "model": "laberit/laberit-ai-preview"
     },
     "research": {
-      "model": "kimi25/Kimi-K2.5"
+      "model": "laberit/laberit-ai-preview"
     },
     "code": {
-      "model": "kimi25/Kimi-K2.5"
+      "model": "laberit/laberit-ai"
     },
     "quickcode": {
-      "model": "kimi25/Kimi-K2.5"
+      "model": "laberit/laberit-ai"
     },
     "test": {
-      "model": "kimi25/Kimi-K2.5"
+      "model": "laberit/laberit-ai-preview"
     },
     "taskanalyst": {
-      "model": "kimi25/Kimi-K2.5"
+      "model": "laberit/laberit-ai"
     }
   }
 '@.TrimEnd()
@@ -340,9 +339,9 @@ function Generate-OpenCodeJsoncContent {
     $defaultModel = 'openai/gpt-5.5'
     $defaultSmallModel = 'openai/gpt-5.4-mini-fast'
 
-    if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'kimi25') {
-        $defaultModel = 'kimi25/Kimi-K2.5'
-        $defaultSmallModel = 'kimi25/Kimi-K2.5'
+    if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'laberit') {
+        $defaultModel = 'laberit/laberit-ai-preview'
+        $defaultSmallModel = 'laberit/laberit-ai'
     }
 
     $finalModel = if ([string]::IsNullOrWhiteSpace($MODEL_OVERRIDE)) { $defaultModel } else { $MODEL_OVERRIDE }
@@ -717,7 +716,7 @@ Usage:
 
 Options:
   -Repo <path>   Install OpenCode config into a target project.
-  -Providers     Provider set: openai | kimi25 | openai,kimi25 (default: openai)
+  -Providers     Provider set: openai | laberit | openai,laberit (default: openai)
   -Model         Override default model (must belong to an enabled provider)
   -SmallModel    Override default small model (must belong to an enabled provider)
   -DryRun        Print planned operations without modifying files.
