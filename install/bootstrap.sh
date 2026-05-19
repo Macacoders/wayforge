@@ -432,48 +432,6 @@ is_managed_file() {
   [[ -f "${path}.ai-config-managed" ]]
 }
 
-sync_managed_tree() {
-  local src="$1"
-  local dst="$2"
-  local force_replace_unmanaged="${3:-0}"
-  local parent
-  parent="$(dirname "$dst")"
-  SYNC_MANAGED_TREE_LAST_ACTION="skipped"
-
-  if [[ ! -d "$src" ]]; then
-    log "error: source directory does not exist: $src"
-    exit 1
-  fi
-
-  if [[ -L "$dst" ]]; then
-    if [[ "$FORCE" -ne 1 ]]; then
-      log "skip existing symlink (use --force to replace): $dst -> $(readlink "$dst")"
-      return
-    fi
-    run_rm "$dst"
-  elif [[ -e "$dst" ]]; then
-    if [[ "$FORCE" -ne 1 ]]; then
-      log "skip existing non-symlink: $dst"
-      return
-    fi
-    if [[ ! -d "$dst" ]] || { [[ "$force_replace_unmanaged" -ne 1 ]] && ! is_managed_dir "$dst"; }; then
-      log "skip existing non-managed path (not replacing): $dst"
-      return
-    fi
-    run_rm_rf "$dst"
-  fi
-
-  ensure_dir "$parent"
-  run_cp_a "$src" "$dst"
-  run_write_file "$dst/$MANAGED_DIR_MARKER" "generated-by=ai-config-bootstrap.sh"
-  SYNC_MANAGED_TREE_LAST_ACTION="copied"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: would copy managed tree: $dst"
-  else
-    log "copied managed tree: $dst"
-  fi
-}
-
 render_agent_permission_block() {
   local agent_name="$1"
   local permissions_file="$2"
@@ -678,6 +636,48 @@ sync_agents_tree_with_permissions() {
   done
 }
 
+sync_managed_tree() {
+  local src="$1"
+  local dst="$2"
+  local force_replace_unmanaged="${3:-0}"
+  local parent
+  parent="$(dirname "$dst")"
+  SYNC_MANAGED_TREE_LAST_ACTION="skipped"
+
+  if [[ ! -d "$src" ]]; then
+    log "error: source directory does not exist: $src"
+    exit 1
+  fi
+
+  if [[ -L "$dst" ]]; then
+    if [[ "$FORCE" -ne 1 ]]; then
+      log "skip existing symlink (use --force to replace): $dst -> $(readlink "$dst")"
+      return
+    fi
+    run_rm "$dst"
+  elif [[ -e "$dst" ]]; then
+    if [[ "$FORCE" -ne 1 ]]; then
+      log "skip existing non-symlink: $dst"
+      return
+    fi
+    if [[ ! -d "$dst" ]] || { [[ "$force_replace_unmanaged" -ne 1 ]] && ! is_managed_dir "$dst"; }; then
+      log "skip existing non-managed path (not replacing): $dst"
+      return
+    fi
+    run_rm_rf "$dst"
+  fi
+
+  ensure_dir "$parent"
+  run_cp_a "$src" "$dst"
+  run_write_file "$dst/$MANAGED_DIR_MARKER" "generated-by=ai-config-bootstrap.sh"
+  SYNC_MANAGED_TREE_LAST_ACTION="copied"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log "DRY-RUN: would copy managed tree: $dst"
+  else
+    log "copied managed tree: $dst"
+  fi
+}
+
 sync_managed_file() {
   local src="$1"
   local dst="$2"
@@ -732,7 +732,7 @@ install_repo() {
   validate_model_override "$SMALL_MODEL_OVERRIDE" "--small-model"
 
   sync_generated_opencode_jsonc "$repo/opencode.jsonc"
-  safe_link "$ROOT_DIR/templates/AGENTS.md" "$repo/AGENTS.md"
+  sync_managed_file "$ROOT_DIR/templates/AGENTS.md" "$repo/AGENTS.md"
   sync_managed_tree "$ROOT_DIR/base/opencode/agents" "$repo/.opencode/agents" 1
   sync_managed_tree "$ROOT_DIR/base/opencode/commands" "$repo/.opencode/commands" 1
   sync_managed_tree "$ROOT_DIR/base/opencode/skills" "$repo/.opencode/skills" 1

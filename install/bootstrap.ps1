@@ -702,7 +702,7 @@ function install-repo {
     Validate-ModelOverride $SMALL_MODEL_OVERRIDE '-SmallModel'
 
     Sync-GeneratedOpenCodeJsonc (Join-Path $Repo 'opencode.jsonc')
-    safe-link (Join-Path (Join-Path $ROOT_DIR 'templates') 'AGENTS.md') (Join-Path $Repo 'AGENTS.md')
+    Sync-ManagedFile (Join-Path (Join-Path $ROOT_DIR 'templates') 'AGENTS.md') (Join-Path $Repo 'AGENTS.md')
     Sync-ManagedTree (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/agents') (Join-Path (Join-Path $Repo '.opencode') 'agents') $true
     Sync-ManagedTree (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/commands') (Join-Path (Join-Path $Repo '.opencode') 'commands') $true
     Sync-ManagedTree (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/skills') (Join-Path (Join-Path $Repo '.opencode') 'skills') $true
