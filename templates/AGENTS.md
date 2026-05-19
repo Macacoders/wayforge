@@ -4,6 +4,66 @@
 
 Use the installed OpenCode workflows to onboard repositories and deliver minimal, reviewed, and documented changes. Staged delivery is the default conservative path; quick delivery is opt-in for clear, small, low-risk tasks.
 
+## AI Memory Index
+
+This file is the practical entrypoint for AI agents working in this repository. For durable memory (architecture, decisions, approved plans, and logs), see `docs/ai/README.md`.
+
+## Repository Guidance
+
+The following sections contain repository-specific guidance. Customize these placeholders for your project.
+
+### Project Overview
+
+[FILL IN: What is this repository for? What problem does it solve? Who are the users? Link to main README if applicable.]
+
+### Build/Test Commands
+
+[FILL IN: How to build, run tests, and lint this project. Include common commands like:]
+- Build: `[FILL IN: npm run build / make / cargo build / etc.]`
+- Test: `[FILL IN: npm test / make test / cargo test / etc.]`
+- Lint: `[FILL IN: npm run lint / cargo clippy / etc.]`
+- Run locally: `[FILL IN: npm start / make run / etc.]`
+
+### Code Style & Conventions
+
+[FILL IN: Naming conventions, formatting rules, and architecture patterns for this codebase. Examples:]
+- Language/Framework: `[FILL IN: Python/TypeScript/Rust/etc.]`
+- Style guide: `[FILL IN: PEP 8 / Airbnb / Standard / etc.]`
+- Formatter: `[FILL IN: black / prettier / rustfmt / etc.]`
+- Key patterns: `[FILL IN: MVC, functional, hexagonal, etc.]`
+
+### Testing Expectations
+
+[FILL IN: Test types, coverage requirements, and testing philosophy. Examples:]
+- Test framework: `[FILL IN: jest / pytest / cargo test / etc.]`
+- Coverage target: `[FILL IN: 80% / 90% / etc.]`
+- Test types: `[FILL IN: unit, integration, e2e, property-based]`
+- CI requirements: `[FILL IN: all tests must pass before merge]`
+
+### Security Notes
+
+[FILL IN: Security considerations specific to this project. Examples:]
+- Secrets handling: `[FILL IN: use .env files, never commit secrets, use secret manager]`
+- Auth patterns: `[FILL IN: OAuth2, JWT, API keys, etc.]`
+- Sensitive data: `[FILL IN: PII handling, encryption requirements]`
+- Dependencies: `[FILL IN: vulnerability scanning, update policy]`
+
+### Deployment
+
+[FILL IN: How and where this project is deployed. Examples:]
+- Platform: `[FILL IN: Vercel, AWS, Kubernetes, self-hosted]`
+- Environments: `[FILL IN: dev, staging, production]`
+- CI/CD: `[FILL IN: GitHub Actions, GitLab CI, Jenkins]`
+- Release process: `[FILL IN: automated on tag, manual approval, etc.]`
+
+### PR/Commit Guidance
+
+[FILL IN: Commit message format and PR conventions. Examples:]
+- Commit format: `[FILL IN: conventional commits / semantic / freeform]`
+- PR template: `[FILL IN: link to PR template or describe required sections]`
+- Branch naming: `[FILL IN: feature/, bugfix/, etc.]`
+- Review requirements: `[FILL IN: require 1+ approvals, CI pass, etc.]`
+
 ## Workflow
 
 1. Use `planner` for orchestration, questions, workflow selection, planning, handoffs, and git-based review.

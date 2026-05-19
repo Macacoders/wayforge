@@ -25,7 +25,13 @@ Target projects receive generated/local runtime output:
 - `.opencode/agents/**` (copied/generated local output)
 - `.opencode/commands/**` (copied/generated local output)
 - `.opencode/skills/**` (copied/generated local output)
-- `AGENTS.md` (installed helper surface)
+- `AGENTS.md` (generated local file, repo-specific entrypoint)
+
+### AGENTS.md vs docs/ai/README.md Relationship
+
+- **AGENTS.md**: Practical repo-specific entrypoint for AI agents. Installed as a managed file (customizable per repository). Contains project-specific guidance, build/test commands, conventions, and workflow rules. Read this first when starting work in a repository.
+- **docs/ai/README.md**: Durable AI memory index. Persistent across work sessions. Contains architecture, decisions, plans, and logs. Load when the task touches structure, boundaries, or historical decisions.
+- **Relationship**: AGENTS.md is the "how to work in this repo" guide; docs/ai/README.md is the "what we've decided and built" memory. Both use progressive disclosure.
 
 The `.opencode/` directory in consuming repositories is local/generated runtime output, not the reusable source-of-truth for this repository.
 

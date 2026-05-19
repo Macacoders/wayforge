@@ -55,6 +55,16 @@ run_cp_a() {
   cp -a "$src" "$dst"
 }
 
+run_cp() {
+  local src="$1"
+  local dst="$2"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log "DRY-RUN: cp $src $dst"
+    return
+  fi
+  cp "$src" "$dst"
+}
+
 run_rm_rf() {
   local path="$1"
   if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -417,6 +427,11 @@ is_managed_dir() {
   [[ -f "$path/$MANAGED_DIR_MARKER" ]]
 }
 
+is_managed_file() {
+  local path="$1"
+  [[ -f "${path}.ai-config-managed" ]]
+}
+
 sync_managed_tree() {
   local src="$1"
   local dst="$2"
@@ -457,6 +472,45 @@ sync_managed_tree() {
   fi
 }
 
+sync_managed_file() {
+  local src="$1"
+  local dst="$2"
+  local parent
+  parent="$(dirname "$dst")"
+
+  if [[ ! -f "$src" ]]; then
+    log "error: source file does not exist: $src"
+    exit 1
+  fi
+
+  if [[ -L "$dst" ]]; then
+    if [[ "$FORCE" -ne 1 ]]; then
+      log "skip existing file (use --force to replace): $dst"
+      return
+    fi
+    run_rm "$dst"
+  elif [[ -e "$dst" ]]; then
+    if [[ "$FORCE" -ne 1 ]]; then
+      log "skip existing file (use --force to replace): $dst"
+      return
+    fi
+    if ! is_managed_file "$dst"; then
+      log "skip existing unmanaged file (use --force to replace): $dst"
+      return
+    fi
+    run_rm "$dst"
+  fi
+
+  ensure_dir "$parent"
+  run_cp "$src" "$dst"
+  run_write_file "${dst}.ai-config-managed" "generated-by=ai-config-bootstrap.sh"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log "DRY-RUN: would copy managed file: $dst"
+  else
+    log "copied managed file: $dst"
+  fi
+}
+
 install_repo() {
   local repo="$1"
 
@@ -472,7 +526,7 @@ install_repo() {
   validate_model_override "$SMALL_MODEL_OVERRIDE" "--small-model"
 
   sync_generated_opencode_jsonc "$repo/opencode.jsonc"
-  safe_link "$ROOT_DIR/templates/AGENTS.md" "$repo/AGENTS.md"
+  sync_managed_file "$ROOT_DIR/templates/AGENTS.md" "$repo/AGENTS.md"
   sync_managed_tree "$ROOT_DIR/base/opencode/agents" "$repo/.opencode/agents" 1
   sync_managed_tree "$ROOT_DIR/base/opencode/commands" "$repo/.opencode/commands" 1
   sync_managed_tree "$ROOT_DIR/base/opencode/skills" "$repo/.opencode/skills" 1
