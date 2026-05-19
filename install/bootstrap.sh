@@ -485,7 +485,7 @@ sync_managed_file() {
 
   if [[ -L "$dst" ]]; then
     if [[ "$FORCE" -ne 1 ]]; then
-      log "skip existing symlink (use --force to replace): $dst -> $(readlink "$dst")"
+      log "skip existing file (use --force to replace): $dst"
       return
     fi
     run_rm "$dst"
