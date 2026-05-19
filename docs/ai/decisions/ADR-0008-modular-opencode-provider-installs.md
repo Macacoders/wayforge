@@ -21,8 +21,8 @@ Adopt a modular source-and-generated-output architecture for OpenCode installati
   - `.opencode/skills/**`
 - Supported provider sets at install time are:
   - OpenAI (`openai`)
-  - Kimi25 (`kimi25`)
-  - OpenAI + Kimi25 (`openai,kimi25`)
+  - laberit (`laberit`)
+  - OpenAI + laberit (`openai,laberit`)
 - Generated `opencode.jsonc` is the provider/model control plane for each consumer repo:
   - global defaults (such as primary model and `small_model`)
   - centralized per-agent model assignments under `agent`
@@ -41,10 +41,10 @@ This ADR partially supersedes ADR-0001 by replacing the OpenAI-only provider con
 - Managed output tracking (for example managed headers/markers) is required to safely refresh generated files without clobbering unmanaged local content.
 - Secrets and credentials remain separated from versioned sources:
   - OpenAI authentication is handled through OpenCode `/connect`.
-  - Kimi25 relies on environment variables (`KIMI_BASE_URL`, `KIMI_API_KEY`, `KIMI_API_VERSION`).
+  - laberit relies on environment variables (`OPENAI_BASE_URL`, `OPENAI_API_KEY`).
 - Cross-platform parity is maintained by Bash and PowerShell installers, but in this environment runtime PowerShell validation remains limited because `pwsh` is unavailable.
 
 ## Alternatives Considered
 
 - Keep symlink-first installation as the primary model: rejected because it does not represent the generated/provider-selectable architecture now required.
-- Keep OpenAI as the only provider: rejected because current workflow needs first-class Kimi25 and mixed-provider installs.
+- Keep OpenAI as the only provider: rejected because current workflow needs first-class laberit and mixed-provider installs.

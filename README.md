@@ -5,7 +5,7 @@
 The repository is intentionally narrow:
 
 - **Runtime**: OpenCode only.
-- **Providers**: OpenAI (default) and Kimi25, selectable at install time (`openai`, `kimi25`, or `openai,kimi25`).
+- **Providers**: OpenAI (default) and laberit, selectable at install time (`openai`, `laberit`, or `openai,laberit`).
 - **Installation model**: generate/copy project-local OpenCode runtime files from reusable sources under `base/opencode/**`.
 - **Context model**: progressive disclosure, where agents load indexes and targeted references instead of dumping whole documentation trees into context.
 
@@ -65,18 +65,18 @@ The target OpenCode setup uses one primary agent and five specialized subagents.
 
 | Agent | Mode | Purpose | Preferred model | Reasoning |
 | :--- | :--- | :--- | :--- | :--- |
-| `planner` | Primary | Planning, research, questions, phase design, handoffs, git-based review, memory updates. | `openai/gpt-5.5` | Medium |
-| `research` | Subagent | Onboards existing repositories and creates or proposes initial `docs/ai/` memory before implementation planning. | `openai/gpt-5.5-fast` | Medium |
-| `code` | Subagent | Implements one approved phase across atomic stages and pauses after each stage for manual validation. | `openai/gpt-5.3-codex` | Medium |
-| `quickcode` | Subagent | Implements one approved quick-delivery task autonomously within narrow low-risk scope, then reports once for planner review. | `openai/gpt-5.3-codex` | Low |
-| `test` | Subagent | Critically reviews implementation quality and regression risk; recommends tests when justified and writes new tests only with explicit approval. | `openai/gpt-5.5-fast` | Medium |
-| `taskanalyst` | Subagent | Interprets problem reports and improvement ideas before shared task issue creation. | `openai/gpt-5.5-fast` | Medium |
+| `planner` | Primary | Planning, research, questions, phase design, handoffs, git-based review, memory updates. | `openai/gpt-5.5` / `laberit/laberit-ai-preview` | Medium |
+| `research` | Subagent | Onboards existing repositories and creates or proposes initial `docs/ai/` memory before implementation planning. | `openai/gpt-5.5-fast` / `laberit/laberit-ai-preview` | Medium |
+| `code` | Subagent | Implements one approved phase across atomic stages and pauses after each stage for manual validation. | `openai/gpt-5.3-codex` / `laberit/laberit-ai` | Medium |
+| `quickcode` | Subagent | Implements one approved quick-delivery task autonomously within narrow low-risk scope, then reports once for planner review. | `openai/gpt-5.3-codex` / `laberit/laberit-ai-preview` | Low |
+| `test` | Subagent | Critically reviews implementation quality and regression risk; recommends tests when justified and writes new tests only with explicit approval. | `openai/gpt-5.5-fast` / `laberit/laberit-ai-preview` | Medium |
+| `taskanalyst` | Subagent | Interprets problem reports and improvement ideas before shared task issue creation. | `openai/gpt-5.5-fast` / `laberit/laberit-ai` | Medium |
 
 The default model policy balances reasoning quality and implementation cost: planning/research stay on the GPT-5.5 family with medium reasoning, implementation agents use Codex-oriented models, and `test` stays on GPT-5.5-fast for independent critical review rather than Codex. Use `openai/gpt-5.5-pro` only for unusually difficult research or review tasks where latency and cost are acceptable. Use `openai/gpt-5.4-mini-fast` for OpenCode's lightweight `small_model` setting when available in your connected account.
 
-**Switching providers**: You can switch between OpenAI and Kimi models interactively:
+**Switching providers**: You can switch between OpenAI and laberit models interactively:
 - `/model openai/gpt-5.5` - Use OpenAI (default)
-- `/model kimi25/Kimi-K2.5` - Use Kimi K2.5 via Azure
+- `/model laberit/laberit-ai` - Use laberit AI
 
 Model availability depends on what OpenCode exposes after `/connect`. If a preferred model is unavailable, choose the closest available reasoning/coding model with `/models`.
 
@@ -155,11 +155,11 @@ Provider-selectable installation commands:
 # OpenAI only (default)
 ./install/bootstrap.sh --repo /path/to/repo --providers openai
 
-# Kimi25 only
-./install/bootstrap.sh --repo /path/to/repo --providers kimi25
+# laberit only
+./install/bootstrap.sh --repo /path/to/repo --providers laberit
 
-# OpenAI + Kimi25
-./install/bootstrap.sh --repo /path/to/repo --providers openai,kimi25
+# OpenAI + laberit
+./install/bootstrap.sh --repo /path/to/repo --providers openai,laberit
 ```
 
 **Windows (PowerShell):**
@@ -167,11 +167,11 @@ Provider-selectable installation commands:
 # OpenAI only (default)
 .\install\bootstrap.ps1 -Repo /path/to/repo -Providers openai
 
-# Kimi25 only
-.\install\bootstrap.ps1 -Repo /path/to/repo -Providers kimi25
+# laberit only
+.\install\bootstrap.ps1 -Repo /path/to/repo -Providers laberit
 
-# OpenAI + Kimi25
-.\install\bootstrap.ps1 -Repo /path/to/repo -Providers openai,kimi25
+# OpenAI + laberit
+.\install\bootstrap.ps1 -Repo /path/to/repo -Providers openai,laberit
 ```
 
 Optional overrides:
@@ -191,7 +191,7 @@ Configuration and secrets boundary:
 - **Generated local config in consuming repos**: local `opencode.jsonc`, `.opencode/**`, and `AGENTS.md` runtime output.
 - **Secrets/auth**:
   - OpenAI authentication is handled in OpenCode via `/connect` (ChatGPT Plus/Pro or Azure credentials).
-  - Kimi25 uses environment variables documented in `profiles/defaults.env.example`: `KIMI_BASE_URL`, `KIMI_API_KEY`, `KIMI_API_VERSION`.
+  - laberit uses environment variables documented in `profiles/defaults.env.example`: `OPENAI_BASE_URL`, `OPENAI_API_KEY`.
 
 ## Handoff Contracts
 

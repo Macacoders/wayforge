@@ -150,7 +150,7 @@ parse_providers() {
   local raw="$1"
   local token
   local seen_openai=0
-  local seen_kimi25=0
+  local seen_laberit=0
 
   IFS=',' read -r -a _providers_in <<<"$raw"
   SELECTED_PROVIDERS=()
@@ -163,15 +163,15 @@ parse_providers() {
           seen_openai=1
         fi
         ;;
-      kimi25)
-        if [[ "$seen_kimi25" -eq 0 ]]; then
-          SELECTED_PROVIDERS+=("kimi25")
-          seen_kimi25=1
+      laberit)
+        if [[ "$seen_laberit" -eq 0 ]]; then
+          SELECTED_PROVIDERS+=("laberit")
+          seen_laberit=1
         fi
         ;;
       *)
         log "error: invalid provider '$token' in --providers"
-        log "       allowed values: openai, kimi25, openai,kimi25"
+        log "       allowed values: openai, laberit, openai,laberit"
         exit 1
         ;;
     esac
@@ -238,33 +238,32 @@ build_provider_block_json() {
     }'
   fi
 
-  if contains_provider "kimi25"; then
-    local kimi_block='    "kimi25": {
+  if contains_provider "laberit"; then
+    local laberit_block='    "laberit": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Kimi 2.5 Azure",
+      "name": "Laberit AI",
       "options": {
-        "baseURL": "{env:KIMI_BASE_URL}",
-        "apiKey": "{env:KIMI_API_KEY}",
+        "baseURL": "{env:OPENAI_BASE_URL}",
+        "apiKey": "{env:OPENAI_API_KEY}",
         "headers": {
-          "api-key": "{env:KIMI_API_KEY}",
           "Content-Type": "application/json"
-        },
-        "queryParams": {
-          "api-version": "{env:KIMI_API_VERSION}"
         }
       },
       "models": {
-        "Kimi-K2.5": {
-          "name": "Kimi K2.5"
+        "laberit-ai-preview": {
+          "name": "Laberit AI Preview"
+        },
+        "laberit-ai": {
+          "name": "Laberit AI"
         }
       }
     }'
 
     if [[ -n "$out" ]]; then
       out="$out,
-$kimi_block"
+$laberit_block"
     else
-      out="$kimi_block"
+      out="$laberit_block"
     fi
   fi
 
@@ -272,26 +271,26 @@ $kimi_block"
 }
 
 build_agent_block_json() {
-  if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "kimi25" ]]; then
+  if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "laberit" ]]; then
     cat <<'EOF'
 "agent": {
     "planner": {
-      "model": "kimi25/Kimi-K2.5"
+      "model": "laberit/laberit-ai-preview"
     },
     "research": {
-      "model": "kimi25/Kimi-K2.5"
+      "model": "laberit/laberit-ai-preview"
     },
     "code": {
-      "model": "kimi25/Kimi-K2.5"
+      "model": "laberit/laberit-ai"
     },
     "quickcode": {
-      "model": "kimi25/Kimi-K2.5"
+      "model": "laberit/laberit-ai"
     },
     "test": {
-      "model": "kimi25/Kimi-K2.5"
+      "model": "laberit/laberit-ai-preview"
     },
     "taskanalyst": {
-      "model": "kimi25/Kimi-K2.5"
+      "model": "laberit/laberit-ai"
     }
   }
 EOF
@@ -326,9 +325,9 @@ generate_opencode_jsonc_content() {
   local default_model="openai/gpt-5.5"
   local default_small_model="openai/gpt-5.4-mini-fast"
 
-  if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "kimi25" ]]; then
-    default_model="kimi25/Kimi-K2.5"
-    default_small_model="kimi25/Kimi-K2.5"
+  if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "laberit" ]]; then
+    default_model="laberit/laberit-ai-preview"
+    default_small_model="laberit/laberit-ai"
   fi
 
   local final_model="$default_model"
@@ -487,7 +486,7 @@ Usage:
 
 Options:
   --repo <path>  Link OpenCode config into a target project.
-  --providers    Provider set to enable: openai | kimi25 | openai,kimi25 (default: openai)
+  --providers    Provider set to enable: openai | laberit | openai,laberit (default: openai)
   --model        Override default model (must belong to an enabled provider)
   --small-model  Override default small model (must belong to an enabled provider)
   --dry-run      Print planned operations without modifying files.
