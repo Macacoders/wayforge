@@ -193,6 +193,30 @@ Configuration and secrets boundary:
   - OpenAI authentication is handled in OpenCode via `/connect` (ChatGPT Plus/Pro or Azure credentials).
   - laberit uses environment variables documented in `profiles/defaults.env.example`: `OPENAI_BASE_URL`, `OPENAI_API_KEY`.
 
+## Contributing
+
+**When working on the ai-config repository itself**, all changes to agents, skills, commands, and configuration must be made to the **source templates** under `base/opencode/**` (or `templates/**` for `AGENTS.md`).
+
+**Never edit files under `.opencode/` or `AGENTS.md`** when contributing to this repository.
+
+### Why this matters
+
+- `base/opencode/**` contains the source-of-truth templates that get copied/generated into consuming repositories
+- `.opencode/**` and `AGENTS.md` are **generated output** — they are produced by the installation scripts and are gitignored in this repository
+- Changes made directly to `.opencode/` files are **not persistent**; they will be lost the next time the installation scripts run or when the repository is cloned fresh
+- The installation model (described above) treats `base/opencode/` as the reusable source and `.opencode/` as the per-project runtime
+- `opencode.jsonc` is generated from code in the installation scripts, not copied from a template
+
+### What to edit
+
+| If you want to change... | Edit this location | Do not edit |
+| :--- | :--- | :--- |
+| Agents | `base/opencode/agents/**` | `.opencode/agents/**` |
+| Skills | `base/opencode/skills/**` | `.opencode/skills/**` |
+| Commands | `base/opencode/commands/**` | `.opencode/commands/**` |
+| Agent documentation | `templates/AGENTS.md` | `AGENTS.md` (root) |
+| Configuration | `install/bootstrap.sh` and `install/bootstrap.ps1` | `opencode.jsonc` (root) |
+
 ## Handoff Contracts
 
 `planner` should hand off unfamiliar repository onboarding to `research` before creating implementation plans:
