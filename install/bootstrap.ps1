@@ -288,10 +288,18 @@ function Build-ProviderBlockJson {
       },
       "models": {
         "laberit-ai-preview": {
-          "name": "Laberit AI Preview"
+          "name": "Laberit AI Preview",
+          "limit": {
+            "context": 262144,
+            "output": 16384
+          }
         },
         "laberit-ai": {
-          "name": "Laberit AI"
+          "name": "Laberit AI",
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          }
         }
       }
     }
