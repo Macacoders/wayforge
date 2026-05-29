@@ -183,6 +183,11 @@ function Parse-Providers {
                     $result.Add('openai')
                 }
             }
+            'github-copilot' {
+                if (-not $result.Contains('github-copilot')) {
+                    $result.Add('github-copilot')
+                }
+            }
             'laberit' {
                 if (-not $result.Contains('laberit')) {
                     $result.Add('laberit')
@@ -190,7 +195,7 @@ function Parse-Providers {
             }
             default {
                 log "error: invalid provider '$token' in -Providers"
-                log '       allowed values: openai, laberit, openai,laberit'
+                log '       allowed values: openai, github-copilot, laberit, or comma-separated combinations'
                 exit 1
             }
         }
@@ -258,6 +263,17 @@ function Build-ProviderBlockJson {
 '@.TrimEnd())
     }
 
+    if (Contains-Provider 'github-copilot') {
+        $blocks.Add(@'
+    "github-copilot": {
+      "models": {
+                "gpt-5.4": {},
+                "gpt-5.3-codex": {}
+      }
+    }
+'@.TrimEnd())
+    }
+
     if (Contains-Provider 'laberit') {
         $blocks.Add(@'
     "laberit": {
@@ -286,6 +302,31 @@ function Build-ProviderBlockJson {
 }
 
 function Build-AgentBlockJson {
+        if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'github-copilot') {
+                return @'
+"agent": {
+        "planner": {
+            "model": "github-copilot/gpt-5.4"
+        },
+        "research": {
+            "model": "github-copilot/gpt-5.4"
+        },
+        "code": {
+            "model": "github-copilot/gpt-5.3-codex"
+        },
+        "quickcode": {
+            "model": "github-copilot/gpt-5.3-codex"
+        },
+        "test": {
+            "model": "github-copilot/gpt-5.4"
+        },
+        "taskanalyst": {
+            "model": "github-copilot/gpt-5.4"
+        }
+    }
+'@.TrimEnd()
+        }
+
     if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'laberit') {
         return @'
 "agent": {
@@ -338,6 +379,11 @@ function Build-AgentBlockJson {
 function Generate-OpenCodeJsoncContent {
     $defaultModel = 'openai/gpt-5.5'
     $defaultSmallModel = 'openai/gpt-5.4-mini-fast'
+
+    if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'github-copilot') {
+        $defaultModel = 'github-copilot/gpt-5.4'
+        $defaultSmallModel = 'github-copilot/gpt-5.3-codex'
+    }
 
     if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'laberit') {
         $defaultModel = 'laberit/laberit-ai-preview'
@@ -716,7 +762,7 @@ Usage:
 
 Options:
   -Repo <path>   Install OpenCode config into a target project.
-  -Providers     Provider set: openai | laberit | openai,laberit (default: openai)
+    -Providers     Provider set: openai | github-copilot | laberit | comma-separated combinations (default: openai)
   -Model         Override default model (must belong to an enabled provider)
   -SmallModel    Override default small model (must belong to an enabled provider)
   -DryRun        Print planned operations without modifying files.

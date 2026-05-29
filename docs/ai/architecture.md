@@ -7,12 +7,13 @@ This repository provides reusable OpenCode source configuration and installs gen
 ## Runtime Boundary
 
 - OpenCode is the only supported AI runtime.
-- Supported provider sets during installation: `openai`, `laberit`, and `openai,laberit`.
+- Supported provider sets during installation include `openai`, `github-copilot`, `laberit`, and comma-separated combinations of those providers.
 - OpenAI authentication is handled in OpenCode with `/connect` (ChatGPT Plus/Pro or Azure credentials).
+- GitHub Copilot authentication is handled in OpenCode with `/connect` (device login flow).
 - laberit is configured via environment variables (`OPENAI_BASE_URL`, `OPENAI_API_KEY`).
 - Model IDs are recommendations and may need adjustment with `/models` depending on account availability.
 - The default model policy balances GPT-5.5-family reasoning for planning, onboarding, and critical review with Codex-oriented models for implementation.
-- Users can switch providers interactively: `/model openai/gpt-5.5` or `/model laberit/laberit-ai`.
+- Users can switch providers interactively: `/model openai/gpt-5.5`, `/model github-copilot/gpt-5.4`, or `/model laberit/laberit-ai`.
 - Generated `opencode.jsonc` is the provider/model brain for each target repository and centralizes per-agent model assignments under `agent`.
 
 ## Installed Surface
