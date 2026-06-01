@@ -1,8 +1,6 @@
 ---
 description: Analyzes problem reports and improvement ideas before shared GitHub Issue task creation.
 mode: subagent
-reasoningEffort: medium
-textVerbosity: medium
 ---
 
 # Task Analyst Agent

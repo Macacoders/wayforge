@@ -257,6 +257,12 @@ function Build-ProviderBlockJson {
             "reasoningEffort": "medium",
             "textVerbosity": "medium"
           }
+        },
+        "gpt-5.3-codex": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "low"
+          }
         }
       }
     }
@@ -267,8 +273,30 @@ function Build-ProviderBlockJson {
         $blocks.Add(@'
     "github-copilot": {
       "models": {
-                "gpt-5.4": {},
-                "gpt-5.3-codex": {}
+        "gpt-5.4": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "low"
+          }
+        },
+        "gpt-5.3-codex": {
+          "options": {
+            "reasoningEffort": "low",
+            "textVerbosity": "low"
+          }
+        },
+        "gemini-3.5-flash": {
+          "options": {
+            "reasoningEffort": "low",
+            "textVerbosity": "low"
+          }
+        },
+        "claude-opus-4.6": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "medium"
+          }
+        }
       }
     }
 '@.TrimEnd())
@@ -310,26 +338,111 @@ function Build-ProviderBlockJson {
 }
 
 function Build-AgentBlockJson {
+    if ((Contains-Provider 'openai') -and (Contains-Provider 'github-copilot')) {
+        return @'
+"agent": {
+    "planner": {
+      "model": "openai/gpt-5.5",
+      "steps": 20,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "medium"
+      }
+    },
+    "research": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 10,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
+    },
+    "code": {
+      "model": "openai/gpt-5.3-codex",
+      "steps": 5,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
+    },
+    "quickcode": {
+      "model": "openai/gpt-5.3-codex",
+      "steps": 5,
+      "options": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low"
+      }
+    },
+    "test": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 8,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
+    },
+    "taskanalyst": {
+      "model": "github-copilot/gemini-3.5-flash",
+      "steps": 8,
+      "options": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low"
+      }
+    }
+  }
+'@.TrimEnd()
+    }
+
         if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'github-copilot') {
                 return @'
 "agent": {
         "planner": {
-            "model": "github-copilot/gpt-5.4"
+            "model": "github-copilot/gpt-5.4",
+            "steps": 16,
+            "options": {
+                "reasoningEffort": "medium",
+                "textVerbosity": "medium"
+            }
         },
         "research": {
-            "model": "github-copilot/gpt-5.4"
+            "model": "github-copilot/gpt-5.4",
+            "steps": 10,
+            "options": {
+                "reasoningEffort": "medium",
+                "textVerbosity": "low"
+            }
         },
         "code": {
-            "model": "github-copilot/gpt-5.3-codex"
+            "model": "github-copilot/gpt-5.3-codex",
+            "steps": 5,
+            "options": {
+                "reasoningEffort": "medium",
+                "textVerbosity": "low"
+            }
         },
         "quickcode": {
-            "model": "github-copilot/gpt-5.3-codex"
+            "model": "github-copilot/gpt-5.3-codex",
+            "steps": 4,
+            "options": {
+                "reasoningEffort": "low",
+                "textVerbosity": "low"
+            }
         },
         "test": {
-            "model": "github-copilot/gpt-5.4"
+            "model": "github-copilot/gpt-5.4",
+            "steps": 8,
+            "options": {
+                "reasoningEffort": "medium",
+                "textVerbosity": "low"
+            }
         },
         "taskanalyst": {
-            "model": "github-copilot/gpt-5.4"
+            "model": "github-copilot/gpt-5.4",
+            "steps": 8,
+            "options": {
+                "reasoningEffort": "low",
+                "textVerbosity": "low"
+            }
         }
     }
 '@.TrimEnd()
@@ -363,22 +476,52 @@ function Build-AgentBlockJson {
     return @'
 "agent": {
     "planner": {
-      "model": "openai/gpt-5.5"
+      "model": "openai/gpt-5.5",
+      "steps": 16,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "medium"
+      }
     },
     "research": {
-      "model": "openai/gpt-5.5-fast"
+      "model": "openai/gpt-5.5-fast",
+      "steps": 10,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
     },
     "code": {
-      "model": "openai/gpt-5.3-codex"
+      "model": "openai/gpt-5.3-codex",
+      "steps": 5,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
     },
     "quickcode": {
-      "model": "openai/gpt-5.3-codex"
+      "model": "openai/gpt-5.3-codex",
+      "steps": 4,
+      "options": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low"
+      }
     },
     "test": {
-      "model": "openai/gpt-5.5-fast"
+      "model": "openai/gpt-5.5-fast",
+      "steps": 8,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
     },
     "taskanalyst": {
-      "model": "openai/gpt-5.5-fast"
+      "model": "openai/gpt-5.5-fast",
+      "steps": 8,
+      "options": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low"
+      }
     }
   }
 '@.TrimEnd()
@@ -396,6 +539,11 @@ function Generate-OpenCodeJsoncContent {
     if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'laberit') {
         $defaultModel = 'laberit/laberit-ai-preview'
         $defaultSmallModel = 'laberit/laberit-ai'
+    }
+
+    if ((Contains-Provider 'openai') -and (Contains-Provider 'github-copilot')) {
+        $defaultModel = 'openai/gpt-5.5'
+        $defaultSmallModel = 'github-copilot/gemini-3.5-flash'
     }
 
     $finalModel = if ([string]::IsNullOrWhiteSpace($MODEL_OVERRIDE)) { $defaultModel } else { $MODEL_OVERRIDE }

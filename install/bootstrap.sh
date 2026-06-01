@@ -250,6 +250,12 @@ build_provider_block_json() {
             "reasoningEffort": "medium",
             "textVerbosity": "medium"
           }
+        },
+        "gpt-5.3-codex": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "low"
+          }
         }
       }
     }'
@@ -258,8 +264,30 @@ build_provider_block_json() {
   if contains_provider "github-copilot"; then
     local copilot_block='    "github-copilot": {
       "models": {
-        "gpt-5.4": {},
-        "gpt-5.3-codex": {}
+        "gpt-5.4": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "low"
+          }
+        },
+        "gpt-5.3-codex": {
+          "options": {
+            "reasoningEffort": "low",
+            "textVerbosity": "low"
+          }
+        },
+        "gemini-3.5-flash": {
+          "options": {
+            "reasoningEffort": "low",
+            "textVerbosity": "low"
+          }
+        },
+        "claude-opus-4.6": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "medium"
+          }
+        }
       }
     }'
 
@@ -312,26 +340,112 @@ $laberit_block"
 }
 
 build_agent_block_json() {
+  if contains_provider "openai" && contains_provider "github-copilot"; then
+    cat <<'EOF'
+"agent": {
+    "planner": {
+      "model": "openai/gpt-5.5",
+      "steps": 20,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "medium"
+      }
+    },
+    "research": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 10,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
+    },
+    "code": {
+      "model": "openai/gpt-5.3-codex",
+      "steps": 5,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
+    },
+    "quickcode": {
+      "model": "openai/gpt-5.3-codex",
+      "steps": 5,
+      "options": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low"
+      }
+    },
+    "test": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 8,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
+    },
+    "taskanalyst": {
+      "model": "github-copilot/gemini-3.5-flash",
+      "steps": 8,
+      "options": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low"
+      }
+    }
+  }
+EOF
+    return
+  fi
+
   if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "github-copilot" ]]; then
     cat <<'EOF'
 "agent": {
     "planner": {
-      "model": "github-copilot/gpt-5.4"
+      "model": "github-copilot/gpt-5.4",
+      "steps": 16,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "medium"
+      }
     },
     "research": {
-      "model": "github-copilot/gpt-5.4"
+      "model": "github-copilot/gpt-5.4",
+      "steps": 10,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
     },
     "code": {
-      "model": "github-copilot/gpt-5.3-codex"
+      "model": "github-copilot/gpt-5.3-codex",
+      "steps": 5,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
     },
     "quickcode": {
-      "model": "github-copilot/gpt-5.3-codex"
+      "model": "github-copilot/gpt-5.3-codex",
+      "steps": 4,
+      "options": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low"
+      }
     },
     "test": {
-      "model": "github-copilot/gpt-5.4"
+      "model": "github-copilot/gpt-5.4",
+      "steps": 8,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
     },
     "taskanalyst": {
-      "model": "github-copilot/gpt-5.4"
+      "model": "github-copilot/gpt-5.4",
+      "steps": 8,
+      "options": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low"
+      }
     }
   }
 EOF
@@ -367,22 +481,52 @@ EOF
   cat <<'EOF'
 "agent": {
     "planner": {
-      "model": "openai/gpt-5.5"
+      "model": "openai/gpt-5.5",
+      "steps": 20,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "medium"
+      }
     },
     "research": {
-      "model": "openai/gpt-5.5-fast"
+      "model": "openai/gpt-5.5-fast",
+      "steps": 10,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
     },
     "code": {
-      "model": "openai/gpt-5.3-codex"
+      "model": "openai/gpt-5.3-codex",
+      "steps": 5,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
     },
     "quickcode": {
-      "model": "openai/gpt-5.3-codex"
+      "model": "openai/gpt-5.3-codex",
+      "steps": 4,
+      "options": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low"
+      }
     },
     "test": {
-      "model": "openai/gpt-5.5-fast"
+      "model": "openai/gpt-5.5-fast",
+      "steps": 8,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
     },
     "taskanalyst": {
-      "model": "openai/gpt-5.5-fast"
+      "model": "openai/gpt-5.5-fast",
+      "steps": 8,
+      "options": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low"
+      }
     }
   }
 EOF
@@ -395,6 +539,11 @@ generate_opencode_jsonc_content() {
   if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "github-copilot" ]]; then
     default_model="github-copilot/gpt-5.4"
     default_small_model="github-copilot/gpt-5.3-codex"
+  fi
+
+  if contains_provider "openai" && contains_provider "github-copilot"; then
+    default_model="openai/gpt-5.5"
+    default_small_model="github-copilot/gemini-3.5-flash"
   fi
 
   if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "laberit" ]]; then

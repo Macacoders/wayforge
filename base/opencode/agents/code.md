@@ -1,8 +1,6 @@
 ---
 description: Implements one approved phase across atomic stages and pauses for manual validation after each stage.
 mode: subagent
-reasoningEffort: medium
-textVerbosity: medium
 temperature: 0.1
 ---
 

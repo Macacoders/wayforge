@@ -1,8 +1,6 @@
 ---
 description: Onboards existing repositories and creates initial docs/ai memory before implementation planning.
 mode: subagent
-reasoningEffort: medium
-textVerbosity: medium
 ---
 
 # Research Agent

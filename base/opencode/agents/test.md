@@ -1,8 +1,6 @@
 ---
 description: Critically reviews implemented changes for regression risk, recommends tests when justified, and writes tests only with explicit approval.
 mode: subagent
-reasoningEffort: medium
-textVerbosity: medium
 ---
 
 # Test Agent

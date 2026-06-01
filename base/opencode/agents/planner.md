@@ -1,8 +1,6 @@
 ---
 description: Plans phased work, coordinates research/implementation/testing subagents, reviews changes with git, and maintains project memory.
 mode: primary
-reasoningEffort: medium
-textVerbosity: medium
 ---
 
 # Planner Agent

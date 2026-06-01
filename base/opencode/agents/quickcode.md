@@ -1,8 +1,6 @@
 ---
 description: Implements small, low-risk quick-delivery tasks autonomously and reports once for planner review.
 mode: subagent
-reasoningEffort: low
-textVerbosity: medium
 temperature: 0.1
 ---
 

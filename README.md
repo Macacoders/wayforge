@@ -63,16 +63,16 @@ The staged-delivery workflow keeps repository onboarding, planning, implementati
 
 The target OpenCode setup uses one primary agent and five specialized subagents.
 
-| Agent | Mode | Purpose | Preferred model | Reasoning |
+| Agent | Mode | Purpose | Preferred model | Reasoning / verbosity |
 | :--- | :--- | :--- | :--- | :--- |
-| `planner` | Primary | Planning, research, questions, phase design, handoffs, git-based review, memory updates. | `openai/gpt-5.5` / `github-copilot/gpt-5.4` / `laberit/laberit-ai-preview` | Medium |
-| `research` | Subagent | Onboards existing repositories and creates or proposes initial `docs/ai/` memory before implementation planning. | `openai/gpt-5.5-fast` / `github-copilot/gpt-5.4` / `laberit/laberit-ai-preview` | Medium |
-| `code` | Subagent | Implements one approved phase across atomic stages and pauses after each stage for manual validation. | `openai/gpt-5.3-codex` / `github-copilot/gpt-5.3-codex` / `laberit/laberit-ai` | Medium |
-| `quickcode` | Subagent | Implements one approved quick-delivery task autonomously within narrow low-risk scope, then reports once for planner review. | `openai/gpt-5.3-codex` / `github-copilot/gpt-5.3-codex` / `laberit/laberit-ai` | Low |
-| `test` | Subagent | Critically reviews implementation quality and regression risk; recommends tests when justified and writes new tests only with explicit approval. | `openai/gpt-5.5-fast` / `github-copilot/gpt-5.4` / `laberit/laberit-ai-preview` | Medium |
-| `taskanalyst` | Subagent | Interprets problem reports and improvement ideas before shared task issue creation. | `openai/gpt-5.5-fast` / `github-copilot/gpt-5.4` / `laberit/laberit-ai` | Medium |
+| `planner` | Primary | Planning, research, questions, phase design, handoffs, git-based review, memory updates. | `openai/gpt-5.5` / `github-copilot/gpt-5.4` / `laberit/laberit-ai-preview` | Medium / medium |
+| `research` | Subagent | Onboards existing repositories and creates or proposes initial `docs/ai/` memory before implementation planning. | `github-copilot/gpt-5.4` / `openai/gpt-5.5-fast` / `laberit/laberit-ai-preview` | Medium / low |
+| `code` | Subagent | Implements one approved phase across atomic stages and pauses after each stage for manual validation. | `openai/gpt-5.3-codex` / `github-copilot/gpt-5.3-codex` / `laberit/laberit-ai` | Medium / low |
+| `quickcode` | Subagent | Implements one approved quick-delivery task autonomously within narrow low-risk scope, then reports once for planner review. | `openai/gpt-5.3-codex` / `github-copilot/gpt-5.3-codex` / `laberit/laberit-ai` | Low / low |
+| `test` | Subagent | Critically reviews implementation quality and regression risk; recommends tests when justified and writes new tests only with explicit approval. | `github-copilot/gpt-5.4` / `openai/gpt-5.5-fast` / `laberit/laberit-ai-preview` | Medium / low |
+| `taskanalyst` | Subagent | Interprets problem reports and improvement ideas before shared task issue creation. | `github-copilot/gemini-3.5-flash` / `openai/gpt-5.5-fast` / `laberit/laberit-ai` | Low / low |
 
-The default model policy balances reasoning quality and implementation cost: planning/research stay on stronger reasoning models, implementation agents use Codex-oriented models, and `test` stays on a stronger review model rather than a coding model. Use `openai/gpt-5.5-pro` only for unusually difficult research or review tasks where latency and cost are acceptable. For GitHub Copilot installs, this repository currently maps thinking-oriented agents to `github-copilot/gpt-5.4` and coding agents to `github-copilot/gpt-5.3-codex`. The installed global defaults follow the same split: `model` uses `github-copilot/gpt-5.4` and `small_model` uses `github-copilot/gpt-5.3-codex`. Model availability still depends on what OpenCode exposes after `/connect` and the connected Copilot subscription.
+The default model policy balances reasoning quality, implementation fit, and subscription stability. OpenAI + GitHub Copilot installs keep planning and implementation on OpenAI (`planner`, `code`, `quickcode`), while Copilot handles repository research, testing review, lightweight `small_model` work, and shared-task analysis with Gemini Flash. Thinking-oriented agents stay on stronger reasoning models, implementation agents use Codex-oriented models, and `test` uses a review-oriented model rather than a coding model. Keep `github-copilot/claude-opus-4.6` as a manual escalation option for unusually difficult review/research tasks where latency and quota use are acceptable. Reasoning, verbosity, and step limits are centralized under each generated `opencode.jsonc` `agent` entry rather than in agent-file frontmatter. Model availability still depends on what OpenCode exposes after `/connect` and the connected subscription.
 
 **Switching providers**: You can switch between OpenAI, GitHub Copilot, and laberit models interactively:
 
