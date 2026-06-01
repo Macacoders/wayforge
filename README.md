@@ -4,7 +4,7 @@
 
 The repository is intentionally narrow:
 
-- **Runtime**: OpenCode only.
+- **Runtime**: OpenCode (default) or Kilo Code, selectable at install time.
 - **Providers**: OpenAI (default), GitHub Copilot, and laberit, selectable at install time (`openai`, `github-copilot`, `laberit`, or comma-separated combinations).
 - **Installation model**: generate/copy project-local OpenCode runtime files from reusable sources under `base/opencode/**`.
 - **Context model**: progressive disclosure, where agents load indexes and targeted references instead of dumping whole documentation trees into context.
@@ -139,14 +139,14 @@ This repository keeps reusable OpenCode sources under `base/opencode/**` and gen
 Expected generated/local output in a target repository:
 
 ```text
-<target-repo>/opencode.jsonc
+<target-repo>/opencode.jsonc  (or <target-repo>/kilo.jsonc for Kilo Code)
 <target-repo>/.opencode/agents/**
 <target-repo>/.opencode/commands/**
 <target-repo>/.opencode/skills/**
 <target-repo>/AGENTS.md
 ```
 
-`opencode.jsonc` is generated per installation and acts as the provider/model brain, including centralized per-agent model assignments under the `agent` section.
+`opencode.jsonc` is generated per installation and acts as the provider/model brain, including centralized per-agent model assignments under the `agent` section. The `.opencode/` directory, `AGENTS.md`, and provider/model logic are identical for both runtimes — only the runtime configuration filename (`opencode.jsonc` vs `kilo.jsonc`) differs.
 
 Shared workflow helpers that commands depend on should live inside the installed `.opencode/skills` surface (for example `.opencode/skills/shared-task/scripts/gh-issue`). Consuming repositories should not need a top-level `scripts/` directory for shared task workflows.
 
@@ -163,6 +163,12 @@ Provider-selectable installation commands:
 
 # laberit only
 ./install/bootstrap.sh --repo /path/to/repo --providers laberit
+
+# OpenAI + laberit
+./install/bootstrap.sh --repo /path/to/repo --providers openai,laberit
+
+# Kilo Code (Opencode fork)
+./install/bootstrap.sh --repo /path/to/repo --runtime kilocode --providers openai
 
 # OpenAI + GitHub Copilot
 ./install/bootstrap.sh --repo /path/to/repo --providers openai,github-copilot
@@ -182,6 +188,12 @@ Provider-selectable installation commands:
 
 # laberit only
 .\install\bootstrap.ps1 -Repo /path/to/repo -Providers laberit
+
+# OpenAI + laberit
+.\install\bootstrap.ps1 -Repo /path/to/repo -Providers openai,laberit
+
+# Kilo Code (Opencode fork)
+.\install\bootstrap.ps1 -Repo /path/to/repo -Runtime kilocode -Providers openai
 
 # OpenAI + GitHub Copilot
 .\install\bootstrap.ps1 -Repo /path/to/repo -Providers openai,github-copilot

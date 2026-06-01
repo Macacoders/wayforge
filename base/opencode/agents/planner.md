@@ -105,6 +105,8 @@ Load context in this order:
 5. ADRs under `docs/ai/decisions/` only when a decision may conflict with or extend prior decisions.
 6. Logs under `docs/ai/logs/` only for historical continuity or unresolved regressions.
 
+Before reading an optional memory file, check whether it exists. If the file is absent, skip it silently — do not fail, error, or produce noise.
+
 Do not paste whole documents into handoffs. Pass paths, reasons to load them, and a compact summary of confirmed decisions.
 
 ## Planning Output
