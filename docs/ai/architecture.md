@@ -38,6 +38,12 @@ Target projects receive generated/local runtime output:
 
 The `.opencode/` directory in consuming repositories is local/generated runtime output, not the reusable source-of-truth for this repository.
 
+## Repository-Self Editing Rule
+
+- In the `ai-config` repository itself, durable workflow changes should normally be made in `base/opencode/**`, `templates/AGENTS.md`, and the installer scripts.
+- Root `.opencode/`, root `AGENTS.md`, and root `opencode.jsonc` are local/generated artifacts and are gitignored in this repository.
+- If a local onboarding or debugging task updates the root `AGENTS.md` for immediate repo guidance, treat that as a local working-copy adjustment and follow up separately by syncing durable template changes back to `templates/AGENTS.md` when that broader update is approved.
+
 The installer must not overwrite unmanaged existing files by default and supports dry-run preview. With force enabled, it refreshes generated OpenCode runtime trees (`.opencode/agents`, `.opencode/commands`, `.opencode/skills`) plus managed output and legacy symlink targets when encountered.
 
 Portable workflow helpers used by shared commands should be packaged under `.opencode/skills/**` so they are available through the installed surface; consuming repositories should not require a top-level `scripts/` directory for those helpers.

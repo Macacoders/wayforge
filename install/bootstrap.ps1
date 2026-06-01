@@ -344,7 +344,7 @@ function Build-AgentBlockJson {
 "agent": {
     "planner": {
       "model": "openai/gpt-5.5",
-      "steps": 20,
+      "steps": 30,
       "options": {
         "reasoningEffort": "medium",
         "textVerbosity": "medium"
@@ -352,23 +352,23 @@ function Build-AgentBlockJson {
     },
     "research": {
       "model": "github-copilot/gpt-5.4",
-      "steps": 10,
+      "steps": 20,
       "options": {
         "reasoningEffort": "medium",
         "textVerbosity": "low"
       }
     },
     "code": {
-      "model": "openai/gpt-5.3-codex",
-      "steps": 5,
+      "model": "github-copilot/gpt-5.3-codex",
+      "steps": 15,
       "options": {
         "reasoningEffort": "medium",
         "textVerbosity": "low"
       }
     },
     "quickcode": {
-      "model": "openai/gpt-5.3-codex",
-      "steps": 5,
+      "model": "github-copilot/gpt-5.3-codex",
+      "steps": 15,
       "options": {
         "reasoningEffort": "low",
         "textVerbosity": "low"
@@ -376,7 +376,7 @@ function Build-AgentBlockJson {
     },
     "test": {
       "model": "github-copilot/gpt-5.4",
-      "steps": 8,
+      "steps": 20,
       "options": {
         "reasoningEffort": "medium",
         "textVerbosity": "low"
@@ -384,7 +384,7 @@ function Build-AgentBlockJson {
     },
     "taskanalyst": {
       "model": "github-copilot/gemini-3.5-flash",
-      "steps": 8,
+      "steps": 20,
       "options": {
         "reasoningEffort": "low",
         "textVerbosity": "low"
