@@ -6,15 +6,15 @@ This repository provides reusable OpenCode source configuration and installs gen
 
 ## Runtime Boundary
 
-- OpenCode is the only supported AI runtime.
+- OpenCode (default) and Kilo Code are supported AI runtimes, selectable at install time via the `--runtime` / `-Runtime` parameter.
 - Supported provider sets during installation include `openai`, `github-copilot`, `laberit`, and comma-separated combinations of those providers.
 - OpenAI authentication is handled in OpenCode with `/connect` (ChatGPT Plus/Pro or Azure credentials).
 - GitHub Copilot authentication is handled in OpenCode with `/connect` (device login flow).
 - laberit is configured via environment variables (`OPENAI_BASE_URL`, `OPENAI_API_KEY`).
 - Model IDs are recommendations and may need adjustment with `/models` depending on account availability.
 - The default model policy balances GPT-5.5-family reasoning for planning, onboarding, and critical review with Codex-oriented models for implementation.
+- Generated `opencode.jsonc` (or `kilo.jsonc` for Kilo Code) is the provider/model brain for each target repository and centralizes per-agent model assignments under `agent`.
 - Users can switch providers interactively: `/model openai/gpt-5.5`, `/model github-copilot/gpt-5.4`, or `/model laberit/laberit-ai`.
-- Generated `opencode.jsonc` is the provider/model brain for each target repository and centralizes per-agent model assignments under `agent`.
 
 ## Installed Surface
 

@@ -7,7 +7,7 @@ Status: Accepted
 
 The previous installation model emphasized monolithic project-local symlinks and ADR-0001 established OpenAI as the only supported provider. The current workflow has evolved to support modular OpenCode sources, provider-selectable installs, and generated local runtime configuration per consuming repository.
 
-That means the prior OpenAI-only provider constraint no longer fits the intended operating model, while OpenCode remains the only supported runtime.
+That means the prior OpenAI-only provider constraint no longer fits the intended operating model. OpenCode and Kilo Code are supported runtimes (selectable via --runtime), with OpenCode remaining the default.
 
 ## Decision
 
@@ -34,7 +34,7 @@ Adopt a modular source-and-generated-output architecture for OpenCode installati
 This ADR partially supersedes ADR-0001 by replacing the OpenAI-only provider constraint.
 
 - Superseded portion of ADR-0001: "OpenAI as the only supported provider."
-- Still in force from ADR-0001: OpenCode remains the only supported runtime.
+- Still in force from ADR-0001: OpenCode remains the only supported runtime (now partially superseded — Kilo Code is also supported, selectable via --runtime).
 
 ## Consequences And Tradeoffs
 
