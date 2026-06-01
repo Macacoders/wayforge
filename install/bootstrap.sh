@@ -161,6 +161,7 @@ parse_providers() {
   local raw="$1"
   local token
   local seen_openai=0
+    local seen_github_copilot=0
   local seen_laberit=0
 
   IFS=',' read -r -a _providers_in <<<"$raw"
@@ -174,6 +175,12 @@ parse_providers() {
           seen_openai=1
         fi
         ;;
+      github-copilot)
+        if [[ "$seen_github_copilot" -eq 0 ]]; then
+          SELECTED_PROVIDERS+=("github-copilot")
+          seen_github_copilot=1
+        fi
+        ;;
       laberit)
         if [[ "$seen_laberit" -eq 0 ]]; then
           SELECTED_PROVIDERS+=("laberit")
@@ -182,7 +189,7 @@ parse_providers() {
         ;;
       *)
         log "error: invalid provider '$token' in --providers"
-        log "       allowed values: openai, laberit, openai,laberit"
+        log "       allowed values: openai, github-copilot, laberit, or comma-separated combinations"
         exit 1
         ;;
     esac
@@ -249,6 +256,22 @@ build_provider_block_json() {
     }'
   fi
 
+  if contains_provider "github-copilot"; then
+    local copilot_block='    "github-copilot": {
+      "models": {
+        "gpt-5.4": {},
+        "gpt-5.3-codex": {}
+      }
+    }'
+
+    if [[ -n "$out" ]]; then
+      out="$out,
+$copilot_block"
+    else
+      out="$copilot_block"
+    fi
+  fi
+
   if contains_provider "laberit"; then
     local laberit_block='    "laberit": {
       "npm": "@ai-sdk/openai-compatible",
@@ -290,6 +313,32 @@ $laberit_block"
 }
 
 build_agent_block_json() {
+  if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "github-copilot" ]]; then
+    cat <<'EOF'
+"agent": {
+    "planner": {
+      "model": "github-copilot/gpt-5.4"
+    },
+    "research": {
+      "model": "github-copilot/gpt-5.4"
+    },
+    "code": {
+      "model": "github-copilot/gpt-5.3-codex"
+    },
+    "quickcode": {
+      "model": "github-copilot/gpt-5.3-codex"
+    },
+    "test": {
+      "model": "github-copilot/gpt-5.4"
+    },
+    "taskanalyst": {
+      "model": "github-copilot/gpt-5.4"
+    }
+  }
+EOF
+    return
+  fi
+
   if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "laberit" ]]; then
     cat <<'EOF'
 "agent": {
@@ -344,6 +393,11 @@ generate_opencode_jsonc_content() {
   local runtime="${1:-opencode}"
   local default_model="openai/gpt-5.5"
   local default_small_model="openai/gpt-5.4-mini-fast"
+
+  if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "github-copilot" ]]; then
+    default_model="github-copilot/gpt-5.4"
+    default_small_model="github-copilot/gpt-5.3-codex"
+  fi
 
   if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "laberit" ]]; then
     default_model="laberit/laberit-ai-preview"
@@ -767,7 +821,7 @@ Usage:
 
 Options:
   --repo <path>  Link OpenCode config into a target project.
-  --providers    Provider set to enable: openai | laberit | openai,laberit (default: openai)
+  --providers    Provider set to enable: openai | github-copilot | laberit | comma-separated combinations (default: openai)
   --model        Override default model (must belong to an enabled provider)
   --small-model  Override default small model (must belong to an enabled provider)
   --runtime      Runtime to configure: opencode (default) or kilocode.
