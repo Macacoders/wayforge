@@ -152,6 +152,33 @@ Shared workflow helpers that commands depend on should live inside the installed
 
 Provider-selectable installation commands:
 
+### Guided interactive install (Bash-first)
+
+Use the interactive wrapper when you want safe numbered choices instead of manually composing flags:
+
+```bash
+./install/bootstrap-interactive.sh
+```
+
+The interactive installer prompts for:
+
+- target repository path
+- runtime (`opencode` or `kilocode`)
+- provider set (safe numbered presets)
+- model preset
+- agent preset (`balanced`, `fast`, `thorough`)
+- `dry-run`
+- `force`
+
+It prints provider connection instructions during install but does **not** run authentication automatically.
+
+- OpenAI and GitHub Copilot auth are still completed in OpenCode/Kilo Code via `/connect`.
+- laberit still requires local environment variables (`OPENAI_BASE_URL`, `OPENAI_API_KEY`).
+
+PowerShell interactive parity is a follow-up. For Windows today, use the existing non-interactive `install/bootstrap.ps1` path.
+
+### Non-interactive install commands
+
 **Linux/macOS:**
 
 ```bash
@@ -206,6 +233,7 @@ Optional overrides:
 
 - `--model` / `-Model` to override the generated default model (`<provider>/<model>` format).
 - `--small-model` / `-SmallModel` to override the generated lightweight `small_model` value.
+- `--agent-preset` (Bash only currently) to select `balanced` (default behavior), `fast`, or `thorough` agent profile generation (model/steps plus safe reasoning/verbosity options where configured providers support them).
 
 Conservative installer policy:
 
