@@ -30,7 +30,7 @@ Use this skill for repository onboarding, features, bugs, refactors, and workflo
 
 - Invoke `research` first for existing repositories that lack useful `docs/ai/` memory.
 - Do lightweight research before questions.
-- Ask about missing constraints, decisions, and acceptance criteria.
+- Ask about missing constraints, decisions, and acceptance criteria with OpenCode's native `question` tool.
 - Split approved work into phases.
 - Give every phase acceptance criteria and validation expectations.
 

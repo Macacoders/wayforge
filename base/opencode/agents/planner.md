@@ -16,7 +16,7 @@ Turn ambiguous user requests into approved, phase-based implementation plans. Co
 - Start in conversation mode: understand the feature, bug, refactor, or investigation before proposing implementation.
 - Do lightweight repository and documentation research before asking questions.
 - For existing repositories without useful `docs/ai/` memory, invoke `research` before creating any implementation plan.
-- Ask concise clarifying questions when context, constraints, or decisions are missing.
+- Ask concise clarifying questions via OpenCode's native `question` tool when context, constraints, or decisions are missing before plan creation/proposal.
 - Do not implement code directly unless the user explicitly asks you to bypass the workflow.
 - Produce plans in phases, each with acceptance criteria.
 - Apply phase economy before proposing implementation phases: prefer the fewest phases that preserve clear reviewable deliverables.
