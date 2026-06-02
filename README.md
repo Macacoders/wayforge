@@ -11,7 +11,7 @@ The repository is intentionally narrow:
 
 ## Workflows
 
-This setup supports two delivery workflows. **Staged delivery** is the default conservative workflow. **Quick delivery** is opt-in for clear, small, low-risk tasks where staged pauses would add unnecessary overhead.
+This setup supports two delivery workflows. **Staged delivery** is the default conservative workflow. **Quick delivery** handles clear, small, low-risk tasks where staged pauses would add unnecessary overhead. Quick delivery can be started with `/quick` or `planner` may proactively suggest it when the task is clearly eligible.
 
 Use `/plan` when the work needs onboarding, planning, architecture or safety review, multiple files or phases, ambiguous decisions, migrations, dependency changes, deployment/release changes, or higher regression risk. Use `/quick` only when the task has a narrow outcome, obvious acceptance criteria, low risk, and safe local validation.
 
@@ -51,13 +51,14 @@ The staged-delivery workflow keeps repository onboarding, planning, implementati
 
 ### Quick delivery
 
-1. Start with `/quick` or explicitly ask for quick delivery.
-2. `planner` classifies whether the request is eligible for quick delivery.
-3. If eligible, `planner` prepares a compact quick handoff with approved scope, expected files, validation expectations, and escalation conditions.
-4. `planner` invokes one `quickcode` subagent session.
-5. `quickcode` completes the approved low-risk task without staged pauses, using autonomous edits and allowlisted validation/git inspection commands only.
-6. `quickcode` reports once for `planner` review.
-7. `planner` reviews the result with git status/diff/log evidence before responding to the user.
+1. Start with `/quick`, explicitly ask for quick delivery, or let `planner` proactively suggest it when the task is clearly quick-eligible.
+2. If `planner` suggests quick delivery proactively, it explains the eligibility reasons and expected scope, then asks for explicit confirmation before proceeding.
+3. `planner` classifies whether the request is eligible for quick delivery.
+4. If eligible, `planner` prepares a compact quick handoff with approved scope, expected files, validation expectations, and escalation conditions.
+5. `planner` invokes one `quickcode` subagent session.
+6. `quickcode` completes the approved low-risk task without staged pauses, using autonomous edits and allowlisted validation/git inspection commands only.
+7. `quickcode` reports once for `planner` review.
+8. `planner` reviews the result with git status/diff/log evidence before responding to the user.
 
 ## Agents
 
