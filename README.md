@@ -150,6 +150,18 @@ Expected generated/local output in a target repository:
 
 Shared workflow helpers that commands depend on should live inside the installed `.opencode/skills` surface (for example `.opencode/skills/shared-task/scripts/gh-issue`). Consuming repositories should not need a top-level `scripts/` directory for shared task workflows.
 
+### Optional Graphify memory extraction
+
+Graphify support is optional and intended for explicit `/graphify` requests only.
+
+- Python package: `graphifyy`
+- CLI command: `graphify`
+- Curated memory remains authoritative: `docs/ai/**`, `README.md`, and `AGENTS.md`
+- Graphify output should complement curated memory, not replace it
+- Code extraction is local; docs/PDF/image processing may involve model APIs depending on options
+- Treat generated `graphify-out/**` output as local/noisy working data and do not commit it by default
+- Do not enable Graphify plugins/dependencies by default
+
 Provider-selectable installation commands:
 
 ### Guided interactive install (Bash-first)

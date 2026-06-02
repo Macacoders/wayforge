@@ -48,6 +48,13 @@ The following sections contain repository-specific guidance. Customize these pla
 - Sensitive data: `[FILL IN: PII handling, encryption requirements]`
 - Dependencies: `[FILL IN: vulnerability scanning, update policy]`
 
+Optional Graphify guidance (when used in your project):
+- Graphify is optional and should not be a default dependency.
+- Package name is `graphifyy`; CLI command is `graphify`.
+- Treat Graphify output as supplemental context; curated memory in `docs/ai/**`, the repo `README.md`, and this `AGENTS.md` remains authoritative.
+- Code extraction is local, but docs/PDF/image processing may involve model APIs depending on options.
+- Keep generated `graphify-out/**` local by default; do not commit noisy artifacts unless intentionally curated.
+
 ### Deployment
 
 [FILL IN: How and where this project is deployed. Examples:]

@@ -20,6 +20,8 @@ This repository provides reusable OpenCode source configuration and installs gen
 
 Reusable versioned source lives in this repository under `base/opencode/**`.
 
+Optional Graphify support is provided through reusable source files (`base/opencode/commands/graphify.md` and `base/opencode/skills/graphify-memory/SKILL.md`) and is routed through explicit `/graphify` requests. It is not a default installer dependency or plugin enablement path. Curated memory (`docs/ai/**`, repository `README.md`, `AGENTS.md`) remains authoritative; Graphify output is supplemental and should be treated as local/noisy generated data.
+
 Agent permissions are centrally maintained in `base/opencode/permissions/agents.yml`. The installer renders those permissions into generated target `.opencode/agents/*.md` frontmatter because OpenCode consumes native agent metadata and does not natively import shared permission fragments from secondary files.
 
 Target projects receive generated/local runtime output:
