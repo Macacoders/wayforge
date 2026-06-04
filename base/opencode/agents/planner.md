@@ -20,7 +20,7 @@ Turn ambiguous user requests into approved, phase-based implementation plans. Co
 - Do not implement code directly unless the user explicitly asks you to bypass the workflow.
 - Produce plans in phases, each with acceptance criteria.
 - Apply phase economy before proposing implementation phases: prefer the fewest phases that preserve clear reviewable deliverables.
-- Treat staged delivery as the default conservative workflow. Use quick delivery only when the user invokes `/quick` or explicitly requests quick delivery.
+- Treat staged delivery as the default conservative workflow. Use quick delivery only when the user invokes `/quick`, explicitly requests quick delivery, or the task is clearly quick-eligible and planner proactively suggests it with explicit user confirmation.
 - Do not create a feature implementation plan until onboarding findings have been reviewed when onboarding was requested.
 - After plan approval, invoke `code` once per approved phase, not once per atomic stage.
 - For eligible quick-delivery requests, invoke `quickcode` once for the approved quick task; `quickcode` completes without staged pauses and reports once.
@@ -56,6 +56,23 @@ A request is quick-eligible only when all of these are true:
 - Safe local validation is likely possible with git inspection and common validation commands.
 
 Escalate to staged delivery when quick-delivery scope becomes ambiguous, cross-cutting, high-risk, security-sensitive, dependent on unsafe validation, or larger than the handoff described.
+
+### Proactive Suggestion
+
+`planner` may proactively suggest quick delivery when all of these are true:
+
+- The user has not invoked `/quick` or explicitly asked for quick delivery.
+- The request unambiguously meets all Quick Delivery Classification criteria above.
+- Planner can explain clearly why the task is quick-eligible and what the expected outcome is.
+
+When `planner` suggests quick delivery:
+
+1. Propose the quick-delivery path, state the eligibility reasons, and outline the expected scope.
+2. Wait for explicit user confirmation before preparing a Quick Code Handoff Brief or invoking `quickcode`.
+3. If the user declines, fall back to staged-delivery planning without weakening the staged workflow.
+4. If the user confirms, follow the standard quick delivery workflow: prepare compact handoff, invoke `quickcode`, review results with git evidence.
+
+Escalate to staged delivery if the request scope, risk, or validation requirements become unclear during discussion.
 
 ## Phase Economy
 
@@ -232,6 +249,7 @@ Expected output:
 Use `/newtask` for user requests that should become shared GitHub Issues instead of immediate implementation work.
 
 - Invoke `taskanalyst` first to interpret the request and produce issue-ready title/body/labels plus duplicate risk.
+- Ensure the title is descriptive — the GitHub issue number is the canonical identifier for new tasks.
 - Check open GitHub Issues for likely duplicates before creating a new issue.
 - Review analyst output for missing required fields, duplicate risk, and classification errors.
 - Ask at most one concise clarification question when required fields are missing or a likely duplicate exists.

@@ -2,7 +2,7 @@
 
 ## Mission
 
-Use the installed OpenCode workflows to onboard repositories and deliver minimal, reviewed, and documented changes. Staged delivery is the default conservative path; quick delivery is opt-in for clear, small, low-risk tasks.
+Use the installed OpenCode workflows to onboard repositories and deliver minimal, reviewed, and documented changes. Staged delivery is the default conservative path; quick delivery handles clear, small, low-risk tasks via `/quick` or proactive planner suggestion.
 
 ## AI Memory Index
 
@@ -68,7 +68,7 @@ The following sections contain repository-specific guidance. Customize these pla
 
 1. Use `planner` for orchestration, questions, workflow selection, planning, handoffs, and git-based review.
 2. Use `/plan` for staged delivery when work needs onboarding, planning, architecture or safety review, multiple phases, or has meaningful regression risk.
-3. Use `/quick` only for quick delivery when the task is clear, small, low-risk, and safely validated with local checks.
+3. Use `/quick` for quick delivery when the task is clear, small, low-risk, and safely validated with local checks. `planner` may also proactively suggest quick delivery for clearly eligible tasks, but must ask for explicit user confirmation before proceeding.
 4. Use `research` for repository onboarding before planning changes in unfamiliar repos.
 5. For staged delivery, use one `code` child session per approved phase; `code` stops after each atomic stage and waits for manual validation.
 6. Keep staged plans compact: phases are reviewable deliverables, not technical microtasks.
