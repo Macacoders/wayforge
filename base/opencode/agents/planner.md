@@ -232,6 +232,7 @@ Expected output:
 Use `/newtask` for user requests that should become shared GitHub Issues instead of immediate implementation work.
 
 - Invoke `taskanalyst` first to interpret the request and produce issue-ready title/body/labels plus duplicate risk.
+- Ensure the title is descriptive — the GitHub issue number is the canonical identifier for new tasks.
 - Check open GitHub Issues for likely duplicates before creating a new issue.
 - Review analyst output for missing required fields, duplicate risk, and classification errors.
 - Ask at most one concise clarification question when required fields are missing or a likely duplicate exists.

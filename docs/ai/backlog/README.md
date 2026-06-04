@@ -56,6 +56,12 @@ Do not require or assume a top-level `scripts/` directory for shared task issue 
 
 Duplicate-work prevention is process-based: always check assignee and `status:doing` before starting, then claim via assignee + status label + comment.
 
+## Task Identifiers
+
+- **New issues** — Use `/newtask <description>` to create an issue with a descriptive title. The issue number assigned by GitHub is the official identifier for all references, claims, and status tracking.
+- **Cross-references** — Reference tasks by `#<issue-number>` (e.g., `#5`) in comments, commit messages, pull requests, ADRs, and plans.
+- **Branch naming** — Use `feature/issue-{number}-{slugified-title}` for pull requests (already the convention in `/tasks prclose`).
+
 ## Labels
 
 Required labels for the shared task workflow (must already exist in the repository):
