@@ -8,6 +8,8 @@ Use the installed OpenCode workflows to onboard repositories and deliver minimal
 
 This file is the practical entrypoint for AI agents working in this repository. For durable memory (architecture, decisions, approved plans, and logs), see `docs/ai/README.md`.
 
+Treat `docs/ai/README.md` as a tiny router. Do not load all memory files by default; load only task-relevant memory paths.
+
 ## Repository Guidance
 
 The following sections contain repository-specific guidance. Customize these placeholders for your project.
@@ -78,6 +80,7 @@ The following sections contain repository-specific guidance. Customize these pla
 10. Use `test` when completed changes need critical testing review or regression coverage.
 11. Use `/newtask` to create shared repository tasks as GitHub Issues, and `/tasks` to list/claim/release/close shared work.
 12. Update durable memory under `docs/ai/` only for onboarding findings, backlog tasks, approved plans, decisions, architecture changes, and short logs.
+13. Use `/memory` (planner) for low-token memory find/check/update routing.
 
 ## Progressive Disclosure
 

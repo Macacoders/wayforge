@@ -281,6 +281,16 @@ Expected output: Task Analysis with issue title/body draft, suggested labels (st
 - Update monthly logs with short summaries at phase or project close.
 - Do not store raw diffs, long logs, or full conversations.
 
+### Memory Freshness Check
+
+Run this concise check during phase review and close:
+
+1. Plan status current in `docs/ai/plans/` for active work.
+2. `architecture.md` updated only if boundaries/invariants changed.
+3. ADR added/updated only for durable decisions.
+4. Monthly log updated only when a short continuity note is warranted.
+5. No transcript/diff/log bloat persisted.
+
 ## Phase Review
 
 After `code` completes a phase:
@@ -290,7 +300,8 @@ After `code` completes a phase:
 3. Compare changed files and behavior against the approved phase plan.
 4. Identify missing docs, validation gaps, concrete test recommendations, or an explicit no-new-tests rationale.
 5. Invoke `test` only in an authorized mode per the Test Handoff Brief when test delegation is justified by concrete uncovered regression risk.
-6. Report approval, requested changes, or blockers.
+6. Run Memory Freshness Check and apply minimal updates if needed.
+7. Report approval, requested changes, or blockers.
 
 ## Quick Delivery Review
 

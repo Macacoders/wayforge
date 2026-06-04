@@ -1,40 +1,44 @@
 # AI Memory Index
 
-This directory stores durable project memory for AI-assisted work. Use it with progressive disclosure: read this index first, then load only the documents needed for the current task.
+This directory is a **router**, not a summary corpus. Read this file first, then load only the smallest relevant memory file.
 
-## Documents
+Do **not** load all `docs/ai/**` by default.
 
-- `architecture.md`: Current architecture, boundaries, invariants, and installation model. Load when changing repository structure, agent responsibilities, install behavior, or public workflow contracts.
-- `backlog/`: Shared task workflow docs. Load `backlog/README.md` for GitHub Issues workflow, credentials, labels, and claim/release rules.
-- `decisions/`: ADRs for durable decisions. Load only ADRs related to the current change or when proposing a decision that may conflict with past choices.
-- `plans/`: Approved implementation plans. Load the active plan for the current feature, bug, refactor, or workflow update.
-- `logs/`: Short monthly change logs. Load only when historical continuity is needed.
+## Topic Routes
 
-## Persistence Rules
+- Planning current work: `plans/<active-plan>.md`
+- Repo boundaries/contracts: `architecture.md`
+- Durable decisions/tradeoffs: `decisions/*.md` (only related ADRs)
+- Shared task workflow context: `backlog/README.md`
+- Historical continuity: `logs/YYYY-MM.md` (only when needed)
 
-Persist:
+## Low-token Load Rules
 
-- Approved plans and phase status.
-- GitHub Issues task references that describe known problems, target outcomes, status, and acceptance criteria.
-- Architecture boundaries and invariants.
-- Durable decisions and rejected alternatives.
-- Short summaries of completed work.
+1. Read this index first.
+2. Load one route file at a time.
+3. Stop when you have enough context to proceed safely.
+4. Ask `planner` to run `/memory` when you need memory lookup, freshness review, or durable updates.
 
-Do not persist:
+## What To Persist
 
-- Full chat transcripts.
-- Raw diffs.
-- Long terminal logs.
-- Trivial implementation details.
-- Temporary assumptions that no longer matter.
+- Approved plans and phase status
+- Architecture boundaries/invariants
+- Durable decisions (ADRs)
+- Short monthly logs
+- Shared task references that matter for future work
 
-## Agent Responsibilities
+## What Not To Persist
 
-- `planner` owns this memory and decides when it must change.
-- `planner` keeps shared work aligned in GitHub Issues and updates durable memory only for plans, ADRs, architecture, and logs.
-- `code` updates product or repository docs relevant to its phase and may propose memory updates.
-- `test` may propose risk or coverage notes when they affect future work.
+- Full transcripts
+- Raw diffs
+- Long terminal output
+- Ephemeral notes or temporary assumptions
+
+## Ownership
+
+- `planner` is the final memory owner.
+- Other agents may propose updates, but `planner` decides what gets persisted.
 
 ## Handoff Rule
 
-Agent handoffs should include reference paths and reasons to load them. They should not paste entire memory files unless explicitly requested by the user.
+Pass compact paths + reasons to load; do not paste whole memory files unless requested.

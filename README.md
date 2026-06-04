@@ -98,9 +98,13 @@ The standard loading order is:
 
 Handoffs between agents should pass compact briefs with paths and reasons to load references. They should not paste whole documents, terminal logs, or diffs unless the user explicitly asks.
 
+When memory lookup or maintenance is needed, route through `/memory` so `planner` can keep updates targeted and low-token.
+
 ## Persistent Memory
 
 Target projects may keep AI-relevant memory under `docs/ai/`.
+
+`docs/ai/README.md` should stay tiny and act as a router: guide targeted loading, not a large summary dump.
 
 Recommended structure:
 
