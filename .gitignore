@@ -40,6 +40,3 @@ tmp/
 .opencode/
 AGENTS.md*
 opencode.jsonc
-
-# Optional Graphify generated output (local/noisy)
-graphify-out/
