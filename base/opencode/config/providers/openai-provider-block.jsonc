@@ -1,0 +1,22 @@
+    "openai": {
+      "models": {
+        "gpt-5.5": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "medium"
+          }
+        },
+        "gpt-5.5-fast": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "medium"
+          }
+        },
+        "gpt-5.3-codex": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "low"
+          }
+        }
+      }
+    }

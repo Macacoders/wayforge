@@ -141,6 +141,8 @@ Do not store full chat transcripts, long terminal output, raw diffs, or trivial 
 
 This repository keeps reusable OpenCode sources under `base/opencode/**` and generates project-local runtime configuration in each consuming repository.
 
+Installer entrypoints remain `install/bootstrap.sh` and `install/bootstrap.ps1`; managed sync helper implementations are kept in `install/lib/managed_sync.sh` and `install/lib/managed_sync.ps1`.
+
 Expected generated/local output in a target repository:
 
 ```text
@@ -151,7 +153,7 @@ Expected generated/local output in a target repository:
 <target-repo>/AGENTS.md
 ```
 
-`opencode.jsonc` is generated per installation and acts as the provider/model brain, including centralized per-agent model assignments under the `agent` section. The `.opencode/` directory, `AGENTS.md`, and provider/model logic are identical for both runtimes — only the runtime configuration filename (`opencode.jsonc` vs `kilo.jsonc`) differs.
+`opencode.jsonc` is generated per installation and acts as the provider/model brain, including centralized per-agent model assignments under the `agent` section. Provider config blocks used by both installers are sourced from `base/opencode/config/providers/*-provider-block.jsonc`. The `.opencode/` directory, `AGENTS.md`, and provider/model logic are identical for both runtimes — only the runtime configuration filename (`opencode.jsonc` vs `kilo.jsonc`) differs. Existing local runtime config is preserved by default; with `--force` / `-Force`, it is refreshed only when the existing file is ai-config-managed.
 
 Shared workflow helpers that commands depend on should live inside the installed `.opencode/skills` surface (for example `.opencode/skills/shared-task/scripts/gh-issue`). Consuming repositories should not need a top-level `scripts/` directory for shared task workflows.
 
@@ -244,7 +246,8 @@ Conservative installer policy:
 
 - Use `--dry-run` / `-DryRun` to preview changes before modifying a target repository.
 - Do not overwrite unmanaged existing files/directories by default.
-- With `--force` / `-Force`, refresh generated OpenCode runtime trees (`.opencode/agents`, `.opencode/commands`, `.opencode/skills`) plus managed output and legacy symlink targets when encountered.
+- Installer updates use safe overlay for `.opencode/agents`, `.opencode/commands`, and `.opencode/skills`: ai-config-managed files are refreshed, while custom entries are preserved.
+- With `--force` / `-Force`, refresh managed output (including legacy managed-tree paths) but still preserve unmanaged user-owned config such as custom `.opencode/**` entries and unmanaged `AGENTS.md`.
 
 Configuration and secrets boundary:
 
