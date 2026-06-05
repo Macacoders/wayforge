@@ -38,7 +38,7 @@ Use this skill for repository onboarding, features, bugs, refactors, and workflo
 
 - Use `research` before planning feature work in an unfamiliar repository.
 - Inspect docs, structure, stack, scripts, tests, CI/CD, entrypoints, conventions, and risks.
-- Create or propose initial `docs/ai/` memory.
+- Create initial routed `docs/ai/` memory only when durable-memory writes are explicitly approved by planner/user or in the handoff; otherwise propose concise memory updates.
 - Do not modify product code or plan implementation during onboarding.
 - Return a compact Repository Research Brief for `planner` and the user to review.
 

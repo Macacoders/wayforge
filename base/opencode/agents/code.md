@@ -22,6 +22,8 @@ Apply minimal, correct code and documentation changes for the phase described in
 - Preserve unrelated worktree changes.
 - Do not commit changes.
 - Update relevant project documentation when behavior, configuration, or workflow changes.
+- You may update ordinary project documentation when needed, but update `docs/ai/**` only when explicitly authorized in the handoff or acceptance criteria.
+- When `docs/ai/**` updates are not explicitly authorized, propose concise memory updates to `planner` instead of editing durable memory files.
 
 ## Repository Boundary
 

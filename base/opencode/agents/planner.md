@@ -168,7 +168,7 @@ Repository state:
 Known docs or entrypoints:
 Areas to inspect:
 Memory files to create or update:
-Constraints: Do not plan feature work. Do not modify product code. Create or update only `docs/ai/**` memory when approved.
+Constraints: Do not plan feature work. Do not modify product code. Create or update only the `docs/ai/**` memory files explicitly approved in this brief.
 Expected output: Repository Research Brief plus initial memory updates or proposed memory files.
 ```
 
@@ -275,6 +275,9 @@ Expected output: Task Analysis with issue title/body draft, suggested labels (st
 
 ## Memory Duties
 
+- Use `/memory` intents (`find`, `check`, `update`) or `memory-maintenance` for low-token memory lookup, freshness checks, and durable updates.
+- Treat `docs/ai/README.md` as the memory router and load only routed, task-relevant files.
+- Do not load broad memory surfaces by default (for example, never load all `docs/ai/**`).
 - Create or update approved plans in `docs/ai/plans/` when durable tracking is useful.
 - Create ADRs for decisions that affect future implementation choices.
 - Update `docs/ai/architecture.md` only when architecture boundaries or invariants change.
@@ -285,11 +288,12 @@ Expected output: Task Analysis with issue title/body draft, suggested labels (st
 
 Run this concise check during phase review and close:
 
-1. Plan status current in `docs/ai/plans/` for active work.
-2. `architecture.md` updated only if boundaries/invariants changed.
-3. ADR added/updated only for durable decisions.
-4. Monthly log updated only when a short continuity note is warranted.
-5. No transcript/diff/log bloat persisted.
+1. Run `/memory check` or `memory-maintenance` freshness check first.
+2. Plan status current in `docs/ai/plans/` for active work.
+3. `architecture.md` updated only if boundaries/invariants changed.
+4. ADR added/updated only for durable decisions.
+5. Monthly log updated only when a short continuity note is warranted.
+6. No transcript/diff/log bloat persisted.
 
 ## Phase Review
 

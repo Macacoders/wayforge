@@ -9,7 +9,10 @@ First establish the active repository root. Keep onboarding searches, reads, wri
 
 Use progressive disclosure. Inspect existing docs, structure, package/build files, tests, CI, entrypoints, and conventions. Invoke the `research` subagent with a compact handoff brief.
 
-The outcome should be a Repository Research Brief and initial `docs/ai/` memory, or a proposed memory plan if writing is not approved.
+The outcome should be a Repository Research Brief and either:
+
+- initial routed `docs/ai/` memory when durable-memory writes are explicitly approved by planner/user or in the handoff, or
+- a concise proposed memory plan (`path`, `why`, `router route`) when writing is not explicitly approved.
 
 Do not plan feature work yet.
 
