@@ -62,6 +62,10 @@ Portable workflow helpers used by shared commands should be packaged under `.ope
 The system uses progressive disclosure:
 
 - Agents start from indexes and task-specific references.
+- Read `docs/ai/README.md` first as the memory router before loading other `docs/ai/**` files.
+- `docs/ai/README.md` is intentionally tiny and acts as a route map, not a summary corpus.
+- Load only routed memory files that are task-relevant.
+- Memory lookup/maintenance should route through planner-owned `/memory` intents (`find`, `check`, `update`) to keep context and writes minimal.
 - Handoffs contain compact briefs and reference paths.
 - Subagents do not inherit whole planning transcripts.
 - Persistent memory stores durable decisions, not chat history.

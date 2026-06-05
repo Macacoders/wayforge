@@ -11,7 +11,7 @@ The repository is intentionally narrow:
 
 ## Workflows
 
-This setup supports two delivery workflows. **Staged delivery** is the default conservative workflow. **Quick delivery** is opt-in for clear, small, low-risk tasks where staged pauses would add unnecessary overhead.
+This setup supports two delivery workflows. **Staged delivery** is the default conservative workflow. **Quick delivery** handles clear, small, low-risk tasks where staged pauses would add unnecessary overhead. Quick delivery can be started with `/quick` or `planner` may proactively suggest it when the task is clearly eligible.
 
 Use `/plan` when the work needs onboarding, planning, architecture or safety review, multiple files or phases, ambiguous decisions, migrations, dependency changes, deployment/release changes, or higher regression risk. Use `/quick` only when the task has a narrow outcome, obvious acceptance criteria, low risk, and safe local validation.
 
@@ -51,13 +51,14 @@ The staged-delivery workflow keeps repository onboarding, planning, implementati
 
 ### Quick delivery
 
-1. Start with `/quick` or explicitly ask for quick delivery.
-2. `planner` classifies whether the request is eligible for quick delivery.
-3. If eligible, `planner` prepares a compact quick handoff with approved scope, expected files, validation expectations, and escalation conditions.
-4. `planner` invokes one `quickcode` subagent session.
-5. `quickcode` completes the approved low-risk task without staged pauses, using autonomous edits and allowlisted validation/git inspection commands only.
-6. `quickcode` reports once for `planner` review.
-7. `planner` reviews the result with git status/diff/log evidence before responding to the user.
+1. Start with `/quick`, explicitly ask for quick delivery, or let `planner` proactively suggest it when the task is clearly quick-eligible.
+2. If `planner` suggests quick delivery proactively, it explains the eligibility reasons and expected scope, then asks for explicit confirmation before proceeding.
+3. `planner` classifies whether the request is eligible for quick delivery.
+4. If eligible, `planner` prepares a compact quick handoff with approved scope, expected files, validation expectations, and escalation conditions.
+5. `planner` invokes one `quickcode` subagent session.
+6. `quickcode` completes the approved low-risk task without staged pauses, using autonomous edits and allowlisted validation/git inspection commands only.
+7. `quickcode` reports once for `planner` review.
+8. `planner` reviews the result with git status/diff/log evidence before responding to the user.
 
 ## Agents
 
@@ -97,9 +98,13 @@ The standard loading order is:
 
 Handoffs between agents should pass compact briefs with paths and reasons to load references. They should not paste whole documents, terminal logs, or diffs unless the user explicitly asks.
 
+When memory lookup or maintenance is needed, route through `/memory` so `planner` can keep updates targeted and low-token.
+
 ## Persistent Memory
 
 Target projects may keep AI-relevant memory under `docs/ai/`.
+
+`docs/ai/README.md` should stay tiny and act as a router: guide targeted loading, not a large summary dump.
 
 Recommended structure:
 
@@ -136,6 +141,8 @@ Do not store full chat transcripts, long terminal output, raw diffs, or trivial 
 
 This repository keeps reusable OpenCode sources under `base/opencode/**` and generates project-local runtime configuration in each consuming repository.
 
+Installer entrypoints remain `install/bootstrap.sh` and `install/bootstrap.ps1`; managed sync helper implementations are kept in `install/lib/managed_sync.sh` and `install/lib/managed_sync.ps1`.
+
 Expected generated/local output in a target repository:
 
 ```text
@@ -146,7 +153,7 @@ Expected generated/local output in a target repository:
 <target-repo>/AGENTS.md
 ```
 
-`opencode.jsonc` is generated per installation and acts as the provider/model brain, including centralized per-agent model assignments under the `agent` section. The `.opencode/` directory, `AGENTS.md`, and provider/model logic are identical for both runtimes — only the runtime configuration filename (`opencode.jsonc` vs `kilo.jsonc`) differs.
+`opencode.jsonc` is generated per installation and acts as the provider/model brain, including centralized per-agent model assignments under the `agent` section. Provider config blocks used by both installers are sourced from `base/opencode/config/providers/*-provider-block.jsonc`. The `.opencode/` directory, `AGENTS.md`, and provider/model logic are identical for both runtimes — only the runtime configuration filename (`opencode.jsonc` vs `kilo.jsonc`) differs. Existing local runtime config is preserved by default; with `--force` / `-Force`, it is refreshed only when the existing file is ai-config-managed.
 
 Shared workflow helpers that commands depend on should live inside the installed `.opencode/skills` surface (for example `.opencode/skills/shared-task/scripts/gh-issue`). Consuming repositories should not need a top-level `scripts/` directory for shared task workflows.
 
@@ -239,7 +246,8 @@ Conservative installer policy:
 
 - Use `--dry-run` / `-DryRun` to preview changes before modifying a target repository.
 - Do not overwrite unmanaged existing files/directories by default.
-- With `--force` / `-Force`, refresh generated OpenCode runtime trees (`.opencode/agents`, `.opencode/commands`, `.opencode/skills`) plus managed output and legacy symlink targets when encountered.
+- Installer updates use safe overlay for `.opencode/agents`, `.opencode/commands`, and `.opencode/skills`: ai-config-managed files are refreshed, while custom entries are preserved.
+- With `--force` / `-Force`, refresh managed output (including legacy managed-tree paths) but still preserve unmanaged user-owned config such as custom `.opencode/**` entries and unmanaged `AGENTS.md`.
 
 Configuration and secrets boundary:
 

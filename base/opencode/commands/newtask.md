@@ -26,6 +26,7 @@ Use the shared task creation workflow:
    - Tell the user to create missing labels manually in GitHub repository settings, then rerun `/newtask`.
    - Do not attempt automatic label creation.
 7. If the task is ready, create a GitHub Issue in this repository.
+   - Use a descriptive title that summarizes the work (the GitHub issue number is the canonical identifier).
    - Prefer `.opencode/skills/shared-task/scripts/gh-issue create ...` (installed target-repository path).
    - Reuse already-confirmed root/repo context when available; avoid redundant rediscovery in the same session.
    - If the skill helper is unavailable, use equivalent prelude for `gh issue`:

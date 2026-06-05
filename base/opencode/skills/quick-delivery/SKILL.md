@@ -15,7 +15,7 @@ Use this skill for opt-in small, low-risk tasks where the user wants faster impl
 
 A request is eligible for quick delivery only when all of these are true:
 
-- The user invoked `/quick` or explicitly requested quick delivery.
+- The user invoked `/quick`, explicitly requested quick delivery, or explicitly confirmed a proactive quick-delivery suggestion from `planner`.
 - The task has a clear, narrow outcome and obvious acceptance criteria.
 - The change is expected to touch a small number of files.
 - The risk of regression, data loss, security impact, or operational impact is low.
@@ -33,11 +33,13 @@ If any condition is not met, use the staged-delivery workflow instead.
 ## Workflow Steps
 
 1. `planner` classifies the request for quick-delivery eligibility.
-2. If eligible, `planner` writes a compact `Quick Code Handoff Brief` with scope, files, references, acceptance criteria, validation expectations, and escalation conditions.
-3. `planner` invokes one `quickcode` subagent session.
-4. `quickcode` completes all approved quick-task steps without stopping between atomic steps.
-5. `quickcode` reports once with files changed, behavior/config/docs changed, validation run, validation not run, risks, and suggested review commands.
-6. `planner` reviews the result using git status/diff/log evidence before reporting to the user.
+2. If the user did not invoke `/quick` or explicitly request quick delivery, `planner` may proactively suggest quick delivery only when eligibility is unambiguous.
+3. For proactive suggestions, `planner` explains eligibility and expected scope, then waits for explicit user confirmation.
+4. If eligible and confirmed, `planner` writes a compact `Quick Code Handoff Brief` with scope, files, references, acceptance criteria, validation expectations, and escalation conditions.
+5. `planner` invokes one `quickcode` subagent session.
+6. `quickcode` completes all approved quick-task steps without stopping between atomic steps.
+7. `quickcode` reports once with files changed, behavior/config/docs changed, validation run, validation not run, risks, and suggested review commands.
+8. `planner` reviews the result using git status/diff/log evidence before reporting to the user.
 
 ## Handoff Contract
 

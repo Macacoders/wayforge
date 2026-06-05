@@ -1,0 +1,50 @@
+"agent": {
+    "planner": {
+      "model": "openai/gpt-5.5",
+      "steps": 20,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "medium"
+      }
+    },
+    "research": {
+      "model": "openai/gpt-5.5-fast",
+      "steps": 10,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
+    },
+    "code": {
+      "model": "openai/gpt-5.3-codex",
+      "steps": 5,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
+    },
+    "quickcode": {
+      "model": "openai/gpt-5.3-codex",
+      "steps": 4,
+      "options": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low"
+      }
+    },
+    "test": {
+      "model": "openai/gpt-5.5-fast",
+      "steps": 8,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
+    },
+    "taskanalyst": {
+      "model": "openai/gpt-5.5-fast",
+      "steps": 8,
+      "options": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low"
+      }
+    }
+  }

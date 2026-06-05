@@ -2,11 +2,13 @@
 
 ## Mission
 
-Use the installed OpenCode workflows to onboard repositories and deliver minimal, reviewed, and documented changes. Staged delivery is the default conservative path; quick delivery is opt-in for clear, small, low-risk tasks.
+Use the installed OpenCode workflows to onboard repositories and deliver minimal, reviewed, and documented changes. Staged delivery is the default conservative path; quick delivery handles clear, small, low-risk tasks via `/quick` or proactive planner suggestion.
 
 ## AI Memory Index
 
 This file is the practical entrypoint for AI agents working in this repository. For durable memory (architecture, decisions, approved plans, and logs), see `docs/ai/README.md`.
+
+Treat `docs/ai/README.md` as a tiny router. Do not load all memory files by default; use `/memory` (planner) or `memory-maintenance` for low-token lookup/freshness/update routing.
 
 ## Repository Guidance
 
@@ -68,7 +70,7 @@ The following sections contain repository-specific guidance. Customize these pla
 
 1. Use `planner` for orchestration, questions, workflow selection, planning, handoffs, and git-based review.
 2. Use `/plan` for staged delivery when work needs onboarding, planning, architecture or safety review, multiple phases, or has meaningful regression risk.
-3. Use `/quick` only for quick delivery when the task is clear, small, low-risk, and safely validated with local checks.
+3. Use `/quick` for quick delivery when the task is clear, small, low-risk, and safely validated with local checks. `planner` may also proactively suggest quick delivery for clearly eligible tasks, but must ask for explicit user confirmation before proceeding.
 4. Use `research` for repository onboarding before planning changes in unfamiliar repos.
 5. For staged delivery, use one `code` child session per approved phase; `code` stops after each atomic stage and waits for manual validation.
 6. Keep staged plans compact: phases are reviewable deliverables, not technical microtasks.
@@ -78,6 +80,7 @@ The following sections contain repository-specific guidance. Customize these pla
 10. Use `test` when completed changes need critical testing review or regression coverage.
 11. Use `/newtask` to create shared repository tasks as GitHub Issues, and `/tasks` to list/claim/release/close shared work.
 12. Update durable memory under `docs/ai/` only for onboarding findings, backlog tasks, approved plans, decisions, architecture changes, and short logs.
+13. Use `/memory` (planner) or `memory-maintenance` for low-token memory find/check/update routing.
 
 ## Progressive Disclosure
 

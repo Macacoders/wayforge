@@ -1,0 +1,28 @@
+    "github-copilot": {
+      "models": {
+        "gpt-5.4": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "low"
+          }
+        },
+        "gpt-5.3-codex": {
+          "options": {
+            "reasoningEffort": "low",
+            "textVerbosity": "low"
+          }
+        },
+        "gemini-3.5-flash": {
+          "options": {
+            "reasoningEffort": "low",
+            "textVerbosity": "low"
+          }
+        },
+        "claude-opus-4.6": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "medium"
+          }
+        }
+      }
+    }

@@ -1,0 +1,27 @@
+    "laberit": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Laberit AI",
+      "options": {
+        "baseURL": "{env:OPENAI_BASE_URL}",
+        "apiKey": "{env:OPENAI_API_KEY}",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "models": {
+        "laberit-ai-preview": {
+          "name": "Laberit AI Preview",
+          "limit": {
+            "context": 262144,
+            "output": 16384
+          }
+        },
+        "laberit-ai": {
+          "name": "Laberit AI",
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          }
+        }
+      }
+    }

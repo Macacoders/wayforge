@@ -37,3 +37,32 @@ Staged delivery remains the default conservative workflow and is required whenev
 - Use staged delivery for every task: rejected because manual checkpoints after every atomic stage are unnecessary for many trivial low-risk changes.
 - Let `planner` make quick edits directly: rejected because implementation context should remain separated from orchestration and review.
 - Give quick delivery broader shell or subagent permissions: rejected because quick tasks should stay narrow, local, and easy to review.
+
+---
+
+## Revised
+
+Date: 2026-06-02
+Status: Accepted (Revised)
+
+### Context For Revision
+
+Experience with quick delivery showed that users sometimes have clearly quick-eligible tasks but do not know to invoke `/quick`. Requiring explicit opt-in added friction in those cases. The safety boundaries and classification criteria are working well, so the change is to the *initiation path* rather than to the execution model.
+
+### Decision Change
+
+Add an additional initiation path: `planner` may **proactively suggest** quick delivery for clearly eligible tasks, but must ask for explicit user confirmation before executing. The `/quick` opt-in path remains unchanged.
+
+This means quick delivery can be started in two ways:
+
+- **Opt-in (unchanged):** User invokes `/quick` or explicitly asks for quick delivery.
+- **Proactive suggestion (new):** `planner` identifies a clearly eligible task during conversation and proposes quick delivery; the user must confirm before `planner` proceeds with a Quick Code Handoff Brief and `quickcode` invocation.
+
+The safety classification criteria, quickcode permissions, escalation rules, and planner review requirements from the original decision are unchanged.
+
+### Rationale For Change
+
+- Users with quick-eligible tasks do not always know the `/quick` command exists.
+- Proactive suggestion preserves user control (confirmation required) while reducing the need for users to remember workflow syntax.
+- The existing classification and escalation guardrails already prevent inappropriate use.
+- No changes to `quickcode` permissions, scope rules, or review requirements are needed.

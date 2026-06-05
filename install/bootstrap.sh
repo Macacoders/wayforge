@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+source "$SCRIPT_DIR/lib/managed_sync.sh"
 
 DRY_RUN=0
 FORCE=0
@@ -18,85 +19,6 @@ MANAGED_DIR_MARKER='.ai-config-managed'
 
 log() {
   printf '[ai-config] %s\n' "$*"
-}
-
-run_mkdir() {
-  local dir="$1"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    return
-  fi
-  mkdir -p "$dir"
-}
-
-run_rm() {
-  local path="$1"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: rm -f $path"
-    return
-  fi
-  rm -f "$path"
-}
-
-run_ln() {
-  local src="$1"
-  local dst="$2"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: ln -s $src $dst"
-    return
-  fi
-  ln -s "$src" "$dst"
-}
-
-run_cp_a() {
-  local src="$1"
-  local dst="$2"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: cp -a $src $dst"
-    return
-  fi
-  cp -a "$src" "$dst"
-}
-
-run_cp() {
-  local src="$1"
-  local dst="$2"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: cp $src $dst"
-    return
-  fi
-  cp "$src" "$dst"
-}
-
-run_rm_rf() {
-  local path="$1"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: rm -rf $path"
-    return
-  fi
-  rm -rf "$path"
-}
-
-run_write_file() {
-  local path="$1"
-  local content="$2"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: write file $path"
-    return
-  fi
-  printf '%s\n' "$content" >"$path"
-}
-
-ensure_dir() {
-  local dir="$1"
-  if [[ -d "$dir" ]]; then
-    return
-  fi
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: mkdir -p $dir"
-    return
-  fi
-  run_mkdir "$dir"
-  log "created directory: $dir"
 }
 
 safe_link() {
@@ -385,34 +307,23 @@ build_agent_block_json_from_preset() {
       }"
   fi
 
-  cat <<EOF
-"agent": {
-    "planner": {
-      "model": "$planner_model",
-      "steps": $planner_steps$planner_options
-    },
-    "research": {
-      "model": "$research_model",
-      "steps": $research_steps$research_options
-    },
-    "code": {
-      "model": "$code_model",
-      "steps": $code_steps$code_options
-    },
-    "quickcode": {
-      "model": "$code_model",
-      "steps": $quickcode_steps$quickcode_options
-    },
-    "test": {
-      "model": "$research_model",
-      "steps": $test_steps$test_options
-    },
-    "taskanalyst": {
-      "model": "$taskanalyst_model",
-      "steps": $taskanalyst_steps$taskanalyst_options
-    }
-  }
-EOF
+  render_agent_preset_template \
+    "$planner_model" \
+    "$research_model" \
+    "$code_model" \
+    "$taskanalyst_model" \
+    "$planner_steps" \
+    "$research_steps" \
+    "$code_steps" \
+    "$quickcode_steps" \
+    "$test_steps" \
+    "$taskanalyst_steps" \
+    "$planner_options" \
+    "$research_options" \
+    "$code_options" \
+    "$quickcode_options" \
+    "$test_options" \
+    "$taskanalyst_options"
 }
 
 build_enabled_providers_json() {
@@ -431,61 +342,26 @@ build_enabled_providers_json() {
 }
 
 build_provider_block_json() {
+  local provider_fragment_dir="$ROOT_DIR/base/opencode/config/providers"
+  local read_fragment
+  read_fragment() {
+    local name="$1"
+    local file="$provider_fragment_dir/$name"
+    if [[ ! -f "$file" ]]; then
+      log "error: missing provider config fragment: $file"
+      exit 1
+    fi
+    printf '%s' "$(<"$file")"
+  }
+
   local out=""
   if contains_provider "openai"; then
-    out='    "openai": {
-      "models": {
-        "gpt-5.5": {
-          "options": {
-            "reasoningEffort": "medium",
-            "textVerbosity": "medium"
-          }
-        },
-        "gpt-5.5-fast": {
-          "options": {
-            "reasoningEffort": "medium",
-            "textVerbosity": "medium"
-          }
-        },
-        "gpt-5.3-codex": {
-          "options": {
-            "reasoningEffort": "medium",
-            "textVerbosity": "low"
-          }
-        }
-      }
-    }'
+    out="$(read_fragment 'openai-provider-block.jsonc')"
   fi
 
   if contains_provider "github-copilot"; then
-    local copilot_block='    "github-copilot": {
-      "models": {
-        "gpt-5.4": {
-          "options": {
-            "reasoningEffort": "medium",
-            "textVerbosity": "low"
-          }
-        },
-        "gpt-5.3-codex": {
-          "options": {
-            "reasoningEffort": "low",
-            "textVerbosity": "low"
-          }
-        },
-        "gemini-3.5-flash": {
-          "options": {
-            "reasoningEffort": "low",
-            "textVerbosity": "low"
-          }
-        },
-        "claude-opus-4.6": {
-          "options": {
-            "reasoningEffort": "medium",
-            "textVerbosity": "medium"
-          }
-        }
-      }
-    }'
+    local copilot_block
+    copilot_block="$(read_fragment 'github-copilot-provider-block.jsonc')"
 
     if [[ -n "$out" ]]; then
       out="$out,
@@ -496,33 +372,8 @@ $copilot_block"
   fi
 
   if contains_provider "laberit"; then
-    local laberit_block='    "laberit": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Laberit AI",
-      "options": {
-        "baseURL": "{env:OPENAI_BASE_URL}",
-        "apiKey": "{env:OPENAI_API_KEY}",
-        "headers": {
-          "Content-Type": "application/json"
-        }
-      },
-      "models": {
-        "laberit-ai-preview": {
-          "name": "Laberit AI Preview",
-          "limit": {
-            "context": 262144,
-            "output": 16384
-          }
-        },
-        "laberit-ai": {
-          "name": "Laberit AI",
-          "limit": {
-            "context": 131072,
-            "output": 16384
-          }
-        }
-      }
-    }'
+    local laberit_block
+    laberit_block="$(read_fragment 'laberit-provider-block.jsonc')"
 
     if [[ -n "$out" ]]; then
       out="$out,
@@ -535,6 +386,54 @@ $laberit_block"
   printf '%s' "$out"
 }
 
+read_agent_fragment() {
+  local file="$ROOT_DIR/base/opencode/config/agents/$1"
+  if [[ ! -f "$file" ]]; then
+    log "error: missing agent config fragment: $file"
+    exit 1
+  fi
+  printf '%s' "$(<"$file")"
+}
+
+render_agent_preset_template() {
+  local planner_model="$1"
+  local research_model="$2"
+  local code_model="$3"
+  local taskanalyst_model="$4"
+  local planner_steps="$5"
+  local research_steps="$6"
+  local code_steps="$7"
+  local quickcode_steps="$8"
+  local test_steps="$9"
+  local taskanalyst_steps="${10}"
+  local planner_options="${11}"
+  local research_options="${12}"
+  local code_options="${13}"
+  local quickcode_options="${14}"
+  local test_options="${15}"
+  local taskanalyst_options="${16}"
+
+  local template
+  template="$(read_agent_fragment 'agent-preset-template.jsonc')"
+  template="${template//\{\{PLANNER_MODEL\}\}/$planner_model}"
+  template="${template//\{\{RESEARCH_MODEL\}\}/$research_model}"
+  template="${template//\{\{CODE_MODEL\}\}/$code_model}"
+  template="${template//\{\{TASKANALYST_MODEL\}\}/$taskanalyst_model}"
+  template="${template//\{\{PLANNER_STEPS\}\}/$planner_steps}"
+  template="${template//\{\{RESEARCH_STEPS\}\}/$research_steps}"
+  template="${template//\{\{CODE_STEPS\}\}/$code_steps}"
+  template="${template//\{\{QUICKCODE_STEPS\}\}/$quickcode_steps}"
+  template="${template//\{\{TEST_STEPS\}\}/$test_steps}"
+  template="${template//\{\{TASKANALYST_STEPS\}\}/$taskanalyst_steps}"
+  template="${template//\{\{PLANNER_OPTIONS\}\}/$planner_options}"
+  template="${template//\{\{RESEARCH_OPTIONS\}\}/$research_options}"
+  template="${template//\{\{CODE_OPTIONS\}\}/$code_options}"
+  template="${template//\{\{QUICKCODE_OPTIONS\}\}/$quickcode_options}"
+  template="${template//\{\{TEST_OPTIONS\}\}/$test_options}"
+  template="${template//\{\{TASKANALYST_OPTIONS\}\}/$taskanalyst_options}"
+  printf '%s' "$template"
+}
+
 build_agent_block_json() {
   if [[ -n "$AGENT_PRESET" && "$AGENT_PRESET" != "balanced" ]]; then
     build_agent_block_json_from_preset "$AGENT_PRESET"
@@ -542,195 +441,21 @@ build_agent_block_json() {
   fi
 
   if contains_provider "openai" && contains_provider "github-copilot"; then
-    cat <<'EOF'
-"agent": {
-    "planner": {
-      "model": "openai/gpt-5.5",
-      "steps": 30,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "medium"
-      }
-    },
-    "research": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 20,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "code": {
-      "model": "github-copilot/gpt-5.3-codex",
-      "steps": 15,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "quickcode": {
-      "model": "github-copilot/gpt-5.3-codex",
-      "steps": 15,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    },
-    "test": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 20,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "taskanalyst": {
-      "model": "github-copilot/gemini-3.5-flash",
-      "steps": 20,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    }
-  }
-EOF
+    read_agent_fragment 'balanced-openai-github-copilot-agent-block.jsonc'
     return
   fi
 
   if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "github-copilot" ]]; then
-    cat <<'EOF'
-"agent": {
-    "planner": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 16,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "medium"
-      }
-    },
-    "research": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 10,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "code": {
-      "model": "github-copilot/gpt-5.3-codex",
-      "steps": 5,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "quickcode": {
-      "model": "github-copilot/gpt-5.3-codex",
-      "steps": 4,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    },
-    "test": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 8,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "taskanalyst": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 8,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    }
-  }
-EOF
+    read_agent_fragment 'balanced-github-copilot-only-agent-block.jsonc'
     return
   fi
 
   if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "laberit" ]]; then
-    cat <<'EOF'
-"agent": {
-    "planner": {
-      "model": "laberit/laberit-ai-preview"
-    },
-    "research": {
-      "model": "laberit/laberit-ai-preview"
-    },
-    "code": {
-      "model": "laberit/laberit-ai"
-    },
-    "quickcode": {
-      "model": "laberit/laberit-ai"
-    },
-    "test": {
-      "model": "laberit/laberit-ai-preview"
-    },
-    "taskanalyst": {
-      "model": "laberit/laberit-ai"
-    }
-  }
-EOF
+    read_agent_fragment 'balanced-laberit-only-agent-block.jsonc'
     return
   fi
 
-  cat <<'EOF'
-"agent": {
-    "planner": {
-      "model": "openai/gpt-5.5",
-      "steps": 20,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "medium"
-      }
-    },
-    "research": {
-      "model": "openai/gpt-5.5-fast",
-      "steps": 10,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "code": {
-      "model": "openai/gpt-5.3-codex",
-      "steps": 5,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "quickcode": {
-      "model": "openai/gpt-5.3-codex",
-      "steps": 4,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    },
-    "test": {
-      "model": "openai/gpt-5.5-fast",
-      "steps": 8,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "taskanalyst": {
-      "model": "openai/gpt-5.5-fast",
-      "steps": 8,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    }
-  }
-EOF
+  read_agent_fragment 'balanced-default-agent-block.jsonc'
 }
 
 generate_opencode_jsonc_content() {
@@ -796,16 +521,6 @@ $provider_block
 EOF
 }
 
-is_managed_opencode_file() {
-  local path="$1"
-  if [[ ! -f "$path" ]]; then
-    return 1
-  fi
-  local first_line
-  IFS= read -r first_line <"$path" || true
-  [[ "$first_line" == "$MANAGED_OPENCODE_HEADER" ]]
-}
-
 sync_generated_opencode_jsonc() {
   local repo="$1"
   local runtime="$2"
@@ -845,300 +560,6 @@ sync_generated_opencode_jsonc() {
   fi
 }
 
-is_managed_dir() {
-  local path="$1"
-  [[ -f "$path/$MANAGED_DIR_MARKER" ]]
-}
-
-is_managed_file() {
-  local path="$1"
-  [[ -f "${path}.ai-config-managed" ]]
-}
-
-render_agent_permission_block() {
-  local agent_name="$1"
-  local permissions_file="$2"
-
-  awk -v target_agent="$agent_name" '
-    function count_indent(s,    i, c) {
-      i = 1
-      while (i <= length(s)) {
-        c = substr(s, i, 1)
-        if (c != " ") {
-          break
-        }
-        i++
-      }
-      return i - 1
-    }
-
-    BEGIN {
-      in_agents = 0
-      current_agent = ""
-      capturing_agent = 0
-      target_agent_indent = 0
-    }
-
-    {
-      line = $0
-      if (line ~ /^[[:space:]]*$/) {
-        next
-      }
-
-      indent = count_indent(line)
-      trimmed = substr(line, indent + 1)
-
-      if (!in_agents) {
-        if (trimmed == "agents:") {
-          in_agents = 1
-          agents_indent = indent
-        }
-        next
-      }
-
-      if (indent <= agents_indent) {
-        in_agents = 0
-        next
-      }
-
-      if (indent == agents_indent + 2 && match(trimmed, /^([^:#]+):[[:space:]]*$/, m)) {
-        key = m[1]
-        gsub(/[[:space:]]+$/, "", key)
-        current_agent = key
-        if (current_agent == target_agent) {
-          capturing_agent = 1
-          target_agent_indent = indent
-          print "permission:"
-        } else {
-          if (capturing_agent) {
-            exit
-          }
-          capturing_agent = 0
-        }
-        next
-      }
-
-      if (!capturing_agent) {
-        next
-      }
-
-      if (indent <= target_agent_indent) {
-        exit
-      }
-
-      if (line ~ /^[[:space:]]*#/) {
-        next
-      }
-
-      print substr(line, target_agent_indent + 1)
-    }
-  ' "$permissions_file"
-}
-
-render_agent_with_central_permissions() {
-  local src_file="$1"
-  local dst_file="$2"
-  local agent_name="$3"
-  local permissions_file="$4"
-
-  local rendered_permission
-  rendered_permission="$(render_agent_permission_block "$agent_name" "$permissions_file")"
-  if [[ -z "$rendered_permission" ]]; then
-    log "error: missing permissions in $permissions_file for agent '$agent_name'"
-    exit 1
-  fi
-
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: would render centralized permissions: $dst_file"
-    return
-  fi
-
-  awk -v permission_block="$rendered_permission" '
-    BEGIN {
-      in_frontmatter = 0
-      frontmatter_done = 0
-      skipping_permission = 0
-      permission_indent = -1
-      inserted = 0
-    }
-
-    function count_indent(s,    i, c) {
-      i = 1
-      while (i <= length(s)) {
-        c = substr(s, i, 1)
-        if (c != " ") {
-          break
-        }
-        i++
-      }
-      return i - 1
-    }
-
-    function print_permission(indent,    n, i, line_count, lines, prefix) {
-      prefix = ""
-      for (i = 0; i < indent; i++) {
-        prefix = prefix " "
-      }
-      line_count = split(permission_block, lines, "\n")
-      for (i = 1; i <= line_count; i++) {
-        print prefix lines[i]
-      }
-      inserted = 1
-    }
-
-    {
-      line = $0
-      if (line == "---") {
-        if (!in_frontmatter) {
-          in_frontmatter = 1
-          print line
-          next
-        }
-
-        if (in_frontmatter && !frontmatter_done) {
-          if (!inserted) {
-            print_permission(0)
-          }
-          frontmatter_done = 1
-          in_frontmatter = 0
-          print line
-          next
-        }
-      }
-
-      if (!in_frontmatter || frontmatter_done) {
-        print line
-        next
-      }
-
-      indent = count_indent(line)
-      trimmed = substr(line, indent + 1)
-
-      if (skipping_permission) {
-        if (trimmed == "" || indent > permission_indent) {
-          next
-        }
-        skipping_permission = 0
-      }
-
-      if (!inserted && match(trimmed, /^description:[[:space:]]/)) {
-        print_permission(indent)
-      }
-
-      if (trimmed == "permission:") {
-        skipping_permission = 1
-        permission_indent = indent
-        next
-      }
-
-      print line
-    }
-  ' "$src_file" > "$dst_file"
-}
-
-sync_agents_tree_with_permissions() {
-  local src_dir="$1"
-  local dst_dir="$2"
-  local permissions_file="$3"
-
-  sync_managed_tree "$src_dir" "$dst_dir" 1
-  if [[ "$SYNC_MANAGED_TREE_LAST_ACTION" != "copied" ]]; then
-    return
-  fi
-
-  local src_agent
-  for src_agent in "$src_dir"/*.md; do
-    [[ -f "$src_agent" ]] || continue
-    local agent_file
-    local agent_name
-    local dst_agent
-    agent_file="$(basename "$src_agent")"
-    agent_name="${agent_file%.md}"
-    dst_agent="$dst_dir/$agent_file"
-    render_agent_with_central_permissions "$src_agent" "$dst_agent" "$agent_name" "$permissions_file"
-  done
-}
-
-sync_managed_tree() {
-  local src="$1"
-  local dst="$2"
-  local force_replace_unmanaged="${3:-0}"
-  local parent
-  parent="$(dirname "$dst")"
-  SYNC_MANAGED_TREE_LAST_ACTION="skipped"
-
-  if [[ ! -d "$src" ]]; then
-    log "error: source directory does not exist: $src"
-    exit 1
-  fi
-
-  if [[ -L "$dst" ]]; then
-    if [[ "$FORCE" -ne 1 ]]; then
-      log "skip existing symlink (use --force to replace): $dst -> $(readlink "$dst")"
-      return
-    fi
-    run_rm "$dst"
-  elif [[ -e "$dst" ]]; then
-    if [[ "$FORCE" -ne 1 ]]; then
-      log "skip existing non-symlink: $dst"
-      return
-    fi
-    if [[ ! -d "$dst" ]] || { [[ "$force_replace_unmanaged" -ne 1 ]] && ! is_managed_dir "$dst"; }; then
-      log "skip existing non-managed path (not replacing): $dst"
-      return
-    fi
-    run_rm_rf "$dst"
-  fi
-
-  ensure_dir "$parent"
-  run_cp_a "$src" "$dst"
-  run_write_file "$dst/$MANAGED_DIR_MARKER" "generated-by=ai-config-bootstrap.sh"
-  SYNC_MANAGED_TREE_LAST_ACTION="copied"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: would copy managed tree: $dst"
-  else
-    log "copied managed tree: $dst"
-  fi
-}
-
-sync_managed_file() {
-  local src="$1"
-  local dst="$2"
-  local parent
-  parent="$(dirname "$dst")"
-
-  if [[ ! -f "$src" ]]; then
-    log "error: source file does not exist: $src"
-    exit 1
-  fi
-
-  if [[ -L "$dst" ]]; then
-    if [[ "$FORCE" -ne 1 ]]; then
-      log "skip existing file (use --force to replace): $dst"
-      return
-    fi
-    run_rm "$dst"
-  elif [[ -e "$dst" ]]; then
-    if [[ "$FORCE" -ne 1 ]]; then
-      log "skip existing file (use --force to replace): $dst"
-      return
-    fi
-    if ! is_managed_file "$dst"; then
-      log "skip existing unmanaged file (use --force to replace): $dst"
-      return
-    fi
-    run_rm "$dst"
-  fi
-
-  ensure_dir "$parent"
-  run_cp "$src" "$dst"
-  run_write_file "${dst}.ai-config-managed" "generated-by=ai-config-bootstrap.sh"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: would copy managed file: $dst"
-  else
-    log "copied managed file: $dst"
-  fi
-}
 
 install_repo() {
   local repo="$1"
@@ -1177,7 +598,7 @@ Options:
   --agent-preset Optional agent profile: balanced | fast | thorough (default: balanced behavior)
   --runtime      Runtime to configure: opencode (default) or kilocode.
   --dry-run      Print planned operations without modifying files.
-  --force        Replace generated OpenCode runtime trees and managed targets/symlinks.
+  --force        Refresh managed targets and generated runtime trees; preserve unmanaged local files.
   -h, --help     Show this help.
 EOF
 }
