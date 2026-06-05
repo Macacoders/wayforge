@@ -1,0 +1,50 @@
+"agent": {
+    "planner": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 16,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "medium"
+      }
+    },
+    "research": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 10,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
+    },
+    "code": {
+      "model": "github-copilot/gpt-5.3-codex",
+      "steps": 5,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
+    },
+    "quickcode": {
+      "model": "github-copilot/gpt-5.3-codex",
+      "steps": 4,
+      "options": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low"
+      }
+    },
+    "test": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 8,
+      "options": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low"
+      }
+    },
+    "taskanalyst": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 8,
+      "options": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low"
+      }
+    }
+  }

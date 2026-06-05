@@ -263,34 +263,7 @@ function Build-AgentBlockJsonFromPreset {
     $testOptions = & $getOptionsBlock $researchModel $reasoningEffort $textVerbosity
     $taskanalystOptions = & $getOptionsBlock $taskanalystModel $reasoningEffort $textVerbosity
 
-    return @"
-"agent": {
-    "planner": {
-      "model": "$plannerModel",
-      "steps": $plannerSteps$plannerOptions
-    },
-    "research": {
-      "model": "$researchModel",
-      "steps": $researchSteps$researchOptions
-    },
-    "code": {
-      "model": "$codeModel",
-      "steps": $codeSteps$codeOptions
-    },
-    "quickcode": {
-      "model": "$codeModel",
-      "steps": $quickcodeSteps$quickcodeOptions
-    },
-    "test": {
-      "model": "$researchModel",
-      "steps": $testSteps$testOptions
-    },
-    "taskanalyst": {
-      "model": "$taskanalystModel",
-      "steps": $taskanalystSteps$taskanalystOptions
-    }
-  }
-"@.TrimEnd()
+    return Render-AgentPresetTemplate -PlannerModel $plannerModel -ResearchModel $researchModel -CodeModel $codeModel -TaskanalystModel $taskanalystModel -PlannerSteps $plannerSteps -ResearchSteps $researchSteps -CodeSteps $codeSteps -QuickcodeSteps $quickcodeSteps -TestSteps $testSteps -TaskanalystSteps $taskanalystSteps -PlannerOptions $plannerOptions -ResearchOptions $researchOptions -CodeOptions $codeOptions -QuickcodeOptions $quickcodeOptions -TestOptions $testOptions -TaskanalystOptions $taskanalystOptions
 }
 
 function Build-EnabledProvidersJson {
@@ -333,198 +306,85 @@ function Build-ProviderBlockJson {
     return [string]::Join(",`n", $blocks)
 }
 
+function Read-AgentBlockFragment {
+    param([string]$FileName)
+
+    $agentFragmentDir = Join-Path $ROOT_DIR 'base/opencode/config/agents'
+    $fragmentPath = Join-Path $agentFragmentDir $FileName
+    if (-not (Test-Path -LiteralPath $fragmentPath -PathType Leaf)) {
+        log "error: missing agent config fragment: $fragmentPath"
+        exit 1
+    }
+
+    $content = Get-Content -LiteralPath $fragmentPath -Raw
+    return ($content -replace '(\r?\n)+$','')
+}
+
+function Render-AgentPresetTemplate {
+    param(
+        [string]$PlannerModel,
+        [string]$ResearchModel,
+        [string]$CodeModel,
+        [string]$TaskanalystModel,
+        [int]$PlannerSteps,
+        [int]$ResearchSteps,
+        [int]$CodeSteps,
+        [int]$QuickcodeSteps,
+        [int]$TestSteps,
+        [int]$TaskanalystSteps,
+        [string]$PlannerOptions,
+        [string]$ResearchOptions,
+        [string]$CodeOptions,
+        [string]$QuickcodeOptions,
+        [string]$TestOptions,
+        [string]$TaskanalystOptions
+    )
+
+    $template = Read-AgentBlockFragment 'agent-preset-template.jsonc'
+    $replacements = @{
+        '{{PLANNER_MODEL}}' = $PlannerModel
+        '{{RESEARCH_MODEL}}' = $ResearchModel
+        '{{CODE_MODEL}}' = $CodeModel
+        '{{TASKANALYST_MODEL}}' = $TaskanalystModel
+        '{{PLANNER_STEPS}}' = [string]$PlannerSteps
+        '{{RESEARCH_STEPS}}' = [string]$ResearchSteps
+        '{{CODE_STEPS}}' = [string]$CodeSteps
+        '{{QUICKCODE_STEPS}}' = [string]$QuickcodeSteps
+        '{{TEST_STEPS}}' = [string]$TestSteps
+        '{{TASKANALYST_STEPS}}' = [string]$TaskanalystSteps
+        '{{PLANNER_OPTIONS}}' = $PlannerOptions
+        '{{RESEARCH_OPTIONS}}' = $ResearchOptions
+        '{{CODE_OPTIONS}}' = $CodeOptions
+        '{{QUICKCODE_OPTIONS}}' = $QuickcodeOptions
+        '{{TEST_OPTIONS}}' = $TestOptions
+        '{{TASKANALYST_OPTIONS}}' = $TaskanalystOptions
+    }
+
+    foreach ($key in $replacements.Keys) {
+        $template = $template.Replace($key, $replacements[$key])
+    }
+
+    return $template
+}
+
 function Build-AgentBlockJson {
     if ($AGENT_PRESET -and $AGENT_PRESET -ne 'balanced') {
         return Build-AgentBlockJsonFromPreset $AGENT_PRESET
     }
 
     if ((Contains-Provider 'openai') -and (Contains-Provider 'github-copilot')) {
-        return @'
-"agent": {
-    "planner": {
-      "model": "openai/gpt-5.5",
-      "steps": 30,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "medium"
-      }
-    },
-    "research": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 20,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "code": {
-      "model": "github-copilot/gpt-5.3-codex",
-      "steps": 15,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "quickcode": {
-      "model": "github-copilot/gpt-5.3-codex",
-      "steps": 15,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    },
-    "test": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 20,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "taskanalyst": {
-      "model": "github-copilot/gemini-3.5-flash",
-      "steps": 20,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    }
-  }
-'@.TrimEnd()
+        return Read-AgentBlockFragment 'balanced-openai-github-copilot-agent-block.jsonc'
     }
 
-        if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'github-copilot') {
-                return @'
-"agent": {
-        "planner": {
-            "model": "github-copilot/gpt-5.4",
-            "steps": 16,
-            "options": {
-                "reasoningEffort": "medium",
-                "textVerbosity": "medium"
-            }
-        },
-        "research": {
-            "model": "github-copilot/gpt-5.4",
-            "steps": 10,
-            "options": {
-                "reasoningEffort": "medium",
-                "textVerbosity": "low"
-            }
-        },
-        "code": {
-            "model": "github-copilot/gpt-5.3-codex",
-            "steps": 5,
-            "options": {
-                "reasoningEffort": "medium",
-                "textVerbosity": "low"
-            }
-        },
-        "quickcode": {
-            "model": "github-copilot/gpt-5.3-codex",
-            "steps": 4,
-            "options": {
-                "reasoningEffort": "low",
-                "textVerbosity": "low"
-            }
-        },
-        "test": {
-            "model": "github-copilot/gpt-5.4",
-            "steps": 8,
-            "options": {
-                "reasoningEffort": "medium",
-                "textVerbosity": "low"
-            }
-        },
-        "taskanalyst": {
-            "model": "github-copilot/gpt-5.4",
-            "steps": 8,
-            "options": {
-                "reasoningEffort": "low",
-                "textVerbosity": "low"
-            }
-        }
+    if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'github-copilot') {
+        return Read-AgentBlockFragment 'balanced-github-copilot-only-agent-block.jsonc'
     }
-'@.TrimEnd()
-        }
 
     if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'laberit') {
-        return @'
-"agent": {
-    "planner": {
-      "model": "laberit/laberit-ai-preview"
-    },
-    "research": {
-      "model": "laberit/laberit-ai-preview"
-    },
-    "code": {
-      "model": "laberit/laberit-ai"
-    },
-    "quickcode": {
-      "model": "laberit/laberit-ai"
-    },
-    "test": {
-      "model": "laberit/laberit-ai-preview"
-    },
-    "taskanalyst": {
-      "model": "laberit/laberit-ai"
-    }
-  }
-'@.TrimEnd()
+        return Read-AgentBlockFragment 'balanced-laberit-only-agent-block.jsonc'
     }
 
-    return @'
-"agent": {
-    "planner": {
-      "model": "openai/gpt-5.5",
-      "steps": 16,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "medium"
-      }
-    },
-    "research": {
-      "model": "openai/gpt-5.5-fast",
-      "steps": 10,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "code": {
-      "model": "openai/gpt-5.3-codex",
-      "steps": 5,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "quickcode": {
-      "model": "openai/gpt-5.3-codex",
-      "steps": 4,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    },
-    "test": {
-      "model": "openai/gpt-5.5-fast",
-      "steps": 8,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "taskanalyst": {
-      "model": "openai/gpt-5.5-fast",
-      "steps": 8,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    }
-  }
-'@.TrimEnd()
+    return Read-AgentBlockFragment 'balanced-default-agent-block.jsonc'
 }
 
 function Generate-OpenCodeJsoncContent {

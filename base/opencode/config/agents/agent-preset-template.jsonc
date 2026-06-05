@@ -1,0 +1,26 @@
+"agent": {
+    "planner": {
+      "model": "{{PLANNER_MODEL}}",
+      "steps": {{PLANNER_STEPS}}{{PLANNER_OPTIONS}}
+    },
+    "research": {
+      "model": "{{RESEARCH_MODEL}}",
+      "steps": {{RESEARCH_STEPS}}{{RESEARCH_OPTIONS}}
+    },
+    "code": {
+      "model": "{{CODE_MODEL}}",
+      "steps": {{CODE_STEPS}}{{CODE_OPTIONS}}
+    },
+    "quickcode": {
+      "model": "{{CODE_MODEL}}",
+      "steps": {{QUICKCODE_STEPS}}{{QUICKCODE_OPTIONS}}
+    },
+    "test": {
+      "model": "{{RESEARCH_MODEL}}",
+      "steps": {{TEST_STEPS}}{{TEST_OPTIONS}}
+    },
+    "taskanalyst": {
+      "model": "{{TASKANALYST_MODEL}}",
+      "steps": {{TASKANALYST_STEPS}}{{TASKANALYST_OPTIONS}}
+    }
+  }

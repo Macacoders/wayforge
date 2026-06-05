@@ -1,0 +1,20 @@
+"agent": {
+    "planner": {
+      "model": "laberit/laberit-ai-preview"
+    },
+    "research": {
+      "model": "laberit/laberit-ai-preview"
+    },
+    "code": {
+      "model": "laberit/laberit-ai"
+    },
+    "quickcode": {
+      "model": "laberit/laberit-ai"
+    },
+    "test": {
+      "model": "laberit/laberit-ai-preview"
+    },
+    "taskanalyst": {
+      "model": "laberit/laberit-ai"
+    }
+  }

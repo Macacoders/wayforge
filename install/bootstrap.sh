@@ -307,34 +307,23 @@ build_agent_block_json_from_preset() {
       }"
   fi
 
-  cat <<EOF
-"agent": {
-    "planner": {
-      "model": "$planner_model",
-      "steps": $planner_steps$planner_options
-    },
-    "research": {
-      "model": "$research_model",
-      "steps": $research_steps$research_options
-    },
-    "code": {
-      "model": "$code_model",
-      "steps": $code_steps$code_options
-    },
-    "quickcode": {
-      "model": "$code_model",
-      "steps": $quickcode_steps$quickcode_options
-    },
-    "test": {
-      "model": "$research_model",
-      "steps": $test_steps$test_options
-    },
-    "taskanalyst": {
-      "model": "$taskanalyst_model",
-      "steps": $taskanalyst_steps$taskanalyst_options
-    }
-  }
-EOF
+  render_agent_preset_template \
+    "$planner_model" \
+    "$research_model" \
+    "$code_model" \
+    "$taskanalyst_model" \
+    "$planner_steps" \
+    "$research_steps" \
+    "$code_steps" \
+    "$quickcode_steps" \
+    "$test_steps" \
+    "$taskanalyst_steps" \
+    "$planner_options" \
+    "$research_options" \
+    "$code_options" \
+    "$quickcode_options" \
+    "$test_options" \
+    "$taskanalyst_options"
 }
 
 build_enabled_providers_json() {
@@ -397,6 +386,54 @@ $laberit_block"
   printf '%s' "$out"
 }
 
+read_agent_fragment() {
+  local file="$ROOT_DIR/base/opencode/config/agents/$1"
+  if [[ ! -f "$file" ]]; then
+    log "error: missing agent config fragment: $file"
+    exit 1
+  fi
+  printf '%s' "$(<"$file")"
+}
+
+render_agent_preset_template() {
+  local planner_model="$1"
+  local research_model="$2"
+  local code_model="$3"
+  local taskanalyst_model="$4"
+  local planner_steps="$5"
+  local research_steps="$6"
+  local code_steps="$7"
+  local quickcode_steps="$8"
+  local test_steps="$9"
+  local taskanalyst_steps="${10}"
+  local planner_options="${11}"
+  local research_options="${12}"
+  local code_options="${13}"
+  local quickcode_options="${14}"
+  local test_options="${15}"
+  local taskanalyst_options="${16}"
+
+  local template
+  template="$(read_agent_fragment 'agent-preset-template.jsonc')"
+  template="${template//\{\{PLANNER_MODEL\}\}/$planner_model}"
+  template="${template//\{\{RESEARCH_MODEL\}\}/$research_model}"
+  template="${template//\{\{CODE_MODEL\}\}/$code_model}"
+  template="${template//\{\{TASKANALYST_MODEL\}\}/$taskanalyst_model}"
+  template="${template//\{\{PLANNER_STEPS\}\}/$planner_steps}"
+  template="${template//\{\{RESEARCH_STEPS\}\}/$research_steps}"
+  template="${template//\{\{CODE_STEPS\}\}/$code_steps}"
+  template="${template//\{\{QUICKCODE_STEPS\}\}/$quickcode_steps}"
+  template="${template//\{\{TEST_STEPS\}\}/$test_steps}"
+  template="${template//\{\{TASKANALYST_STEPS\}\}/$taskanalyst_steps}"
+  template="${template//\{\{PLANNER_OPTIONS\}\}/$planner_options}"
+  template="${template//\{\{RESEARCH_OPTIONS\}\}/$research_options}"
+  template="${template//\{\{CODE_OPTIONS\}\}/$code_options}"
+  template="${template//\{\{QUICKCODE_OPTIONS\}\}/$quickcode_options}"
+  template="${template//\{\{TEST_OPTIONS\}\}/$test_options}"
+  template="${template//\{\{TASKANALYST_OPTIONS\}\}/$taskanalyst_options}"
+  printf '%s' "$template"
+}
+
 build_agent_block_json() {
   if [[ -n "$AGENT_PRESET" && "$AGENT_PRESET" != "balanced" ]]; then
     build_agent_block_json_from_preset "$AGENT_PRESET"
@@ -404,195 +441,21 @@ build_agent_block_json() {
   fi
 
   if contains_provider "openai" && contains_provider "github-copilot"; then
-    cat <<'EOF'
-"agent": {
-    "planner": {
-      "model": "openai/gpt-5.5",
-      "steps": 30,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "medium"
-      }
-    },
-    "research": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 20,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "code": {
-      "model": "github-copilot/gpt-5.3-codex",
-      "steps": 15,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "quickcode": {
-      "model": "github-copilot/gpt-5.3-codex",
-      "steps": 15,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    },
-    "test": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 20,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "taskanalyst": {
-      "model": "github-copilot/gemini-3.5-flash",
-      "steps": 20,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    }
-  }
-EOF
+    read_agent_fragment 'balanced-openai-github-copilot-agent-block.jsonc'
     return
   fi
 
   if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "github-copilot" ]]; then
-    cat <<'EOF'
-"agent": {
-    "planner": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 16,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "medium"
-      }
-    },
-    "research": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 10,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "code": {
-      "model": "github-copilot/gpt-5.3-codex",
-      "steps": 5,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "quickcode": {
-      "model": "github-copilot/gpt-5.3-codex",
-      "steps": 4,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    },
-    "test": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 8,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "taskanalyst": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 8,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    }
-  }
-EOF
+    read_agent_fragment 'balanced-github-copilot-only-agent-block.jsonc'
     return
   fi
 
   if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "laberit" ]]; then
-    cat <<'EOF'
-"agent": {
-    "planner": {
-      "model": "laberit/laberit-ai-preview"
-    },
-    "research": {
-      "model": "laberit/laberit-ai-preview"
-    },
-    "code": {
-      "model": "laberit/laberit-ai"
-    },
-    "quickcode": {
-      "model": "laberit/laberit-ai"
-    },
-    "test": {
-      "model": "laberit/laberit-ai-preview"
-    },
-    "taskanalyst": {
-      "model": "laberit/laberit-ai"
-    }
-  }
-EOF
+    read_agent_fragment 'balanced-laberit-only-agent-block.jsonc'
     return
   fi
 
-  cat <<'EOF'
-"agent": {
-    "planner": {
-      "model": "openai/gpt-5.5",
-      "steps": 20,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "medium"
-      }
-    },
-    "research": {
-      "model": "openai/gpt-5.5-fast",
-      "steps": 10,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "code": {
-      "model": "openai/gpt-5.3-codex",
-      "steps": 5,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "quickcode": {
-      "model": "openai/gpt-5.3-codex",
-      "steps": 4,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    },
-    "test": {
-      "model": "openai/gpt-5.5-fast",
-      "steps": 8,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
-    },
-    "taskanalyst": {
-      "model": "openai/gpt-5.5-fast",
-      "steps": 8,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
-    }
-  }
-EOF
+  read_agent_fragment 'balanced-default-agent-block.jsonc'
 }
 
 generate_opencode_jsonc_content() {
