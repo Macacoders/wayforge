@@ -96,6 +96,8 @@ Keep memory concise. Record unknowns instead of guessing.
 
 During onboarding, propose or create AGENTS.md as a repo-specific practical entrypoint for AI agents:
 
+Template/source rule: `templates/AGENTS.md` is a generic placeholder template (`[FILL IN]` values preserved). During onboarding, fill repository-specific guidance into the target repository root `AGENTS.md`; do not remove placeholders from the template source.
+
 1. Check if AGENTS.md exists and has useful content.
 2. If missing or incomplete, propose creating/updating it with:
    - **Project Overview**: What is this repository for? What problem does it solve? Who are the users?

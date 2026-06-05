@@ -159,12 +159,16 @@ Shared workflow helpers that commands depend on should live inside the installed
 
 Provider-selectable installation commands:
 
-### Guided interactive install (Bash-first)
+### Guided interactive install (Bash and PowerShell)
 
 Use the interactive wrapper when you want safe numbered choices instead of manually composing flags:
 
 ```bash
 ./install/bootstrap-interactive.sh
+```
+
+```powershell
+.\install\bootstrap-interactive.ps1
 ```
 
 The interactive installer prompts for:
@@ -181,8 +185,6 @@ It prints provider connection instructions during install but does **not** run a
 
 - OpenAI and GitHub Copilot auth are still completed in OpenCode/Kilo Code via `/connect`.
 - laberit still requires local environment variables (`OPENAI_BASE_URL`, `OPENAI_API_KEY`).
-
-PowerShell interactive parity is a follow-up. For Windows today, use the existing non-interactive `install/bootstrap.ps1` path.
 
 ### Non-interactive install commands
 
@@ -240,7 +242,7 @@ Optional overrides:
 
 - `--model` / `-Model` to override the generated default model (`<provider>/<model>` format).
 - `--small-model` / `-SmallModel` to override the generated lightweight `small_model` value.
-- `--agent-preset` (Bash only currently) to select `balanced` (default behavior), `fast`, or `thorough` agent profile generation (model/steps plus safe reasoning/verbosity options where configured providers support them).
+- `--agent-preset` / `-AgentPreset` to select `balanced` (default behavior), `fast`, or `thorough` agent profile generation (model/steps plus safe reasoning/verbosity options where configured providers support them).
 
 Conservative installer policy:
 
@@ -260,14 +262,18 @@ Configuration and secrets boundary:
 
 ## Contributing
 
-**When working on the ai-config repository itself**, all changes to agents, skills, commands, and configuration must be made to the **source templates** under `base/opencode/**` (or `templates/**` for `AGENTS.md`).
+**When working on the ai-config repository itself**, durable changes to agents, skills, commands, and generated config logic should be made to the **source templates** under `base/opencode/**` and `templates/**`.
 
-**Never edit files under `.opencode/` or `AGENTS.md`** when contributing to this repository.
+Keep `templates/AGENTS.md` generic with `[FILL IN]` placeholders. During onboarding in consuming repositories, `/onboard-repo` + `research` are responsible for filling repository-specific guidance into each target repository's root `AGENTS.md`.
+
+In this repository specifically, root `AGENTS.md` is curated repo-specific guidance and may be updated when ai-config repository guidance changes.
 
 ### Why this matters
 
 - `base/opencode/**` contains the source-of-truth templates that get copied/generated into consuming repositories
-- `.opencode/**` and `AGENTS.md` are **generated output** — they are produced by the installation scripts and are gitignored in this repository
+- `.opencode/**` is generated local runtime output in this repository and is gitignored
+- `templates/AGENTS.md` is the generic placeholder template used by onboarding to produce repository-specific root `AGENTS.md` guidance in consuming repositories
+- root `AGENTS.md` in this repository is curated repo-specific guidance
 - Changes made directly to `.opencode/` files are **not persistent**; they will be lost the next time the installation scripts run or when the repository is cloned fresh
 - The installation model (described above) treats `base/opencode/` as the reusable source and `.opencode/` as the per-project runtime
 - `opencode.jsonc` is generated from code in the installation scripts, not copied from a template
@@ -279,7 +285,8 @@ Configuration and secrets boundary:
 | Agents | `base/opencode/agents/**` | `.opencode/agents/**` |
 | Skills | `base/opencode/skills/**` | `.opencode/skills/**` |
 | Commands | `base/opencode/commands/**` | `.opencode/commands/**` |
-| Agent documentation | `templates/AGENTS.md` | `AGENTS.md` (root) |
+| Agent documentation template | `templates/AGENTS.md` | `.opencode/**` generated output |
+| ai-config repo guidance | `AGENTS.md` (root) | `templates/AGENTS.md` placeholders |
 | Configuration | `install/bootstrap.sh` and `install/bootstrap.ps1` | `opencode.jsonc` (root) |
 
 ## Handoff Contracts

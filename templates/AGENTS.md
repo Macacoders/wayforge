@@ -12,7 +12,7 @@ Treat `docs/ai/README.md` as a tiny router. Do not load all memory files by defa
 
 ## Repository Guidance
 
-The following sections contain repository-specific guidance. Customize these placeholders for your project.
+The following sections contain repository-specific guidance. Keep this file as a generic template with placeholders; `/onboard-repo` and `research` fill these values into each repository's root `AGENTS.md` during onboarding.
 
 ### Project Overview
 

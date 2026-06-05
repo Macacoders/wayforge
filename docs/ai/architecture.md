@@ -7,6 +7,7 @@ This repository provides reusable OpenCode source configuration and installs gen
 ## Runtime Boundary
 
 - OpenCode (default) and Kilo Code are supported AI runtimes, selectable at install time via the `--runtime` / `-Runtime` parameter.
+- Both Bash and PowerShell support guided interactive installs (`install/bootstrap-interactive.sh`, `install/bootstrap-interactive.ps1`) and non-interactive installs (`install/bootstrap.sh`, `install/bootstrap.ps1`).
 - Supported provider sets during installation include `openai`, `github-copilot`, `laberit`, and comma-separated combinations of those providers.
 - OpenAI authentication is handled in OpenCode with `/connect` (ChatGPT Plus/Pro or Azure credentials).
 - GitHub Copilot authentication is handled in OpenCode with `/connect` (device login flow).
@@ -14,6 +15,7 @@ This repository provides reusable OpenCode source configuration and installs gen
 - Model IDs are recommendations and may need adjustment with `/models` depending on account availability.
 - The default model policy balances GPT-5.5-family reasoning for planning, onboarding, and critical review with Codex-oriented models for implementation.
 - Generated `opencode.jsonc` (or `kilo.jsonc` for Kilo Code) is the provider/model brain for each target repository and centralizes per-agent model assignments under `agent`.
+- Generated runtime config includes `enabled_providers` based on installer provider selection and supports agent presets (`balanced`, `fast`, `thorough`) through `--agent-preset` / `-AgentPreset`.
 - Users can switch providers interactively: `/model openai/gpt-5.5`, `/model github-copilot/gpt-5.4`, or `/model laberit/laberit-ai`.
 
 ## Installed Surface
@@ -28,7 +30,7 @@ Target projects receive generated/local runtime output:
 - `.opencode/agents/**` (copied/generated local output)
 - `.opencode/commands/**` (copied/generated local output)
 - `.opencode/skills/**` (copied/generated local output)
-- `AGENTS.md` (generated local file, repo-specific entrypoint)
+- `AGENTS.md` (repo-specific entrypoint generated/curated per repository)
 
 ### AGENTS.md vs docs/ai/README.md Relationship
 
@@ -41,8 +43,10 @@ The `.opencode/` directory in consuming repositories is local/generated runtime 
 ## Repository-Self Editing Rule
 
 - In the `ai-config` repository itself, durable workflow changes should normally be made in `base/opencode/**`, `templates/AGENTS.md`, and the installer scripts.
-- Root `.opencode/`, root `AGENTS.md`, and root `opencode.jsonc` are local/generated artifacts and are gitignored in this repository.
-- If a local onboarding or debugging task updates the root `AGENTS.md` for immediate repo guidance, treat that as a local working-copy adjustment and follow up separately by syncing durable template changes back to `templates/AGENTS.md` when that broader update is approved.
+- Root `.opencode/` and root `opencode.jsonc` are local/generated artifacts and are gitignored in this repository.
+- `templates/AGENTS.md` is the generic placeholder template (`[FILL IN]` values preserved) used for onboarding target repositories.
+- `/onboard-repo` + `research` are responsible for filling repo-specific guidance into each target repository root `AGENTS.md`.
+- Root `AGENTS.md` in this `ai-config` repository is curated repo-specific guidance and may be tracked/updated directly when repository guidance changes.
 
 The installer must not overwrite unmanaged existing files by default and supports dry-run preview. With force enabled, it refreshes generated OpenCode runtime trees (`.opencode/agents`, `.opencode/commands`, `.opencode/skills`) plus managed output and legacy symlink targets when encountered.
 

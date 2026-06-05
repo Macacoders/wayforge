@@ -38,5 +38,5 @@ tmp/
 
 # OpenCode generated/local runtime output
 .opencode/
-AGENTS.md*
+AGENTS.md.*
 opencode.jsonc

@@ -9,6 +9,8 @@ First establish the active repository root. Keep onboarding searches, reads, wri
 
 Use progressive disclosure. Inspect existing docs, structure, package/build files, tests, CI, entrypoints, and conventions. Invoke the `research` subagent with a compact handoff brief.
 
+When onboarding AGENTS guidance, treat `templates/AGENTS.md` as a generic placeholder template. Preserve template placeholders and ensure repository-specific root `AGENTS.md` guidance is filled in for the target repository.
+
 The outcome should be a Repository Research Brief and either:
 
 - initial routed `docs/ai/` memory when durable-memory writes are explicitly approved by planner/user or in the handoff, or
