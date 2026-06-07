@@ -246,7 +246,7 @@ Expected output:
 
 ## Shared Task Workflow
 
-Use `/newtask` for user requests that should become shared GitHub Issues instead of immediate implementation work.
+Use `/issue create` for user requests that should become shared GitHub Issues instead of immediate implementation work.
 
 - Invoke `taskanalyst` first to interpret the request and produce issue-ready title/body/labels plus duplicate risk.
 - Ensure the title is descriptive — the GitHub issue number is the canonical identifier for new tasks.
@@ -256,7 +256,7 @@ Use `/newtask` for user requests that should become shared GitHub Issues instead
 - Create the issue with `status:to-do` plus one type label and one priority label.
 - Report the created issue number and URL.
 
-Use `/tasks` for shared issue operations (`list`, `claim`, `release`, `close`).
+Use `/issue` for shared issue operations (`list`, `claim`, `assign`, `release`, `close`, `prclose`).
 
 ## Task Analysis Brief
 

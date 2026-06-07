@@ -1,32 +1,69 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+usage() {
+  cat <<'EOF'
+Usage:
+  gh-issue [--repo OWNER/REPO|-R OWNER/REPO] check
+  gh-issue [--repo OWNER/REPO|-R OWNER/REPO] labels-check
+  gh-issue [--repo OWNER/REPO|-R OWNER/REPO] list
+  gh-issue [--repo OWNER/REPO|-R OWNER/REPO] create <title> [--body-file <path>] [--label <name>]...
+  gh-issue [--repo OWNER/REPO|-R OWNER/REPO] claim <issue-number>
+  gh-issue [--repo OWNER/REPO|-R OWNER/REPO] assign <issue-number> <collaborator>
+  gh-issue [--repo OWNER/REPO|-R OWNER/REPO] release <issue-number> [--blocked <reason>]
+  gh-issue [--repo OWNER/REPO|-R OWNER/REPO] close <issue-number> [completion-summary]
+  gh-issue [--repo OWNER/REPO|-R OWNER/REPO] prclose <issue-number> [completion-summary]
+  gh-issue [--repo OWNER/REPO|-R OWNER/REPO] raw <gh issue args...>
+EOF
+}
+
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 export GH_CONFIG_DIR="${GH_CONFIG_DIR:-$repo_root/.gh-config}"
 
-has_explicit_repo=0
-prev_arg=""
-for arg in "$@"; do
-  if [[ "$prev_arg" == "--repo" || "$prev_arg" == "-R" ]]; then
-    has_explicit_repo=1
-    break
-  fi
+required_labels=(
+  status:to-do
+  status:doing
+  status:in-review
+  status:blocked
+  type:task
+  type:feature
+  type:bug
+  type:docs
+  type:chore
+  priority:high
+  priority:medium
+  priority:low
+)
 
-  case "$arg" in
+explicit_repo=""
+while (($# > 0)); do
+  case "$1" in
+    --repo|-R)
+      if (($# < 2)); then
+        printf 'Error: %s requires OWNER/REPO value.\n' "$1" >&2
+        exit 1
+      fi
+      explicit_repo="$2"
+      shift 2
+      ;;
     --repo=*|-R=*)
-      has_explicit_repo=1
+      explicit_repo="${1#*=}"
+      shift
+      ;;
+    *)
       break
       ;;
   esac
-
-  prev_arg="$arg"
 done
 
-if [[ "$has_explicit_repo" -eq 1 ]]; then
-  exec gh issue "$@"
+if (($# == 0)); then
+  usage
+  exit 1
 fi
 
-if [[ -n "${GH_REPO:-}" ]]; then
+if [[ -n "$explicit_repo" ]]; then
+  repo="$explicit_repo"
+elif [[ -n "${GH_REPO:-}" ]]; then
   repo="$GH_REPO"
 else
   origin_url="$(git remote get-url origin 2>/dev/null || true)"
@@ -53,4 +90,318 @@ else
   repo="${repo%.git}"
 fi
 
-exec gh issue --repo "$repo" "$@"
+command="$1"
+shift
+
+gh_issue() {
+  gh issue --repo "$repo" "$@"
+}
+
+gh_label() {
+  gh label --repo "$repo" "$@"
+}
+
+missing_required_labels() {
+  local names label
+  names="$(gh_label list --limit 200 --json name --jq '.[].name')"
+  names=$'\n'"$names"$'\n'
+
+  for label in "${required_labels[@]}"; do
+    if [[ "$names" != *$'\n'"$label"$'\n'* ]]; then
+      printf '%s\n' "$label"
+    fi
+  done
+}
+
+ensure_required_labels() {
+  local missing
+  mapfile -t missing < <(missing_required_labels)
+  if ((${#missing[@]} > 0)); then
+    printf 'Error: missing required labels: %s\n' "$(IFS=', '; printf '%s' "${missing[*]}")" >&2
+    exit 1
+  fi
+}
+
+issue_state() {
+  gh_issue view "$1" --json state --jq '.state'
+}
+
+issue_assignee_count() {
+  gh_issue view "$1" --json assignees --jq '.assignees | length'
+}
+
+issue_first_assignee() {
+  gh_issue view "$1" --json assignees --jq '.assignees[0].login // ""'
+}
+
+issue_has_label() {
+  local count
+  count="$(gh_issue view "$1" --json labels --jq "[.labels[].name | select(. == \"$2\")] | length")"
+  [[ "$count" != "0" ]]
+}
+
+ensure_label_present() {
+  if ! issue_has_label "$1" "$2"; then
+    gh_issue edit "$1" --add-label "$2"
+  fi
+}
+
+ensure_label_absent() {
+  if issue_has_label "$1" "$2"; then
+    gh_issue edit "$1" --remove-label "$2"
+  fi
+}
+
+ensure_open_issue() {
+  if [[ "$(issue_state "$1")" != "OPEN" ]]; then
+    printf 'Error: issue #%s is not open.\n' "$1" >&2
+    exit 1
+  fi
+}
+
+current_user() {
+  gh api user --jq '.login'
+}
+
+case "$command" in
+  check)
+    gh api "repos/$repo" --jq '.full_name' >/dev/null
+    printf 'OK: GitHub access verified for %s\n' "$repo"
+    ;;
+  labels-check)
+    mapfile -t missing < <(missing_required_labels)
+    if ((${#missing[@]} > 0)); then
+      printf 'Missing required labels in %s:\n' "$repo" >&2
+      for label in "${missing[@]}"; do
+        printf '  - %s\n' "$label" >&2
+      done
+      exit 1
+    fi
+    printf 'OK: all required labels are present in %s\n' "$repo"
+    ;;
+  list)
+    ensure_required_labels
+    gh_issue list --state open --limit 100 --json number,title,assignees,labels --jq '.[] | "#\(.number)\t\(.title)\tassignee:\((.assignees|map(.login)|join(",")|if . == "" then "-" else . end))\tstatus:\((.labels|map(.name)|map(select(startswith("status:")))|join(",")|if . == "" then "-" else . end))"'
+    ;;
+  create)
+    if (($# < 1)); then
+      printf 'Error: create requires <title>.\n' >&2
+      exit 1
+    fi
+    title="$1"
+    shift
+
+    body_file=""
+    labels=()
+    while (($# > 0)); do
+      case "$1" in
+        --body-file)
+          if (($# < 2)); then
+            printf 'Error: --body-file requires a path.\n' >&2
+            exit 1
+          fi
+          body_file="$2"
+          shift 2
+          ;;
+        --body-file=*)
+          body_file="${1#*=}"
+          shift
+          ;;
+        --label)
+          if (($# < 2)); then
+            printf 'Error: --label requires a value.\n' >&2
+            exit 1
+          fi
+          labels+=("$2")
+          shift 2
+          ;;
+        --label=*)
+          labels+=("${1#*=}")
+          shift
+          ;;
+        *)
+          printf 'Error: unknown create option: %s\n' "$1" >&2
+          exit 1
+          ;;
+      esac
+    done
+
+    ensure_required_labels
+    create_args=(create --title "$title")
+    if [[ -n "$body_file" ]]; then
+      create_args+=(--body-file "$body_file")
+    fi
+    for label in "${labels[@]}"; do
+      create_args+=(--label "$label")
+    done
+    gh_issue "${create_args[@]}"
+    ;;
+  claim)
+    ensure_required_labels
+    if (($# < 1)); then
+      printf 'Error: claim requires <issue-number>.\n' >&2
+      exit 1
+    fi
+    issue="$1"
+    ensure_open_issue "$issue"
+
+    if [[ "$(issue_assignee_count "$issue")" != "0" ]]; then
+      assignee="$(issue_first_assignee "$issue")"
+      printf 'Error: issue #%s is already assigned to @%s.\n' "$issue" "$assignee" >&2
+      exit 1
+    fi
+
+    if issue_has_label "$issue" "status:doing"; then
+      printf 'Error: issue #%s already has status:doing.\n' "$issue" >&2
+      exit 1
+    fi
+
+    me="$(current_user)"
+    gh_issue edit "$issue" --add-assignee "$me"
+    ensure_label_present "$issue" "status:doing"
+    ensure_label_absent "$issue" "status:to-do"
+    gh_issue comment "$issue" --body "Claimed by @$me and starting work."
+    ;;
+  assign)
+    ensure_required_labels
+    if (($# < 2)); then
+      printf 'Error: assign requires <issue-number> <collaborator>.\n' >&2
+      exit 1
+    fi
+    issue="$1"
+    collaborator="$2"
+    ensure_open_issue "$issue"
+
+    if [[ "$(issue_assignee_count "$issue")" != "0" ]]; then
+      assignee="$(issue_first_assignee "$issue")"
+      printf 'Error: issue #%s is already assigned to @%s.\n' "$issue" "$assignee" >&2
+      exit 1
+    fi
+
+    if issue_has_label "$issue" "status:doing"; then
+      printf 'Error: issue #%s already has status:doing.\n' "$issue" >&2
+      exit 1
+    fi
+
+    gh_issue edit "$issue" --add-assignee "$collaborator"
+    ensure_label_present "$issue" "status:doing"
+    ensure_label_absent "$issue" "status:to-do"
+    gh_issue comment "$issue" --body "Assigned to @$collaborator and marked status:doing."
+    ;;
+  release)
+    ensure_required_labels
+    if (($# < 1)); then
+      printf 'Error: release requires <issue-number>.\n' >&2
+      exit 1
+    fi
+    issue="$1"
+    shift
+    blocked_reason=""
+    while (($# > 0)); do
+      case "$1" in
+        --blocked)
+          if (($# < 2)); then
+            printf 'Error: --blocked requires a reason.\n' >&2
+            exit 1
+          fi
+          blocked_reason="$2"
+          shift 2
+          ;;
+        *)
+          printf 'Error: unknown release option: %s\n' "$1" >&2
+          exit 1
+          ;;
+      esac
+    done
+
+    ensure_open_issue "$issue"
+    me="$(current_user)"
+    assignee="$(issue_first_assignee "$issue")"
+    if [[ -n "$assignee" && "$assignee" != "$me" ]]; then
+      printf 'Error: issue #%s is assigned to @%s (not @%s).\n' "$issue" "$assignee" "$me" >&2
+      exit 1
+    fi
+    if [[ "$assignee" == "$me" ]]; then
+      gh_issue edit "$issue" --remove-assignee "$me"
+    fi
+
+    ensure_label_absent "$issue" "status:doing"
+
+    if [[ -n "$blocked_reason" ]]; then
+      ensure_label_absent "$issue" "status:to-do"
+      ensure_label_present "$issue" "status:blocked"
+      gh_issue comment "$issue" --body "Released by @$me. Blocked: $blocked_reason"
+    else
+      ensure_label_absent "$issue" "status:blocked"
+      ensure_label_absent "$issue" "status:in-review"
+      ensure_label_present "$issue" "status:to-do"
+      gh_issue comment "$issue" --body "Released by @$me and returned to status:to-do."
+    fi
+    ;;
+  close)
+    ensure_required_labels
+    if (($# < 1)); then
+      printf 'Error: close requires <issue-number>.\n' >&2
+      exit 1
+    fi
+    issue="$1"
+    shift
+    summary="${*:-Completed and validated.}"
+    ensure_open_issue "$issue"
+
+    gh_issue comment "$issue" --body "$summary"
+    ensure_label_absent "$issue" "status:doing"
+    ensure_label_absent "$issue" "status:to-do"
+    ensure_label_absent "$issue" "status:in-review"
+    ensure_label_absent "$issue" "status:blocked"
+    gh_issue close "$issue"
+    ;;
+  prclose)
+    ensure_required_labels
+    if (($# < 1)); then
+      printf 'Error: prclose requires <issue-number>.\n' >&2
+      exit 1
+    fi
+    issue="$1"
+    shift
+    summary="${*:-Ready for review via PR.}"
+    ensure_open_issue "$issue"
+
+    current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    if [[ -z "$current_branch" || "$current_branch" == "HEAD" ]]; then
+      printf 'Error: prclose requires an active local branch.\n' >&2
+      exit 1
+    fi
+    case "$current_branch" in
+      main|master|develop)
+        printf 'Error: prclose refused on protected branch %s. Create/switch to feature branch and commit/push first.\n' "$current_branch" >&2
+        exit 1
+        ;;
+    esac
+    if [[ -n "$(git status --porcelain)" ]]; then
+      printf 'Error: prclose requires a clean working tree. Commit or stash changes first.\n' >&2
+      exit 1
+    fi
+
+    issue_title="$(gh_issue view "$issue" --json title --jq '.title')"
+    pr_url="$(gh pr create --repo "$repo" --title "$issue_title" --body "Fixes #$issue")"
+
+    gh_issue comment "$issue" --body "$summary\n\nPull request: $pr_url"
+    ensure_label_absent "$issue" "status:doing"
+    ensure_label_absent "$issue" "status:to-do"
+    ensure_label_absent "$issue" "status:blocked"
+    ensure_label_present "$issue" "status:in-review"
+    ;;
+  raw)
+    if (($# == 0)); then
+      printf 'Error: raw requires <gh issue args...>.\n' >&2
+      exit 1
+    fi
+    gh_issue "$@"
+    ;;
+  *)
+    printf 'Error: unknown command: %s\n' "$command" >&2
+    usage
+    exit 1
+    ;;
+esac

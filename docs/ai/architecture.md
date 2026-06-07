@@ -59,7 +59,7 @@ Portable workflow helpers used by shared commands should be packaged under `.ope
 - `code` is a conservative Codex-oriented subagent used once per approved implementation phase, with medium reasoning effort and low temperature.
 - `quickcode` is a Codex-oriented subagent invoked by `planner` for one approved quick-delivery task, with low reasoning effort for small low-risk changes. It may edit autonomously within narrow low-risk scope, run allowlisted validation/git inspection commands, and must not invoke subagents.
 - `test` is a GPT-5.5-fast subagent used when review identifies meaningful testing or regression risk, keeping critical review independent from Codex implementation output.
-- `taskanalyst` is a GPT-5.5-fast subagent used by `/newtask` to interpret problem reports and propose structured GitHub Issue content without editing files.
+- `taskanalyst` is a GPT-5.5-fast subagent used by `/issue create` to interpret problem reports and propose structured GitHub Issue content without editing files.
 
 ## Context Strategy
 
@@ -103,13 +103,13 @@ The opt-in quick-delivery workflow is:
 
 Quick delivery escalates back to staged delivery when scope, risk, validation, or acceptance criteria become unclear.
 
-The shared task creation workflow is:
+The shared issue creation workflow is:
 
-1. Start with `/newtask` and a problem, idea, or repository improvement request.
-2. `planner` checks for potential duplicates in open GitHub Issues.
+1. Start with `/issue create` and a problem, idea, or repository improvement request.
+2. `planner` uses `gh-issue check` and `gh-issue labels-check` for GitHub access and label readiness.
 3. `planner` invokes `taskanalyst` to interpret the request and draft a concise issue body.
-4. `planner` asks a concise clarification question only when critical details are missing or duplicate risk is unresolved.
-5. `planner` creates a GitHub Issue with type/priority/status labels (initial status `status:to-do`).
+4. `planner` iterates only when the extracted issue description is ambiguous, duplicate-prone, vague, missing acceptance criteria, or missing required labels.
+5. `planner` creates a GitHub Issue with type/priority/status labels (initial status `status:to-do`) through `gh-issue`.
 6. `planner` reports the created issue number and URL.
 
 ## Invariants

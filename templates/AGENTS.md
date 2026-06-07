@@ -78,7 +78,7 @@ The following sections contain repository-specific guidance. Keep this file as a
 8. For quick delivery, `planner` may invoke `quickcode` for one approved low-risk task; `quickcode` works without staged pauses and reports once for planner review.
 9. Escalate quick delivery back to staged delivery if scope, risk, validation, or acceptance criteria become unclear.
 10. Use `test` when completed changes need critical testing review or regression coverage.
-11. Use `/newtask` to create shared repository tasks as GitHub Issues, and `/tasks` to list/claim/release/close shared work.
+11. Use `/issue` to create and manage shared repository tasks as GitHub Issues.
 12. Update durable memory under `docs/ai/` only for onboarding findings, backlog tasks, approved plans, decisions, architecture changes, and short logs.
 13. Use `/memory` (planner) or `memory-maintenance` for low-token memory find/check/update routing.
 
@@ -86,7 +86,7 @@ The following sections contain repository-specific guidance. Keep this file as a
 
 - Read this file and the repository `README.md` first.
 - Read `docs/ai/README.md` before loading other AI memory.
-- Use GitHub Issues through `/newtask` and `/tasks` when selecting or creating repository improvement tasks.
+- Use GitHub Issues through `/issue` when selecting or creating repository improvement tasks.
 - Load only task-relevant plans, ADRs, architecture notes, or logs.
 - Run onboarding before implementation planning if `docs/ai/` memory is missing or stale.
 - Pass compact handoff briefs with paths and reasons to load references.

@@ -3,32 +3,55 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Show-Usage {
+    @'
+Usage:
+  gh-issue.ps1 [--repo OWNER/REPO|-R OWNER/REPO] check
+  gh-issue.ps1 [--repo OWNER/REPO|-R OWNER/REPO] labels-check
+  gh-issue.ps1 [--repo OWNER/REPO|-R OWNER/REPO] list
+  gh-issue.ps1 [--repo OWNER/REPO|-R OWNER/REPO] create <title> [--body-file <path>] [--label <name>]...
+  gh-issue.ps1 [--repo OWNER/REPO|-R OWNER/REPO] claim <issue-number>
+  gh-issue.ps1 [--repo OWNER/REPO|-R OWNER/REPO] assign <issue-number> <collaborator>
+  gh-issue.ps1 [--repo OWNER/REPO|-R OWNER/REPO] release <issue-number> [--blocked <reason>]
+  gh-issue.ps1 [--repo OWNER/REPO|-R OWNER/REPO] close <issue-number> [completion-summary]
+  gh-issue.ps1 [--repo OWNER/REPO|-R OWNER/REPO] prclose <issue-number> [completion-summary]
+  gh-issue.ps1 [--repo OWNER/REPO|-R OWNER/REPO] raw <gh issue args...>
+'@
+}
+
 $repo_root = (git rev-parse --show-toplevel 2>$null) | Select-Object -First 1
 if (-not $repo_root) {
     $repo_root = Get-Location
 }
 $env:GH_CONFIG_DIR = if ($env:GH_CONFIG_DIR) { $env:GH_CONFIG_DIR } else { Join-Path $repo_root '.gh-config' }
 
-$has_explicit_repo = $false
-$prev_arg = ''
-foreach ($arg in $args) {
-    if ($prev_arg -eq '--repo' -or $prev_arg -eq '-R') {
-        $has_explicit_repo = $true
-        break
+$remaining = [System.Collections.Generic.List[string]]::new()
+$explicitRepo = $null
+for ($i = 0; $i -lt $args.Count; $i++) {
+    $arg = $args[$i]
+    if ($arg -eq '--repo' -or $arg -eq '-R') {
+        if ($i + 1 -ge $args.Count) {
+            throw "Error: $arg requires OWNER/REPO value."
+        }
+        $explicitRepo = $args[$i + 1]
+        $i++
+        continue
     }
-    if ($arg -match '^--repo=.*' -or $arg -match '^-R=.*') {
-        $has_explicit_repo = $true
-        break
+    if ($arg -match '^--repo=(.+)$' -or $arg -match '^-R=(.+)$') {
+        $explicitRepo = $Matches[1]
+        continue
     }
-    $prev_arg = $arg
+    $remaining.Add($arg)
 }
 
-if ($has_explicit_repo) {
-    gh issue @args
-    exit $LASTEXITCODE
+if ($remaining.Count -eq 0) {
+    Show-Usage
+    exit 1
 }
 
-if ($env:GH_REPO) {
+if ($explicitRepo) {
+    $repo = $explicitRepo
+} elseif ($env:GH_REPO) {
     $repo = $env:GH_REPO
 } else {
     $origin_url = (git remote get-url origin 2>$null) | Select-Object -First 1
@@ -53,5 +76,285 @@ if ($env:GH_REPO) {
     $repo = $repo -replace '\.git$', ''
 }
 
-gh issue --repo $repo @args
-exit $LASTEXITCODE
+function Invoke-GhIssue {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$IssueArgs)
+    gh issue --repo $repo @IssueArgs
+}
+
+function Invoke-GhLabel {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$LabelArgs)
+    gh label --repo $repo @LabelArgs
+}
+
+$requiredLabels = @(
+    'status:to-do',
+    'status:doing',
+    'status:in-review',
+    'status:blocked',
+    'type:task',
+    'type:feature',
+    'type:bug',
+    'type:docs',
+    'type:chore',
+    'priority:high',
+    'priority:medium',
+    'priority:low'
+)
+
+function Get-MissingRequiredLabels {
+    $existing = Invoke-GhLabel list --limit 200 --json name --jq '.[].name'
+    $set = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($line in ($existing -split "`r?`n")) {
+        if ($line) { [void]$set.Add($line) }
+    }
+
+    $missing = [System.Collections.Generic.List[string]]::new()
+    foreach ($label in $requiredLabels) {
+        if (-not $set.Contains($label)) {
+            $missing.Add($label)
+        }
+    }
+
+    return $missing
+}
+
+function Ensure-RequiredLabels {
+    $missing = Get-MissingRequiredLabels
+    if ($missing.Count -gt 0) {
+        throw ('Error: missing required labels: ' + ($missing -join ', '))
+    }
+}
+
+function Get-IssueState([string]$Issue) {
+    Invoke-GhIssue view $Issue --json state --jq '.state'
+}
+
+function Get-IssueAssigneeCount([string]$Issue) {
+    Invoke-GhIssue view $Issue --json assignees --jq '.assignees | length'
+}
+
+function Get-IssueFirstAssignee([string]$Issue) {
+    Invoke-GhIssue view $Issue --json assignees --jq '.assignees[0].login // ""'
+}
+
+function Test-IssueLabel([string]$Issue, [string]$Label) {
+    $count = Invoke-GhIssue view $Issue --json labels --jq "[.labels[].name | select(. == `"$Label`")]|length"
+    return $count -ne '0'
+}
+
+function Ensure-LabelPresent([string]$Issue, [string]$Label) {
+    if (-not (Test-IssueLabel $Issue $Label)) {
+        Invoke-GhIssue edit $Issue --add-label $Label | Out-Null
+    }
+}
+
+function Ensure-LabelAbsent([string]$Issue, [string]$Label) {
+    if (Test-IssueLabel $Issue $Label) {
+        Invoke-GhIssue edit $Issue --remove-label $Label | Out-Null
+    }
+}
+
+function Ensure-OpenIssue([string]$Issue) {
+    if ((Get-IssueState $Issue) -ne 'OPEN') {
+        throw "Error: issue #$Issue is not open."
+    }
+}
+
+function Get-CurrentUser {
+    gh api user --jq '.login'
+}
+
+$command = $remaining[0]
+$rest = if ($remaining.Count -gt 1) { $remaining.GetRange(1, $remaining.Count - 1) } else { [System.Collections.Generic.List[string]]::new() }
+
+switch ($command) {
+    'check' {
+        gh api "repos/$repo" --jq '.full_name' | Out-Null
+        Write-Output "OK: GitHub access verified for $repo"
+    }
+    'labels-check' {
+        $missing = Get-MissingRequiredLabels
+        if ($missing.Count -gt 0) {
+            Write-Error ("Missing required labels in $repo:`n  - " + ($missing -join "`n  - "))
+            exit 1
+        }
+        Write-Output "OK: all required labels are present in $repo"
+    }
+    'list' {
+        Ensure-RequiredLabels
+        Invoke-GhIssue list --state open --limit 100 --json number,title,assignees,labels --jq '.[] | "#\(.number)\t\(.title)\tassignee:\((.assignees|map(.login)|join(",")|if . == "" then "-" else . end))\tstatus:\((.labels|map(.name)|map(select(startswith("status:")))|join(",")|if . == "" then "-" else . end))"'
+    }
+    'create' {
+        Ensure-RequiredLabels
+        if ($rest.Count -lt 1) { throw 'Error: create requires <title>.' }
+        $title = $rest[0]
+
+        $bodyFile = $null
+        $labels = [System.Collections.Generic.List[string]]::new()
+        for ($i = 1; $i -lt $rest.Count; $i++) {
+            $arg = $rest[$i]
+            if ($arg -eq '--body-file') {
+                if ($i + 1 -ge $rest.Count) { throw 'Error: --body-file requires a path.' }
+                $bodyFile = $rest[$i + 1]
+                $i++
+                continue
+            }
+            if ($arg -match '^--body-file=(.+)$') {
+                $bodyFile = $Matches[1]
+                continue
+            }
+            if ($arg -eq '--label') {
+                if ($i + 1 -ge $rest.Count) { throw 'Error: --label requires a value.' }
+                $labels.Add($rest[$i + 1])
+                $i++
+                continue
+            }
+            if ($arg -match '^--label=(.+)$') {
+                $labels.Add($Matches[1])
+                continue
+            }
+            throw "Error: unknown create option: $arg"
+        }
+
+        $createArgs = [System.Collections.Generic.List[string]]::new()
+        $createArgs.Add('create')
+        $createArgs.Add('--title')
+        $createArgs.Add($title)
+        if ($bodyFile) {
+            $createArgs.Add('--body-file')
+            $createArgs.Add($bodyFile)
+        }
+        foreach ($label in $labels) {
+            $createArgs.Add('--label')
+            $createArgs.Add($label)
+        }
+
+        Invoke-GhIssue @createArgs
+    }
+    'claim' {
+        Ensure-RequiredLabels
+        if ($rest.Count -lt 1) { throw 'Error: claim requires <issue-number>.' }
+        $issue = $rest[0]
+        Ensure-OpenIssue $issue
+
+        if ((Get-IssueAssigneeCount $issue) -ne '0') {
+            $assignee = Get-IssueFirstAssignee $issue
+            throw "Error: issue #$issue is already assigned to @$assignee."
+        }
+        if (Test-IssueLabel $issue 'status:doing') {
+            throw "Error: issue #$issue already has status:doing."
+        }
+
+        $me = Get-CurrentUser
+        Invoke-GhIssue edit $issue --add-assignee $me | Out-Null
+        Ensure-LabelPresent $issue 'status:doing'
+        Ensure-LabelAbsent $issue 'status:to-do'
+        Invoke-GhIssue comment $issue --body "Claimed by @$me and starting work." | Out-Null
+    }
+    'assign' {
+        Ensure-RequiredLabels
+        if ($rest.Count -lt 2) { throw 'Error: assign requires <issue-number> <collaborator>.' }
+        $issue = $rest[0]
+        $collaborator = $rest[1]
+        Ensure-OpenIssue $issue
+
+        if ((Get-IssueAssigneeCount $issue) -ne '0') {
+            $assignee = Get-IssueFirstAssignee $issue
+            throw "Error: issue #$issue is already assigned to @$assignee."
+        }
+        if (Test-IssueLabel $issue 'status:doing') {
+            throw "Error: issue #$issue already has status:doing."
+        }
+
+        Invoke-GhIssue edit $issue --add-assignee $collaborator | Out-Null
+        Ensure-LabelPresent $issue 'status:doing'
+        Ensure-LabelAbsent $issue 'status:to-do'
+        Invoke-GhIssue comment $issue --body "Assigned to @$collaborator and marked status:doing." | Out-Null
+    }
+    'release' {
+        Ensure-RequiredLabels
+        if ($rest.Count -lt 1) { throw 'Error: release requires <issue-number>.' }
+        $issue = $rest[0]
+        $blockedReason = $null
+        if ($rest.Count -gt 1) {
+            if ($rest.Count -eq 3 -and $rest[1] -eq '--blocked') {
+                $blockedReason = $rest[2]
+            } else {
+                throw 'Error: release accepts only optional --blocked <reason>.'
+            }
+        }
+
+        Ensure-OpenIssue $issue
+        $me = Get-CurrentUser
+        $assignee = Get-IssueFirstAssignee $issue
+        if ($assignee -and $assignee -ne $me) {
+            throw "Error: issue #$issue is assigned to @$assignee (not @$me)."
+        }
+        if ($assignee -eq $me) {
+            Invoke-GhIssue edit $issue --remove-assignee $me | Out-Null
+        }
+
+        Ensure-LabelAbsent $issue 'status:doing'
+
+        if ($blockedReason) {
+            Ensure-LabelAbsent $issue 'status:to-do'
+            Ensure-LabelPresent $issue 'status:blocked'
+            Invoke-GhIssue comment $issue --body "Released by @$me. Blocked: $blockedReason" | Out-Null
+        } else {
+            Ensure-LabelAbsent $issue 'status:blocked'
+            Ensure-LabelAbsent $issue 'status:in-review'
+            Ensure-LabelPresent $issue 'status:to-do'
+            Invoke-GhIssue comment $issue --body "Released by @$me and returned to status:to-do." | Out-Null
+        }
+    }
+    'close' {
+        Ensure-RequiredLabels
+        if ($rest.Count -lt 1) { throw 'Error: close requires <issue-number>.' }
+        $issue = $rest[0]
+        $summary = if ($rest.Count -gt 1) { ($rest.GetRange(1, $rest.Count - 1) -join ' ') } else { 'Completed and validated.' }
+        Ensure-OpenIssue $issue
+
+        Invoke-GhIssue comment $issue --body $summary | Out-Null
+        Ensure-LabelAbsent $issue 'status:doing'
+        Ensure-LabelAbsent $issue 'status:to-do'
+        Ensure-LabelAbsent $issue 'status:in-review'
+        Ensure-LabelAbsent $issue 'status:blocked'
+        Invoke-GhIssue close $issue | Out-Null
+    }
+    'prclose' {
+        Ensure-RequiredLabels
+        if ($rest.Count -lt 1) { throw 'Error: prclose requires <issue-number>.' }
+        $issue = $rest[0]
+        $summary = if ($rest.Count -gt 1) { ($rest.GetRange(1, $rest.Count - 1) -join ' ') } else { 'Ready for review via PR.' }
+        Ensure-OpenIssue $issue
+
+        $branch = (git rev-parse --abbrev-ref HEAD 2>$null) | Select-Object -First 1
+        if (-not $branch -or $branch -eq 'HEAD') {
+            throw 'Error: prclose requires an active local branch.'
+        }
+        if ($branch -in @('main', 'master', 'develop')) {
+            throw "Error: prclose refused on protected branch $branch. Create/switch to feature branch and commit/push first."
+        }
+
+        $dirty = git status --porcelain
+        if ($dirty) {
+            throw 'Error: prclose requires a clean working tree. Commit or stash changes first.'
+        }
+
+        $issueTitle = Invoke-GhIssue view $issue --json title --jq '.title'
+        $prUrl = gh pr create --repo $repo --title $issueTitle --body "Fixes #$issue"
+
+        Invoke-GhIssue comment $issue --body ($summary + "`n`nPull request: $prUrl") | Out-Null
+        Ensure-LabelAbsent $issue 'status:doing'
+        Ensure-LabelAbsent $issue 'status:to-do'
+        Ensure-LabelAbsent $issue 'status:blocked'
+        Ensure-LabelPresent $issue 'status:in-review'
+    }
+    'raw' {
+        if ($rest.Count -eq 0) { throw 'Error: raw requires <gh issue args...>.' }
+        Invoke-GhIssue @rest
+    }
+    default {
+        throw "Error: unknown command: $command"
+    }
+}

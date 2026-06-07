@@ -19,7 +19,7 @@ If a quick task turns out to be ambiguous, broad, security-sensitive, operationa
 
 Staged delivery still follows phase economy. It should use the fewest phases that preserve clear, reviewable deliverables: 1 phase for simple or single-outcome work, 2-3 phases for moderate work, justification for more than 3 phases, explicit user confirmation for 6-8 phases, and task splitting instead of one large plan when the work appears to require more than 8 phases.
 
-Use `/newtask` when the user wants to capture a problem, idea, or repository improvement as a GitHub Issue in the shared team tracker instead of implementing it immediately. Use `/tasks` for list/claim/release/close operations.
+Use `/issue` when the user wants to capture a problem, idea, or repository improvement as a GitHub Issue in the shared team tracker instead of implementing it immediately.
 
 For shared task operations, each person/collaborator should use one responsible agent/session to interact with GitHub Issues for this repository.
 
@@ -133,7 +133,9 @@ Use this memory for durable information only:
 
 Use GitHub Issues as the operational source of truth for shared repository work (create, claim, release, close).
 
-Use `/newtask` to create shared tasks as GitHub Issues. Use `/tasks` to list, claim, release, and close shared work.
+Use `/issue` to create, list, claim, assign, release, close, and prclose shared GitHub issue work.
+
+Shared issue tooling boundary: `gh-issue` / `gh-issue.ps1` is the single helper wrapper for GitHub issue operations.
 
 Do not store full chat transcripts, long terminal output, raw diffs, or trivial implementation notes.
 
@@ -387,7 +389,7 @@ Expected output:
 
 `taskanalyst` must not edit files or create implementation plans.
 
-For shared team task operations, use GitHub Issues through `/newtask` (create) and `/tasks` (list, claim, release, close). Track claim state with assignee + status labels (`status:to-do`, `status:doing`, `status:blocked`) and short comments.
+For shared team task operations, use GitHub Issues through `/issue` (`create`, `list`, `claim`, `assign`, `release`, `close`, `prclose`). Track claim state with assignee + status labels (`status:to-do`, `status:doing`, `status:blocked`) and short comments.
 
 ## Repository Direction
 
