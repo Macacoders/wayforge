@@ -52,6 +52,43 @@ The installer must not overwrite unmanaged existing files by default and support
 
 Portable workflow helpers used by shared commands should be packaged under `.opencode/skills/**` so they are available through the installed surface; consuming repositories should not require a top-level `scripts/` directory for those helpers.
 
+### Installed Projects Tracking
+
+`installed-projects.md` at the repository root tracks which projects have been installed with ai-config. It is excluded from version control via `.gitignore`.
+
+- **Format**: One canonical absolute path per line, with a comment header.
+- **Created by**: `install/bootstrap.sh` and `install/bootstrap.ps1` append the target repo path after a successful first install.
+- **Duplicate prevention**: Re-running the installer or using `--force` does not add duplicate entries.
+- **`--force`/`-Force` behavior**: Force refreshes skip tracking — they sync managed trees without recording a new entry.
+- **`--dry-run`/`-DryRun` behavior**: Dry runs never write to the tracking file.
+- **Cross-platform paths**: All scripts store and read paths in Windows-native format (`C:\DEV\project`). On WSL, `bootstrap.sh` converts with `wslpath -w` when writing, and `update-all.sh` converts back with `wslpath -u` when reading. Git Bash converts backslashes to forward slashes. This ensures the tracking file works from any environment.
+
+### Bootstrap Scripts
+
+`install/bootstrap.sh` and `install/bootstrap.ps1` install the runtime configuration into a target repository. Both source shared helper libraries from `install/lib/`.
+
+- **No Administrator privileges required** (PowerShell): The installer uses `Copy-Item` and file writes — no symbolic link creation. The previous admin check (which auto-enabled dry-run when not elevated) has been removed.
+- **Managed sync**: Agent, command, and skill files are synced via `Sync-ManagedTree` (or `sync_managed_tree` in Bash). Files are tracked with `.ai-config-managed` markers for safe refresh without clobbering local additions.
+
+### Cross-platform Update Scripts
+
+`install/update-all.sh` and `install/update-all.ps1` synchronize the managed `.opencode/` trees for all projects listed in `installed-projects.md`.
+
+- **Update scope**: Only `.opencode/agents`, `.opencode/commands`, and `.opencode/skills` are synced.
+- **What is NOT updated**: `AGENTS.md` and `opencode.jsonc`/`kilo.jsonc` are left unchanged — use the bootstrap scripts for a full install.
+- **Missing paths**: If a tracked project directory no longer exists, the script logs a warning, skips the entry, and continues.
+- **Stale entry pruning**: After completing all updates, the script prompts the user to remove stale (non-existent) entries from the tracking file.
+- **`--dry-run`/`-DryRun`**: Preview operations without making changes.
+- **Usage**:
+
+  ```bash
+  ./install/update-all.sh [--dry-run]
+  ```
+
+  ```powershell
+  .\install\update-all.ps1 [-DryRun]
+  ```
+
 ## Agent Topology
 
 - `planner` is the default primary agent. It uses a non-native id to avoid colliding with OpenCode's built-in `plan` agent.

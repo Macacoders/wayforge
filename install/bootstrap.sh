@@ -159,6 +159,34 @@ validate_agent_preset() {
   esac
 }
 
+track_installed_project() {
+  local path="$1"
+  [[ "$DRY_RUN" -eq 1 ]] && return
+  [[ "$FORCE" -eq 1 ]] && return
+
+  local tracking_file="$ROOT_DIR/installed-projects.md"
+  local canonical
+
+  canonical=$(realpath "$path" 2>/dev/null || (cd "$path" && pwd -P))
+
+  # Convert to Windows-native format for cross-platform compatibility
+  if command -v wslpath &>/dev/null; then
+    canonical=$(wslpath -w "$canonical" 2>/dev/null || printf '%s' "$canonical")
+  fi
+
+  if [[ ! -f "$tracking_file" ]]; then
+    log "error: tracking file not found: $tracking_file"
+    return 1
+  fi
+
+  if grep -Fxq "$canonical" "$tracking_file" 2>/dev/null; then
+    return 0
+  fi
+
+  printf '%s\n' "$canonical" >> "$tracking_file"
+  log "tracked installed project: $canonical"
+}
+
 pick_planner_model() {
   if contains_provider "openai"; then
     printf 'openai/gpt-5.5'
@@ -581,6 +609,8 @@ install_repo() {
   sync_managed_tree "$ROOT_DIR/base/opencode/agents" "$repo/.opencode/agents" 1
   sync_managed_tree "$ROOT_DIR/base/opencode/commands" "$repo/.opencode/commands" 1
   sync_managed_tree "$ROOT_DIR/base/opencode/skills" "$repo/.opencode/skills" 1
+
+  track_installed_project "$repo"
 
   log "repo bootstrap complete for: $repo"
 }

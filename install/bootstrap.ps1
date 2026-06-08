@@ -21,6 +21,36 @@ $MANAGED_DIR_MARKER = '.ai-config-managed'
 $SELECTED_PROVIDERS = @()
 $SYNC_MANAGED_TREE_LAST_ACTION = 'skipped'
 
+function Track-InstalledProject {
+    param([string]$RepoPath)
+
+    if ($DRY_RUN) { return }
+    if ($FORCE) { return }
+
+    $trackingFile = Join-Path $ROOT_DIR 'installed-projects.md'
+
+    if (-not (Test-Path $trackingFile -PathType Leaf)) {
+        log "warning: tracking file not found: $trackingFile"
+        return
+    }
+
+    # Resolve canonical absolute path
+    $canonical = Resolve-Path -LiteralPath $RepoPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+    if (-not $canonical) {
+        $canonical = (Get-Item $RepoPath).FullName
+    }
+
+    # Check for duplicates (exact line match)
+    $existing = Get-Content $trackingFile -ErrorAction SilentlyContinue
+    if ($existing -contains $canonical) {
+        return
+    }
+
+    # Append the path
+    Add-Content -Path $trackingFile -Value $canonical
+    log "tracked installed project: $canonical"
+}
+
 function Test-Administrator {
     $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     return $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -501,6 +531,8 @@ function install-repo {
     Sync-ManagedTree (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/commands') (Join-Path (Join-Path $Repo '.opencode') 'commands') $true
     Sync-ManagedTree (Join-Path (Join-Path $ROOT_DIR 'base') 'opencode/skills') (Join-Path (Join-Path $Repo '.opencode') 'skills') $true
 
+    Track-InstalledProject $Repo
+
     log "repo bootstrap complete for: $Repo"
 }
 
@@ -614,14 +646,6 @@ $REPO_PATH = Resolve-Path $REPO_PATH -ErrorAction SilentlyContinue | Select-Obje
 if (-not $REPO_PATH) {
     log "error: cannot resolve repo path"
     exit 1
-}
-
-# Check for administrator privileges (required for creating symlinks on Windows)
-if (-not $DRY_RUN -and -not (Test-Administrator)) {
-    log "warning: Administrator privileges are required to create symbolic links on Windows."
-    log "         Please run PowerShell as Administrator, or enable Developer Mode."
-    log "         Falling back to dry-run mode. Use -DryRun to suppress this warning."
-    $DRY_RUN = $true
 }
 
 install-repo $REPO_PATH
