@@ -185,7 +185,7 @@ function Pick-PlannerModel {
 
 function Pick-ResearchModel {
     if (Contains-Provider 'openai') {
-        return 'openai/gpt-5.5-fast'
+        return 'openai/gpt-5.5'
     }
     if (Contains-Provider 'github-copilot') {
         return 'github-copilot/gpt-5.4'
@@ -195,7 +195,7 @@ function Pick-ResearchModel {
 
 function Pick-CodeModel {
     if (Contains-Provider 'openai') {
-        return 'openai/gpt-5.3-codex'
+        return 'openai/gpt-5.5'
     }
     if (Contains-Provider 'github-copilot') {
         return 'github-copilot/gpt-5.3-codex'
@@ -208,7 +208,7 @@ function Pick-TaskanalystModel {
         return 'github-copilot/gemini-3.5-flash'
     }
     if (Contains-Provider 'openai') {
-        return 'openai/gpt-5.5-fast'
+        return 'openai/gpt-5.4-mini'
     }
     return 'laberit/laberit-ai'
 }
@@ -391,7 +391,7 @@ function Generate-OpenCodeJsoncContent {
     param([string]$Runtime)
 
     $defaultModel = 'openai/gpt-5.5'
-    $defaultSmallModel = 'openai/gpt-5.4-mini-fast'
+    $defaultSmallModel = 'openai/gpt-5.4-mini'
 
     if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'github-copilot') {
         $defaultModel = 'github-copilot/gpt-5.4'

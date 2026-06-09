@@ -173,7 +173,7 @@ pick_planner_model() {
 
 pick_research_model() {
   if contains_provider "openai"; then
-    printf 'openai/gpt-5.5-fast'
+    printf 'openai/gpt-5.5'
     return
   fi
   if contains_provider "github-copilot"; then
@@ -185,7 +185,7 @@ pick_research_model() {
 
 pick_code_model() {
   if contains_provider "openai"; then
-    printf 'openai/gpt-5.3-codex'
+    printf 'openai/gpt-5.5'
     return
   fi
   if contains_provider "github-copilot"; then
@@ -201,7 +201,7 @@ pick_taskanalyst_model() {
     return
   fi
   if contains_provider "openai"; then
-    printf 'openai/gpt-5.5-fast'
+    printf 'openai/gpt-5.4-mini'
     return
   fi
   printf 'laberit/laberit-ai'
@@ -461,7 +461,7 @@ build_agent_block_json() {
 generate_opencode_jsonc_content() {
   local runtime="${1:-opencode}"
   local default_model="openai/gpt-5.5"
-  local default_small_model="openai/gpt-5.4-mini-fast"
+  local default_small_model="openai/gpt-5.4-mini"
 
   if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "github-copilot" ]]; then
     default_model="github-copilot/gpt-5.4"

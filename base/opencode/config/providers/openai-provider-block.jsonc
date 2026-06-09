@@ -6,15 +6,9 @@
             "textVerbosity": "medium"
           }
         },
-        "gpt-5.5-fast": {
+        "gpt-5.4-mini": {
           "options": {
-            "reasoningEffort": "medium",
-            "textVerbosity": "medium"
-          }
-        },
-        "gpt-5.3-codex": {
-          "options": {
-            "reasoningEffort": "medium",
+            "reasoningEffort": "low",
             "textVerbosity": "low"
           }
         }
