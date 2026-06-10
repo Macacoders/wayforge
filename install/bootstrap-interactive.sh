@@ -111,7 +111,7 @@ case "$MODEL_PRESET_CHOICE" in
     ;;
   2)
     if contains_provider "$PROVIDERS" "openai"; then
-      MODEL_OVERRIDE="openai/gpt-5.5-fast"
+      MODEL_OVERRIDE="openai/gpt-5.4-mini"
     elif contains_provider "$PROVIDERS" "github-copilot"; then
       MODEL_OVERRIDE="github-copilot/gpt-5.3-codex"
     else
@@ -121,7 +121,7 @@ case "$MODEL_PRESET_CHOICE" in
     if contains_provider "$PROVIDERS" "github-copilot"; then
       SMALL_MODEL_OVERRIDE="github-copilot/gemini-3.5-flash"
     elif contains_provider "$PROVIDERS" "openai"; then
-      SMALL_MODEL_OVERRIDE="openai/gpt-5.5-fast"
+      SMALL_MODEL_OVERRIDE="openai/gpt-5.4-mini"
     else
       SMALL_MODEL_OVERRIDE="laberit/laberit-ai"
     fi

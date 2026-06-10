@@ -78,12 +78,16 @@ if ($explicitRepo) {
 
 function Invoke-GhIssue {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$IssueArgs)
-    gh issue --repo $repo @IssueArgs
+    $subcommand = $IssueArgs[0]
+    $remainingArgs = @()
+    if ($IssueArgs.Count -gt 1) {
+        $remainingArgs = $IssueArgs[1..($IssueArgs.Count - 1)]
+    }
+    gh issue $subcommand --repo $repo @remainingArgs
 }
 
-function Invoke-GhLabel {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$LabelArgs)
-    gh label --repo $repo @LabelArgs
+function Get-GhRepoLabels {
+    gh api "repos/$repo/labels" --paginate --jq '.[].name'
 }
 
 $requiredLabels = @(
@@ -102,7 +106,7 @@ $requiredLabels = @(
 )
 
 function Get-MissingRequiredLabels {
-    $existing = Invoke-GhLabel list --limit 200 --json name --jq '.[].name'
+    $existing = Get-GhRepoLabels
     $set = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     foreach ($line in ($existing -split "`r?`n")) {
         if ($line) { [void]$set.Add($line) }

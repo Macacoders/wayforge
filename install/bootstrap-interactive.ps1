@@ -128,7 +128,7 @@ switch ($MODEL_PRESET_CHOICE) {
     }
     '2' {
         if (contains_provider $PROVIDERS 'openai') {
-            $MODEL_OVERRIDE = 'openai/gpt-5.5-fast'
+            $MODEL_OVERRIDE = 'openai/gpt-5.4-mini'
         } elseif (contains_provider $PROVIDERS 'github-copilot') {
             $MODEL_OVERRIDE = 'github-copilot/gpt-5.3-codex'
         } else {
@@ -138,7 +138,7 @@ switch ($MODEL_PRESET_CHOICE) {
         if (contains_provider $PROVIDERS 'github-copilot') {
             $SMALL_MODEL_OVERRIDE = 'github-copilot/gemini-3.5-flash'
         } elseif (contains_provider $PROVIDERS 'openai') {
-            $SMALL_MODEL_OVERRIDE = 'openai/gpt-5.5-fast'
+            $SMALL_MODEL_OVERRIDE = 'openai/gpt-5.4-mini'
         } else {
             $SMALL_MODEL_OVERRIDE = 'laberit/laberit-ai'
         }

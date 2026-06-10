@@ -13,7 +13,7 @@ This repository provides reusable OpenCode source configuration and installs gen
 - GitHub Copilot authentication is handled in OpenCode with `/connect` (device login flow).
 - laberit is configured via environment variables (`OPENAI_BASE_URL`, `OPENAI_API_KEY`).
 - Model IDs are recommendations and may need adjustment with `/models` depending on account availability.
-- The default model policy balances GPT-5.5-family reasoning for planning, onboarding, and critical review with Codex-oriented models for implementation.
+- The default OpenAI model policy uses documented general GPT models (`openai/gpt-5.5` plus lightweight `openai/gpt-5.4-mini`) instead of Codex or undocumented fast-model IDs so ChatGPT Plus/Pro installs avoid known account-availability failures.
 - Generated `opencode.jsonc` (or `kilo.jsonc` for Kilo Code) is the provider/model brain for each target repository and centralizes per-agent model assignments under `agent`.
 - Generated runtime config includes `enabled_providers` based on installer provider selection and supports agent presets (`balanced`, `fast`, `thorough`) through `--agent-preset` / `-AgentPreset`.
 - Users can switch providers interactively: `/model openai/gpt-5.5`, `/model github-copilot/gpt-5.4`, or `/model laberit/laberit-ai`.
@@ -93,10 +93,10 @@ Portable workflow helpers used by shared commands should be packaged under `.ope
 
 - `planner` is the default primary agent. It uses a non-native id to avoid colliding with OpenCode's built-in `plan` agent.
 - `research` is a subagent used for onboarding existing repositories before implementation planning.
-- `code` is a conservative Codex-oriented subagent used once per approved implementation phase, with medium reasoning effort and low temperature.
-- `quickcode` is a Codex-oriented subagent invoked by `planner` for one approved quick-delivery task, with low reasoning effort for small low-risk changes. It may edit autonomously within narrow low-risk scope, run allowlisted validation/git inspection commands, and must not invoke subagents.
-- `test` is a GPT-5.5-fast subagent used when review identifies meaningful testing or regression risk, keeping critical review independent from Codex implementation output.
-- `taskanalyst` is a GPT-5.5-fast subagent used by `/issue create` to interpret problem reports and propose structured GitHub Issue content without editing files.
+- `code` is a conservative implementation subagent used once per approved implementation phase, with medium reasoning effort and low temperature.
+- `quickcode` is an implementation subagent invoked by `planner` for one approved quick-delivery task, with low reasoning effort for small low-risk changes. It may edit autonomously within narrow low-risk scope, run allowlisted validation/git inspection commands, and must not invoke subagents.
+- `test` is an independent review subagent used when review identifies meaningful testing or regression risk, keeping critical review independent from implementation output.
+- `taskanalyst` is a lightweight analysis subagent used by `/issue create` to interpret problem reports and propose structured GitHub Issue content without editing files.
 
 ## Context Strategy
 

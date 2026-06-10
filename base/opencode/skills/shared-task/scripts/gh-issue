@@ -94,16 +94,19 @@ command="$1"
 shift
 
 gh_issue() {
-  gh issue --repo "$repo" "$@"
+  local subcommand
+  subcommand="$1"
+  shift
+  gh issue "$subcommand" --repo "$repo" "$@"
 }
 
-gh_label() {
-  gh label --repo "$repo" "$@"
+gh_repo_labels() {
+  gh api "repos/$repo/labels" --paginate --jq '.[].name'
 }
 
 missing_required_labels() {
   local names label
-  names="$(gh_label list --limit 200 --json name --jq '.[].name')"
+  names="$(gh_repo_labels)"
   names=$'\n'"$names"$'\n'
 
   for label in "${required_labels[@]}"; do
