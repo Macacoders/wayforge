@@ -1,0 +1,244 @@
+# Release Process
+
+## Versioning Convention
+
+This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (SemVer).
+
+- **Tags**: `vMAJOR.MINOR.PATCH` (for example `v0.1.0`, `v0.2.0`, `v1.0.0`)
+- **Pre-1.0**: Versions `0.x.y` indicate initial development. Breaking changes may occur between minor versions.
+- **VERSION file**: Contains the plain version number without the `v` prefix (for example `0.1.0`).
+
+## Branch Workflow
+
+| Branch    | Purpose                                                  |
+|-----------|----------------------------------------------------------|
+| `main`    | Stable/release branch. Reflects the latest released tag. |
+| `develop` | Active development branch. All feature/fix branches merge here first. |
+
+Releases are triggered from `main`. Day-to-day development happens on `develop`.
+
+## Release Preparation Steps
+
+Follow these steps to create a new release:
+
+### 1. Prepare `develop`
+
+Ensure `develop` is up-to-date with all intended changes merged:
+
+```bash
+git checkout develop
+git pull origin develop
+```
+
+Verify the working tree is clean (`git status`). All feature branches that should be part of the release must already be merged into `develop`.
+
+### 2. Update the VERSION file
+
+Update `VERSION` at the repository root with the new version number (plain SemVer, no `v` prefix):
+
+```bash
+echo "0.2.0" > VERSION
+```
+
+### 3. Update CHANGELOG.md
+
+Add a new entry to `CHANGELOG.md` following the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format:
+
+```markdown
+## [0.2.0] - YYYY-MM-DD
+
+### Added
+
+- Feature description here.
+
+[0.2.0]: https://github.com/Macacoders/ai-config/releases/tag/v0.2.0
+```
+
+Be sure to update the version at the bottom link reference as well.
+
+### 4. Create and push the release tag
+
+Create a signed or annotated tag:
+
+```bash
+git tag -a v0.2.0 -m "Release v0.2.0"
+```
+
+Or for a signed tag:
+
+```bash
+git tag -s v0.2.0 -m "Release v0.2.0"
+```
+
+Push the tag (but do not push `main` yet — push both together in step 6):
+
+```bash
+git push origin v0.2.0
+```
+
+### 5. Merge develop into main
+
+```bash
+git checkout main
+git merge develop
+```
+
+Resolve any conflicts if they arise (conflicts should be rare if `main` only receives releases).
+
+### 6. Push main and the tag
+
+```bash
+git push origin main
+git push origin v0.2.0   # if not already pushed
+```
+
+Pushing the tag triggers the GitHub Actions release workflow (see [Release Automation](#release-automation)) which auto-creates the GitHub Release.
+
+## Dry-Run Validation
+
+Before performing an actual release, validate the steps using the dry-run helper:
+
+```bash
+scripts/release.sh --dry-run
+```
+
+Or in PowerShell:
+
+```powershell
+.\scripts\release.ps1 -DryRun
+```
+
+The dry-run mode will:
+- Check that `develop` is up-to-date
+- Verify the version and changelog entries
+- Show the planned tag and merge operations
+- Simulate tag creation and branch merge without modifying the repository
+
+## Consuming-Repo Guidance
+
+Consumers install `ai-config` into their own repositories. To install from a specific release tag:
+
+**Bash**:
+
+```bash
+./install/bootstrap.sh --repo /path/to/repo --ref v0.1.0 --providers openai
+```
+
+**PowerShell**:
+
+```powershell
+.\install\bootstrap.ps1 -Repo /path/to/repo -Ref v0.1.0 -Providers openai
+```
+
+If `--ref` is omitted, the installer uses the local ai-config source tree (from the current working copy). Use `--ref` to install from a pinned GitHub release tag instead:
+
+**Bash**:
+
+```bash
+./install/bootstrap.sh --repo /path/to/repo --ref v0.1.0 --providers openai
+```
+
+**PowerShell**:
+
+```powershell
+.\install\bootstrap.ps1 -Repo /path/to/repo -Ref v0.1.0 -Providers openai
+```
+
+When `--ref` is specified, the installer:
+1. Clones the ai-config repository at the specified tag/branch/commit
+2. Installs from that release source
+3. Records `ref:` in the `.ai-config-managed` manifest
+
+Always pin to a specific tag for production consuming repositories to ensure reproducible installs.
+
+**Note**: When a consuming repo re-installs with a newer `--ref`, the installer detects the version change via the `.ai-config-managed` file (see ADR-0009) and applies the appropriate upgrade logic.
+
+### Installing and Refreshing
+
+The installer tracks all managed files in a single `.ai-config-managed` file at the root of the consuming repository:
+
+```yaml
+version: 0.1.0
+managed_paths:
+  - opencode.jsonc
+  - AGENTS.md
+  - .opencode/agents/planner.md
+  - ...
+```
+
+**Fresh install** (no existing `.ai-config-managed`):
+The installer copies all source files from `base/opencode/`, generates runtime config, and writes the manifest.
+
+**Refresh / re-install without `--force`** (existing `.ai-config-managed`):
+The installer preserves `AGENTS.md` and runtime config (`opencode.jsonc` / `kilo.jsonc`) **unchanged** — existing content is never modified. Managed files under `.opencode/agents/**`, `.opencode/commands/**`, and `.opencode/skills/**` are refreshed from source templates to receive updates. The manifest is updated to track all current managed paths.
+
+**Refresh / re-install with `--force`** (existing `.ai-config-managed`):
+The installer performs a complete refresh as if it were a fresh installation: `AGENTS.md` is copied from source template, runtime config is regenerated from scratch, and all agent/command/skill files are refreshed. The manifest is rewritten with the current version and complete path list.
+
+**How the manifest-driven refresh works:**
+1. The installer reads the existing `.ai-config-managed` file.
+2. For each path in `managed_paths`, it maps the path back to its source template (e.g., `.opencode/agents/planner.md` → `base/opencode/agents/planner.md`) and re-syncs the file.
+3. It discovers new source files not yet in the manifest (new agents, commands, or skills) and syncs them too.
+4. It writes an updated `.ai-config-managed` with the current version and complete path list.
+
+This manifest-driven refresh replaces the earlier per-file sidecar marker approach. Old markers from previous installs are cleaned up during the refresh.
+
+## First Release Procedure
+
+The initial release (`v0.1.0`) requires a few extra steps because `main` is newly created and has no history:
+
+1. Ensure `main` already exists locally (created during Phase 1 of this documentation effort).
+2. Follow steps 1-4 above on `develop`.
+3. Push the tag first:
+   ```bash
+   git push origin v0.1.0
+   ```
+4. Push `main` to the remote for the first time:
+   ```bash
+   git push -u origin main
+   ```
+5. Create the GitHub Release manually if the automation (Phase 3) is not yet in place:
+    - Go to https://github.com/Macacoders/ai-config/releases/new
+   - Select the `v0.1.0` tag
+   - Title: `v0.1.0`
+   - Description: Paste the `CHANGELOG.md` entry for `0.1.0`
+   - Publish release
+
+After the initial release, subsequent releases follow the standard steps above.
+
+## Release Automation
+
+The following automation tools are now available:
+
+- **GitHub Actions workflow** (`.github/workflows/release.yml`): Auto-creates a GitHub Release when code is pushed or merged to `main`. The release version is read from the `VERSION` file, and the latest CHANGELOG entry is used as the release body.
+- **Helper scripts** (`scripts/release.sh` / `scripts/release.ps1`): Automate preparation steps — update VERSION, update CHANGELOG, create annotated tag, and validate the working tree. Use `--dry-run` / `-DryRun` to preview operations.
+
+### Using the helper script
+
+```bash
+# Preview a release to version 0.2.0
+scripts/release.sh --version 0.2.0 --dry-run
+
+# Prepare a release (updates VERSION, CHANGELOG, creates tag)
+scripts/release.sh --version 0.2.0
+```
+
+```powershell
+# Preview
+.\scripts\release.ps1 -Version 0.2.0 -DryRun
+
+# Prepare
+.\scripts\release.ps1 -Version 0.2.0
+```
+
+The script validates that the working tree is clean and that you are on the `develop` branch before making changes. After preparation, push the tag and merge to `main`:
+
+```bash
+git push origin main v0.2.0
+```
+
+The GitHub Actions workflow will detect the push to `main` and create the release automatically.
+
+### Release artifact generation and attachment
+
+Release artifact generation is not yet automated and remains a manual step.
