@@ -27,12 +27,7 @@ function Track-InstalledProject {
     if ($DRY_RUN) { return }
     if ($FORCE) { return }
 
-    $trackingFile = Join-Path $ROOT_DIR 'installed-projects.md'
-
-    if (-not (Test-Path $trackingFile -PathType Leaf)) {
-        log "warning: tracking file not found: $trackingFile"
-        return
-    }
+    $trackingFile = Join-Path $ROOT_DIR 'installed-projects.json'
 
     # Resolve canonical absolute path
     $canonical = Resolve-Path -LiteralPath $RepoPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
@@ -40,14 +35,57 @@ function Track-InstalledProject {
         $canonical = (Get-Item $RepoPath).FullName
     }
 
-    # Check for duplicates (exact line match)
-    $existing = Get-Content $trackingFile -ErrorAction SilentlyContinue
-    if ($existing -contains $canonical) {
+    $name = Split-Path $canonical -Leaf
+    $timestamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+
+    if (-not (Test-Path $trackingFile -PathType Leaf)) {
+        # Create tracking file with envelope and initial project entry
+        $entry = @{
+            name        = $name
+            path        = $canonical
+            description = $null
+            lastUpdated = $timestamp
+        }
+        $data = @{
+            version  = 1
+            projects = @($entry)
+        }
+        $data | ConvertTo-Json -Depth 3 | Set-Content -Path $trackingFile
+        log "tracked installed project: $canonical"
         return
     }
 
-    # Append the path
-    Add-Content -Path $trackingFile -Value $canonical
+    # Read existing file
+    try {
+        $data = Get-Content -Path $trackingFile -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        log "warning: failed to parse tracking file, skipping: $_"
+        return
+    }
+
+    # Ensure projects array exists
+    if (-not $data.projects) {
+        $data.projects = @()
+    }
+
+    # Check for duplicate by path
+    foreach ($project in $data.projects) {
+        if ($project.path -eq $canonical) {
+            return
+        }
+    }
+
+    # Append new entry
+    $entry = @{
+        name        = $name
+        path        = $canonical
+        description = $null
+        lastUpdated = $timestamp
+    }
+    $data.projects += $entry
+
+    # Write back
+    $data | ConvertTo-Json -Depth 3 | Set-Content -Path $trackingFile
     log "tracked installed project: $canonical"
 }
 

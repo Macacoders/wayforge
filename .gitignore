@@ -34,7 +34,7 @@ build/
 tmp/
 
 .devcontainer
-/installed-projects.md
+/installed-projects.json
 .gh-config
 
 # OpenCode generated/local runtime output

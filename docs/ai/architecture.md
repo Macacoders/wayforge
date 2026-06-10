@@ -54,14 +54,18 @@ Portable workflow helpers used by shared commands should be packaged under `.ope
 
 ### Installed Projects Tracking
 
-`installed-projects.md` at the repository root tracks which projects have been installed with ai-config. It is excluded from version control via `.gitignore`.
+`installed-projects.json` at the repository root tracks which projects have been installed with ai-config. It is excluded from version control via `.gitignore`.
 
-- **Format**: One canonical absolute path per line, with a comment header.
-- **Created by**: `install/bootstrap.sh` and `install/bootstrap.ps1` append the target repo path after a successful first install.
-- **Duplicate prevention**: Re-running the installer or using `--force` does not add duplicate entries.
-- **`--force`/`-Force` behavior**: Force refreshes skip tracking — they sync managed trees without recording a new entry.
+- **Format**: Structured JSON with `version` (schema version) and `projects` array. Each entry contains:
+  - `name`: Project directory basename.
+  - `path`: Canonical absolute path (Windows-native format `C:\DEV\project` on WSL).
+  - `description`: Reserved for future use (`null` for now).
+  - `lastUpdated`: ISO 8601 timestamp of the install.
+- **Created by**: `install/bootstrap.sh` and `install/bootstrap.ps1` create or append to the file after a successful first install.
+- **Duplicate prevention**: Re-running the installer or using `--force` does not add duplicate entries — scripts check for existing path matches.
+- **`--force`/`-Force` behavior**: Force refreshes skip tracking entirely.
 - **`--dry-run`/`-DryRun` behavior**: Dry runs never write to the tracking file.
-- **Cross-platform paths**: All scripts store and read paths in Windows-native format (`C:\DEV\project`). On WSL, `bootstrap.sh` converts with `wslpath -w` when writing, and `update-all.sh` converts back with `wslpath -u` when reading. Git Bash converts backslashes to forward slashes. This ensures the tracking file works from any environment.
+- **Cross-platform paths**: On WSL, `bootstrap.sh` converts paths with `wslpath -w` when writing. Git Bash preserves forward slashes natively.
 
 ### Bootstrap Scripts
 
@@ -69,25 +73,6 @@ Portable workflow helpers used by shared commands should be packaged under `.ope
 
 - **No Administrator privileges required** (PowerShell): The installer uses `Copy-Item` and file writes — no symbolic link creation. The previous admin check (which auto-enabled dry-run when not elevated) has been removed.
 - **Managed sync**: Agent, command, and skill files are synced via `Sync-ManagedTree` (or `sync_managed_tree` in Bash). Files are tracked with `.ai-config-managed` markers for safe refresh without clobbering local additions.
-
-### Cross-platform Update Scripts
-
-`install/update-all.sh` and `install/update-all.ps1` synchronize the managed `.opencode/` trees for all projects listed in `installed-projects.md`.
-
-- **Update scope**: Only `.opencode/agents`, `.opencode/commands`, and `.opencode/skills` are synced.
-- **What is NOT updated**: `AGENTS.md` and `opencode.jsonc`/`kilo.jsonc` are left unchanged — use the bootstrap scripts for a full install.
-- **Missing paths**: If a tracked project directory no longer exists, the script logs a warning, skips the entry, and continues.
-- **Stale entry pruning**: After completing all updates, the script prompts the user to remove stale (non-existent) entries from the tracking file.
-- **`--dry-run`/`-DryRun`**: Preview operations without making changes.
-- **Usage**:
-
-  ```bash
-  ./install/update-all.sh [--dry-run]
-  ```
-
-  ```powershell
-  .\install\update-all.ps1 [-DryRun]
-  ```
 
 ## Agent Topology
 
