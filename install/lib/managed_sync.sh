@@ -1,3 +1,5 @@
+# shellcheck shell=bash
+
 run_mkdir() {
 	local dir="$1"
 	if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -99,7 +101,7 @@ is_managed_dir() {
 	local dir="$path"
 	while [[ "$dir" != "/" ]]; do
 		if [[ -f "$dir/.ai-config-managed" ]]; then
-			local rel_path="${path#$dir/}"
+			local rel_path="${path#"$dir"/}"
 			if [[ -n "$rel_path" ]]; then
 				# Check if the directory itself is listed
 				if grep -qFx "  - $rel_path" "$dir/.ai-config-managed" 2>/dev/null; then
@@ -137,7 +139,7 @@ is_managed_file() {
 
 	while [[ "$dir" != "/" ]]; do
 		if [[ -f "$dir/.ai-config-managed" ]]; then
-			local rel_path="${path#$dir/}"
+			local rel_path="${path#"$dir"/}"
 			if [[ -n "$rel_path" ]] && grep -qFx "  - $rel_path" "$dir/.ai-config-managed" 2>/dev/null; then
 				return 0
 			fi
@@ -165,7 +167,7 @@ _MANAGED_MANIFEST_PATHS=()
 _managed_track_file() {
 	local dst_file="$1"
 	if [[ -n "$_MANAGED_REPO_ROOT" && -f "$_MANAGED_REPO_ROOT/.ai-config-managed.tmp" ]]; then
-		local _rel="${dst_file#$_MANAGED_REPO_ROOT/}"
+		local _rel="${dst_file#"$_MANAGED_REPO_ROOT"/}"
 		if [[ "$_rel" != "$dst_file" ]]; then
 			add_managed_path "$_MANAGED_REPO_ROOT" "$_rel"
 			return
@@ -246,6 +248,9 @@ finalize_managed_manifest() {
 	_MANAGED_REPO_ROOT=""
 
 	# Remove old per-file sidecar markers for paths now tracked in the manifest
+	local manifest_snapshot
+	manifest_snapshot="$(<"$manifest_final")"
+
 	local line
 	while IFS= read -r line; do
 		case "$line" in
@@ -258,7 +263,7 @@ finalize_managed_manifest() {
 			fi
 			;;
 		esac
-	done <"$manifest_final"
+	done <<<"$manifest_snapshot"
 
 	# Remove old per-directory markers (from sync_managed_tree) under managed paths.
 	# Walk up from each managed file's directory to repo root to catch nested trees.
@@ -278,7 +283,7 @@ finalize_managed_manifest() {
 			done
 			;;
 		esac
-	done <"$manifest_final"
+	done <<<"$manifest_snapshot"
 }
 
 # Check whether a relative path (from repo root) is managed.
@@ -563,7 +568,7 @@ sync_managed_tree() {
 		local rel_path
 		local dst_file
 		local dst_parent
-		rel_path="${src_file#$src/}"
+		rel_path="${src_file#"$src"/}"
 		dst_file="$dst/$rel_path"
 		dst_parent="$(dirname "$dst_file")"
 

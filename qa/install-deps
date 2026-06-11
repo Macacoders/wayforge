@@ -34,7 +34,21 @@ fi
 
 echo "==> Installing PowerShell QA modules"
 
-pwsh -NoProfile -Command '
+run_pwsh_heredoc() {
+	local tmp_ps
+	local status
+	tmp_ps="$(mktemp)"
+	cat >"$tmp_ps"
+	if pwsh -NoProfile -NonInteractive -File "$tmp_ps"; then
+		status=0
+	else
+		status=$?
+	fi
+	rm -f "$tmp_ps"
+	return "$status"
+}
+
+run_pwsh_heredoc <<'POWERSHELL'
 $ErrorActionPreference = "Stop"
 
 $modules = @(
@@ -44,13 +58,13 @@ $modules = @(
 
 foreach ($module in $modules) {
   if (-not (Get-Module -ListAvailable -Name $module)) {
-    Write-Host "Installing $module..."
+    Write-Host "Installing $($module)..."
     Install-Module -Name $module -Scope CurrentUser -Force -AllowClobber
   } else {
-    Write-Host "$module already installed."
+    Write-Host "$($module) already installed."
   }
 }
-'
+POWERSHELL
 
 echo "==> Verifying installed tools"
 
@@ -61,11 +75,11 @@ command -v node >/dev/null
 command -v npm >/dev/null
 command -v pwsh >/dev/null
 
-pwsh -NoProfile -Command '
+run_pwsh_heredoc <<'POWERSHELL'
 $ErrorActionPreference = "Stop"
 Import-Module PSScriptAnalyzer
 Import-Module Pester
 Write-Host "PowerShell modules OK."
-'
+POWERSHELL
 
 echo "==> QA dependencies installed successfully"

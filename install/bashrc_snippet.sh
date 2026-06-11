@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Source this file from your ~/.bashrc to expose ai-config helper functions.
 
 _ai_config_root() {

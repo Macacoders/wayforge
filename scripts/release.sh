@@ -95,9 +95,9 @@ if [[ "$DRY_RUN" -eq 0 ]]; then
 	if grep -q '^## \[' "$CHANGELOG"; then
 		FIRST_ENTRY_LINE="$(grep -n '^## \[' "$CHANGELOG" | head -1 | cut -d: -f1)"
 		{
-			head -n $((FIRST_ENTRY_LINE - 1)) "$CHANGELOG"
+			head -n "$((FIRST_ENTRY_LINE - 1))" "$CHANGELOG"
 			echo "$NEW_ENTRY"
-			tail -n +$FIRST_ENTRY_LINE "$CHANGELOG"
+			tail -n "+$FIRST_ENTRY_LINE" "$CHANGELOG"
 		} >"$CHANGELOG.tmp" && mv "$CHANGELOG.tmp" "$CHANGELOG"
 	else
 		echo "$NEW_ENTRY" >>"$CHANGELOG"
@@ -110,7 +110,9 @@ if [[ "$DRY_RUN" -eq 0 ]]; then
 	echo "  updated: CHANGELOG.md"
 else
 	echo "  [dry-run] would add entry to CHANGELOG.md:"
-	echo "$NEW_ENTRY" | sed 's/^/    /'
+	while IFS= read -r line; do
+		echo "    $line"
+	done <<<"$NEW_ENTRY"
 fi
 
 # 5. Create tag
