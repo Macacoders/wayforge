@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# qa/check-bats
+set -euo pipefail
+
+if ! command -v bats >/dev/null 2>&1; then
+	echo "bats is not installed; skipping Bash tests."
+	exit 0
+fi
+
+if [[ ! -d tests/bash ]]; then
+	echo "No Bash tests found."
+	exit 0
+fi
+
+shopt -s nullglob
+bash_tests=(tests/bash/*.bats)
+shopt -u nullglob
+
+if ((${#bash_tests[@]} == 0)); then
+	echo "No Bash tests found."
+	exit 0
+fi
+
+bats tests/bash

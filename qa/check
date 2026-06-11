@@ -8,6 +8,9 @@ echo "==> Bash checks"
 echo "==> PowerShell checks"
 ./qa/check-powershell
 
+echo "==> Tests"
+./qa/check-tests
+
 echo "==> Duplication checks"
 ./qa/check-duplication
 

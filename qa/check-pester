@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# qa/check-pester
+set -euo pipefail
+
+if ! command -v pwsh >/dev/null 2>&1; then
+	echo "pwsh is not installed; skipping PowerShell tests."
+	exit 0
+fi
+
+if [[ ! -d tests/powershell ]]; then
+	echo "No PowerShell tests found."
+	exit 0
+fi
+
+shopt -s nullglob
+powershell_tests=(tests/powershell/*.Tests.ps1)
+shopt -u nullglob
+
+if ((${#powershell_tests[@]} == 0)); then
+	echo "No PowerShell tests found."
+	exit 0
+fi
+
+run_pwsh_heredoc() {
+	local tmp_ps
+	local status
+	tmp_ps="$(mktemp)"
+	cat >"$tmp_ps"
+	if pwsh -NoProfile -NonInteractive -File "$tmp_ps"; then
+		status=0
+	else
+		status=$?
+	fi
+	rm -f "$tmp_ps"
+	return "$status"
+}
+
+run_pwsh_heredoc <<'POWERSHELL'
+$ErrorActionPreference = "Stop"
+
+if (-not (Get-Module -ListAvailable -Name Pester)) {
+  throw "Pester is not installed. Run: Install-Module Pester -Scope CurrentUser"
+}
+
+$result = Invoke-Pester -Path ./tests/powershell -PassThru
+
+if ($result.FailedCount -gt 0) {
+  exit 1
+}
+POWERSHELL

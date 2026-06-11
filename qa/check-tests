@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# qa/check-tests
+set -euo pipefail
+
+echo "==> Bash tests"
+./qa/check-bats
+
+echo "==> PowerShell tests"
+./qa/check-pester
+
+echo "Tests passed."
