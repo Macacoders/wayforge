@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# qa/install-deps
+set -euo pipefail
+
+echo "==> Installing system dependencies with pacman"
+
+sudo pacman -Syu --needed \
+	shellcheck \
+	shfmt \
+	bats \
+	nodejs \
+	npm \
+	git \
+	base-devel
+
+echo "==> Checking PowerShell"
+
+if ! command -v pwsh >/dev/null 2>&1; then
+	echo "PowerShell is not installed."
+	echo
+	echo "On CachyOS/Arch, install it from the AUR, for example:"
+	echo
+	echo "  paru -S powershell-bin"
+	echo
+	echo "or:"
+	echo
+	echo "  yay -S powershell-bin"
+	echo
+	echo "Then rerun:"
+	echo
+	echo "  make install-deps"
+	exit 1
+fi
+
+echo "==> Installing PowerShell QA modules"
+
+pwsh -NoProfile -Command '
+$ErrorActionPreference = "Stop"
+
+$modules = @(
+  "PSScriptAnalyzer",
+  "Pester"
+)
+
+foreach ($module in $modules) {
+  if (-not (Get-Module -ListAvailable -Name $module)) {
+    Write-Host "Installing $module..."
+    Install-Module -Name $module -Scope CurrentUser -Force -AllowClobber
+  } else {
+    Write-Host "$module already installed."
+  }
+}
+'
+
+echo "==> Verifying installed tools"
+
+command -v shellcheck >/dev/null
+command -v shfmt >/dev/null
+command -v bats >/dev/null
+command -v node >/dev/null
+command -v npm >/dev/null
+command -v pwsh >/dev/null
+
+pwsh -NoProfile -Command '
+$ErrorActionPreference = "Stop"
+Import-Module PSScriptAnalyzer
+Import-Module Pester
+Write-Host "PowerShell modules OK."
+'
+
+echo "==> QA dependencies installed successfully"

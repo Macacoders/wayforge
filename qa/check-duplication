@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# qa/check-duplication
+set -euo pipefail
+
+if ! command -v npx >/dev/null 2>&1; then
+	echo "npx is not installed; skipping duplication check."
+	exit 0
+fi
+
+npx --yes jscpd \
+	--pattern "**/*.{sh,ps1,psm1}" \
+	--ignore "**/.git/**" \
+	--ignore "**/node_modules/**" \
+	--threshold 8 \
+	--min-lines 8 \
+	--reporters console
+
+echo "Duplication checks passed."

@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# qa/check-bash
+set -euo pipefail
+
+is_bash_shebang() {
+	local file="$1"
+	local first_line
+	IFS= read -r first_line <"$file" || true
+	[[ "$first_line" =~ ^\#\!.*(env[[:space:]]+)?(ba)?sh([[:space:]]|$) ]]
+}
+
+mapfile -d '' files < <(
+	{
+		find . \
+			-type f \
+			-name "*.sh" \
+			-not -path "./.git/*" \
+			-print0
+
+		find ./qa \
+			-type f \
+			-perm -u+x \
+			-not -name "*.*" \
+			-print0 2>/dev/null
+	} | while IFS= read -r -d '' file; do
+		if [[ "$file" == *.sh ]] || is_bash_shebang "$file"; then
+			printf '%s\0' "$file"
+		fi
+	done
+)
+
+if [ "${#files[@]}" -eq 0 ]; then
+	echo "No Bash files found."
+	exit 0
+fi
+
+echo "==> Checking Bash formatting with shfmt"
+if ! shfmt -d "${files[@]}"; then
+	echo
+	echo "Bash formatting check failed."
+	echo "Run:"
+	echo "  make fix-bash"
+	exit 1
+fi
+
+echo "==> Running ShellCheck"
+if ! shellcheck -x -f gcc "${files[@]}"; then
+	echo
+	echo "ShellCheck failed."
+	echo "Read the SCxxxx codes above, or run one file directly, for example:"
+	echo "  shellcheck -x scripts/example.sh"
+	exit 1
+fi
+
+echo "Bash checks passed."

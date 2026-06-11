@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# qa/check
+set -euo pipefail
+
+echo "==> Bash checks"
+./qa/check-bash
+
+echo "==> PowerShell checks"
+./qa/check-powershell
+
+echo "==> Duplication checks"
+./qa/check-duplication
+
+echo "==> All checks passed"

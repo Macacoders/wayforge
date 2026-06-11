@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# qa/check-powershell
+set -euo pipefail
+
+if ! command -v pwsh >/dev/null 2>&1; then
+	echo "pwsh is not installed; skipping PowerShell checks."
+	exit 0
+fi
+
+pwsh -NoProfile -Command '
+$ErrorActionPreference = "Stop"
+
+$files = Get-ChildItem -Path . -Recurse -Include *.ps1,*.psm1,*.psd1 |
+  Where-Object { $_.FullName -notmatch "[/\\]\.git[/\\]" }
+
+if (-not $files) {
+  Write-Host "No PowerShell files found."
+  exit 0
+}
+
+if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+  throw "PSScriptAnalyzer is not installed. Run: Install-Module PSScriptAnalyzer -Scope CurrentUser"
+}
+
+$results = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error,Warning
+
+if ($results) {
+  $results | Format-Table -AutoSize
+  throw "PSScriptAnalyzer found issues."
+}
+
+if (Test-Path ./tests) {
+  if (-not (Get-Module -ListAvailable -Name Pester)) {
+    throw "Pester is not installed. Run: Install-Module Pester -Scope CurrentUser"
+  }
+
+  Invoke-Pester -Path ./tests
+}
+
+Write-Host "PowerShell checks passed."
+'

@@ -8,7 +8,7 @@ DRY_RUN=0
 NEW_VERSION=""
 
 usage() {
-  cat <<EOF
+	cat <<EOF
 Usage: scripts/release.sh --version <semver> [--dry-run]
 
 Prepare a new ai-config release.
@@ -18,29 +18,38 @@ Options:
   --dry-run           Preview operations without making changes
   -h, --help          Show this help
 EOF
-  exit 0
+	exit 0
 }
 
 [[ $# -eq 0 ]] && usage
 
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --version) NEW_VERSION="${2:-}"; shift 2 ;;
-    --dry-run) DRY_RUN=1; shift ;;
-    -h|--help) usage ;;
-    *) echo "error: unknown option: $1"; usage ;;
-  esac
+	case "$1" in
+	--version)
+		NEW_VERSION="${2:-}"
+		shift 2
+		;;
+	--dry-run)
+		DRY_RUN=1
+		shift
+		;;
+	-h | --help) usage ;;
+	*)
+		echo "error: unknown option: $1"
+		usage
+		;;
+	esac
 done
 
 if [[ -z "$NEW_VERSION" ]]; then
-  echo "error: --version is required"
-  usage
+	echo "error: --version is required"
+	usage
 fi
 
 # Validate SemVer format
 if ! echo "$NEW_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
-  echo "error: invalid version format '$NEW_VERSION'. Expected SemVer (e.g., 0.2.0)"
-  exit 1
+	echo "error: invalid version format '$NEW_VERSION'. Expected SemVer (e.g., 0.2.0)"
+	exit 1
 fi
 
 CURRENT_VERSION="$(cat "$ROOT_DIR/VERSION" 2>/dev/null || echo "0.0.0")"
@@ -50,24 +59,24 @@ echo ""
 
 # 1. Verify clean working tree
 if [[ -n "$(git -C "$ROOT_DIR" status --porcelain 2>/dev/null)" ]]; then
-  echo "error: working tree is not clean. Commit or stash changes first."
-  exit 1
+	echo "error: working tree is not clean. Commit or stash changes first."
+	exit 1
 fi
 
 # 2. Verify we're on develop
 CURRENT_BRANCH="$(git -C "$ROOT_DIR" rev-parse --abbrev-ref HEAD)"
 if [[ "$CURRENT_BRANCH" != "develop" ]]; then
-  echo "error: must be on 'develop' branch (currently on '$CURRENT_BRANCH')"
-  exit 1
+	echo "error: must be on 'develop' branch (currently on '$CURRENT_BRANCH')"
+	exit 1
 fi
 
 # 3. Update VERSION file
 echo "[release] update VERSION: $CURRENT_VERSION -> $NEW_VERSION"
 if [[ "$DRY_RUN" -eq 0 ]]; then
-  echo "$NEW_VERSION" > "$ROOT_DIR/VERSION"
-  echo "  written: VERSION"
+	echo "$NEW_VERSION" >"$ROOT_DIR/VERSION"
+	echo "  written: VERSION"
 else
-  echo "  [dry-run] would write VERSION"
+	echo "  [dry-run] would write VERSION"
 fi
 
 # 4. Update CHANGELOG.md
@@ -82,36 +91,36 @@ NEW_ENTRY="## [$NEW_VERSION] - $TODAY
 
 # Insert after the header but before the first existing entry
 if [[ "$DRY_RUN" -eq 0 ]]; then
-  # Find the first existing entry line to insert before
-  if grep -q '^## \[' "$CHANGELOG"; then
-    FIRST_ENTRY_LINE="$(grep -n '^## \[' "$CHANGELOG" | head -1 | cut -d: -f1)"
-    {
-      head -n $((FIRST_ENTRY_LINE - 1)) "$CHANGELOG"
-      echo "$NEW_ENTRY"
-      tail -n +$FIRST_ENTRY_LINE "$CHANGELOG"
-    } > "$CHANGELOG.tmp" && mv "$CHANGELOG.tmp" "$CHANGELOG"
-  else
-    echo "$NEW_ENTRY" >> "$CHANGELOG"
-  fi
-  # Update the version link at the bottom
-  LINK_PATTERN="\[$CURRENT_VERSION\]:"
-  if grep -q "$LINK_PATTERN" "$CHANGELOG"; then
-    sed -i "s|$LINK_PATTERN|[$NEW_VERSION]: https://github.com/Macacoders/ai-config/releases/tag/v$NEW_VERSION\n&|" "$CHANGELOG"
-  fi
-  echo "  updated: CHANGELOG.md"
+	# Find the first existing entry line to insert before
+	if grep -q '^## \[' "$CHANGELOG"; then
+		FIRST_ENTRY_LINE="$(grep -n '^## \[' "$CHANGELOG" | head -1 | cut -d: -f1)"
+		{
+			head -n $((FIRST_ENTRY_LINE - 1)) "$CHANGELOG"
+			echo "$NEW_ENTRY"
+			tail -n +$FIRST_ENTRY_LINE "$CHANGELOG"
+		} >"$CHANGELOG.tmp" && mv "$CHANGELOG.tmp" "$CHANGELOG"
+	else
+		echo "$NEW_ENTRY" >>"$CHANGELOG"
+	fi
+	# Update the version link at the bottom
+	LINK_PATTERN="\[$CURRENT_VERSION\]:"
+	if grep -q "$LINK_PATTERN" "$CHANGELOG"; then
+		sed -i "s|$LINK_PATTERN|[$NEW_VERSION]: https://github.com/Macacoders/ai-config/releases/tag/v$NEW_VERSION\n&|" "$CHANGELOG"
+	fi
+	echo "  updated: CHANGELOG.md"
 else
-  echo "  [dry-run] would add entry to CHANGELOG.md:"
-  echo "$NEW_ENTRY" | sed 's/^/    /'
+	echo "  [dry-run] would add entry to CHANGELOG.md:"
+	echo "$NEW_ENTRY" | sed 's/^/    /'
 fi
 
 # 5. Create tag
 echo ""
 echo "[release] git tag -a v$NEW_VERSION -m \"Release v$NEW_VERSION\""
 if [[ "$DRY_RUN" -eq 0 ]]; then
-  git -C "$ROOT_DIR" tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
-  echo "  created tag: v$NEW_VERSION"
+	git -C "$ROOT_DIR" tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
+	echo "  created tag: v$NEW_VERSION"
 else
-  echo "  [dry-run] would create tag"
+	echo "  [dry-run] would create tag"
 fi
 
 # 6. Summary

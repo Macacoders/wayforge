@@ -1,157 +1,157 @@
 run_mkdir() {
-  local dir="$1"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    return
-  fi
-  mkdir -p "$dir"
+	local dir="$1"
+	if [[ "$DRY_RUN" -eq 1 ]]; then
+		return
+	fi
+	mkdir -p "$dir"
 }
 
 run_rm() {
-  local path="$1"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: rm -f $path"
-    return
-  fi
-  rm -f "$path"
+	local path="$1"
+	if [[ "$DRY_RUN" -eq 1 ]]; then
+		log "DRY-RUN: rm -f $path"
+		return
+	fi
+	rm -f "$path"
 }
 
 run_ln() {
-  local src="$1"
-  local dst="$2"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: ln -s $src $dst"
-    return
-  fi
-  ln -s "$src" "$dst"
+	local src="$1"
+	local dst="$2"
+	if [[ "$DRY_RUN" -eq 1 ]]; then
+		log "DRY-RUN: ln -s $src $dst"
+		return
+	fi
+	ln -s "$src" "$dst"
 }
 
 run_cp_a() {
-  local src="$1"
-  local dst="$2"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: cp -a $src $dst"
-    return
-  fi
-  cp -a "$src" "$dst"
+	local src="$1"
+	local dst="$2"
+	if [[ "$DRY_RUN" -eq 1 ]]; then
+		log "DRY-RUN: cp -a $src $dst"
+		return
+	fi
+	cp -a "$src" "$dst"
 }
 
 run_cp() {
-  local src="$1"
-  local dst="$2"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: cp $src $dst"
-    return
-  fi
-  cp "$src" "$dst"
+	local src="$1"
+	local dst="$2"
+	if [[ "$DRY_RUN" -eq 1 ]]; then
+		log "DRY-RUN: cp $src $dst"
+		return
+	fi
+	cp "$src" "$dst"
 }
 
 run_rm_rf() {
-  local path="$1"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: rm -rf $path"
-    return
-  fi
-  rm -rf "$path"
+	local path="$1"
+	if [[ "$DRY_RUN" -eq 1 ]]; then
+		log "DRY-RUN: rm -rf $path"
+		return
+	fi
+	rm -rf "$path"
 }
 
 run_write_file() {
-  local path="$1"
-  local content="$2"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: write file $path"
-    return
-  fi
-  printf '%s\n' "$content" >"$path"
+	local path="$1"
+	local content="$2"
+	if [[ "$DRY_RUN" -eq 1 ]]; then
+		log "DRY-RUN: write file $path"
+		return
+	fi
+	printf '%s\n' "$content" >"$path"
 }
 
 ensure_dir() {
-  local dir="$1"
-  if [[ -d "$dir" ]]; then
-    return
-  fi
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: mkdir -p $dir"
-    return
-  fi
-  run_mkdir "$dir"
-  log "created directory: $dir"
+	local dir="$1"
+	if [[ -d "$dir" ]]; then
+		return
+	fi
+	if [[ "$DRY_RUN" -eq 1 ]]; then
+		log "DRY-RUN: mkdir -p $dir"
+		return
+	fi
+	run_mkdir "$dir"
+	log "created directory: $dir"
 }
 
 is_managed_opencode_file() {
-  local path="$1"
-  if [[ ! -f "$path" ]]; then
-    return 1
-  fi
-  local first_line
-  IFS= read -r first_line <"$path" || true
-  [[ "$first_line" == "$MANAGED_OPENCODE_HEADER" ]]
+	local path="$1"
+	if [[ ! -f "$path" ]]; then
+		return 1
+	fi
+	local first_line
+	IFS= read -r first_line <"$path" || true
+	[[ "$first_line" == "$MANAGED_OPENCODE_HEADER" ]]
 }
 
 is_managed_dir() {
-  local path="$1"
+	local path="$1"
 
-  # Check 1: old per-directory marker
-  if [[ -f "$path/$MANAGED_DIR_MARKER" ]]; then
-    return 0
-  fi
+	# Check 1: old per-directory marker
+	if [[ -f "$path/$MANAGED_DIR_MARKER" ]]; then
+		return 0
+	fi
 
-  # Check 2: new unified manifest by walking up parent directories
-  local dir="$path"
-  while [[ "$dir" != "/" ]]; do
-    if [[ -f "$dir/.ai-config-managed" ]]; then
-      local rel_path="${path#$dir/}"
-      if [[ -n "$rel_path" ]]; then
-        # Check if the directory itself is listed
-        if grep -qFx "  - $rel_path" "$dir/.ai-config-managed" 2>/dev/null; then
-          return 0
-        fi
-        # Check if any managed path starts with this directory
-        if grep -qF "  - $rel_path/" "$dir/.ai-config-managed" 2>/dev/null; then
-          return 0
-        fi
-      fi
-      return 1
-    fi
-    local parent
-    parent="$(dirname "$dir")"
-    if [[ "$parent" == "$dir" ]]; then
-      break
-    fi
-    dir="$parent"
-  done
+	# Check 2: new unified manifest by walking up parent directories
+	local dir="$path"
+	while [[ "$dir" != "/" ]]; do
+		if [[ -f "$dir/.ai-config-managed" ]]; then
+			local rel_path="${path#$dir/}"
+			if [[ -n "$rel_path" ]]; then
+				# Check if the directory itself is listed
+				if grep -qFx "  - $rel_path" "$dir/.ai-config-managed" 2>/dev/null; then
+					return 0
+				fi
+				# Check if any managed path starts with this directory
+				if grep -qF "  - $rel_path/" "$dir/.ai-config-managed" 2>/dev/null; then
+					return 0
+				fi
+			fi
+			return 1
+		fi
+		local parent
+		parent="$(dirname "$dir")"
+		if [[ "$parent" == "$dir" ]]; then
+			break
+		fi
+		dir="$parent"
+	done
 
-  return 1
+	return 1
 }
 
 is_managed_file() {
-  local path="$1"
+	local path="$1"
 
-  # Check 1: old per-file sidecar marker
-  if [[ -f "${path}.ai-config-managed" ]]; then
-    return 0
-  fi
+	# Check 1: old per-file sidecar marker
+	if [[ -f "${path}.ai-config-managed" ]]; then
+		return 0
+	fi
 
-  # Check 2: new unified manifest by walking up parent directories
-  local dir
-  dir="$(dirname "$path")"
+	# Check 2: new unified manifest by walking up parent directories
+	local dir
+	dir="$(dirname "$path")"
 
-  while [[ "$dir" != "/" ]]; do
-    if [[ -f "$dir/.ai-config-managed" ]]; then
-      local rel_path="${path#$dir/}"
-      if [[ -n "$rel_path" ]] && grep -qFx "  - $rel_path" "$dir/.ai-config-managed" 2>/dev/null; then
-        return 0
-      fi
-      return 1
-    fi
-    local parent
-    parent="$(dirname "$dir")"
-    if [[ "$parent" == "$dir" ]]; then
-      break
-    fi
-    dir="$parent"
-  done
+	while [[ "$dir" != "/" ]]; do
+		if [[ -f "$dir/.ai-config-managed" ]]; then
+			local rel_path="${path#$dir/}"
+			if [[ -n "$rel_path" ]] && grep -qFx "  - $rel_path" "$dir/.ai-config-managed" 2>/dev/null; then
+				return 0
+			fi
+			return 1
+		fi
+		local parent
+		parent="$(dirname "$dir")"
+		if [[ "$parent" == "$dir" ]]; then
+			break
+		fi
+		dir="$parent"
+	done
 
-  return 1
+	return 1
 }
 
 # Global variable: set by init_managed_manifest, used by sync functions to track paths
@@ -163,151 +163,151 @@ _MANAGED_MANIFEST_PATHS=()
 # Internal helper: record a managed file either in the manifest accumulator
 # or by writing the old per-file sidecar marker (fallback).
 _managed_track_file() {
-  local dst_file="$1"
-  if [[ -n "$_MANAGED_REPO_ROOT" && -f "$_MANAGED_REPO_ROOT/.ai-config-managed.tmp" ]]; then
-    local _rel="${dst_file#$_MANAGED_REPO_ROOT/}"
-    if [[ "$_rel" != "$dst_file" ]]; then
-      add_managed_path "$_MANAGED_REPO_ROOT" "$_rel"
-      return
-    fi
-  fi
-  run_write_file "${dst_file}.ai-config-managed" "generated-by=ai-config-bootstrap.sh"
+	local dst_file="$1"
+	if [[ -n "$_MANAGED_REPO_ROOT" && -f "$_MANAGED_REPO_ROOT/.ai-config-managed.tmp" ]]; then
+		local _rel="${dst_file#$_MANAGED_REPO_ROOT/}"
+		if [[ "$_rel" != "$dst_file" ]]; then
+			add_managed_path "$_MANAGED_REPO_ROOT" "$_rel"
+			return
+		fi
+	fi
+	run_write_file "${dst_file}.ai-config-managed" "generated-by=ai-config-bootstrap.sh"
 }
 
 # Initialize a managed manifest accumulator for a repo install.
 # Creates a temporary file at $repo/.ai-config-managed.tmp with version header.
 # Optional third argument: ref (tag/branch/commit) used to install, recorded in the manifest.
 init_managed_manifest() {
-  local repo="$1"
-  local version="$2"
-  local ref="${3:-}"
-  _MANAGED_REPO_ROOT="$repo"
-  local manifest_tmp="$repo/.ai-config-managed.tmp"
+	local repo="$1"
+	local version="$2"
+	local ref="${3:-}"
+	_MANAGED_REPO_ROOT="$repo"
+	local manifest_tmp="$repo/.ai-config-managed.tmp"
 
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: would initialize managed manifest at $manifest_tmp"
-    return
-  fi
+	if [[ "$DRY_RUN" -eq 1 ]]; then
+		log "DRY-RUN: would initialize managed manifest at $manifest_tmp"
+		return
+	fi
 
-  if [[ -n "$ref" ]]; then
-    printf '# Generated by ai-config v%s (ref: %s)\nversion: %s\nref: %s\nmanaged_paths:\n' "$version" "$ref" "$version" "$ref" > "$manifest_tmp"
-  else
-    printf '# Generated by ai-config v%s\nversion: %s\nmanaged_paths:\n' "$version" "$version" > "$manifest_tmp"
-  fi
-  log "initialized managed manifest: $manifest_tmp"
+	if [[ -n "$ref" ]]; then
+		printf '# Generated by ai-config v%s (ref: %s)\nversion: %s\nref: %s\nmanaged_paths:\n' "$version" "$ref" "$version" "$ref" >"$manifest_tmp"
+	else
+		printf '# Generated by ai-config v%s\nversion: %s\nmanaged_paths:\n' "$version" "$version" >"$manifest_tmp"
+	fi
+	log "initialized managed manifest: $manifest_tmp"
 }
 
 # Add a relative path (from repo root) to the managed manifest accumulator.
 # Skips duplicates silently.
 add_managed_path() {
-  local repo="$1"
-  local path="$2"
-  local manifest_tmp="$repo/.ai-config-managed.tmp"
+	local repo="$1"
+	local path="$2"
+	local manifest_tmp="$repo/.ai-config-managed.tmp"
 
-  if [[ ! -f "$manifest_tmp" ]]; then
-    return 1
-  fi
+	if [[ ! -f "$manifest_tmp" ]]; then
+		return 1
+	fi
 
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: would add managed path: $path"
-    return
-  fi
+	if [[ "$DRY_RUN" -eq 1 ]]; then
+		log "DRY-RUN: would add managed path: $path"
+		return
+	fi
 
-  # Skip duplicates
-  if grep -qFx "  - $path" "$manifest_tmp" 2>/dev/null; then
-    return 0
-  fi
+	# Skip duplicates
+	if grep -qFx "  - $path" "$manifest_tmp" 2>/dev/null; then
+		return 0
+	fi
 
-  printf '  - %s\n' "$path" >> "$manifest_tmp"
+	printf '  - %s\n' "$path" >>"$manifest_tmp"
 }
 
 # Finalize the managed manifest: move temp file to final location,
 # remove old per-file sidecar markers and old per-directory markers
 # under the listed paths.
 finalize_managed_manifest() {
-  local repo="$1"
-  local manifest_tmp="$repo/.ai-config-managed.tmp"
-  local manifest_final="$repo/.ai-config-managed"
+	local repo="$1"
+	local manifest_tmp="$repo/.ai-config-managed.tmp"
+	local manifest_final="$repo/.ai-config-managed"
 
-  if [[ ! -f "$manifest_tmp" ]]; then
-    _MANAGED_REPO_ROOT=""
-    return 0
-  fi
+	if [[ ! -f "$manifest_tmp" ]]; then
+		_MANAGED_REPO_ROOT=""
+		return 0
+	fi
 
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: would finalize managed manifest at $manifest_final"
-    log "DRY-RUN: would remove old per-file markers under managed paths"
-    _MANAGED_REPO_ROOT=""
-    return
-  fi
+	if [[ "$DRY_RUN" -eq 1 ]]; then
+		log "DRY-RUN: would finalize managed manifest at $manifest_final"
+		log "DRY-RUN: would remove old per-file markers under managed paths"
+		_MANAGED_REPO_ROOT=""
+		return
+	fi
 
-  mv "$manifest_tmp" "$manifest_final"
-  log "finalized managed manifest: $manifest_final"
-  _MANAGED_REPO_ROOT=""
+	mv "$manifest_tmp" "$manifest_final"
+	log "finalized managed manifest: $manifest_final"
+	_MANAGED_REPO_ROOT=""
 
-  # Remove old per-file sidecar markers for paths now tracked in the manifest
-  local line
-  while IFS= read -r line; do
-    case "$line" in
-      "  - "*)
-        local managed_path="${line#  - }"
-        local sidecar="$repo/$managed_path.ai-config-managed"
-        if [[ -f "$sidecar" ]]; then
-          rm -f "$sidecar"
-          log "removed old sidecar marker: $sidecar"
-        fi
-        ;;
-    esac
-  done < "$manifest_final"
+	# Remove old per-file sidecar markers for paths now tracked in the manifest
+	local line
+	while IFS= read -r line; do
+		case "$line" in
+		"  - "*)
+			local managed_path="${line#  - }"
+			local sidecar="$repo/$managed_path.ai-config-managed"
+			if [[ -f "$sidecar" ]]; then
+				rm -f "$sidecar"
+				log "removed old sidecar marker: $sidecar"
+			fi
+			;;
+		esac
+	done <"$manifest_final"
 
-  # Remove old per-directory markers (from sync_managed_tree) under managed paths.
-  # Walk up from each managed file's directory to repo root to catch nested trees.
-  while IFS= read -r line; do
-    case "$line" in
-      "  - "*)
-        local managed_path="${line#  - }"
-        local dir
-        dir="$(dirname "$repo/$managed_path")"
-        while [[ "$dir" != "$repo" ]]; do
-          local dm="$dir/$MANAGED_DIR_MARKER"
-          if [[ -f "$dm" ]] && [[ "$dm" != "$manifest_final" ]]; then
-            rm -f "$dm"
-            log "removed old directory marker: $dm"
-          fi
-          dir="$(dirname "$dir")"
-        done
-        ;;
-    esac
-  done < "$manifest_final"
+	# Remove old per-directory markers (from sync_managed_tree) under managed paths.
+	# Walk up from each managed file's directory to repo root to catch nested trees.
+	while IFS= read -r line; do
+		case "$line" in
+		"  - "*)
+			local managed_path="${line#  - }"
+			local dir
+			dir="$(dirname "$repo/$managed_path")"
+			while [[ "$dir" != "$repo" ]]; do
+				local dm="$dir/$MANAGED_DIR_MARKER"
+				if [[ -f "$dm" ]] && [[ "$dm" != "$manifest_final" ]]; then
+					rm -f "$dm"
+					log "removed old directory marker: $dm"
+				fi
+				dir="$(dirname "$dir")"
+			done
+			;;
+		esac
+	done <"$manifest_final"
 }
 
 # Check whether a relative path (from repo root) is managed.
 # Consults both old per-file sidecar markers and the new unified manifest.
 is_managed_path() {
-  local repo="$1"
-  local path="$2"
+	local repo="$1"
+	local path="$2"
 
-  # Check 1: old per-file sidecar marker
-  if [[ -f "$repo/$path.ai-config-managed" ]]; then
-    return 0
-  fi
+	# Check 1: old per-file sidecar marker
+	if [[ -f "$repo/$path.ai-config-managed" ]]; then
+		return 0
+	fi
 
-  # Check 2: new unified manifest
-  local manifest="$repo/.ai-config-managed"
-  if [[ -f "$manifest" ]]; then
-    if grep -qFx "  - $path" "$manifest" 2>/dev/null; then
-      return 0
-    fi
-  fi
+	# Check 2: new unified manifest
+	local manifest="$repo/.ai-config-managed"
+	if [[ -f "$manifest" ]]; then
+		if grep -qFx "  - $path" "$manifest" 2>/dev/null; then
+			return 0
+		fi
+	fi
 
-  return 1
+	return 1
 }
 
 render_agent_permission_block() {
-  local agent_name="$1"
-  local permissions_file="$2"
+	local agent_name="$1"
+	local permissions_file="$2"
 
-  awk -v target_agent="$agent_name" '
+	awk -v target_agent="$agent_name" '
     function count_indent(s,    i, c) {
       i = 1
       while (i <= length(s)) {
@@ -384,24 +384,24 @@ render_agent_permission_block() {
 }
 
 render_agent_with_central_permissions() {
-  local src_file="$1"
-  local dst_file="$2"
-  local agent_name="$3"
-  local permissions_file="$4"
+	local src_file="$1"
+	local dst_file="$2"
+	local agent_name="$3"
+	local permissions_file="$4"
 
-  local rendered_permission
-  rendered_permission="$(render_agent_permission_block "$agent_name" "$permissions_file")"
-  if [[ -z "$rendered_permission" ]]; then
-    log "error: missing permissions in $permissions_file for agent '$agent_name'"
-    exit 1
-  fi
+	local rendered_permission
+	rendered_permission="$(render_agent_permission_block "$agent_name" "$permissions_file")"
+	if [[ -z "$rendered_permission" ]]; then
+		log "error: missing permissions in $permissions_file for agent '$agent_name'"
+		exit 1
+	fi
 
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: would render centralized permissions: $dst_file"
-    return
-  fi
+	if [[ "$DRY_RUN" -eq 1 ]]; then
+		log "DRY-RUN: would render centralized permissions: $dst_file"
+		return
+	fi
 
-  awk -v permission_block="$rendered_permission" '
+	awk -v permission_block="$rendered_permission" '
     BEGIN {
       in_frontmatter = 0
       frontmatter_done = 0
@@ -481,254 +481,254 @@ render_agent_with_central_permissions() {
 
       print line
     }
-  ' "$src_file" > "$dst_file"
+  ' "$src_file" >"$dst_file"
 }
 
 sync_agents_tree_with_permissions() {
-  local src_dir="$1"
-  local dst_dir="$2"
-  local permissions_file="$3"
+	local src_dir="$1"
+	local dst_dir="$2"
+	local permissions_file="$3"
 
-  sync_managed_tree "$src_dir" "$dst_dir" 1
-  if [[ "$SYNC_MANAGED_TREE_LAST_ACTION" != "copied" ]]; then
-    return
-  fi
+	sync_managed_tree "$src_dir" "$dst_dir" 1
+	if [[ "$SYNC_MANAGED_TREE_LAST_ACTION" != "copied" ]]; then
+		return
+	fi
 
-  local src_agent
-  for src_agent in "$src_dir"/*.md; do
-    [[ -f "$src_agent" ]] || continue
-    local agent_file
-    local agent_name
-    local dst_agent
-    agent_file="$(basename "$src_agent")"
-    agent_name="${agent_file%.md}"
-    dst_agent="$dst_dir/$agent_file"
-    if ! is_managed_file "$dst_agent"; then
-      log "skip conflict with unmanaged path (preserving local content): $dst_agent"
-      continue
-    fi
-    render_agent_with_central_permissions "$src_agent" "$dst_agent" "$agent_name" "$permissions_file"
-  done
+	local src_agent
+	for src_agent in "$src_dir"/*.md; do
+		[[ -f "$src_agent" ]] || continue
+		local agent_file
+		local agent_name
+		local dst_agent
+		agent_file="$(basename "$src_agent")"
+		agent_name="${agent_file%.md}"
+		dst_agent="$dst_dir/$agent_file"
+		if ! is_managed_file "$dst_agent"; then
+			log "skip conflict with unmanaged path (preserving local content): $dst_agent"
+			continue
+		fi
+		render_agent_with_central_permissions "$src_agent" "$dst_agent" "$agent_name" "$permissions_file"
+	done
 }
 
 sync_managed_tree() {
-  local src="$1"
-  local dst="$2"
-  local _unused_force_replace_unmanaged="${3:-0}"
-  local dst_tree_existed=0
-  local dst_tree_was_managed=0
-  SYNC_MANAGED_TREE_LAST_ACTION="skipped"
+	local src="$1"
+	local dst="$2"
+	local _unused_force_replace_unmanaged="${3:-0}"
+	local dst_tree_existed=0
+	local dst_tree_was_managed=0
+	SYNC_MANAGED_TREE_LAST_ACTION="skipped"
 
-  if [[ ! -d "$src" ]]; then
-    log "error: source directory does not exist: $src"
-    exit 1
-  fi
+	if [[ ! -d "$src" ]]; then
+		log "error: source directory does not exist: $src"
+		exit 1
+	fi
 
-  if [[ -L "$dst" ]]; then
-    log "skip conflict with existing symlink (preserving local content): $dst -> $(readlink "$dst")"
-    return
-  fi
+	if [[ -L "$dst" ]]; then
+		log "skip conflict with existing symlink (preserving local content): $dst -> $(readlink "$dst")"
+		return
+	fi
 
-  if [[ -e "$dst" && ! -d "$dst" ]]; then
-    log "skip conflict with non-directory path (preserving local content): $dst"
-    return
-  fi
+	if [[ -e "$dst" && ! -d "$dst" ]]; then
+		log "skip conflict with non-directory path (preserving local content): $dst"
+		return
+	fi
 
-  if [[ -d "$dst" ]]; then
-    dst_tree_existed=1
-    if is_managed_dir "$dst"; then
-      dst_tree_was_managed=1
-    fi
-  fi
+	if [[ -d "$dst" ]]; then
+		dst_tree_existed=1
+		if is_managed_dir "$dst"; then
+			dst_tree_was_managed=1
+		fi
+	fi
 
-  ensure_dir "$dst"
+	ensure_dir "$dst"
 
-  # Skip per-directory marker when unified manifest accumulator is active
-  local _manifest_active=0
-  if [[ -n "$_MANAGED_REPO_ROOT" && -f "$_MANAGED_REPO_ROOT/.ai-config-managed.tmp" ]]; then
-    _manifest_active=1
-  fi
+	# Skip per-directory marker when unified manifest accumulator is active
+	local _manifest_active=0
+	if [[ -n "$_MANAGED_REPO_ROOT" && -f "$_MANAGED_REPO_ROOT/.ai-config-managed.tmp" ]]; then
+		_manifest_active=1
+	fi
 
-  if [[ "$dst_tree_existed" -eq 0 || "$dst_tree_was_managed" -eq 1 ]] && [[ ! -f "$dst/$MANAGED_DIR_MARKER" ]] && [[ "$_manifest_active" -eq 0 ]]; then
-    run_write_file "$dst/$MANAGED_DIR_MARKER" "generated-by=ai-config-bootstrap.sh"
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-      log "DRY-RUN: would mark managed tree: $dst"
-    else
-      log "marked managed tree: $dst"
-    fi
-  fi
+	if [[ "$dst_tree_existed" -eq 0 || "$dst_tree_was_managed" -eq 1 ]] && [[ ! -f "$dst/$MANAGED_DIR_MARKER" ]] && [[ "$_manifest_active" -eq 0 ]]; then
+		run_write_file "$dst/$MANAGED_DIR_MARKER" "generated-by=ai-config-bootstrap.sh"
+		if [[ "$DRY_RUN" -eq 1 ]]; then
+			log "DRY-RUN: would mark managed tree: $dst"
+		else
+			log "marked managed tree: $dst"
+		fi
+	fi
 
-  local src_file
-  while IFS= read -r -d '' src_file; do
-    local rel_path
-    local dst_file
-    local dst_parent
-    rel_path="${src_file#$src/}"
-    dst_file="$dst/$rel_path"
-    dst_parent="$(dirname "$dst_file")"
+	local src_file
+	while IFS= read -r -d '' src_file; do
+		local rel_path
+		local dst_file
+		local dst_parent
+		rel_path="${src_file#$src/}"
+		dst_file="$dst/$rel_path"
+		dst_parent="$(dirname "$dst_file")"
 
-    if [[ -L "$dst_parent" ]] || [[ -e "$dst_parent" && ! -d "$dst_parent" ]]; then
-      log "skip conflict with non-directory parent (preserving local content): $dst_parent"
-      continue
-    fi
+		if [[ -L "$dst_parent" ]] || [[ -e "$dst_parent" && ! -d "$dst_parent" ]]; then
+			log "skip conflict with non-directory parent (preserving local content): $dst_parent"
+			continue
+		fi
 
-    ensure_dir "$dst_parent"
+		ensure_dir "$dst_parent"
 
-    if [[ -L "$dst_file" ]]; then
-      if ! is_managed_file "$dst_file" && [[ "$dst_tree_was_managed" -ne 1 ]]; then
-        log "skip conflict with unmanaged path (preserving local content): $dst_file"
-        continue
-      fi
-      run_rm "$dst_file"
-      run_cp "$src_file" "$dst_file"
-      _managed_track_file "$dst_file"
-      SYNC_MANAGED_TREE_LAST_ACTION="copied"
-      if [[ "$DRY_RUN" -eq 1 ]]; then
-        log "DRY-RUN: would refresh managed file: $dst_file"
-      else
-        log "refreshed managed file: $dst_file"
-      fi
-      continue
-    fi
+		if [[ -L "$dst_file" ]]; then
+			if ! is_managed_file "$dst_file" && [[ "$dst_tree_was_managed" -ne 1 ]]; then
+				log "skip conflict with unmanaged path (preserving local content): $dst_file"
+				continue
+			fi
+			run_rm "$dst_file"
+			run_cp "$src_file" "$dst_file"
+			_managed_track_file "$dst_file"
+			SYNC_MANAGED_TREE_LAST_ACTION="copied"
+			if [[ "$DRY_RUN" -eq 1 ]]; then
+				log "DRY-RUN: would refresh managed file: $dst_file"
+			else
+				log "refreshed managed file: $dst_file"
+			fi
+			continue
+		fi
 
-    if [[ -e "$dst_file" ]]; then
-      if [[ -d "$dst_file" ]]; then
-        log "skip conflict with non-file path (preserving local content): $dst_file"
-        continue
-      fi
-      if ! is_managed_file "$dst_file" && [[ "$dst_tree_was_managed" -ne 1 ]]; then
-        log "skip conflict with unmanaged path (preserving local content): $dst_file"
-        continue
-      fi
-      run_cp "$src_file" "$dst_file"
-      _managed_track_file "$dst_file"
-      SYNC_MANAGED_TREE_LAST_ACTION="copied"
-      if [[ "$DRY_RUN" -eq 1 ]]; then
-        log "DRY-RUN: would refresh managed file: $dst_file"
-      else
-        log "refreshed managed file: $dst_file"
-      fi
-      continue
-    fi
+		if [[ -e "$dst_file" ]]; then
+			if [[ -d "$dst_file" ]]; then
+				log "skip conflict with non-file path (preserving local content): $dst_file"
+				continue
+			fi
+			if ! is_managed_file "$dst_file" && [[ "$dst_tree_was_managed" -ne 1 ]]; then
+				log "skip conflict with unmanaged path (preserving local content): $dst_file"
+				continue
+			fi
+			run_cp "$src_file" "$dst_file"
+			_managed_track_file "$dst_file"
+			SYNC_MANAGED_TREE_LAST_ACTION="copied"
+			if [[ "$DRY_RUN" -eq 1 ]]; then
+				log "DRY-RUN: would refresh managed file: $dst_file"
+			else
+				log "refreshed managed file: $dst_file"
+			fi
+			continue
+		fi
 
-    run_cp "$src_file" "$dst_file"
-    _managed_track_file "$dst_file"
-    SYNC_MANAGED_TREE_LAST_ACTION="copied"
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-      log "DRY-RUN: would create managed file: $dst_file"
-    else
-      log "created managed file: $dst_file"
-    fi
-  done < <(find "$src" -type f -print0)
+		run_cp "$src_file" "$dst_file"
+		_managed_track_file "$dst_file"
+		SYNC_MANAGED_TREE_LAST_ACTION="copied"
+		if [[ "$DRY_RUN" -eq 1 ]]; then
+			log "DRY-RUN: would create managed file: $dst_file"
+		else
+			log "created managed file: $dst_file"
+		fi
+	done < <(find "$src" -type f -print0)
 
-  if [[ "$SYNC_MANAGED_TREE_LAST_ACTION" == "skipped" ]]; then
-    log "kept managed tree (no file changes): $dst"
-  fi
+	if [[ "$SYNC_MANAGED_TREE_LAST_ACTION" == "skipped" ]]; then
+		log "kept managed tree (no file changes): $dst"
+	fi
 }
 
 sync_managed_file() {
-  local src="$1"
-  local dst="$2"
-  local parent
-  parent="$(dirname "$dst")"
+	local src="$1"
+	local dst="$2"
+	local parent
+	parent="$(dirname "$dst")"
 
-  if [[ ! -f "$src" ]]; then
-    log "error: source file does not exist: $src"
-    exit 1
-  fi
+	if [[ ! -f "$src" ]]; then
+		log "error: source file does not exist: $src"
+		exit 1
+	fi
 
-  if [[ -L "$dst" ]]; then
-    if [[ "$FORCE" -ne 1 ]]; then
-      if is_managed_file "$dst"; then
-        # Track in manifest for migration, but don't overwrite
-        _managed_track_file "$dst"
-        if [[ "$DRY_RUN" -eq 1 ]]; then
-          log "DRY-RUN: would track existing managed file in manifest: $dst"
-        else
-          log "kept existing managed file (tracked in manifest): $dst"
-        fi
-        return
-      fi
-      log "keep existing file (use --force to refresh managed file): $dst"
-      return
-    fi
-    if ! is_managed_file "$dst"; then
-      log "skip conflict with unmanaged file (preserving local content): $dst"
-      return
-    fi
-    run_rm "$dst"
-  elif [[ -e "$dst" ]]; then
-    if [[ "$FORCE" -ne 1 ]]; then
-      if is_managed_file "$dst"; then
-        # Track in manifest for migration, but don't overwrite
-        _managed_track_file "$dst"
-        if [[ "$DRY_RUN" -eq 1 ]]; then
-          log "DRY-RUN: would track existing managed file in manifest: $dst"
-        else
-          log "kept existing managed file (tracked in manifest): $dst"
-        fi
-        return
-      fi
-      log "keep existing file (use --force to refresh managed file): $dst"
-      return
-    fi
-    if ! is_managed_file "$dst"; then
-      log "skip conflict with unmanaged file (preserving local content): $dst"
-      return
-    fi
-    run_rm "$dst"
-  fi
+	if [[ -L "$dst" ]]; then
+		if [[ "$FORCE" -ne 1 ]]; then
+			if is_managed_file "$dst"; then
+				# Track in manifest for migration, but don't overwrite
+				_managed_track_file "$dst"
+				if [[ "$DRY_RUN" -eq 1 ]]; then
+					log "DRY-RUN: would track existing managed file in manifest: $dst"
+				else
+					log "kept existing managed file (tracked in manifest): $dst"
+				fi
+				return
+			fi
+			log "keep existing file (use --force to refresh managed file): $dst"
+			return
+		fi
+		if ! is_managed_file "$dst"; then
+			log "skip conflict with unmanaged file (preserving local content): $dst"
+			return
+		fi
+		run_rm "$dst"
+	elif [[ -e "$dst" ]]; then
+		if [[ "$FORCE" -ne 1 ]]; then
+			if is_managed_file "$dst"; then
+				# Track in manifest for migration, but don't overwrite
+				_managed_track_file "$dst"
+				if [[ "$DRY_RUN" -eq 1 ]]; then
+					log "DRY-RUN: would track existing managed file in manifest: $dst"
+				else
+					log "kept existing managed file (tracked in manifest): $dst"
+				fi
+				return
+			fi
+			log "keep existing file (use --force to refresh managed file): $dst"
+			return
+		fi
+		if ! is_managed_file "$dst"; then
+			log "skip conflict with unmanaged file (preserving local content): $dst"
+			return
+		fi
+		run_rm "$dst"
+	fi
 
-  ensure_dir "$parent"
-  run_cp "$src" "$dst"
-  _managed_track_file "$dst"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log "DRY-RUN: would copy managed file: $dst"
-  else
-    log "copied managed file: $dst"
-  fi
+	ensure_dir "$parent"
+	run_cp "$src" "$dst"
+	_managed_track_file "$dst"
+	if [[ "$DRY_RUN" -eq 1 ]]; then
+		log "DRY-RUN: would copy managed file: $dst"
+	else
+		log "copied managed file: $dst"
+	fi
 }
 
 # Read an existing finalized manifest from a previous install.
 # Parses .ai-config-managed from $repo and populates _MANAGED_MANIFEST_PATHS.
 # Returns 0 on success (file found and parsed), 1 if file does not exist.
 read_managed_manifest() {
-  local repo="$1"
-  local manifest="$repo/.ai-config-managed"
+	local repo="$1"
+	local manifest="$repo/.ai-config-managed"
 
-  _MANAGED_MANIFEST_PATHS=()
+	_MANAGED_MANIFEST_PATHS=()
 
-  if [[ ! -f "$manifest" ]]; then
-    return 1
-  fi
+	if [[ ! -f "$manifest" ]]; then
+		return 1
+	fi
 
-  local reading_paths=0
-  local line
-  while IFS= read -r line; do
-    case "$line" in
-      "managed_paths:")
-        reading_paths=1
-        ;;
-      "  - "*)
-        if [[ "$reading_paths" -eq 1 ]]; then
-          local managed_path="${line#  - }"
-          _MANAGED_MANIFEST_PATHS+=("$managed_path")
-        fi
-        ;;
-      "")
-        if [[ "$reading_paths" -eq 1 ]]; then
-          reading_paths=0
-        fi
-        ;;
-      *)
-        if [[ "$reading_paths" -eq 1 ]]; then
-          reading_paths=0
-        fi
-        ;;
-    esac
-  done < "$manifest"
+	local reading_paths=0
+	local line
+	while IFS= read -r line; do
+		case "$line" in
+		"managed_paths:")
+			reading_paths=1
+			;;
+		"  - "*)
+			if [[ "$reading_paths" -eq 1 ]]; then
+				local managed_path="${line#  - }"
+				_MANAGED_MANIFEST_PATHS+=("$managed_path")
+			fi
+			;;
+		"")
+			if [[ "$reading_paths" -eq 1 ]]; then
+				reading_paths=0
+			fi
+			;;
+		*)
+			if [[ "$reading_paths" -eq 1 ]]; then
+				reading_paths=0
+			fi
+			;;
+		esac
+	done <"$manifest"
 
-  return 0
+	return 0
 }
 
 # Sync a single managed path from the ai-config source tree.
@@ -740,52 +740,52 @@ read_managed_manifest() {
 #   $2 - relative_path (from manifest, e.g. ".opencode/agents/planner.md")
 #   $3 - root_dir     (ai-config repository root, $ROOT_DIR)
 sync_managed_path_from_manifest() {
-  local repo="$1"
-  local relative_path="$2"
-  local root_dir="$3"
-  local src_file=""
+	local repo="$1"
+	local relative_path="$2"
+	local root_dir="$3"
+	local src_file=""
 
-  case "$relative_path" in
-    "opencode.jsonc"|"kilo.jsonc")
-      # These are regenerated by bootstrap separately; skip here
-      return 0
-      ;;
-    "AGENTS.md")
-      src_file="$root_dir/templates/AGENTS.md"
-      ;;
-    ".opencode/agents/"*)
-      subpath="${relative_path#.opencode/agents/}"
-      src_file="$root_dir/base/opencode/agents/$subpath"
-      ;;
-    ".opencode/commands/"*)
-      subpath="${relative_path#.opencode/commands/}"
-      src_file="$root_dir/base/opencode/commands/$subpath"
-      ;;
-    ".opencode/skills/"*)
-      subpath="${relative_path#.opencode/skills/}"
-      src_file="$root_dir/base/opencode/skills/$subpath"
-      ;;
-    *)
-      log "warning: unknown managed path prefix, skipping: $relative_path"
-      return 0
-      ;;
-  esac
+	case "$relative_path" in
+	"opencode.jsonc" | "kilo.jsonc")
+		# These are regenerated by bootstrap separately; skip here
+		return 0
+		;;
+	"AGENTS.md")
+		src_file="$root_dir/templates/AGENTS.md"
+		;;
+	".opencode/agents/"*)
+		subpath="${relative_path#.opencode/agents/}"
+		src_file="$root_dir/base/opencode/agents/$subpath"
+		;;
+	".opencode/commands/"*)
+		subpath="${relative_path#.opencode/commands/}"
+		src_file="$root_dir/base/opencode/commands/$subpath"
+		;;
+	".opencode/skills/"*)
+		subpath="${relative_path#.opencode/skills/}"
+		src_file="$root_dir/base/opencode/skills/$subpath"
+		;;
+	*)
+		log "warning: unknown managed path prefix, skipping: $relative_path"
+		return 0
+		;;
+	esac
 
-  # If source is empty (directory marker), skip gracefully
-  if [[ -z "$src_file" ]]; then
-    return 0
-  fi
+	# If source is empty (directory marker), skip gracefully
+	if [[ -z "$src_file" ]]; then
+		return 0
+	fi
 
-  # If source is a directory (tree marker), skip — tree sync handles this
-  if [[ -d "$src_file" ]]; then
-    return 0
-  fi
+	# If source is a directory (tree marker), skip — tree sync handles this
+	if [[ -d "$src_file" ]]; then
+		return 0
+	fi
 
-  # If source doesn't exist, log warning and skip (path was removed from templates)
-  if [[ ! -e "$src_file" ]]; then
-    log "warning: source not found for managed path '${relative_path}', skipping: ${src_file}"
-    return 0
-  fi
+	# If source doesn't exist, log warning and skip (path was removed from templates)
+	if [[ ! -e "$src_file" ]]; then
+		log "warning: source not found for managed path '${relative_path}', skipping: ${src_file}"
+		return 0
+	fi
 
-  sync_managed_file "$src_file" "$repo/$relative_path"
+	sync_managed_file "$src_file" "$repo/$relative_path"
 }
