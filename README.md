@@ -250,8 +250,9 @@ Conservative installer policy:
 
 - Use `--dry-run` / `-DryRun` to preview changes before modifying a target repository.
 - Do not overwrite unmanaged existing files/directories by default.
-- Installer updates use safe overlay for `.opencode/agents`, `.opencode/commands`, and `.opencode/skills`: ai-config-managed files are refreshed, while custom entries are preserved.
-- With `--force` / `-Force`, refresh managed output (including legacy managed-tree paths) but still preserve unmanaged user-owned config such as custom `.opencode/**` entries and unmanaged `AGENTS.md`.
+- **Re-install without `--force`**: `AGENTS.md` and runtime config (`opencode.jsonc` / `kilo.jsonc`) are **never modified** — existing content is preserved as-is. Managed files under `.opencode/agents/**`, `.opencode/commands/**`, and `.opencode/skills/**` are refreshed from source templates to receive updates.
+- **Re-install with `--force` / `-Force`**: All managed output is regenerated as a fresh installation — `AGENTS.md` is copied from source template, runtime config is generated from scratch, and all agent/command/skill files are refreshed. User-modified files that lack the ai-config managed header are still overwritten when `--force` is used.
+- The `.opencode/` subdirectory is treated as a managed overlay: ai-config-managed files are refreshed, while custom entries not tracked by the manifest are preserved.
 
 Configuration and secrets boundary:
 
@@ -261,6 +262,28 @@ Configuration and secrets boundary:
   - OpenAI authentication is handled in OpenCode via `/connect` (ChatGPT Plus/Pro or Azure credentials).
   - GitHub Copilot authentication is handled in OpenCode via `/connect` (device login flow).
   - laberit uses environment variables documented in `profiles/defaults.env.example`: `OPENAI_BASE_URL`, `OPENAI_API_KEY`.
+
+## Releases & Versioning
+
+This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`vMAJOR.MINOR.PATCH`). Pre-1.0 versions (`0.x.y`) indicate initial development where breaking changes may occur between minor versions.
+
+The version is tracked in the `VERSION` file at the repository root (plain `0.1.0` without the `v` prefix). Releases are published as GitHub Releases with corresponding annotated tags (`v0.1.0`, `v0.2.0`, etc.). See the [Releases page](https://github.com/Macacoders/ai-config/releases) for the latest stable version and release notes.
+
+Branch model: `main` is the stable branch reflecting the latest release; `develop` is the active development branch. All feature work merges into `develop` first, and releases are cut from `develop` into `main`.
+
+**Consuming a release**: To install `ai-config` into a consuming repository from a specific release tag, use the `--ref` flag (or `-Ref` in PowerShell). Without `--ref`, the installer uses the local ai-config source tree — this is the development mode for working on ai-config itself.
+
+```bash
+./install/bootstrap.sh --repo /path/to/repo --ref v0.1.0 --providers openai
+```
+
+```powershell
+.\install\bootstrap.ps1 -Repo /path/to/repo -Ref v0.1.0 -Providers openai
+```
+
+When `--ref` is specified, the installer clones the ai-config repository at that tag and installs from the release source, recording `ref:` in `.ai-config-managed`. Pinning to a specific tag is recommended for reproducible installs in production consuming repositories.
+
+For the full release process — including version updates, changelog management, tagging, and first-release procedure — see [`RELEASE.md`](./RELEASE.md). Notable changes per release are documented in [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Contributing
 
