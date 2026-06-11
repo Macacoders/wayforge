@@ -178,7 +178,8 @@ track_installed_project() {
   fi
 
   name=$(basename "$canonical")
-  timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  timestamp=$(TZ='Europe/Berlin' date +'%Y-%m-%dT%H:%M:%S%z' | sed 's/\(..\)$/:\1/')
+  local install_ref="${INSTALL_REF:-develop}"
 
   # Escape backslashes for JSON string values (e.g. C:\path → C:\\path)
   escaped_path=$(printf '%s' "$canonical" | sed 's/\\/\\\\/g')
@@ -187,13 +188,14 @@ track_installed_project() {
     # Create tracking file with envelope and initial project entry
     {
       printf '{\n'
-      printf '  "version": 1,\n'
+      printf '  "schemaVersion": "1.0.0",\n'
       printf '  "projects": [\n'
       printf '    {\n'
       printf '      "name": "%s",\n' "$name"
       printf '      "path": "%s",\n' "$escaped_path"
-      printf '      "description": null,\n'
-      printf '      "lastUpdated": "%s"\n' "$timestamp"
+      printf '      "lastUpdated": "%s",\n' "$timestamp"
+      printf '      "aiConfigVersion": "%s",\n' "$AI_CONFIG_VERSION"
+      printf '      "installRef": "%s"\n' "$install_ref"
       printf '    }\n'
       printf '  ]\n'
       printf '}\n'
@@ -235,8 +237,9 @@ track_installed_project() {
     printf '    {\n'
     printf '      "name": "%s",\n' "$name"
     printf '      "path": "%s",\n' "$escaped_path"
-    printf '      "description": null,\n'
-    printf '      "lastUpdated": "%s"\n' "$timestamp"
+    printf '      "lastUpdated": "%s",\n' "$timestamp"
+    printf '      "aiConfigVersion": "%s",\n' "$AI_CONFIG_VERSION"
+    printf '      "installRef": "%s"\n' "$install_ref"
     printf '    }\n'
   } >> "$tmpfile"
 
@@ -741,6 +744,7 @@ install_repo() {
 
       finalize_managed_manifest "$repo"
       FORCE="$_saved_force"
+      track_installed_project "$repo"
       log "repo bootstrap complete for: $repo"
       return
     else

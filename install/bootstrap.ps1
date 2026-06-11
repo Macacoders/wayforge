@@ -39,18 +39,22 @@ function Track-InstalledProject {
     }
 
     $name = Split-Path $canonical -Leaf
-    $timestamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    $cetZone = [System.TimeZoneInfo]::FindSystemTimeZoneById('Central European Standard Time')
+    $cetTime = [System.TimeZoneInfo]::ConvertTime([DateTime]::UtcNow, $cetZone)
+    $timestamp = $cetTime.ToString('yyyy-MM-ddTHH:mm:ss') + $cetTime.ToString('zzz')
+    $installRef = if ([string]::IsNullOrEmpty($INSTALL_REF)) { 'develop' } else { $INSTALL_REF }
 
     if (-not (Test-Path $trackingFile -PathType Leaf)) {
         # Create tracking file with envelope and initial project entry
         $entry = @{
-            name        = $name
-            path        = $canonical
-            description = $null
-            lastUpdated = $timestamp
+            name             = $name
+            path             = $canonical
+            lastUpdated      = $timestamp
+            aiConfigVersion  = $AI_CONFIG_VERSION
+            installRef       = $installRef
         }
         $data = @{
-            version  = 1
+            schemaVersion  = '1.0.0'
             projects = @($entry)
         }
         $data | ConvertTo-Json -Depth 3 | Set-Content -Path $trackingFile
@@ -80,10 +84,11 @@ function Track-InstalledProject {
 
     # Append new entry
     $entry = @{
-        name        = $name
-        path        = $canonical
-        description = $null
-        lastUpdated = $timestamp
+        name             = $name
+        path             = $canonical
+        lastUpdated      = $timestamp
+        aiConfigVersion  = $AI_CONFIG_VERSION
+        installRef       = $installRef
     }
     $data.projects += $entry
 
@@ -631,7 +636,7 @@ function install-repo {
             $skillsDir = Join-Path $SOURCE_DIR 'base/opencode/skills'
             if (Test-Path $skillsDir -PathType Container) {
                 Get-ChildItem $skillsDir -Recurse -File | ForEach-Object {
-                    $subpath = $_.FullName.Substring($skillsDir.Length).TrimStart('\', '/')
+                    $subpath = $_.FullName.Substring($skillsDir.Length).TrimStart('\', '/').Replace('\', '/')
                     $relPath = ".opencode/skills/$subpath"
                     if ($manifestSet -notcontains $relPath) {
                         log "new managed path discovered: $relPath"
@@ -644,6 +649,7 @@ function install-repo {
 
             Finalize-ManagedManifest $Repo
             $script:FORCE = $savedForce
+            Track-InstalledProject $Repo
             log "repo bootstrap complete for: $Repo"
             return
         } else {

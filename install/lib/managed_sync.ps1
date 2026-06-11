@@ -112,7 +112,7 @@ function Is-ManagedDir {
     while ($true) {
         $manifestPath = Join-Path $dir '.ai-config-managed'
         if (Test-Path $manifestPath -PathType Leaf) {
-            $relPath = $Path.Substring($dir.Length).TrimStart('\', '/')
+            $relPath = $Path.Substring($dir.Length).TrimStart('\', '/').Replace('\', '/')
             if (-not [string]::IsNullOrEmpty($relPath)) {
                 $lines = [System.IO.File]::ReadAllLines($manifestPath)
                 $match = "  - $relPath"
@@ -148,7 +148,7 @@ function Is-ManagedFile {
     while ($true) {
         $manifestPath = Join-Path $dir '.ai-config-managed'
         if (Test-Path $manifestPath -PathType Leaf) {
-            $relPath = $Path.Substring($dir.Length).TrimStart('\', '/')
+            $relPath = $Path.Substring($dir.Length).TrimStart('\', '/').Replace('\', '/')
             if (-not [string]::IsNullOrEmpty($relPath)) {
                 $lines = [System.IO.File]::ReadAllLines($manifestPath)
                 $match = "  - $relPath"
@@ -180,7 +180,7 @@ function _ManagedTrackFile {
     if ($script:_ManagedRepoRoot -and (Test-Path (Join-Path $script:_ManagedRepoRoot '.ai-config-managed.tmp') -PathType Leaf)) {
         $repoRoot = $script:_ManagedRepoRoot
         if ($DstFile.StartsWith("$repoRoot\")) {
-            $rel = $DstFile.Substring($repoRoot.Length).TrimStart('\', '/')
+            $rel = $DstFile.Substring($repoRoot.Length).TrimStart('\', '/').Replace('\', '/')
             Add-ManagedPath -Repo $repoRoot -Path $rel
             return
         }
@@ -241,14 +241,17 @@ function Add-ManagedPath {
         return
     }
 
+    # Normalize path separator to forward slash for cross-platform compatibility
+    $normalized = $Path.Replace('\', '/')
+
     # Skip duplicates
     $lines = [System.IO.File]::ReadAllLines($manifestTmp)
-    $match = "  - $Path"
+    $match = "  - $normalized"
     if ($lines -contains $match) {
         return
     }
 
-    [System.IO.File]::AppendAllText($manifestTmp, "  - $Path`r`n")
+    [System.IO.File]::AppendAllText($manifestTmp, "  - $normalized`r`n")
 }
 
 # Finalize the managed manifest: move temp file to final location,
@@ -327,7 +330,7 @@ function Is-ManagedPath {
     $manifest = Join-Path $Repo '.ai-config-managed'
     if (Test-Path $manifest -PathType Leaf) {
         $lines = [System.IO.File]::ReadAllLines($manifest)
-        $match = "  - $Path"
+        $match = "  - $($Path.Replace('\', '/'))"
         if ($lines -contains $match) {
             return $true
         }
