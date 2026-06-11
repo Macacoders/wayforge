@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# qa/coverage-powershell
+set -euo pipefail
+
+if [[ ! -d tests/powershell ]]; then
+	echo "No PowerShell tests found."
+	exit 0
+fi
+
+shopt -s nullglob
+powershell_tests=(tests/powershell/*.Tests.ps1)
+shopt -u nullglob
+
+if ((${#powershell_tests[@]} == 0)); then
+	echo "No PowerShell tests found."
+	exit 0
+fi
+
+if ! command -v pwsh >/dev/null 2>&1; then
+	echo "pwsh is not installed; skipping PowerShell coverage."
+	exit 0
+fi
+
+run_pwsh_heredoc() {
+	local tmp_ps
+	local status
+	tmp_ps="$(mktemp)"
+	cat >"$tmp_ps"
+	if pwsh -NoProfile -NonInteractive -File "$tmp_ps"; then
+		status=0
+	else
+		status=$?
+	fi
+	rm -f "$tmp_ps"
+	return "$status"
+}
+
+run_pwsh_heredoc <<'POWERSHELL'
+$ErrorActionPreference = "Stop"
+
+if (-not (Get-Module -ListAvailable -Name Pester)) {
+  throw "Pester is not installed. Run: Install-Module Pester -Scope CurrentUser"
+}
+
+$coverageFiles = Get-ChildItem -Path ./install -Recurse -Include *.ps1,*.psm1,*.psd1 -File
+
+if (-not $coverageFiles) {
+  Write-Host "No PowerShell source files found for coverage."
+  exit 0
+}
+
+New-Item -ItemType Directory -Force -Path ./coverage/powershell | Out-Null
+
+if (Get-Command New-PesterConfiguration -ErrorAction SilentlyContinue) {
+  $config = New-PesterConfiguration
+  $config.Run.Path = './tests/powershell'
+  $config.Run.PassThru = $true
+  $config.CodeCoverage.Enabled = $true
+  $config.CodeCoverage.Path = $coverageFiles.FullName
+  $config.CodeCoverage.OutputPath = './coverage/powershell/coverage.xml'
+
+  $result = Invoke-Pester -Configuration $config
+} else {
+  $result = Invoke-Pester -Path ./tests/powershell -CodeCoverage $coverageFiles.FullName -PassThru
+}
+
+if ($result.FailedCount -gt 0) {
+  exit 1
+}
+POWERSHELL

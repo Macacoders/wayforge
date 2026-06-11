@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# qa/coverage-bash
+set -euo pipefail
+
+if [[ ! -d tests/bash ]]; then
+	echo "No Bash tests found."
+	exit 0
+fi
+
+shopt -s nullglob
+bash_tests=(tests/bash/*.bats)
+shopt -u nullglob
+
+if ((${#bash_tests[@]} == 0)); then
+	echo "No Bash tests found."
+	exit 0
+fi
+
+if ! command -v bats >/dev/null 2>&1; then
+	echo "bats is not installed; skipping Bash coverage."
+	exit 0
+fi
+
+if ! command -v kcov >/dev/null 2>&1; then
+	echo "kcov is not installed; skipping Bash coverage."
+	echo "Install kcov to collect Bash coverage."
+	exit 0
+fi
+
+kcov coverage/bash bats tests/bash

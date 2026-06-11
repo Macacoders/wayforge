@@ -1,4 +1,4 @@
-.PHONY: install-deps check qa check-bash check-powershell check-tests check-bats check-pester check-duplication fix-bash bash-format bash-lint
+.PHONY: install-deps check qa check-bash check-powershell check-tests check-bats check-pester coverage coverage-bash coverage-powershell check-duplication fix-bash bash-format bash-lint
 
 install-deps:
 	./qa/install-deps
@@ -23,6 +23,15 @@ check-bats:
 
 check-pester:
 	./qa/check-pester
+
+coverage:
+	./qa/coverage
+
+coverage-bash:
+	./qa/coverage-bash
+
+coverage-powershell:
+	./qa/coverage-powershell
 
 check-duplication:
 	./qa/check-duplication

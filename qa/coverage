@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# qa/coverage
+set -euo pipefail
+
+echo "==> Bash coverage"
+./qa/coverage-bash
+
+echo "==> PowerShell coverage"
+./qa/coverage-powershell
+
+echo "Coverage checks completed."
