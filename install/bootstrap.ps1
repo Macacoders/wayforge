@@ -344,6 +344,9 @@ function Build-AgentBlockJsonFromPreset {
 
 function Build-EnabledProvidersJson {
     $quoted = @()
+    if ($RUNTIME -eq 'opencode') {
+        $quoted += '"opencode"'
+    }
     foreach ($provider in $SELECTED_PROVIDERS) {
         $quoted += ('"{0}"' -f $provider)
     }
@@ -366,6 +369,10 @@ function Read-ProviderBlockFragment {
 
 function Build-ProviderBlockJson {
     $blocks = New-Object System.Collections.Generic.List[string]
+
+    if ($RUNTIME -eq 'opencode') {
+        $blocks.Add((Read-ProviderBlockFragment 'opencode-provider-block.jsonc'))
+    }
 
     if (Contains-Provider 'openai') {
         $blocks.Add((Read-ProviderBlockFragment 'openai-provider-block.jsonc'))

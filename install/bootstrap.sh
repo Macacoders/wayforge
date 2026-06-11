@@ -423,6 +423,12 @@ build_agent_block_json_from_preset() {
 build_enabled_providers_json() {
   local out=""
   local first=1
+
+  if [[ "$RUNTIME" == "opencode" ]]; then
+    out="\"opencode\""
+    first=0
+  fi
+
   local provider
   for provider in "${SELECTED_PROVIDERS[@]}"; do
     if [[ "$first" -eq 1 ]]; then
@@ -449,8 +455,21 @@ build_provider_block_json() {
   }
 
   local out=""
+
+  if [[ "$RUNTIME" == "opencode" ]]; then
+    out="$(read_fragment 'opencode-provider-block.jsonc')"
+  fi
+
   if contains_provider "openai"; then
-    out="$(read_fragment 'openai-provider-block.jsonc')"
+    local openai_block
+    openai_block="$(read_fragment 'openai-provider-block.jsonc')"
+
+    if [[ -n "$out" ]]; then
+      out="$out,
+$openai_block"
+    else
+      out="$openai_block"
+    fi
   fi
 
   if contains_provider "github-copilot"; then
