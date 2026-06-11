@@ -34,10 +34,11 @@ build/
 tmp/
 
 .devcontainer
-/installed-projects.json
 .gh-config
 
 # OpenCode generated/local runtime output
 .opencode/
 AGENTS.md.*
 opencode.jsonc
+.ai-config-managed
+installed-projects.json
