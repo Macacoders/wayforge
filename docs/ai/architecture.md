@@ -52,6 +52,28 @@ The installer must not overwrite unmanaged existing files by default and support
 
 Portable workflow helpers used by shared commands should be packaged under `.opencode/skills/**` so they are available through the installed surface; consuming repositories should not require a top-level `scripts/` directory for those helpers.
 
+### Installed Projects Tracking
+
+`installed-projects.json` at the repository root tracks which projects have been installed with ai-config. It is excluded from version control via `.gitignore`.
+
+- **Format**: Structured JSON with `version` (schema version) and `projects` array. Each entry contains:
+  - `name`: Project directory basename.
+  - `path`: Canonical absolute path (Windows-native format `C:\DEV\project` on WSL).
+  - `description`: Reserved for future use (`null` for now).
+  - `lastUpdated`: ISO 8601 timestamp of the install.
+- **Created by**: `install/bootstrap.sh` and `install/bootstrap.ps1` create or append to the file after a successful first install.
+- **Duplicate prevention**: Re-running the installer or using `--force` does not add duplicate entries — scripts check for existing path matches.
+- **`--force`/`-Force` behavior**: Force refreshes skip tracking entirely.
+- **`--dry-run`/`-DryRun` behavior**: Dry runs never write to the tracking file.
+- **Cross-platform paths**: On WSL, `bootstrap.sh` converts paths with `wslpath -w` when writing. Git Bash preserves forward slashes natively.
+
+### Bootstrap Scripts
+
+`install/bootstrap.sh` and `install/bootstrap.ps1` install the runtime configuration into a target repository. Both source shared helper libraries from `install/lib/`.
+
+- **No Administrator privileges required** (PowerShell): The installer uses `Copy-Item` and file writes — no symbolic link creation. The previous admin check (which auto-enabled dry-run when not elevated) has been removed.
+- **Managed sync**: Agent, command, and skill files are synced via `Sync-ManagedTree` (or `sync_managed_tree` in Bash). Files are tracked with `.ai-config-managed` markers for safe refresh without clobbering local additions.
+
 ## Agent Topology
 
 - `planner` is the default primary agent. It uses a non-native id to avoid colliding with OpenCode's built-in `plan` agent.

@@ -24,6 +24,74 @@ $MANAGED_DIR_MARKER = '.ai-config-managed'
 $SELECTED_PROVIDERS = @()
 $SYNC_MANAGED_TREE_LAST_ACTION = 'skipped'
 
+function Track-InstalledProject {
+    param([string]$RepoPath)
+
+    if ($DRY_RUN) { return }
+    if ($FORCE) { return }
+
+    $trackingFile = Join-Path $ROOT_DIR 'installed-projects.json'
+
+    # Resolve canonical absolute path
+    $canonical = Resolve-Path -LiteralPath $RepoPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+    if (-not $canonical) {
+        $canonical = (Get-Item $RepoPath).FullName
+    }
+
+    $name = Split-Path $canonical -Leaf
+    $timestamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+
+    if (-not (Test-Path $trackingFile -PathType Leaf)) {
+        # Create tracking file with envelope and initial project entry
+        $entry = @{
+            name        = $name
+            path        = $canonical
+            description = $null
+            lastUpdated = $timestamp
+        }
+        $data = @{
+            version  = 1
+            projects = @($entry)
+        }
+        $data | ConvertTo-Json -Depth 3 | Set-Content -Path $trackingFile
+        log "tracked installed project: $canonical"
+        return
+    }
+
+    # Read existing file
+    try {
+        $data = Get-Content -Path $trackingFile -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        log "warning: failed to parse tracking file, skipping: $_"
+        return
+    }
+
+    # Ensure projects array exists
+    if (-not $data.projects) {
+        $data.projects = @()
+    }
+
+    # Check for duplicate by path
+    foreach ($project in $data.projects) {
+        if ($project.path -eq $canonical) {
+            return
+        }
+    }
+
+    # Append new entry
+    $entry = @{
+        name        = $name
+        path        = $canonical
+        description = $null
+        lastUpdated = $timestamp
+    }
+    $data.projects += $entry
+
+    # Write back
+    $data | ConvertTo-Json -Depth 3 | Set-Content -Path $trackingFile
+    log "tracked installed project: $canonical"
+}
+
 function Test-Administrator {
     $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     return $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -593,6 +661,8 @@ function install-repo {
     Sync-ManagedTree (Join-Path (Join-Path $SOURCE_DIR 'base') 'opencode/commands') (Join-Path (Join-Path $Repo '.opencode') 'commands') $true
     Sync-ManagedTree (Join-Path (Join-Path $SOURCE_DIR 'base') 'opencode/skills') (Join-Path (Join-Path $Repo '.opencode') 'skills') $true
 
+    Track-InstalledProject $Repo
+
     Finalize-ManagedManifest $Repo
     log "repo bootstrap complete for: $Repo"
 }
@@ -718,14 +788,6 @@ $REPO_PATH = Resolve-Path $REPO_PATH -ErrorAction SilentlyContinue | Select-Obje
 if (-not $REPO_PATH) {
     log "error: cannot resolve repo path"
     exit 1
-}
-
-# Check for administrator privileges (required for creating symlinks on Windows)
-if (-not $DRY_RUN -and -not (Test-Administrator)) {
-    log "warning: Administrator privileges are required to create symbolic links on Windows."
-    log "         Please run PowerShell as Administrator, or enable Developer Mode."
-    log "         Falling back to dry-run mode. Use -DryRun to suppress this warning."
-    $DRY_RUN = $true
 }
 
 # If -Ref is provided, fetch the specified release source from GitHub

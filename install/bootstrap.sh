@@ -162,6 +162,94 @@ validate_agent_preset() {
   esac
 }
 
+track_installed_project() {
+  local path="$1"
+  [[ "$DRY_RUN" -eq 1 ]] && return
+  [[ "$FORCE" -eq 1 ]] && return
+
+  local tracking_file="$ROOT_DIR/installed-projects.json"
+  local canonical name timestamp escaped_path
+
+  canonical=$(realpath "$path" 2>/dev/null || (cd "$path" && pwd -P))
+
+  # Convert to Windows-native format for cross-platform compatibility
+  if command -v wslpath &>/dev/null; then
+    canonical=$(wslpath -w "$canonical" 2>/dev/null || printf '%s' "$canonical")
+  fi
+
+  name=$(basename "$canonical")
+  timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+  # Escape backslashes for JSON string values (e.g. C:\path → C:\\path)
+  escaped_path=$(printf '%s' "$canonical" | sed 's/\\/\\\\/g')
+
+  if [[ ! -f "$tracking_file" ]]; then
+    # Create tracking file with envelope and initial project entry
+    {
+      printf '{\n'
+      printf '  "version": 1,\n'
+      printf '  "projects": [\n'
+      printf '    {\n'
+      printf '      "name": "%s",\n' "$name"
+      printf '      "path": "%s",\n' "$escaped_path"
+      printf '      "description": null,\n'
+      printf '      "lastUpdated": "%s"\n' "$timestamp"
+      printf '    }\n'
+      printf '  ]\n'
+      printf '}\n'
+    } > "$tracking_file"
+    log "tracked installed project: $canonical"
+    return 0
+  fi
+
+  # Duplicate check: exact path match in existing entries
+  if grep -Fq '"path": "'"$escaped_path"'"' "$tracking_file" 2>/dev/null; then
+    return 0
+  fi
+
+  # Append new entry — read file, drop closing "  ]" and "}", insert new entry
+  local tmpfile="${tracking_file}.tmp"
+  local lines=()
+
+  while IFS= read -r line; do
+    lines+=("$line")
+  done < "$tracking_file"
+
+  local total=${#lines[@]}
+
+  # Write all lines except the last three (last entry's "}", "  ]", "}")
+  for ((i=0; i<total-3; i++)); do
+    printf '%s\n' "${lines[$i]}" >> "$tmpfile"
+  done
+
+  if (( total > 5 )); then
+    # Existing entries present: turn the previous "    }" into "    },"
+    printf '    },\n' >> "$tmpfile"
+  else
+    # No entries yet: write the "  "projects": [" header line
+    printf '%s\n' "${lines[$total-3]}" >> "$tmpfile"
+  fi
+
+  # Write the new project entry
+  {
+    printf '    {\n'
+    printf '      "name": "%s",\n' "$name"
+    printf '      "path": "%s",\n' "$escaped_path"
+    printf '      "description": null,\n'
+    printf '      "lastUpdated": "%s"\n' "$timestamp"
+    printf '    }\n'
+  } >> "$tmpfile"
+
+  # Close the JSON structure
+  {
+    printf '  ]\n'
+    printf '}\n'
+  } >> "$tmpfile"
+
+  mv "$tmpfile" "$tracking_file"
+  log "tracked installed project: $canonical"
+}
+
 pick_planner_model() {
   if contains_provider "openai"; then
     printf 'openai/gpt-5.5'
@@ -668,6 +756,8 @@ install_repo() {
   sync_managed_tree "$SOURCE_DIR/base/opencode/agents" "$repo/.opencode/agents" 1
   sync_managed_tree "$SOURCE_DIR/base/opencode/commands" "$repo/.opencode/commands" 1
   sync_managed_tree "$SOURCE_DIR/base/opencode/skills" "$repo/.opencode/skills" 1
+
+  track_installed_project "$repo"
 
   finalize_managed_manifest "$repo"
   log "repo bootstrap complete for: $repo"
