@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(cat VERSION)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Extract latest changelog entry
+        id: changelog
+        run: |
+          awk '/^## \[/{if(++c>1)exit}c' CHANGELOG.md > /tmp/release_body.md
+          echo "body_file=/tmp/release_body.md" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          echo "Creating release for $TAG"
+          if gh release view "$TAG" --repo ${{ github.repository }} &>/dev/null 2>&1; then
+            echo "Release $TAG already exists — skipping"
+            exit 0
+          fi
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes-file "${{ steps.changelog.outputs.body_file }}" \
+            --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ github.token }}
