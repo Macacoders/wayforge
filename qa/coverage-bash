@@ -2,6 +2,9 @@
 # qa/coverage-bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 if [[ ! -d tests/bash ]]; then
 	echo "No Bash tests found."
 	exit 0
@@ -27,4 +30,5 @@ if ! command -v kcov >/dev/null 2>&1; then
 	exit 0
 fi
 
-kcov coverage/bash bats tests/bash
+mkdir -p "$ROOT_DIR/coverage/bash"
+kcov --clean --include-path="$ROOT_DIR" "$ROOT_DIR/coverage/bash" bats "$ROOT_DIR/tests/bash"
