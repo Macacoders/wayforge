@@ -1,5 +1,9 @@
 #!/usr/bin/env pwsh
 #Requires -Version 5.1
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', 'MANAGED_DIR_MARKER', Justification = 'Consumed by the dot-sourced install/lib/managed_sync.ps1 helpers.')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', 'SYNC_MANAGED_TREE_LAST_ACTION', Justification = 'Consumed and updated by the dot-sourced install/lib/managed_sync.ps1 helpers.')]
+param()
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -812,7 +816,7 @@ if (-not [string]::IsNullOrEmpty($INSTALL_REF)) {
         Set-Location $ROOT_DIR
         $repoUrl = git remote get-url origin 2>$null
     } catch {
-        # ignore
+        $repoUrl = $null
     } finally {
         Set-Location $originalCwd
     }
@@ -825,7 +829,7 @@ if (-not [string]::IsNullOrEmpty($INSTALL_REF)) {
 
     log "fetching ref '${INSTALL_REF}' from ${repoUrl} ..."
     $env:GIT_TERMINAL_PROMPT = 0
-    $cloneResult = & git -c core.askPass=echo clone --branch $INSTALL_REF --depth 1 $repoUrl $tempDir 2>&1
+    $null = & git -c core.askPass=echo clone --branch $INSTALL_REF --depth 1 $repoUrl $tempDir 2>&1
     if ($LASTEXITCODE -ne 0) {
         log "error: failed to clone ref '${INSTALL_REF}' from ${repoUrl}"
         log "       verify the ref exists and is reachable"

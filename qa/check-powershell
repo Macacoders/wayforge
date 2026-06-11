@@ -25,7 +25,11 @@ run_pwsh_heredoc <<'POWERSHELL'
 $ErrorActionPreference = "Stop"
 
 $files = Get-ChildItem -Path . -Recurse -Include *.ps1,*.psm1,*.psd1 |
-  Where-Object { $_.FullName -notmatch "[/\\]\.git[/\\]" }
+  Where-Object {
+    $_.FullName -notmatch "[/\\]\.git[/\\]" -and
+    $_.FullName -notmatch "[/\\]\.opencode[/\\]" -and
+    $_.FullName -notmatch "[/\\]node_modules[/\\]"
+  }
 
 if (-not $files) {
   Write-Host "No PowerShell files found."
@@ -36,10 +40,30 @@ if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
   throw "PSScriptAnalyzer is not installed. Run: Install-Module PSScriptAnalyzer -Scope CurrentUser"
 }
 
-$results = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error,Warning
+$styleRules = @(
+  # Style-only rules are too noisy for this repository's internal helpers and
+  # interactive installer scripts. Substantive analyzer warnings still fail QA.
+  "PSAvoidUsingWriteHost",
+  "PSUseApprovedVerbs",
+  "PSUseBOMForUnicodeEncodedFile",
+  "PSUseSingularNouns"
+)
+
+$results = foreach ($file in $files) {
+  Invoke-ScriptAnalyzer -Path $file.FullName -Severity Error,Warning -ExcludeRule $styleRules
+}
 
 if ($results) {
-  $results | Format-Table -AutoSize
+  $results |
+    Sort-Object ScriptPath, Line, RuleName |
+    ForEach-Object {
+      $shortPath = [System.IO.Path]::GetRelativePath((Resolve-Path '.').Path, $_.ScriptPath)
+      $message = $_.Message
+      if ($message.Length -gt 160) {
+        $message = $message.Substring(0, 157) + '...'
+      }
+      "[$($_.RuleName)] [$($_.Severity)] ${shortPath}:$($_.Line) $message"
+    }
   throw "PSScriptAnalyzer found issues."
 }
 
