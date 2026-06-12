@@ -107,13 +107,14 @@ The default staged-delivery workflow is:
 2. Plan with clarifying questions and acceptance criteria.
 3. Apply phase economy before implementation: 1 phase for simple work, justification above 3 phases, explicit confirmation for 6-8 phases, and task splitting above 8 phases.
 4. Implement one approved phase through `code`.
-5. Pause after each atomic stage for manual validation.
-6. Review the completed phase with git evidence.
-7. Distinguish running existing validation, recommending tests, and creating new tests.
-8. Do not invoke `test` by default.
-9. Prefer existing validation or a no-test rationale for low-risk work before recommending new tests.
-10. Invoke `test` in `write-tests` mode only when new test creation is explicitly approved (user request, approved acceptance criteria, or user-approved recommendation) and constrained by a concrete test budget.
-11. Update docs, decisions, and logs at close.
+5. Check reasonable existing patterns, utilities, scripts, helpers, commands, tests, and conventions before creating new repeatable logic.
+6. Pause after each atomic stage for manual validation.
+7. Review the completed phase with git evidence.
+8. Distinguish running existing validation, recommending tests, and creating new tests.
+9. Do not invoke `test` by default.
+10. Prefer existing validation or a no-test rationale for low-risk work before recommending new tests.
+11. Invoke `test` in `write-tests` mode only when new test creation is explicitly approved (user request, approved acceptance criteria, or user-approved recommendation) and constrained by a concrete test budget.
+12. Update docs, decisions, and logs at close.
 
 The opt-in quick-delivery workflow is:
 
@@ -151,3 +152,4 @@ The shared issue creation workflow is:
 - Keep GitHub Issues as the operational shared source of truth for team tasks.
 - Keep shared tasks in GitHub Issues rather than a local JSONL backlog.
 - Keep shared task analysis separated from issue operations.
+- Keep reuse-first guidance explicit: avoid unnecessary copying and speculative abstraction, and justify or flag new duplication.

@@ -19,6 +19,9 @@ Apply minimal, correct code and documentation changes for the phase described in
 - Do not expand the phase scope.
 - Do not start a new phase.
 - Prefer the smallest correct change.
+- Before creating new repeatable logic, inspect reasonable existing patterns, utilities, scripts, helpers, commands, tests, or conventions within task scope.
+- Reuse existing code or patterns when they fit; avoid unnecessary copying, speculative abstraction, and broad refactors.
+- Justify new duplication in the report or flag it as debt/risk.
 - Preserve unrelated worktree changes.
 - Do not commit changes.
 - Update relevant project documentation when behavior, configuration, or workflow changes.
@@ -59,6 +62,7 @@ Behavior/config/docs changed:
 Validation run:
 Manual validation commands:
 Risks or observations:
+Reuse check outcome:
 Next proposed stage:
 
 Waiting for approval before continuing.

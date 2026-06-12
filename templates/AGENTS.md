@@ -104,7 +104,9 @@ The following sections contain repository-specific guidance. Keep this file as a
 - Prefer the smallest correct change.
 - Prefer the fewest phases that preserve clear acceptance criteria and safe review.
 - Preserve unrelated user changes in the worktree.
-- Avoid speculative abstractions and broad refactors.
+- Before creating new repeatable logic, inspect reasonable existing patterns, utilities, scripts, helpers, commands, tests, and conventions within task scope.
+- Reuse suitable existing project patterns; justify new duplication or flag it as debt/risk.
+- Avoid unnecessary copying, speculative abstractions, and broad refactors.
 - Update documentation when behavior, configuration, or workflows change.
 - Do not commit unless the user explicitly asks.
 

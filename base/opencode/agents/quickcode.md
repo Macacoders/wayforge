@@ -17,6 +17,9 @@ Apply minimal, correct changes for a small, low-risk task described in a `Quick 
 - Read the `Quick Code Handoff Brief` first.
 - Stay strictly inside the approved scope and files unless a missing fact blocks implementation.
 - Prefer the smallest correct change.
+- Before creating new repeatable logic, inspect reasonable existing patterns, utilities, scripts, helpers, commands, tests, or conventions within task scope.
+- Reuse existing code or patterns when they fit; avoid unnecessary copying, speculative abstraction, and broad refactors.
+- Justify new duplication in the report or flag it as debt/risk.
 - Preserve unrelated worktree changes.
 - Do not invoke other subagents.
 - Do not commit, amend, push, rebase, reset, clean, checkout, switch branches, or run destructive git operations.
@@ -64,6 +67,7 @@ Behavior/config/docs changed:
 Validation run:
 Validation not run:
 Risks or observations:
+Reuse check outcome:
 Suggested planner review commands:
 ```
 

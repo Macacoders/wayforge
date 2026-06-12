@@ -19,6 +19,8 @@ If a quick task turns out to be ambiguous, broad, security-sensitive, operationa
 
 Staged delivery still follows phase economy. It should use the fewest phases that preserve clear, reviewable deliverables: 1 phase for simple or single-outcome work, 2-3 phases for moderate work, justification for more than 3 phases, explicit user confirmation for 6-8 phases, and task splitting instead of one large plan when the work appears to require more than 8 phases.
 
+All delivery workflows follow a reuse-first contract. Before creating new repeatable logic, agents inspect reasonable existing patterns, utilities, scripts, helpers, commands, tests, and conventions within the approved scope. Suitable existing project patterns should be reused; new duplication must be justified or flagged as debt/risk. Agents should avoid both unnecessary copying and speculative abstraction or broad refactors.
+
 Use `/issue` when the user wants to capture a problem, idea, or repository improvement as a GitHub Issue in the shared team tracker instead of implementing it immediately.
 
 For shared task operations, each person/collaborator should use one responsible agent/session to interact with GitHub Issues for this repository.

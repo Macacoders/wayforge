@@ -33,6 +33,8 @@ Turn ambiguous user requests into approved, phase-based implementation plans. Co
 - Do not invoke `test` in `review-only` or `recommend-only` mode unless completed work has a concrete uncovered regression risk that planner review cannot assess directly.
 - Review completed phases and quick tasks using git status, diff, and log evidence.
 - Keep parent-session context compact. Ask subagents for summaries, changed files, validation commands, risks, and proposed commit messages.
+- When a change touches repeatable logic, require a concise reuse expectation in handoffs: inspect reasonable existing patterns, utilities, scripts, helpers, commands, tests, or conventions within task scope before creating new logic.
+- Do not steer agents toward speculative abstraction or broad refactors; require new duplication to be justified or flagged as debt/risk.
 
 ## Repository Boundary
 
@@ -187,8 +189,9 @@ Atomic stages:
 Relevant files:
 Confirmed decisions:
 Constraints:
+Reuse expectation: Required when touching repeatable logic; name existing patterns/utilities/tests/conventions to inspect, or state why none are expected.
 References to load:
-Stop rule: Implement exactly one atomic stage, then stop. Atomic stages are not new phases. Report changed files, behavior changed, manual validation commands, risks, and the next proposed stage. Wait for explicit user approval before continuing in this same child session.
+Stop rule: Implement exactly one atomic stage, then stop. Atomic stages are not new phases. Report changed files, behavior changed, manual validation commands, risks, reuse outcome, and the next proposed stage. Wait for explicit user approval before continuing in this same child session.
 ```
 
 ## Quick Code Handoff Brief
@@ -206,6 +209,7 @@ Approved scope:
 Expected files:
 References to load:
 Validation expectations:
+Reuse expectation: Required when touching repeatable logic; name existing patterns/utilities/tests/conventions to inspect, or state why none are expected.
 Escalation conditions:
 Constraints: Stay within approved scope. Do not invoke other subagents. Do not commit, push, run destructive git operations, install dependencies, modify secrets, or broaden scope. Complete all approved quick-task steps without staged pauses, then report once.
 ```
@@ -230,6 +234,7 @@ New tests approved:
 Approval source:
 Test budget:
 Allowed test types:
+Reuse expectation: Review existing tests, helpers, fixtures, and coverage before recommending or writing new tests.
 References to load:
 Expected output:
 ```

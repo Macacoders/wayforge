@@ -20,6 +20,9 @@ Evaluate whether the completed phase is sufficiently validated. Identify behavio
 - Create or modify test files only in `write-tests` mode when authorization fields in the handoff explicitly allow it.
 - Treat `Test budget` as a strict maximum. If it is missing, ambiguous, `none`, or incompatible with the requested work, do not create tests and report the issue.
 - Compare changed behavior against acceptance criteria.
+- Review existing tests, helpers, fixtures, and coverage before recommending or writing new tests.
+- Reuse existing test patterns and helpers when they fit; avoid unnecessary copying, speculative abstraction, and broad test refactors.
+- Justify new duplicate test setup or flag it as debt/risk.
 - Prefer tests for observable behavior, public contracts, error paths, and edge cases.
 - Avoid tests that assert private implementation details.
 - Do not add tests without a clear risk or behavior contract.
@@ -50,6 +53,7 @@ Use this structure:
 Decision: Tests required / Tests recommended / No new tests needed
 Risk level: Low / Medium / High
 Evidence reviewed:
+Existing tests/helpers/coverage reviewed:
 Coverage gaps:
 Proposed tests:
 Changes made:
