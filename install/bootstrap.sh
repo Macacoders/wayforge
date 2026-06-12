@@ -154,8 +154,8 @@ validate_agent_preset() {
 	fi
 
 	case "$value" in
-	balanced | fast | thorough)
-		;;
+	balanced | fast | thorough) ;;
+
 	*)
 		log "error: invalid --agent-preset '$value'. Allowed values: balanced, fast, thorough"
 		exit 1
@@ -902,7 +902,11 @@ if [[ -n "$INSTALL_REF" ]]; then
 	# Determine the source repo URL
 	REPO_URL=""
 	if command -v git &>/dev/null; then
-		REPO_URL="$(cd "$ROOT_DIR" && git remote get-url origin 2>/dev/null || true)"
+		if REPO_URL="$(cd "$ROOT_DIR" && git remote get-url origin 2>/dev/null)"; then
+			:
+		else
+			REPO_URL=""
+		fi
 	fi
 	if [[ -z "$REPO_URL" ]]; then
 		REPO_URL="https://github.com/Macacoders/ai-config.git"

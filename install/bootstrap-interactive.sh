@@ -113,8 +113,8 @@ MODEL_PRESET_CHOICE="$(prompt_menu_choice "Choose model preset" "1")"
 MODEL_OVERRIDE=""
 SMALL_MODEL_OVERRIDE=""
 case "$MODEL_PRESET_CHOICE" in
-1)
-	;;
+1) ;;
+
 2)
 	if contains_provider "$PROVIDERS" "openai"; then
 		MODEL_OVERRIDE="openai/gpt-5.4-mini"
@@ -229,8 +229,8 @@ printf '\nProceed with install? [Y/n]: '
 read -r proceed
 proceed="${proceed:-Y}"
 case "$proceed" in
-y | Y | yes | YES)
-	;;
+y | Y | yes | YES) ;;
+
 *)
 	log "cancelled"
 	exit 0

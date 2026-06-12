@@ -2,16 +2,36 @@
 # qa/install-deps
 set -euo pipefail
 
-echo "==> Installing system dependencies with pacman"
+if command -v pacman >/dev/null 2>&1; then
+	echo "==> Installing system dependencies with pacman"
 
-sudo pacman -Syu --needed \
-	shellcheck \
-	shfmt \
-	bats \
-	nodejs \
-	npm \
-	git \
-	base-devel
+	sudo pacman -Syu --needed \
+		shellcheck \
+		shfmt \
+		bats \
+		nodejs \
+		npm \
+		git \
+		base-devel
+elif command -v apt-get >/dev/null 2>&1; then
+	echo "==> Installing system dependencies with apt-get"
+
+	sudo apt-get update
+	sudo apt-get install -y \
+		shellcheck \
+		shfmt \
+		bats \
+		nodejs \
+		npm \
+		git \
+		build-essential
+else
+	echo "Unsupported platform/package manager."
+	echo
+	echo "This installer supports Arch/CachyOS systems with pacman and Ubuntu/Debian-family systems with apt-get."
+	echo "Install the QA dependencies manually or run this script on a supported system."
+	exit 1
+fi
 
 echo "==> Checking PowerShell"
 
@@ -25,6 +45,10 @@ if ! command -v pwsh >/dev/null 2>&1; then
 	echo "or:"
 	echo
 	echo "  yay -S powershell-bin"
+	echo
+	echo "On Ubuntu/Debian-family systems, install PowerShell using Microsoft's package repository guidance:"
+	echo
+	echo "  https://learn.microsoft.com/powershell/scripting/install/install-ubuntu"
 	echo
 	echo "Then rerun:"
 	echo
