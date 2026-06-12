@@ -68,3 +68,57 @@ function Install-AIConfigRepoDryRun {
 }
 
 Set-Alias -Name ai-setup-repo-dry-run -Value Install-AIConfigRepoDryRun
+
+function Uninstall-AIConfigRepo {
+    <#
+    .SYNOPSIS
+        Uninstall ai-config managed files from a target repository.
+    
+    .PARAMETER RepoPath
+        Path to the target repository.
+    
+    .EXAMPLE
+        Uninstall-AIConfigRepo -RepoPath C:\Projects\MyApp
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$RepoPath
+    )
+
+    if (-not (Test-Path $RepoPath -PathType Container)) {
+        Write-Error "error: repo path does not exist: $RepoPath"
+        return 1
+    }
+
+    $root = Get-AIConfigRoot
+    & "$root\install\uninstall.ps1" -Repo $RepoPath
+}
+
+Set-Alias -Name ai-uninstall-repo -Value Uninstall-AIConfigRepo
+
+function Uninstall-AIConfigRepoDryRun {
+    <#
+    .SYNOPSIS
+        Show what would be done when uninstalling ai-config (dry run).
+    
+    .PARAMETER RepoPath
+        Path to the target repository.
+    
+    .EXAMPLE
+        Uninstall-AIConfigRepoDryRun -RepoPath C:\Projects\MyApp
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$RepoPath
+    )
+
+    if (-not (Test-Path $RepoPath -PathType Container)) {
+        Write-Error "error: repo path does not exist: $RepoPath"
+        return 1
+    }
+
+    $root = Get-AIConfigRoot
+    & "$root\install\uninstall.ps1" -Repo $RepoPath -DryRun
+}
+
+Set-Alias -Name ai-uninstall-repo-dry-run -Value Uninstall-AIConfigRepoDryRun
