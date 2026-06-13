@@ -5,7 +5,7 @@
 The repository is intentionally narrow:
 
 - **Runtime**: OpenCode (default) or Kilo Code, selectable at install time.
-- **Providers**: OpenAI (default), GitHub Copilot, and laberit, selectable at install time (`openai`, `github-copilot`, `laberit`, or comma-separated combinations).
+- **Providers**: OpenAI (default), GitHub Copilot, laberit, and OpenCode Go, selectable at install time (`openai`, `github-copilot`, `laberit`, `opencode-go`, or comma-separated combinations).
 - **Installation model**: generate/copy project-local OpenCode runtime files from reusable sources under `base/opencode/**`.
 - **Context model**: progressive disclosure, where agents load indexes and targeted references instead of dumping whole documentation trees into context.
 
@@ -68,20 +68,21 @@ The target OpenCode setup uses one primary agent and five specialized subagents.
 
 | Agent | Mode | Purpose | Preferred model | Reasoning / verbosity |
 | :--- | :--- | :--- | :--- | :--- |
-| `planner` | Primary | Planning, research, questions, phase design, handoffs, git-based review, memory updates. | `openai/gpt-5.5` / `github-copilot/gpt-5.4` / `laberit/laberit-ai-preview` | Medium / medium |
-| `research` | Subagent | Onboards existing repositories and creates or proposes initial `docs/ai/` memory before implementation planning. | `github-copilot/gpt-5.4` / `openai/gpt-5.5` / `laberit/laberit-ai-preview` | Medium / low |
-| `code` | Subagent | Implements one approved phase across atomic stages and pauses after each stage for manual validation. | `openai/gpt-5.5` / `github-copilot/gpt-5.3-codex` / `laberit/laberit-ai` | Medium / low |
-| `quickcode` | Subagent | Implements one approved quick-delivery task autonomously within narrow low-risk scope, then reports once for planner review. | `openai/gpt-5.5` / `github-copilot/gpt-5.3-codex` / `laberit/laberit-ai` | Low / low |
-| `test` | Subagent | Critically reviews implementation quality and regression risk; recommends tests when justified and writes new tests only with explicit approval. | `github-copilot/gpt-5.4` / `openai/gpt-5.5` / `laberit/laberit-ai-preview` | Medium / low |
-| `taskanalyst` | Subagent | Interprets problem reports and improvement ideas before shared task issue creation. | `github-copilot/gemini-3.5-flash` / `openai/gpt-5.4-mini` / `laberit/laberit-ai` | Low / low |
+| `planner` | Primary | Planning, research, questions, phase design, handoffs, git-based review, memory updates. | `openai/gpt-5.5` / `github-copilot/gpt-5.4` / `laberit/laberit-ai-preview` / `opencode-go/deepseek-v4-pro` | Medium / medium |
+| `research` | Subagent | Onboards existing repositories and creates or proposes initial `docs/ai/` memory before implementation planning. | `github-copilot/gpt-5.4` / `openai/gpt-5.5` / `laberit/laberit-ai-preview` / `opencode-go/qwen3.7-max` | Medium / low |
+| `code` | Subagent | Implements one approved phase across atomic stages and pauses after each stage for manual validation. | `openai/gpt-5.5` / `github-copilot/gpt-5.3-codex` / `laberit/laberit-ai` / `opencode-go/kimi-k2.7-code` | Medium / low |
+| `quickcode` | Subagent | Implements one approved quick-delivery task autonomously within narrow low-risk scope, then reports once for planner review. | `openai/gpt-5.5` / `github-copilot/gpt-5.3-codex` / `laberit/laberit-ai` / `opencode-go/deepseek-v4-flash` | Low / low |
+| `test` | Subagent | Critically reviews implementation quality and regression risk; recommends tests when justified and writes new tests only with explicit approval. | `github-copilot/gpt-5.4` / `openai/gpt-5.5` / `laberit/laberit-ai-preview` / `opencode-go/qwen3.7-plus` | Medium / low |
+| `taskanalyst` | Subagent | Interprets problem reports and improvement ideas before shared task issue creation. | `github-copilot/gemini-3.5-flash` / `openai/gpt-5.4-mini` / `laberit/laberit-ai` / `opencode-go/mimo-v2.5` | Low / low |
 
 The default model policy balances reasoning quality, implementation fit, and subscription stability. OpenAI defaults use documented general GPT models (`openai/gpt-5.5` and lightweight `openai/gpt-5.4-mini`) instead of Codex or undocumented fast-model IDs so ChatGPT Plus/Pro installs avoid known account-availability failures. OpenAI + GitHub Copilot installs keep planning and implementation on OpenAI (`planner`, `code`, `quickcode`), while Copilot handles repository research, testing review, lightweight `small_model` work, and shared-task analysis with Gemini Flash. Codex-oriented models such as `openai/gpt-5.3-codex` remain manual overrides only when `/models` shows the connected account exposes them. Keep `github-copilot/claude-opus-4.6` as a manual escalation option for unusually difficult review/research tasks where latency and quota use are acceptable. Reasoning, verbosity, and step limits are centralized under each generated `opencode.jsonc` `agent` entry rather than in agent-file frontmatter. Model availability still depends on what OpenCode exposes after `/connect` and the connected subscription.
 
-**Switching providers**: You can switch between OpenAI, GitHub Copilot, and laberit models interactively:
+**Switching providers**: You can switch between OpenAI, GitHub Copilot, laberit, and OpenCode Go models interactively:
 
 - `/model openai/gpt-5.5` - Use OpenAI (default)
 - `/model github-copilot/gpt-5.4` - Use GitHub Copilot
 - `/model laberit/laberit-ai` - Use laberit AI
+- `/model opencode-go/deepseek-v4-pro` - Use OpenCode Go
 
 Model availability depends on what OpenCode exposes after `/connect`. If a preferred model is unavailable, choose the closest available reasoning/coding model with `/models`.
 
@@ -204,6 +205,9 @@ It prints provider connection instructions during install but does **not** run a
 # laberit only
 ./install/bootstrap.sh --repo /path/to/repo --providers laberit
 
+# OpenCode Go
+./install/bootstrap.sh --repo /path/to/repo --providers opencode-go
+
 # OpenAI + laberit
 ./install/bootstrap.sh --repo /path/to/repo --providers openai,laberit
 
@@ -228,6 +232,9 @@ It prints provider connection instructions during install but does **not** run a
 
 # laberit only
 .\install\bootstrap.ps1 -Repo /path/to/repo -Providers laberit
+
+# OpenCode Go
+.\install\bootstrap.ps1 -Repo /path/to/repo -Providers opencode-go
 
 # OpenAI + laberit
 .\install\bootstrap.ps1 -Repo /path/to/repo -Providers openai,laberit

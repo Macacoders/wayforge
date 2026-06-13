@@ -8,7 +8,7 @@ This repository provides reusable OpenCode source configuration and installs gen
 
 - OpenCode (default) and Kilo Code are supported AI runtimes, selectable at install time via the `--runtime` / `-Runtime` parameter.
 - Both Bash and PowerShell support guided interactive installs (`install/bootstrap-interactive.sh`, `install/bootstrap-interactive.ps1`) and non-interactive installs (`install/bootstrap.sh`, `install/bootstrap.ps1`).
-- Supported provider sets during installation include `openai`, `github-copilot`, `laberit`, and comma-separated combinations of those providers.
+- Supported provider sets during installation include `openai`, `github-copilot`, `laberit`, `opencode-go`, and comma-separated combinations of those providers.
 - OpenAI authentication is handled in OpenCode with `/connect` (ChatGPT Plus/Pro or Azure credentials).
 - GitHub Copilot authentication is handled in OpenCode with `/connect` (device login flow).
 - laberit is configured via environment variables (`OPENAI_BASE_URL`, `OPENAI_API_KEY`).
@@ -16,7 +16,7 @@ This repository provides reusable OpenCode source configuration and installs gen
 - The default OpenAI model policy uses documented general GPT models (`openai/gpt-5.5` plus lightweight `openai/gpt-5.4-mini`) instead of Codex or undocumented fast-model IDs so ChatGPT Plus/Pro installs avoid known account-availability failures.
 - Generated `opencode.jsonc` (or `kilo.jsonc` for Kilo Code) is the provider/model brain for each target repository and centralizes per-agent model assignments under `agent`.
 - Generated runtime config includes `enabled_providers` based on installer provider selection and supports agent presets (`balanced`, `fast`, `thorough`) through `--agent-preset` / `-AgentPreset`.
-- Users can switch providers interactively: `/model openai/gpt-5.5`, `/model github-copilot/gpt-5.4`, or `/model laberit/laberit-ai`.
+- Users can switch providers interactively: `/model openai/gpt-5.5`, `/model github-copilot/gpt-5.4`, `/model laberit/laberit-ai`, or `/model opencode-go/deepseek-v4-pro`.
 
 ## Installed Surface
 
