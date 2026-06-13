@@ -47,8 +47,8 @@ Y
 "
 	run bash -c 'printf "%s" "$1" | "$2/install/bootstrap-interactive.sh"' _ "$input" "$REPO_ROOT"
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"OpenAI: in OpenCode/Kilo Code, run /connect and complete OpenAI auth."* ]]
-	[[ "$output" == *"GitHub Copilot: in OpenCode/Kilo Code, run /connect and complete device login."* ]]
+	[[ "$output" == *"Model override: opencode-go/deepseek-v4-flash"* ]]
+	[[ "$output" == *"Small model override: opencode-go/deepseek-v4-flash"* ]]
 	[[ "$output" == *"Agent preset: fast"* ]]
 	[[ "$output" == *"DRY-RUN: would generate local config: $TEST_REPO/kilo.jsonc"* ]]
 	[ ! -e "$TEST_REPO/.opencode" ]

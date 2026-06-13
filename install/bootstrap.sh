@@ -90,7 +90,7 @@ parse_providers() {
 	local seen_openai=0
 	local seen_github_copilot=0
 	local seen_laberit=0
-  local seen_opencode_go=0
+	local seen_opencode_go=0
 
 	IFS=',' read -r -a _providers_in <<<"$raw"
 	SELECTED_PROVIDERS=()
@@ -115,12 +115,12 @@ parse_providers() {
 				seen_laberit=1
 			fi
 			;;
-    opencode-go)
-      if [[ "$seen_opencode_go" -eq 0 ]]; then
-        SELECTED_PROVIDERS+=("opencode-go")
-        seen_opencode_go=1
-      fi
-      ;;
+		opencode-go)
+			if [[ "$seen_opencode_go" -eq 0 ]]; then
+				SELECTED_PROVIDERS+=("opencode-go")
+				seen_opencode_go=1
+			fi
+			;;
 		*)
 			log "error: invalid provider '$token' in --providers"
 			log "       allowed values: openai, github-copilot, laberit, opencode-go, or comma-separated combinations"
@@ -270,10 +270,10 @@ pick_planner_model() {
 		printf 'github-copilot/gpt-5.4'
 		return
 	fi
-  if contains_provider "opencode-go"; then
-    printf 'opencode-go/deepseek-v4-pro'
-    return
-  fi
+	if contains_provider "opencode-go"; then
+		printf 'opencode-go/deepseek-v4-pro'
+		return
+	fi
 	printf 'laberit/laberit-ai-preview'
 }
 
@@ -286,10 +286,10 @@ pick_research_model() {
 		printf 'github-copilot/gpt-5.4'
 		return
 	fi
-  if contains_provider "opencode-go"; then
-    printf 'opencode-go/qwen3.7-max'
-    return
-  fi
+	if contains_provider "opencode-go"; then
+		printf 'opencode-go/qwen3.7-max'
+		return
+	fi
 	printf 'laberit/laberit-ai-preview'
 }
 
@@ -519,7 +519,7 @@ $laberit_block"
 		fi
 	fi
 
-  	if contains_provider "opencode-go"; then
+	if contains_provider "opencode-go"; then
 		local opencode_go_block
 		opencode_go_block="$(read_fragment 'opencode-go-provider-block.jsonc')"
 
@@ -606,7 +606,7 @@ build_agent_block_json() {
 	if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "opencode-go" ]]; then
 		read_agent_fragment 'balanced-opencode-go-only-agent-block.jsonc'
 		return
-	fi  
+	fi
 
 	read_agent_fragment 'balanced-default-agent-block.jsonc'
 }
@@ -634,7 +634,7 @@ generate_opencode_jsonc_content() {
 	if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "opencode-go" ]]; then
 		default_model="opencode-go/deepseek-v4-pro"
 		default_small_model="opencode-go/deepseek-v4-flash"
-	fi  
+	fi
 
 	local final_model="$default_model"
 	local final_small_model="$default_small_model"
