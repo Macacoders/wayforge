@@ -265,6 +265,66 @@ Configuration and secrets boundary:
   - GitHub Copilot authentication is handled in OpenCode via `/connect` (device login flow).
   - laberit uses environment variables documented in `profiles/defaults.env.example`: `OPENAI_BASE_URL`, `OPENAI_API_KEY`.
 
+## Uninstall
+
+ai-config provides `install/uninstall.sh` (Bash) and `install/uninstall.ps1` (PowerShell) to remove managed files from a target project.
+
+**What is removed:**
+
+- Every file listed in the target project's `.ai-config-manifest` (the manifest is always under the repo root).
+- The `.ai-config-manifest` file itself.
+- Any parent directories that become empty after file removal, walking up to (but not including) the repo root.
+- The matching entry in `installed-projects.json` at the ai-config root. If the removed project was the only entry, the tracking file is removed entirely.
+
+**What is NOT removed:**
+
+- **User-created files** — only files tracked in `.ai-config-manifest` are touched. Any file you added or modified outside the manifest stays.
+- **Shell profile snippets** — `install/bashrc_snippet.sh` and `install/powershell_profile_snippet.ps1` are sourced manually. They must be removed from `~/.bashrc` or `$PROFILE` by hand.
+- **The target repository itself** — even if the repo becomes empty, it is not deleted.
+
+**Dry-run as safety mechanism:**
+
+There is no confirmation prompt. Use `--dry-run` / `-DryRun` to preview what would be removed before running the full uninstall.
+
+**Linux/macOS:**
+
+```bash
+# Preview
+./install/uninstall.sh --repo /path/to/repo --dry-run
+
+# Uninstall
+./install/uninstall.sh --repo /path/to/repo
+```
+
+**Windows (PowerShell):**
+
+```powershell
+# Preview
+.\install\uninstall.ps1 -Repo C:\path\to\repo -DryRun
+
+# Uninstall
+.\install\uninstall.ps1 -Repo C:\path\to\repo
+```
+
+**Snippet helpers (Bash):**
+
+```bash
+ai-uninstall-repo /path/to/repo
+ai-uninstall-repo-dry-run /path/to/repo
+```
+
+**Snippet helpers (PowerShell):**
+
+```powershell
+Uninstall-AIConfigRepo -RepoPath C:\path\to\repo
+ai-uninstall-repo C:\path\to\repo
+
+Uninstall-AIConfigRepoDryRun -RepoPath C:\path\to\repo
+ai-uninstall-repo-dry-run C:\path\to\repo
+```
+
+After uninstalling, you can re-install with `install/bootstrap.sh` or `install/bootstrap.ps1` at any time.
+
 ## Releases & Versioning
 
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`vMAJOR.MINOR.PATCH`). Pre-1.0 versions (`0.x.y`) indicate initial development where breaking changes may occur between minor versions.
