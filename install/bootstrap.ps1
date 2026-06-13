@@ -197,9 +197,14 @@ function Parse-Providers {
                     $result.Add('laberit')
                 }
             }
+            'opencode-go' {
+                if (-not $result.Contains('opencode-go')) {
+                    $result.Add('opencode-go')
+                }
+            }
             default {
                 log "error: invalid provider '$token' in -Providers"
-                log '       allowed values: openai, github-copilot, laberit, or comma-separated combinations'
+                log '       allowed values: openai, github-copilot, laberit, opencode-go, or comma-separated combinations'
                 exit 1
             }
         }
@@ -260,6 +265,9 @@ function Pick-PlannerModel {
     if (Contains-Provider 'github-copilot') {
         return 'github-copilot/gpt-5.4'
     }
+    if (Contains-Provider 'opencode-go') {
+        return 'opencode-go/deepseek-v4-pro'
+    }
     return 'laberit/laberit-ai-preview'
 }
 
@@ -269,6 +277,9 @@ function Pick-ResearchModel {
     }
     if (Contains-Provider 'github-copilot') {
         return 'github-copilot/gpt-5.4'
+    }
+    if (Contains-Provider 'opencode-go') {
+        return 'opencode-go/qwen3.7-max'
     }
     return 'laberit/laberit-ai-preview'
 }
@@ -280,6 +291,9 @@ function Pick-CodeModel {
     if (Contains-Provider 'github-copilot') {
         return 'github-copilot/gpt-5.3-codex'
     }
+    if (Contains-Provider 'opencode-go') {
+        return 'opencode-go/kimi-k2.7-code'
+    }
     return 'laberit/laberit-ai'
 }
 
@@ -289,6 +303,9 @@ function Pick-TaskanalystModel {
     }
     if (Contains-Provider 'openai') {
         return 'openai/gpt-5.4-mini'
+    }
+    if (Contains-Provider 'opencode-go') {
+        return 'opencode-go/mimo-v2.5'
     }
     return 'laberit/laberit-ai'
 }
@@ -390,6 +407,10 @@ function Build-ProviderBlockJson {
         $blocks.Add((Read-ProviderBlockFragment 'laberit-provider-block.jsonc'))
     }
 
+    if (Contains-Provider 'opencode-go') {
+        $blocks.Add((Read-ProviderBlockFragment 'opencode-go-provider-block.jsonc'))
+    }
+
     return [string]::Join(",`n", $blocks)
 }
 
@@ -471,6 +492,10 @@ function Build-AgentBlockJson {
         return Read-AgentBlockFragment 'balanced-laberit-only-agent-block.jsonc'
     }
 
+    if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'opencode-go') {
+        return Read-AgentBlockFragment 'balanced-opencode-go-only-agent-block.jsonc'
+    }
+
     return Read-AgentBlockFragment 'balanced-default-agent-block.jsonc'
 }
 
@@ -488,6 +513,11 @@ function Generate-OpenCodeJsoncContent {
     if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'laberit') {
         $defaultModel = 'laberit/laberit-ai-preview'
         $defaultSmallModel = 'laberit/laberit-ai'
+    }
+
+    if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'opencode-go') {
+        $defaultModel = 'opencode-go/deepseek-v4-pro'
+        $defaultSmallModel = 'opencode-go/deepseek-v4-flash'
     }
 
     if ((Contains-Provider 'openai') -and (Contains-Provider 'github-copilot')) {
@@ -691,7 +721,7 @@ Usage:
 
 Options:
   -Repo <path>     Install OpenCode config into a target project.
-  -Providers       Provider set: openai | github-copilot | laberit | comma-separated combinations (default: openai)
+  -Providers       Provider set: openai | github-copilot | laberit | opencode-go | comma-separated combinations (default: openai)
   -Model           Override default model (must belong to an enabled provider)
   -SmallModel      Override default small model (must belong to an enabled provider)
   -Runtime         Runtime to configure: opencode (default) or kilocode.

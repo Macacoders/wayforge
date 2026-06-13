@@ -87,19 +87,21 @@ printf '\nProvider set:\n'
 printf '  1) openai (default)\n'
 printf '  2) github-copilot\n'
 printf '  3) laberit\n'
-printf '  4) openai,github-copilot\n'
-printf '  5) openai,laberit\n'
-printf '  6) github-copilot,laberit\n'
-printf '  7) openai,github-copilot,laberit\n'
+printf '  4) opencode-go\n'
+printf '  5) openai,github-copilot\n'
+printf '  6) openai,laberit\n'
+printf '  7) github-copilot,laberit\n'
+printf '  8) openai,github-copilot,laberit\n'
 PROVIDER_CHOICE="$(prompt_menu_choice "Choose provider set" "1")"
 case "$PROVIDER_CHOICE" in
 1) PROVIDERS="openai" ;;
 2) PROVIDERS="github-copilot" ;;
 3) PROVIDERS="laberit" ;;
-4) PROVIDERS="openai,github-copilot" ;;
-5) PROVIDERS="openai,laberit" ;;
-6) PROVIDERS="github-copilot,laberit" ;;
-7) PROVIDERS="openai,github-copilot,laberit" ;;
+4) PROVIDERS="opencode-go" ;;
+5) PROVIDERS="openai,github-copilot" ;;
+6) PROVIDERS="openai,laberit" ;;
+7) PROVIDERS="github-copilot,laberit" ;;
+8) PROVIDERS="openai,github-copilot,laberit" ;;
 *)
 	log "invalid provider selection: $PROVIDER_CHOICE"
 	exit 1

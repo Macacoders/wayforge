@@ -99,19 +99,21 @@ Write-Host "`nProvider set:"
 Write-Host '  1) openai (default)'
 Write-Host '  2) github-copilot'
 Write-Host '  3) laberit'
-Write-Host '  4) openai,github-copilot'
-Write-Host '  5) openai,laberit'
-Write-Host '  6) github-copilot,laberit'
-Write-Host '  7) openai,github-copilot,laberit'
+Write-Host '  4) opencode-go'
+Write-Host '  5) openai,github-copilot'
+Write-Host '  6) openai,laberit'
+Write-Host '  7) github-copilot,laberit'
+Write-Host '  8) openai,github-copilot,laberit'
 $PROVIDER_CHOICE = prompt_menu_choice 'Choose provider set' '1'
 switch ($PROVIDER_CHOICE) {
     '1' { $PROVIDERS = 'openai' }
     '2' { $PROVIDERS = 'github-copilot' }
     '3' { $PROVIDERS = 'laberit' }
-    '4' { $PROVIDERS = 'openai,github-copilot' }
-    '5' { $PROVIDERS = 'openai,laberit' }
-    '6' { $PROVIDERS = 'github-copilot,laberit' }
-    '7' { $PROVIDERS = 'openai,github-copilot,laberit' }
+    '4' { $PROVIDERS = 'opencode-go' }
+    '5' { $PROVIDERS = 'openai,github-copilot' }
+    '6' { $PROVIDERS = 'openai,laberit' }
+    '7' { $PROVIDERS = 'github-copilot,laberit' }
+    '8' { $PROVIDERS = 'openai,github-copilot,laberit' }
     default { log "invalid provider selection: $PROVIDER_CHOICE"; exit 1 }
 }
 
@@ -131,6 +133,8 @@ switch ($MODEL_PRESET_CHOICE) {
             $MODEL_OVERRIDE = 'openai/gpt-5.4-mini'
         } elseif (contains_provider $PROVIDERS 'github-copilot') {
             $MODEL_OVERRIDE = 'github-copilot/gpt-5.3-codex'
+        } elseif (contains_provider $PROVIDERS 'opencode-go') {
+            $MODEL_OVERRIDE = 'opencode-go/deepseek-v4-flash'
         } else {
             $MODEL_OVERRIDE = 'laberit/laberit-ai'
         }
@@ -139,6 +143,8 @@ switch ($MODEL_PRESET_CHOICE) {
             $SMALL_MODEL_OVERRIDE = 'github-copilot/gemini-3.5-flash'
         } elseif (contains_provider $PROVIDERS 'openai') {
             $SMALL_MODEL_OVERRIDE = 'openai/gpt-5.4-mini'
+        } elseif (contains_provider $PROVIDERS 'opencode-go') {
+            $SMALL_MODEL_OVERRIDE = 'opencode-go/deepseek-v4-flash'
         } else {
             $SMALL_MODEL_OVERRIDE = 'laberit/laberit-ai'
         }
@@ -194,6 +200,9 @@ if (contains_provider $PROVIDERS 'github-copilot') {
 }
 if (contains_provider $PROVIDERS 'laberit') {
     Write-Host '  - laberit: set OPENAI_BASE_URL and OPENAI_API_KEY in your local environment before use.'
+}
+if (contains_provider $PROVIDERS 'opencode-go') {
+    Write-Host '  - OpenCode Go: in OpenCode/Kilo Code, run /connect and complete OpenCode Go auth.'
 }
 
 # Build command arguments
