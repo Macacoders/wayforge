@@ -45,32 +45,32 @@ ai-setup-repo-dry-run() {
 }
 
 ai-uninstall-repo() {
-  local repo_path="${1:-}"
+	local repo_path="${1:-}"
 
-  if [[ -z "$repo_path" ]]; then
-    printf '%s\n' "usage: ai-uninstall-repo <path>"
-    return 1
-  fi
+	if [[ -z "$repo_path" ]]; then
+		printf '%s\n' "usage: ai-uninstall-repo <path>"
+		return 1
+	fi
 
-  if [[ ! -d "$repo_path" ]]; then
-    printf '%s\n' "error: repo path does not exist: $repo_path"
-    return 1
-  fi
+	if [[ ! -d "$repo_path" ]]; then
+		printf '%s\n' "error: repo path does not exist: $repo_path"
+		return 1
+	fi
 
-  local root
-  root="$(_ai_config_root)"
-  "$root/install/uninstall.sh" --repo "$repo_path"
+	local root
+	root="$(_ai_config_root)"
+	"$root/install/uninstall.sh" --repo "$repo_path"
 }
 
 ai-uninstall-repo-dry-run() {
-  local repo_path="${1:-}"
+	local repo_path="${1:-}"
 
-  if [[ -z "$repo_path" ]]; then
-    printf '%s\n' "usage: ai-uninstall-repo-dry-run <path>"
-    return 1
-  fi
+	if [[ -z "$repo_path" ]]; then
+		printf '%s\n' "usage: ai-uninstall-repo-dry-run <path>"
+		return 1
+	fi
 
-  local root
-  root="$(_ai_config_root)"
-  "$root/install/uninstall.sh" --repo "$repo_path" --dry-run
+	local root
+	root="$(_ai_config_root)"
+	"$root/install/uninstall.sh" --repo "$repo_path" --dry-run
 }
