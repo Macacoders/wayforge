@@ -138,12 +138,15 @@ function Get-IssueAssigneeCount([string]$Issue) {
 }
 
 function Get-IssueFirstAssignee([string]$Issue) {
-    Invoke-GhIssue view $Issue --json assignees --jq '.assignees[0].login // ""'
+    $json = Invoke-GhIssue view $Issue --json assignees --jq '.assignees[0].login'
+    if (-not $json) { return '' }
+    return "$json"
 }
 
 function Test-IssueLabel([string]$Issue, [string]$Label) {
-    $count = Invoke-GhIssue view $Issue --json labels --jq "[.labels[].name | select(. == `"$Label`")]|length"
-    return $count -ne '0'
+    $json = Invoke-GhIssue view $Issue --json labels --jq '[.labels[].name]'
+    $labels = $json | ConvertFrom-Json
+    return $labels -contains $Label
 }
 
 function Ensure-LabelPresent([string]$Issue, [string]$Label) {
@@ -169,7 +172,8 @@ function Get-CurrentUser {
 }
 
 $command = $remaining[0]
-$rest = if ($remaining.Count -gt 1) { $remaining.GetRange(1, $remaining.Count - 1) } else { [System.Collections.Generic.List[string]]::new() }
+$rangeResult = $remaining.GetRange(1, $remaining.Count - 1)
+$rest = [string[]]$rangeResult
 
 switch ($command) {
     'check' {
@@ -197,15 +201,15 @@ switch ($command) {
     }
     'create' {
         Ensure-RequiredLabels
-        if ($rest.Count -lt 1) { throw 'Error: create requires <title>.' }
+        if ($rest.Length -lt 1) { throw 'Error: create requires <title>.' }
         $title = $rest[0]
 
         $bodyFile = $null
         $labels = [System.Collections.Generic.List[string]]::new()
-        for ($i = 1; $i -lt $rest.Count; $i++) {
+        for ($i = 1; $i -lt $rest.Length; $i++) {
             $arg = $rest[$i]
             if ($arg -eq '--body-file') {
-                if ($i + 1 -ge $rest.Count) { throw 'Error: --body-file requires a path.' }
+                if ($i + 1 -ge $rest.Length) { throw 'Error: --body-file requires a path.' }
                 $bodyFile = $rest[$i + 1]
                 $i++
                 continue
@@ -215,7 +219,7 @@ switch ($command) {
                 continue
             }
             if ($arg -eq '--label') {
-                if ($i + 1 -ge $rest.Count) { throw 'Error: --label requires a value.' }
+                if ($i + 1 -ge $rest.Length) { throw 'Error: --label requires a value.' }
                 $labels.Add($rest[$i + 1])
                 $i++
                 continue
@@ -244,7 +248,7 @@ switch ($command) {
     }
     'claim' {
         Ensure-RequiredLabels
-        if ($rest.Count -lt 1) { throw 'Error: claim requires <issue-number>.' }
+        if ($rest.Length -lt 1) { throw 'Error: claim requires <issue-number>.' }
         $issue = $rest[0]
         Ensure-OpenIssue $issue
 
@@ -264,7 +268,7 @@ switch ($command) {
     }
     'assign' {
         Ensure-RequiredLabels
-        if ($rest.Count -lt 2) { throw 'Error: assign requires <issue-number> <collaborator>.' }
+        if ($rest.Length -lt 2) { throw 'Error: assign requires <issue-number> <collaborator>.' }
         $issue = $rest[0]
         $collaborator = $rest[1]
         Ensure-OpenIssue $issue
@@ -284,11 +288,11 @@ switch ($command) {
     }
     'release' {
         Ensure-RequiredLabels
-        if ($rest.Count -lt 1) { throw 'Error: release requires <issue-number>.' }
+        if ($rest.Length -lt 1) { throw 'Error: release requires <issue-number>.' }
         $issue = $rest[0]
         $blockedReason = $null
-        if ($rest.Count -gt 1) {
-            if ($rest.Count -eq 3 -and $rest[1] -eq '--blocked') {
+        if ($rest.Length -gt 1) {
+            if ($rest.Length -eq 3 -and $rest[1] -eq '--blocked') {
                 $blockedReason = $rest[2]
             } else {
                 throw 'Error: release accepts only optional --blocked <reason>.'
@@ -320,9 +324,9 @@ switch ($command) {
     }
     'close' {
         Ensure-RequiredLabels
-        if ($rest.Count -lt 1) { throw 'Error: close requires <issue-number>.' }
+        if ($rest.Length -lt 1) { throw 'Error: close requires <issue-number>.' }
         $issue = $rest[0]
-        $summary = if ($rest.Count -gt 1) { ($rest.GetRange(1, $rest.Count - 1) -join ' ') } else { 'Completed and validated.' }
+        $summary = if ($rest.Length -gt 1) { ($rest[1..($rest.Length - 1)] -join ' ') } else { 'Completed and validated.' }
         Ensure-OpenIssue $issue
 
         Invoke-GhIssue comment $issue --body $summary | Out-Null
@@ -334,9 +338,9 @@ switch ($command) {
     }
     'prclose' {
         Ensure-RequiredLabels
-        if ($rest.Count -lt 1) { throw 'Error: prclose requires <issue-number>.' }
+        if ($rest.Length -lt 1) { throw 'Error: prclose requires <issue-number>.' }
         $issue = $rest[0]
-        $summary = if ($rest.Count -gt 1) { ($rest.GetRange(1, $rest.Count - 1) -join ' ') } else { 'Ready for review via PR.' }
+        $summary = if ($rest.Length -gt 1) { ($rest[1..($rest.Length - 1)] -join ' ') } else { 'Ready for review via PR.' }
         Ensure-OpenIssue $issue
 
         $branch = (git rev-parse --abbrev-ref HEAD 2>$null) | Select-Object -First 1
@@ -362,7 +366,7 @@ switch ($command) {
         Ensure-LabelPresent $issue 'status:in-review'
     }
     'raw' {
-        if ($rest.Count -eq 0) { throw 'Error: raw requires <gh issue args...>.' }
+        if ($rest.Length -eq 0) { throw 'Error: raw requires <gh issue args...>.' }
         Invoke-GhIssue @rest
     }
     default {
