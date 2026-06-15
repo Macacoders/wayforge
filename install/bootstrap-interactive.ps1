@@ -95,26 +95,52 @@ switch ($RUNTIME_CHOICE) {
 }
 
 # Provider set selection
-Write-Host "`nProvider set:"
-Write-Host '  1) openai (default)'
-Write-Host '  2) github-copilot'
-Write-Host '  3) laberit'
-Write-Host '  4) opencode-go'
-Write-Host '  5) openai,github-copilot'
-Write-Host '  6) openai,laberit'
-Write-Host '  7) github-copilot,laberit'
-Write-Host '  8) openai,github-copilot,laberit'
-$PROVIDER_CHOICE = prompt_menu_choice 'Choose provider set' '1'
-switch ($PROVIDER_CHOICE) {
-    '1' { $PROVIDERS = 'openai' }
-    '2' { $PROVIDERS = 'github-copilot' }
-    '3' { $PROVIDERS = 'laberit' }
-    '4' { $PROVIDERS = 'opencode-go' }
-    '5' { $PROVIDERS = 'openai,github-copilot' }
-    '6' { $PROVIDERS = 'openai,laberit' }
-    '7' { $PROVIDERS = 'github-copilot,laberit' }
-    '8' { $PROVIDERS = 'openai,github-copilot,laberit' }
-    default { log "invalid provider selection: $PROVIDER_CHOICE"; exit 1 }
+if ($RUNTIME -eq 'opencode') {
+    Write-Host "`nProvider set:"
+    Write-Host '  1) free-tier (default, no external provider)'
+    Write-Host '  2) openai'
+    Write-Host '  3) github-copilot'
+    Write-Host '  4) laberit'
+    Write-Host '  5) opencode-go'
+    Write-Host '  6) openai,github-copilot'
+    Write-Host '  7) openai,laberit'
+    Write-Host '  8) github-copilot,laberit'
+    Write-Host '  9) openai,github-copilot,laberit'
+    $PROVIDER_CHOICE = prompt_menu_choice 'Choose provider set' '1'
+    switch ($PROVIDER_CHOICE) {
+        '1' { $PROVIDERS = 'free-tier' }
+        '2' { $PROVIDERS = 'openai' }
+        '3' { $PROVIDERS = 'github-copilot' }
+        '4' { $PROVIDERS = 'laberit' }
+        '5' { $PROVIDERS = 'opencode-go' }
+        '6' { $PROVIDERS = 'openai,github-copilot' }
+        '7' { $PROVIDERS = 'openai,laberit' }
+        '8' { $PROVIDERS = 'github-copilot,laberit' }
+        '9' { $PROVIDERS = 'openai,github-copilot,laberit' }
+        default { log "invalid provider selection: $PROVIDER_CHOICE"; exit 1 }
+    }
+} else {
+    Write-Host "`nProvider set:"
+    Write-Host '  1) openai (default)'
+    Write-Host '  2) github-copilot'
+    Write-Host '  3) laberit'
+    Write-Host '  4) opencode-go'
+    Write-Host '  5) openai,github-copilot'
+    Write-Host '  6) openai,laberit'
+    Write-Host '  7) github-copilot,laberit'
+    Write-Host '  8) openai,github-copilot,laberit'
+    $PROVIDER_CHOICE = prompt_menu_choice 'Choose provider set' '1'
+    switch ($PROVIDER_CHOICE) {
+        '1' { $PROVIDERS = 'openai' }
+        '2' { $PROVIDERS = 'github-copilot' }
+        '3' { $PROVIDERS = 'laberit' }
+        '4' { $PROVIDERS = 'opencode-go' }
+        '5' { $PROVIDERS = 'openai,github-copilot' }
+        '6' { $PROVIDERS = 'openai,laberit' }
+        '7' { $PROVIDERS = 'github-copilot,laberit' }
+        '8' { $PROVIDERS = 'openai,github-copilot,laberit' }
+        default { log "invalid provider selection: $PROVIDER_CHOICE"; exit 1 }
+    }
 }
 
 # Model preset
@@ -135,7 +161,7 @@ switch ($MODEL_PRESET_CHOICE) {
             $MODEL_OVERRIDE = 'github-copilot/gpt-5.3-codex'
         } elseif (contains_provider $PROVIDERS 'opencode-go') {
             $MODEL_OVERRIDE = 'opencode-go/deepseek-v4-flash'
-        } else {
+        } elseif (contains_provider $PROVIDERS 'laberit') {
             $MODEL_OVERRIDE = 'laberit/laberit-ai'
         }
 
@@ -145,7 +171,7 @@ switch ($MODEL_PRESET_CHOICE) {
             $SMALL_MODEL_OVERRIDE = 'openai/gpt-5.4-mini'
         } elseif (contains_provider $PROVIDERS 'opencode-go') {
             $SMALL_MODEL_OVERRIDE = 'opencode-go/deepseek-v4-flash'
-        } else {
+        } elseif (contains_provider $PROVIDERS 'laberit') {
             $SMALL_MODEL_OVERRIDE = 'laberit/laberit-ai'
         }
     }

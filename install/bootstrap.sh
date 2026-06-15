@@ -11,7 +11,7 @@ source "$SCRIPT_DIR/lib/managed_sync.sh"
 DRY_RUN=0
 FORCE=0
 REPO_PATH=""
-PROVIDERS_RAW="openai"
+PROVIDERS_RAW="free-tier"
 MODEL_OVERRIDE=""
 SMALL_MODEL_OVERRIDE=""
 RUNTIME="opencode"
@@ -84,6 +84,23 @@ contains_provider() {
 	return 1
 }
 
+has_real_provider() {
+	local p
+	for p in "${SELECTED_PROVIDERS[@]}"; do
+		if [[ "$p" != "free-tier" ]]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+validate_free_tier_runtime() {
+	if contains_provider "free-tier" && [[ "$RUNTIME" != "opencode" ]]; then
+		log "error: free-tier provider is only available for opencode runtime"
+		exit 1
+	fi
+}
+
 parse_providers() {
 	local raw="$1"
 	local token
@@ -91,6 +108,7 @@ parse_providers() {
 	local seen_github_copilot=0
 	local seen_laberit=0
 	local seen_opencode_go=0
+	local seen_free_tier=0
 
 	IFS=',' read -r -a _providers_in <<<"$raw"
 	SELECTED_PROVIDERS=()
@@ -121,9 +139,15 @@ parse_providers() {
 				seen_opencode_go=1
 			fi
 			;;
+		free-tier)
+			if [[ "$seen_free_tier" -eq 0 ]]; then
+				SELECTED_PROVIDERS+=("free-tier")
+				seen_free_tier=1
+			fi
+			;;
 		*)
 			log "error: invalid provider '$token' in --providers"
-			log "       allowed values: openai, github-copilot, laberit, opencode-go, or comma-separated combinations"
+			log "       allowed values: openai, github-copilot, laberit, opencode-go, free-tier, or comma-separated combinations"
 			exit 1
 			;;
 		esac
@@ -261,7 +285,15 @@ track_installed_project() {
 	log "tracked installed project: $canonical"
 }
 
+pick_free_tier_model() {
+	printf ''
+}
+
 pick_planner_model() {
+	if ! has_real_provider; then
+		pick_free_tier_model
+		return
+	fi
 	if contains_provider "openai"; then
 		printf 'openai/gpt-5.5'
 		return
@@ -278,6 +310,10 @@ pick_planner_model() {
 }
 
 pick_research_model() {
+	if ! has_real_provider; then
+		pick_free_tier_model
+		return
+	fi
 	if contains_provider "openai"; then
 		printf 'openai/gpt-5.5'
 		return
@@ -294,6 +330,10 @@ pick_research_model() {
 }
 
 pick_code_model() {
+	if ! has_real_provider; then
+		pick_free_tier_model
+		return
+	fi
 	if contains_provider "openai"; then
 		printf 'openai/gpt-5.5'
 		return
@@ -310,6 +350,10 @@ pick_code_model() {
 }
 
 pick_taskanalyst_model() {
+	if ! has_real_provider; then
+		pick_free_tier_model
+		return
+	fi
 	if contains_provider "github-copilot"; then
 		printf 'github-copilot/gemini-3.5-flash'
 		return
@@ -455,6 +499,8 @@ build_enabled_providers_json() {
 
 	local provider
 	for provider in "${SELECTED_PROVIDERS[@]}"; do
+		# free-tier is an installer-only concept, not a real OpenCode provider
+		[[ "$provider" == "free-tier" ]] && continue
 		if [[ "$first" -eq 1 ]]; then
 			out="\"$provider\""
 			first=0
@@ -608,7 +654,11 @@ build_agent_block_json() {
 		return
 	fi
 
-	read_agent_fragment 'balanced-default-agent-block.jsonc'
+	if ! has_real_provider; then
+		return
+	fi
+
+	read_agent_fragment 'balanced-openai-only-agent-block.jsonc'
 }
 
 generate_opencode_jsonc_content() {
@@ -636,6 +686,11 @@ generate_opencode_jsonc_content() {
 		default_small_model="opencode-go/deepseek-v4-flash"
 	fi
 
+	if ! has_real_provider; then
+		default_model=""
+		default_small_model=""
+	fi
+
 	local final_model="$default_model"
 	local final_small_model="$default_small_model"
 	if [[ -n "$MODEL_OVERRIDE" ]]; then
@@ -656,6 +711,11 @@ generate_opencode_jsonc_content() {
 	provider_block="$(build_provider_block_json)"
 	local agent_block
 	agent_block="$(build_agent_block_json)"
+	local agent_section=""
+	if [[ -n "$agent_block" ]]; then
+		agent_section="${agent_block},
+  "
+	fi
 
 	cat <<EOF
 $MANAGED_OPENCODE_HEADER
@@ -666,8 +726,7 @@ $MANAGED_OPENCODE_HEADER
   "small_model": "$final_small_model",
   "default_agent": "planner",
   "share": "disabled",
-  $agent_block,
-  "provider": {
+  $agent_section"provider": {
 $provider_block
   },
   "permission": {
@@ -726,6 +785,7 @@ install_repo() {
 	ensure_dir "$repo/.opencode"
 
 	parse_providers "$PROVIDERS_RAW"
+	validate_free_tier_runtime
 	validate_model_override "$MODEL_OVERRIDE" "--model"
 	validate_model_override "$SMALL_MODEL_OVERRIDE" "--small-model"
 	validate_agent_preset "$AGENT_PRESET"
@@ -837,7 +897,7 @@ Usage:
 
 Options:
   --repo <path>  Link OpenCode config into a target project.
-  --providers    Provider set to enable: openai | github-copilot | laberit | comma-separated combinations (default: openai)
+  --providers    Provider set to enable: openai | github-copilot | laberit | opencode-go | free-tier | comma-separated combinations (default: free-tier for opencode)
   --model        Override default model (must belong to an enabled provider)
   --small-model  Override default small model (must belong to an enabled provider)
   --agent-preset Optional agent profile: balanced | fast | thorough (default: balanced behavior)

@@ -16,7 +16,7 @@ $AI_CONFIG_VERSION = if (Test-Path (Join-Path $SOURCE_DIR 'VERSION')) { (Get-Con
 $DRY_RUN = $false
 $FORCE = $false
 $REPO_PATH = ''
-$PROVIDERS_RAW = 'openai'
+$PROVIDERS_RAW = 'free-tier'
 $MODEL_OVERRIDE = ''
 $SMALL_MODEL_OVERRIDE = ''
 $RUNTIME = 'opencode'
@@ -173,6 +173,22 @@ function Contains-Provider {
     return $false
 }
 
+function Has-RealProvider {
+    foreach ($p in $SELECTED_PROVIDERS) {
+        if ($p -ne 'free-tier') {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Validate-FreeTierRuntime {
+    if ((Contains-Provider 'free-tier') -and $RUNTIME -ne 'opencode') {
+        log "error: free-tier provider is only available for opencode runtime"
+        exit 1
+    }
+}
+
 function Parse-Providers {
     param([string]$Raw)
 
@@ -202,9 +218,14 @@ function Parse-Providers {
                     $result.Add('opencode-go')
                 }
             }
+            'free-tier' {
+                if (-not $result.Contains('free-tier')) {
+                    $result.Add('free-tier')
+                }
+            }
             default {
                 log "error: invalid provider '$token' in -Providers"
-                log '       allowed values: openai, github-copilot, laberit, opencode-go, or comma-separated combinations'
+                log '       allowed values: openai, github-copilot, laberit, opencode-go, free-tier, or comma-separated combinations'
                 exit 1
             }
         }
@@ -258,7 +279,14 @@ function Validate-AgentPreset {
     }
 }
 
+function Pick-FreeTierModel {
+    return ''
+}
+
 function Pick-PlannerModel {
+    if (-not (Has-RealProvider)) {
+        return Pick-FreeTierModel
+    }
     if (Contains-Provider 'openai') {
         return 'openai/gpt-5.5'
     }
@@ -272,6 +300,9 @@ function Pick-PlannerModel {
 }
 
 function Pick-ResearchModel {
+    if (-not (Has-RealProvider)) {
+        return Pick-FreeTierModel
+    }
     if (Contains-Provider 'openai') {
         return 'openai/gpt-5.5'
     }
@@ -285,6 +316,9 @@ function Pick-ResearchModel {
 }
 
 function Pick-CodeModel {
+    if (-not (Has-RealProvider)) {
+        return Pick-FreeTierModel
+    }
     if (Contains-Provider 'openai') {
         return 'openai/gpt-5.5'
     }
@@ -298,6 +332,9 @@ function Pick-CodeModel {
 }
 
 function Pick-TaskanalystModel {
+    if (-not (Has-RealProvider)) {
+        return Pick-FreeTierModel
+    }
     if (Contains-Provider 'github-copilot') {
         return 'github-copilot/gemini-3.5-flash'
     }
@@ -369,6 +406,8 @@ function Build-EnabledProvidersJson {
         $quoted += '"opencode"'
     }
     foreach ($provider in $SELECTED_PROVIDERS) {
+        # free-tier is an installer-only concept, not a real OpenCode provider
+        if ($provider -eq 'free-tier') { continue }
         $quoted += ('"{0}"' -f $provider)
     }
     return [string]::Join(', ', $quoted)
@@ -496,7 +535,11 @@ function Build-AgentBlockJson {
         return Read-AgentBlockFragment 'balanced-opencode-go-only-agent-block.jsonc'
     }
 
-    return Read-AgentBlockFragment 'balanced-default-agent-block.jsonc'
+    if (-not (Has-RealProvider)) {
+        return ''
+    }
+
+    return Read-AgentBlockFragment 'balanced-openai-only-agent-block.jsonc'
 }
 
 function Generate-OpenCodeJsoncContent {
@@ -520,6 +563,11 @@ function Generate-OpenCodeJsoncContent {
         $defaultSmallModel = 'opencode-go/deepseek-v4-flash'
     }
 
+    if (-not (Has-RealProvider)) {
+        $defaultModel = ''
+        $defaultSmallModel = ''
+    }
+
     if ((Contains-Provider 'openai') -and (Contains-Provider 'github-copilot')) {
         $defaultModel = 'openai/gpt-5.5'
         $defaultSmallModel = 'github-copilot/gemini-3.5-flash'
@@ -533,6 +581,7 @@ function Generate-OpenCodeJsoncContent {
     $enabledJson = Build-EnabledProvidersJson
     $providerBlock = Build-ProviderBlockJson
     $agentBlock = Build-AgentBlockJson
+    $agentSection = if ([string]::IsNullOrWhiteSpace($agentBlock)) { '' } else { "${agentBlock},`n  " }
 
     return @"
 $MANAGED_OPENCODE_HEADER
@@ -543,8 +592,7 @@ $MANAGED_OPENCODE_HEADER
   "small_model": "$finalSmallModel",
   "default_agent": "planner",
   "share": "disabled",
-  $agentBlock,
-  "provider": {
+  $agentSection"provider": {
 $providerBlock
   },
   "permission": {
@@ -605,6 +653,7 @@ function install-repo {
     ensure-dir (Join-Path $Repo '.opencode')
 
     Parse-Providers $PROVIDERS_RAW
+    Validate-FreeTierRuntime
     Validate-ModelOverride $MODEL_OVERRIDE '-Model'
     Validate-ModelOverride $SMALL_MODEL_OVERRIDE '-SmallModel'
     Validate-AgentPreset $AGENT_PRESET
@@ -721,7 +770,7 @@ Usage:
 
 Options:
   -Repo <path>     Install OpenCode config into a target project.
-  -Providers       Provider set: openai | github-copilot | laberit | opencode-go | comma-separated combinations (default: openai)
+  -Providers       Provider set: openai | github-copilot | laberit | opencode-go | free-tier | comma-separated combinations (default: free-tier for opencode)
   -Model           Override default model (must belong to an enabled provider)
   -SmallModel      Override default small model (must belong to an enabled provider)
   -Runtime         Runtime to configure: opencode (default) or kilocode.

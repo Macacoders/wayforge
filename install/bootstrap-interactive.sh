@@ -83,30 +83,59 @@ case "$RUNTIME_CHOICE" in
 	;;
 esac
 
-printf '\nProvider set:\n'
-printf '  1) openai (default)\n'
-printf '  2) github-copilot\n'
-printf '  3) laberit\n'
-printf '  4) opencode-go\n'
-printf '  5) openai,github-copilot\n'
-printf '  6) openai,laberit\n'
-printf '  7) github-copilot,laberit\n'
-printf '  8) openai,github-copilot,laberit\n'
-PROVIDER_CHOICE="$(prompt_menu_choice "Choose provider set" "1")"
-case "$PROVIDER_CHOICE" in
-1) PROVIDERS="openai" ;;
-2) PROVIDERS="github-copilot" ;;
-3) PROVIDERS="laberit" ;;
-4) PROVIDERS="opencode-go" ;;
-5) PROVIDERS="openai,github-copilot" ;;
-6) PROVIDERS="openai,laberit" ;;
-7) PROVIDERS="github-copilot,laberit" ;;
-8) PROVIDERS="openai,github-copilot,laberit" ;;
-*)
-	log "invalid provider selection: $PROVIDER_CHOICE"
-	exit 1
-	;;
-esac
+if [[ "$RUNTIME" == "opencode" ]]; then
+	printf '\nProvider set:\n'
+	printf '  1) free-tier (default, no external provider)\n'
+	printf '  2) openai\n'
+	printf '  3) github-copilot\n'
+	printf '  4) laberit\n'
+	printf '  5) opencode-go\n'
+	printf '  6) openai,github-copilot\n'
+	printf '  7) openai,laberit\n'
+	printf '  8) github-copilot,laberit\n'
+	printf '  9) openai,github-copilot,laberit\n'
+	PROVIDER_CHOICE="$(prompt_menu_choice "Choose provider set" "1")"
+	case "$PROVIDER_CHOICE" in
+	1) PROVIDERS="free-tier" ;;
+	2) PROVIDERS="openai" ;;
+	3) PROVIDERS="github-copilot" ;;
+	4) PROVIDERS="laberit" ;;
+	5) PROVIDERS="opencode-go" ;;
+	6) PROVIDERS="openai,github-copilot" ;;
+	7) PROVIDERS="openai,laberit" ;;
+	8) PROVIDERS="github-copilot,laberit" ;;
+	9) PROVIDERS="openai,github-copilot,laberit" ;;
+	*)
+		log "invalid provider selection: $PROVIDER_CHOICE"
+		exit 1
+		;;
+	esac
+else
+	printf '\nProvider set:\n'
+	printf '  1) openai (default)\n'
+	printf '  2) github-copilot\n'
+	printf '  3) laberit\n'
+	printf '  4) opencode-go\n'
+	printf '  5) openai,github-copilot\n'
+	printf '  6) openai,laberit\n'
+	printf '  7) github-copilot,laberit\n'
+	printf '  8) openai,github-copilot,laberit\n'
+	PROVIDER_CHOICE="$(prompt_menu_choice "Choose provider set" "1")"
+	case "$PROVIDER_CHOICE" in
+	1) PROVIDERS="openai" ;;
+	2) PROVIDERS="github-copilot" ;;
+	3) PROVIDERS="laberit" ;;
+	4) PROVIDERS="opencode-go" ;;
+	5) PROVIDERS="openai,github-copilot" ;;
+	6) PROVIDERS="openai,laberit" ;;
+	7) PROVIDERS="github-copilot,laberit" ;;
+	8) PROVIDERS="openai,github-copilot,laberit" ;;
+	*)
+		log "invalid provider selection: $PROVIDER_CHOICE"
+		exit 1
+		;;
+	esac
+fi
 
 printf '\nModel preset:\n'
 printf '  1) installer defaults (recommended)\n'
@@ -117,14 +146,14 @@ SMALL_MODEL_OVERRIDE=""
 case "$MODEL_PRESET_CHOICE" in
 1) ;;
 
-2)
+	2)
 	if contains_provider "$PROVIDERS" "openai"; then
 		MODEL_OVERRIDE="openai/gpt-5.4-mini"
 	elif contains_provider "$PROVIDERS" "github-copilot"; then
 		MODEL_OVERRIDE="github-copilot/gpt-5.3-codex"
 	elif contains_provider "$PROVIDERS" "opencode-go"; then
 		MODEL_OVERRIDE="opencode-go/deepseek-v4-flash"
-	else
+	elif contains_provider "$PROVIDERS" "laberit"; then
 		MODEL_OVERRIDE="laberit/laberit-ai"
 	fi
 
@@ -134,7 +163,7 @@ case "$MODEL_PRESET_CHOICE" in
 		SMALL_MODEL_OVERRIDE="openai/gpt-5.4-mini"
 	elif contains_provider "$PROVIDERS" "opencode-go"; then
 		SMALL_MODEL_OVERRIDE="opencode-go/deepseek-v4-flash"
-	else
+	elif contains_provider "$PROVIDERS" "laberit"; then
 		SMALL_MODEL_OVERRIDE="laberit/laberit-ai"
 	fi
 	;;

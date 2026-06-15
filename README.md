@@ -5,7 +5,7 @@
 The repository is intentionally narrow:
 
 - **Runtime**: OpenCode (default) or Kilo Code, selectable at install time.
-- **Providers**: OpenAI (default), GitHub Copilot, laberit, and OpenCode Go, selectable at install time (`openai`, `github-copilot`, `laberit`, `opencode-go`, or comma-separated combinations).
+- **Providers**: Free tier (default for opencode), OpenAI, GitHub Copilot, laberit, and OpenCode Go, selectable at install time (`free-tier`, `openai`, `github-copilot`, `laberit`, `opencode-go`, or comma-separated combinations).
 - **Installation model**: generate/copy project-local OpenCode runtime files from reusable sources under `base/opencode/**`.
 - **Context model**: progressive disclosure, where agents load indexes and targeted references instead of dumping whole documentation trees into context.
 
@@ -180,13 +180,13 @@ The interactive installer prompts for:
 
 - target repository path
 - runtime (`opencode` or `kilocode`)
-- provider set (safe numbered presets)
+- provider set (safe numbered presets; free-tier is the default for opencode)
 - model preset
 - agent preset (`balanced`, `fast`, `thorough`)
 - `dry-run`
 - `force`
 
-It prints provider connection instructions during install but does **not** run authentication automatically.
+It prints provider connection instructions during install but does **not** run authentication automatically. The free-tier option requires no connection steps.
 
 - OpenAI and GitHub Copilot auth are still completed in OpenCode/Kilo Code via `/connect`.
 - laberit still requires local environment variables (`OPENAI_BASE_URL`, `OPENAI_API_KEY`).
@@ -196,7 +196,13 @@ It prints provider connection instructions during install but does **not** run a
 **Linux/macOS:**
 
 ```bash
-# OpenAI only (default)
+# Free tier only (default for opencode, no external provider needed)
+./install/bootstrap.sh --repo /path/to/repo
+
+# Explicit free tier
+./install/bootstrap.sh --repo /path/to/repo --providers free-tier
+
+# OpenAI only
 ./install/bootstrap.sh --repo /path/to/repo --providers openai
 
 # GitHub Copilot only
@@ -208,10 +214,13 @@ It prints provider connection instructions during install but does **not** run a
 # OpenCode Go
 ./install/bootstrap.sh --repo /path/to/repo --providers opencode-go
 
+# Free tier + OpenAI (opencode runtime with openai provider)
+./install/bootstrap.sh --repo /path/to/repo --providers free-tier,openai
+
 # OpenAI + laberit
 ./install/bootstrap.sh --repo /path/to/repo --providers openai,laberit
 
-# Kilo Code (Opencode fork)
+# Kilo Code (Opencode fork) — free-tier not available for kilocode
 ./install/bootstrap.sh --repo /path/to/repo --runtime kilocode --providers openai
 
 # OpenAI + GitHub Copilot
@@ -224,7 +233,13 @@ It prints provider connection instructions during install but does **not** run a
 **Windows (PowerShell):**
 
 ```powershell
-# OpenAI only (default)
+# Free tier only (default for opencode, no external provider needed)
+.\install\bootstrap.ps1 -Repo /path/to/repo
+
+# Explicit free tier
+.\install\bootstrap.ps1 -Repo /path/to/repo -Providers free-tier
+
+# OpenAI only
 .\install\bootstrap.ps1 -Repo /path/to/repo -Providers openai
 
 # GitHub Copilot only
@@ -236,10 +251,13 @@ It prints provider connection instructions during install but does **not** run a
 # OpenCode Go
 .\install\bootstrap.ps1 -Repo /path/to/repo -Providers opencode-go
 
+# Free tier + OpenAI (opencode runtime with openai provider)
+.\install\bootstrap.ps1 -Repo /path/to/repo -Providers free-tier,openai
+
 # OpenAI + laberit
 .\install\bootstrap.ps1 -Repo /path/to/repo -Providers openai,laberit
 
-# Kilo Code (Opencode fork)
+# Kilo Code (Opencode fork) — free-tier not available for kilocode
 .\install\bootstrap.ps1 -Repo /path/to/repo -Runtime kilocode -Providers openai
 
 # OpenAI + GitHub Copilot

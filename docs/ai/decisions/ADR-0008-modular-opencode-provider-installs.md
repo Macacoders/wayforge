@@ -20,10 +20,12 @@ Adopt a modular source-and-generated-output architecture for OpenCode installati
   - `.opencode/commands/**`
   - `.opencode/skills/**`
 - Supported provider sets at install time are:
+  - Free tier (`free-tier`) — default for opencode runtime, no external provider needed
   - OpenAI (`openai`)
   - laberit (`laberit`)
   - GitHub Copilot (`github-copilot`)
-  - Comma-separated combinations of supported providers (for example `openai,github-copilot`)
+  - OpenCode Go (`opencode-go`)
+  - Comma-separated combinations of supported providers (for example `openai,github-copilot`, `free-tier,openai`)
 - Generated `opencode.jsonc` is the provider/model control plane for each consumer repo:
   - global defaults (such as primary model and `small_model`)
   - centralized per-agent model assignments under `agent`
