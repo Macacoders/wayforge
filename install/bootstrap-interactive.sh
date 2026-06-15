@@ -146,7 +146,7 @@ SMALL_MODEL_OVERRIDE=""
 case "$MODEL_PRESET_CHOICE" in
 1) ;;
 
-	2)
+2)
 	if contains_provider "$PROVIDERS" "openai"; then
 		MODEL_OVERRIDE="openai/gpt-5.4-mini"
 	elif contains_provider "$PROVIDERS" "github-copilot"; then
