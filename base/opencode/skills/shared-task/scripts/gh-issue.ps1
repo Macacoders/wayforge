@@ -119,7 +119,7 @@ function Get-MissingRequiredLabels {
         }
     }
 
-    return ,$missing
+    return $missing
 }
 
 function Ensure-RequiredLabels {
@@ -183,21 +183,14 @@ switch ($command) {
     'labels-check' {
         $missing = Get-MissingRequiredLabels
         if ($missing.Count -gt 0) {
-            Write-Error ("Missing required labels in ${repo}:`n  - " + ($missing -join "`n  - "))
+            Write-Error ("Missing required labels in $repo:`n  - " + ($missing -join "`n  - "))
             exit 1
         }
         Write-Output "OK: all required labels are present in $repo"
     }
     'list' {
         Ensure-RequiredLabels
-        $json = Invoke-GhIssue list --state open --limit 100 --json 'number,title,assignees,labels'
-        $issues = $json | ConvertFrom-Json
-        foreach ($item in $issues) {
-            $assignee = if ($item.assignees.Count -gt 0) { ($item.assignees.login -join ',') } else { '-' }
-            $statusLabels = $item.labels | Where-Object { $_.name -like 'status:*' } | ForEach-Object { $_.name }
-            $status = if ($statusLabels) { $statusLabels -join ',' } else { '-' }
-            "#$($item.number) | $($item.title) | assignee: $assignee | status: $status"
-        }
+        Invoke-GhIssue list --state open --limit 100 --json number,title,assignees,labels --jq '.[] | "#\(.number)\t\(.title)\tassignee:\((.assignees|map(.login)|join(",")|if . == "" then "-" else . end))\tstatus:\((.labels|map(.name)|map(select(startswith("status:")))|join(",")|if . == "" then "-" else . end))"'
     }
     'create' {
         Ensure-RequiredLabels
