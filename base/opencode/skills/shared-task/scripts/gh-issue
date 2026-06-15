@@ -36,6 +36,7 @@ required_labels=(
 )
 
 explicit_repo=""
+new_args=()
 while (($# > 0)); do
   case "$1" in
     --repo|-R)
@@ -51,10 +52,12 @@ while (($# > 0)); do
       shift
       ;;
     *)
-      break
+      new_args+=("$1")
+      shift
       ;;
   esac
 done
+set -- "${new_args[@]}"
 
 if (($# == 0)); then
   usage
@@ -389,7 +392,7 @@ case "$command" in
     issue_title="$(gh_issue view "$issue" --json title --jq '.title')"
     pr_url="$(gh pr create --repo "$repo" --title "$issue_title" --body "Fixes #$issue")"
 
-    gh_issue comment "$issue" --body "$summary\n\nPull request: $pr_url"
+    gh_issue comment "$issue" --body "$summary"$'\n\n'"Pull request: $pr_url"
     ensure_label_absent "$issue" "status:doing"
     ensure_label_absent "$issue" "status:to-do"
     ensure_label_absent "$issue" "status:blocked"
