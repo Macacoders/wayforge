@@ -40,5 +40,6 @@ tmp/
 .opencode/
 AGENTS.md.*
 opencode.jsonc
+kilo.jsonc
 .ai-config-managed
 installed-projects.json
