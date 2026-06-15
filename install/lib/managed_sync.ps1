@@ -128,7 +128,7 @@ function Is-ManagedDir {
             return $false
         }
         $parent = Split-Path -Parent $dir
-        if ($parent -eq $dir) { break }
+        if ([string]::IsNullOrEmpty($parent) -or $parent -eq $dir) { break }
         $dir = $parent
     }
 
@@ -159,7 +159,7 @@ function Is-ManagedFile {
             return $false
         }
         $parent = Split-Path -Parent $dir
-        if ($parent -eq $dir) { break }
+        if ([string]::IsNullOrEmpty($parent) -or $parent -eq $dir) { break }
         $dir = $parent
     }
 
