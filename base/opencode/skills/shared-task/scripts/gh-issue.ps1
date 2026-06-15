@@ -83,11 +83,19 @@ function Invoke-GhIssue {
     if ($IssueArgs.Count -gt 1) {
         $remainingArgs = $IssueArgs[1..($IssueArgs.Count - 1)]
     }
-    gh issue $subcommand --repo $repo @remainingArgs
+    $output = gh issue $subcommand --repo $repo @remainingArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "gh issue $subcommand failed (exit $LASTEXITCODE)"
+    }
+    return $output
 }
 
 function Get-GhRepoLabels {
-    gh api "repos/$repo/labels" --paginate --jq '.[].name'
+    $output = gh api "repos/$repo/labels" --paginate --jq '.[].name'
+    if ($LASTEXITCODE -ne 0) {
+        throw "gh api repo labels query failed (exit $LASTEXITCODE)"
+    }
+    return $output
 }
 
 $requiredLabels = @(
@@ -123,7 +131,7 @@ function Get-MissingRequiredLabels {
 }
 
 function Ensure-RequiredLabels {
-    $missing = Get-MissingRequiredLabels
+    $missing = @(Get-MissingRequiredLabels)
     if ($missing.Count -gt 0) {
         throw ('Error: missing required labels: ' + ($missing -join ', '))
     }
@@ -168,7 +176,11 @@ function Ensure-OpenIssue([string]$Issue) {
 }
 
 function Get-CurrentUser {
-    gh api user --jq '.login'
+    $result = gh api user --jq '.login'
+    if ($LASTEXITCODE -ne 0) {
+        throw "gh api user query failed (exit $LASTEXITCODE)"
+    }
+    return "$result"
 }
 
 $command = $remaining[0]
@@ -177,13 +189,16 @@ $rest = [string[]]$rangeResult
 
 switch ($command) {
     'check' {
-        gh api "repos/$repo" --jq '.full_name' | Out-Null
+        $null = gh api "repos/$repo" --jq '.full_name'
+        if ($LASTEXITCODE -ne 0) {
+            throw "Error: GitHub access check failed for $repo (exit $LASTEXITCODE)"
+        }
         Write-Output "OK: GitHub access verified for $repo"
     }
     'labels-check' {
         $missing = Get-MissingRequiredLabels
         if ($missing.Count -gt 0) {
-            Write-Error ("Missing required labels in $repo:`n  - " + ($missing -join "`n  - "))
+            Write-Error ("Missing required labels in ${repo}:`n  - " + ($missing -join "`n  - "))
             exit 1
         }
         Write-Output "OK: all required labels are present in $repo"
@@ -351,6 +366,9 @@ switch ($command) {
 
         $issueTitle = Invoke-GhIssue view $issue --json title --jq '.title'
         $prUrl = gh pr create --repo $repo --title $issueTitle --body "Fixes #$issue"
+        if ($LASTEXITCODE -ne 0) {
+            throw "Error: gh pr create failed (exit $LASTEXITCODE)"
+        }
 
         Invoke-GhIssue comment $issue --body ($summary + "`n`nPull request: $prUrl") | Out-Null
         Ensure-LabelAbsent $issue 'status:doing'
