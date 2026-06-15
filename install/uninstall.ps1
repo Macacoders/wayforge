@@ -111,6 +111,7 @@ foreach ($relPath in $script:_ManagedManifestPaths) {
                 log "removed empty directory: $dir"
             } catch {
                 # Directory not empty or inaccessible, skip
+                Out-Null -InputObject $_
             }
         }
         # Safety: ensure we make progress toward repo root
