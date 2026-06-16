@@ -26,4 +26,12 @@ For `/issue create <description>`:
 7. Create with `.opencode/skills/shared-task/scripts/gh-issue create <title> --body-file <tmp> --label ...`.
 8. Report the created issue number and URL.
 
-For non-create operations, call `.opencode/skills/shared-task/scripts/gh-issue <operation> ...` directly and do not restate operation procedures.
+For non-create operations, call the following helper command directly and do not restate operation procedures.
+
+Helper commands:
+- Bash: `.opencode/skills/shared-task/scripts/gh-issue <operation> ...`
+- PowerShell: `.opencode/skills/shared-task/scripts/gh-issue.ps1 <operation> ...`
+
+## Safety minimums
+
+- Use repo-local credentials (`GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"`).
