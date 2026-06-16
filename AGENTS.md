@@ -29,7 +29,7 @@ Treat `docs/ai/README.md` as a tiny router. Do not load all memory files by defa
 - Language/Framework: Markdown, Bash, PowerShell, JSONC, YAML; OpenCode/Kilo Code agent/command/skill configuration
 - Style guide: keep docs concise and operational; preserve progressive disclosure; keep workflow contracts explicit; prefer the smallest safe diff
 - Formatter: no enforced formatter found; match surrounding style and indentation
-- Key patterns: `base/opencode/**` and `templates/**` are reusable source-of-truth; `templates/AGENTS.md` stays generic with placeholders for onboarding; root `AGENTS.md` is curated repo-specific guidance for this repository; `.opencode/**` and root `opencode.jsonc` are generated/local runtime artifacts
+- Key patterns: `base/opencode/**` and `base/AGENTS.md` are reusable source-of-truth; `base/AGENTS.md` stays generic with placeholders for onboarding; root `AGENTS.md` is curated repo-specific guidance for this repository; `.opencode/**` and root `opencode.jsonc` are generated/local runtime artifacts
 
 ### Testing Expectations
 
@@ -57,7 +57,7 @@ Treat `docs/ai/README.md` as a tiny router. Do not load all memory files by defa
 - Commit format: no enforced convention was found; use concise imperative subjects that describe the affected area, for example `docs: clarify installer guidance`
 - PR template: no PR template was found; summarize workflow impact, source-vs-generated surface touched, validation run, and any follow-up needed in consuming repositories
 - Branch naming: no enforced convention was found; use short descriptive names
-- Review requirements: review source templates and installer logic rather than generated local output where possible; include git diff evidence, relevant local validation, and keep root `AGENTS.md` aligned with this repository's actual guidance while preserving generic placeholders in `templates/AGENTS.md`
+- Review requirements: review source templates and installer logic rather than generated local output where possible; include git diff evidence, relevant local validation, and keep root `AGENTS.md` aligned with this repository's actual guidance while preserving generic placeholders in `base/AGENTS.md`
 
 ## Workflow
 

@@ -695,7 +695,7 @@ function install-repo {
             # AGENTS.md template
             if ($manifestSet -notcontains 'AGENTS.md') {
                 log "new managed path discovered: AGENTS.md"
-                Sync-ManagedFile (Join-Path $SOURCE_DIR 'templates/AGENTS.md') (Join-Path $Repo 'AGENTS.md')
+                Sync-ManagedFile (Join-Path $SOURCE_DIR 'base/AGENTS.md') (Join-Path $Repo 'AGENTS.md')
             }
 
             # Agent files (recursive — includes reference subdirectories)

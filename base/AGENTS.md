@@ -12,59 +12,19 @@ Treat `docs/ai/README.md` as a tiny router. Do not load all memory files by defa
 
 ## Repository Guidance
 
-The following sections contain repository-specific guidance. Keep this file as a generic template with placeholders; `/onboard-repo` and `research` fill these values into each repository's root `AGENTS.md` during onboarding.
+The sections below contain repository-specific guidance. `/onboard-repo` and `research` fill these values during onboarding.
 
 ### Project Overview
 
-[FILL IN: What is this repository for? What problem does it solve? Who are the users? Link to main README if applicable.]
+[FILL IN: One sentence. What does this repository do? Who are the users? Link to README.md.]
 
 ### Build/Test Commands
 
-[FILL IN: How to build, run tests, and lint this project. Include common commands like:]
-- Build: `[FILL IN: npm run build / make / cargo build / etc.]`
-- Test: `[FILL IN: npm test / make test / cargo test / etc.]`
-- Lint: `[FILL IN: npm run lint / cargo clippy / etc.]`
-- Run locally: `[FILL IN: npm start / make run / etc.]`
+[FILL IN: Build, test, lint, and run commands. Link to README.md or Makefile for details.]
 
-### Code Style & Conventions
+### Key Conventions & Constraints
 
-[FILL IN: Naming conventions, formatting rules, and architecture patterns for this codebase. Examples:]
-- Language/Framework: `[FILL IN: Python/TypeScript/Rust/etc.]`
-- Style guide: `[FILL IN: PEP 8 / Airbnb / Standard / etc.]`
-- Formatter: `[FILL IN: black / prettier / rustfmt / etc.]`
-- Key patterns: `[FILL IN: MVC, functional, hexagonal, etc.]`
-
-### Testing Expectations
-
-[FILL IN: Test types, coverage requirements, and testing philosophy. Examples:]
-- Test framework: `[FILL IN: jest / pytest / cargo test / etc.]`
-- Coverage target: `[FILL IN: 80% / 90% / etc.]`
-- Test types: `[FILL IN: unit, integration, e2e, property-based]`
-- CI requirements: `[FILL IN: all tests must pass before merge]`
-
-### Security Notes
-
-[FILL IN: Security considerations specific to this project. Examples:]
-- Secrets handling: `[FILL IN: use .env files, never commit secrets, use secret manager]`
-- Auth patterns: `[FILL IN: OAuth2, JWT, API keys, etc.]`
-- Sensitive data: `[FILL IN: PII handling, encryption requirements]`
-- Dependencies: `[FILL IN: vulnerability scanning, update policy]`
-
-### Deployment
-
-[FILL IN: How and where this project is deployed. Examples:]
-- Platform: `[FILL IN: Vercel, AWS, Kubernetes, self-hosted]`
-- Environments: `[FILL IN: dev, staging, production]`
-- CI/CD: `[FILL IN: GitHub Actions, GitLab CI, Jenkins]`
-- Release process: `[FILL IN: automated on tag, manual approval, etc.]`
-
-### PR/Commit Guidance
-
-[FILL IN: Commit message format and PR conventions. Examples:]
-- Commit format: `[FILL IN: conventional commits / semantic / freeform]`
-- PR template: `[FILL IN: link to PR template or describe required sections]`
-- Branch naming: `[FILL IN: feature/, bugfix/, etc.]`
-- Review requirements: `[FILL IN: require 1+ approvals, CI pass, etc.]`
+[FILL IN: 2-4 rules that directly affect agent behavior — e.g., never commit .env, always dry-run first, use conventional commits, required PR approvals. Skip anything already in README.md.]
 
 ## Workflow
 

@@ -756,7 +756,7 @@ sync_managed_path_from_manifest() {
 		return 0
 		;;
 	"AGENTS.md")
-		src_file="$root_dir/templates/AGENTS.md"
+		src_file="$root_dir/base/AGENTS.md"
 		;;
 	".opencode/agents/"*)
 		subpath="${relative_path#.opencode/agents/}"

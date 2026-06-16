@@ -96,16 +96,12 @@ Keep memory concise. Record unknowns instead of guessing.
 
 During onboarding, propose or create AGENTS.md as a repo-specific practical entrypoint for AI agents:
 
-Template/source rule: `templates/AGENTS.md` is a generic placeholder template (`[FILL IN]` values preserved). During onboarding, fill repository-specific guidance into the target repository root `AGENTS.md`; do not remove placeholders from the template source.
+Template/source rule: `base/AGENTS.md` is the generic placeholder template (`[FILL IN]` values preserved). During onboarding, fill repository-specific guidance into the target repository root `AGENTS.md`; do not remove placeholders from the template source.
 
 1. Check if AGENTS.md exists and has useful content.
 2. If missing or incomplete, propose creating/updating it with:
-   - **Project Overview**: What is this repository for? What problem does it solve? Who are the users?
-   - **Build/Test Commands**: How to build, run tests, and lint this project.
-   - **Code Style & Conventions**: Naming conventions, formatting rules, and architecture patterns.
-   - **Testing Expectations**: Test framework, coverage targets, CI requirements.
-   - **Security Notes**: Secrets handling, auth patterns, sensitive data requirements.
-   - **Deployment**: Platform, environments, CI/CD, release process.
-   - **PR/Commit Guidance**: Commit message format, PR conventions, review requirements.
+   - **Project Overview**: One sentence. What does this repository do? Who are the users?
+   - **Build/Test Commands**: Build, test, lint, and run commands.
+   - **Key Conventions & Constraints**: 2-4 rules that directly affect agent behavior (e.g., never commit .env, always dry-run first).
 3. Reference `docs/ai/README.md` for durable AI memory (architecture, decisions, plans, logs).
 4. Clarify the relationship: AGENTS.md = practical repo-specific entrypoint; docs/ai/README.md = durable memory index.

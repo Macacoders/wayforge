@@ -43,9 +43,9 @@ The `.opencode/` directory in consuming repositories is local/generated runtime 
 
 ## Repository-Self Editing Rule
 
-- In the `ai-config` repository itself, durable workflow changes should normally be made in `base/opencode/**`, `templates/AGENTS.md`, and the installer scripts.
+- In the `ai-config` repository itself, durable workflow changes should normally be made in `base/opencode/**`, `base/AGENTS.md`, and the installer scripts.
 - Root `.opencode/` and root `opencode.jsonc` are local/generated artifacts and are gitignored in this repository.
-- `templates/AGENTS.md` is the generic placeholder template (`[FILL IN]` values preserved) used for onboarding target repositories.
+- `base/AGENTS.md` is the generic placeholder template (`[FILL IN]` values preserved) used for onboarding target repositories.
 - `/onboard-repo` + `research` are responsible for filling repo-specific guidance into each target repository root `AGENTS.md`.
 - Root `AGENTS.md` in this `ai-config` repository is curated repo-specific guidance and may be tracked/updated directly when repository guidance changes.
 
