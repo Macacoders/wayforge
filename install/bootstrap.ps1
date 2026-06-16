@@ -737,6 +737,21 @@ function install-repo {
                 }
             }
 
+            # Plugin files (recursive — includes scripts subdirectories)
+            $pluginsDir = Join-Path $SOURCE_DIR 'base/opencode/plugins'
+            if (Test-Path $pluginsDir -PathType Container) {
+                Get-ChildItem $pluginsDir -Recurse -File | ForEach-Object {
+                    $subpath = $_.FullName.Substring($pluginsDir.Length).TrimStart('\', '/').Replace('\', '/')
+                    $relPath = ".opencode/plugins/$subpath"
+                    if ($manifestSet -notcontains $relPath) {
+                        log "new managed path discovered: $relPath"
+                        $dstParent = Split-Path -Parent (Join-Path $Repo $relPath)
+                        ensure-dir $dstParent
+                        Sync-ManagedFile $_.FullName (Join-Path $Repo $relPath)
+                    }
+                }
+            }
+
             Finalize-ManagedManifest $Repo
             $script:FORCE = $savedForce
             Track-InstalledProject $Repo
@@ -756,6 +771,7 @@ function install-repo {
     Sync-ManagedTree (Join-Path (Join-Path $SOURCE_DIR 'base') 'opencode/agents') (Join-Path (Join-Path $Repo '.opencode') 'agents') $true
     Sync-ManagedTree (Join-Path (Join-Path $SOURCE_DIR 'base') 'opencode/commands') (Join-Path (Join-Path $Repo '.opencode') 'commands') $true
     Sync-ManagedTree (Join-Path (Join-Path $SOURCE_DIR 'base') 'opencode/skills') (Join-Path (Join-Path $Repo '.opencode') 'skills') $true
+    Sync-ManagedTree (Join-Path (Join-Path $SOURCE_DIR 'base') 'opencode/plugins') (Join-Path (Join-Path $Repo '.opencode') 'plugins') $true
 
     Track-InstalledProject $Repo
 

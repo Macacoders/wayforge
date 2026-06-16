@@ -770,6 +770,10 @@ sync_managed_path_from_manifest() {
 		subpath="${relative_path#.opencode/skills/}"
 		src_file="$root_dir/base/opencode/skills/$subpath"
 		;;
+	".opencode/plugins/"*)
+		subpath="${relative_path#.opencode/plugins/}"
+		src_file="$root_dir/base/opencode/plugins/$subpath"
+		;;
 	*)
 		log "warning: unknown managed path prefix, skipping: $relative_path"
 		return 0

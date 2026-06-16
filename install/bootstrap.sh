@@ -865,6 +865,18 @@ install_repo() {
 				fi
 			done < <(find "$SOURCE_DIR/base/opencode/skills" -type f -print0)
 
+			# Plugin files (recursive — includes scripts subdirectories)
+			while IFS= read -r -d '' entry; do
+				subpath="${entry#"$SOURCE_DIR"/base/opencode/plugins/}"
+				rel_path=".opencode/plugins/$subpath"
+				if ! [[ " ${_MANAGED_MANIFEST_PATHS[*]} " == *" $rel_path "* ]]; then
+					log "new managed path discovered: $rel_path"
+					dst_parent="$(dirname "$repo/$rel_path")"
+					ensure_dir "$dst_parent"
+					sync_managed_file "$entry" "$repo/$rel_path"
+				fi
+			done < <(find "$SOURCE_DIR/base/opencode/plugins" -type f -print0)
+
 			finalize_managed_manifest "$repo"
 			FORCE="$_saved_force"
 			track_installed_project "$repo"
@@ -883,6 +895,7 @@ install_repo() {
 	sync_managed_tree "$SOURCE_DIR/base/opencode/agents" "$repo/.opencode/agents" 1
 	sync_managed_tree "$SOURCE_DIR/base/opencode/commands" "$repo/.opencode/commands" 1
 	sync_managed_tree "$SOURCE_DIR/base/opencode/skills" "$repo/.opencode/skills" 1
+	sync_managed_tree "$SOURCE_DIR/base/opencode/plugins" "$repo/.opencode/plugins" 1
 
 	track_installed_project "$repo"
 

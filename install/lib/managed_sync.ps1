@@ -758,6 +758,9 @@ function Sync-ManagedPathFromManifest {
     } elseif ($RelativePath.StartsWith('.opencode/skills/')) {
         $subpath = $RelativePath.Substring('.opencode/skills/'.Length)
         $srcFile = "$RootDir\base\opencode\skills\$subpath"
+    } elseif ($RelativePath.StartsWith('.opencode/plugins/')) {
+        $subpath = $RelativePath.Substring('.opencode/plugins/'.Length)
+        $srcFile = "$RootDir\base\opencode\plugins\$subpath"
     } else {
         log "warning: unknown managed path prefix, skipping: $RelativePath"
         return

@@ -30,6 +30,7 @@ Target projects receive generated/local runtime output:
 - `.opencode/agents/**` (copied/generated local output)
 - `.opencode/commands/**` (copied/generated local output)
 - `.opencode/skills/**` (copied/generated local output)
+- `.opencode/plugins/**` (copied/generated local output)
 - `AGENTS.md` (repo-specific entrypoint generated/curated per repository)
 
 ### AGENTS.md vs docs/ai/README.md Relationship

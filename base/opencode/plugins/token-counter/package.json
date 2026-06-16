@@ -1,0 +1,12 @@
+{
+  "name": "token-counter",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "index.js",
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.15.0"
+  },
+  "dependencies": {
+    "gpt-tokenizer": "^3.4.0"
+  }
+}
