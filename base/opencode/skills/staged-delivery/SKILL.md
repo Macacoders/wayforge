@@ -34,6 +34,43 @@ Use this skill for repository onboarding, features, bugs, refactors, and workflo
 - Split approved work into phases.
 - Give every phase acceptance criteria and validation expectations.
 
+### Phase Economy
+
+Classify scope before proposing phases:
+
+- `quick-sized`: clear, small, low-risk work that would fit quick delivery if the user invoked `/quick` or explicitly requested it.
+- `single-phase`: one reviewable deliverable with clear acceptance criteria.
+- `multi-phase`: several reviewable deliverables with meaningful sequencing, risk, or dependency boundaries.
+- `too-large`: work that would require more than 8 implementation phases as one request.
+
+Use these phase budget rules:
+
+- Prefer 1 phase for simple, localized, or single-outcome work.
+- Use 2-3 phases for moderate work with clearly separable deliverables.
+- Plans with more than 3 phases must include `Phase budget rationale`.
+- Plans with 6-8 phases require explicit user confirmation before implementation handoff.
+- If the work appears to need more than 8 phases, do not present it as one implementation plan. Enter `Scope Too Large` mode and propose a split into smaller tasks.
+
+Phases are reviewable deliverables, not technical microtasks. Do not create separate phases just to create files, add helpers, update imports, run validation, write docs, or perform other steps that belong inside one phase's atomic stages.
+
+When scope is too large, use this format instead of an implementation plan:
+
+```md
+## Scope Too Large
+
+This request appears to require more than 8 implementation phases.
+
+Reason:
+
+Recommended split:
+1. Task A:
+2. Task B:
+3. Task C:
+
+Blocking decision:
+Choose one smaller task to plan first, or approve a revised scope boundary.
+```
+
 ## Repository Onboarding
 
 - Use `research` before planning feature work in an unfamiliar repository.

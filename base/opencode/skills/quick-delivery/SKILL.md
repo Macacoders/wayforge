@@ -11,18 +11,36 @@ metadata:
 
 Use this skill for opt-in small, low-risk tasks where the user wants faster implementation with less supervision than staged delivery.
 
-## Eligibility
+## Quick Delivery Classification
 
-A request is eligible for quick delivery only when all of these are true:
+Classify a request for quick delivery only when the user invoked `/quick` or explicitly asked for quick delivery. If the request is not quick-eligible, explain why and fall back to staged-delivery planning without weakening the staged workflow.
 
-- The user invoked `/quick`, explicitly requested quick delivery, or explicitly confirmed a proactive quick-delivery suggestion from `planner`.
-- The task has a clear, narrow outcome and obvious acceptance criteria.
-- The change is expected to touch a small number of files.
-- The risk of regression, data loss, security impact, or operational impact is low.
-- The work does not require architectural decisions, broad refactors, migrations, dependency installation, deployments, releases, or secret handling.
-- Reasonable validation can be done with safe git inspection and common local validation commands.
+A request is quick-eligible only when all of these are true:
 
-If any condition is not met, use the staged-delivery workflow instead.
+- The outcome and acceptance criteria are clear without substantial discovery.
+- The expected diff is small and touches a small number of files.
+- Regression, security, data, operational, release, and user-impact risk are low.
+- The work does not require architecture decisions, broad refactors, migrations, dependency installation, deployments, releases, or secret handling.
+- Safe local validation is likely possible with git inspection and common validation commands.
+
+Escalate to staged delivery when quick-delivery scope becomes ambiguous, cross-cutting, high-risk, security-sensitive, dependent on unsafe validation, or larger than the handoff described.
+
+### Proactive Suggestion
+
+`planner` may proactively suggest quick delivery when all of these are true:
+
+- The user has not invoked `/quick` or explicitly asked for quick delivery.
+- The request unambiguously meets all Quick Delivery Classification criteria above.
+- Planner can explain clearly why the task is quick-eligible and what the expected outcome is.
+
+When `planner` suggests quick delivery:
+
+1. Propose the quick-delivery path, state the eligibility reasons, and outline the expected scope.
+2. Wait for explicit user confirmation before preparing a Quick Code Handoff Brief or invoking `quickcode`.
+3. If the user declines, fall back to staged-delivery planning without weakening the staged workflow.
+4. If the user confirms, follow the standard quick delivery workflow: prepare compact handoff, invoke `quickcode`, review results with git evidence.
+
+Escalate to staged delivery if the request scope, risk, or validation requirements become unclear during discussion.
 
 ## Repository Boundary
 

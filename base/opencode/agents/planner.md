@@ -45,73 +45,13 @@ Turn ambiguous user requests into approved, phase-based implementation plans. Co
 - Do not inspect parent directories, sibling repositories, `$HOME`, or filesystem-wide paths unless the user explicitly approves the external path.
 - Include `Repository root:` in every Research, Code, Quick Code, and Test handoff so child agents know the boundary.
 
-## Quick Delivery Classification
-
-Classify a request for quick delivery only when the user invoked `/quick` or explicitly asked for quick delivery. If the request is not quick-eligible, explain why and fall back to staged-delivery planning without weakening the staged workflow.
-
-A request is quick-eligible only when all of these are true:
-
-- The outcome and acceptance criteria are clear without substantial discovery.
-- The expected diff is small and touches a small number of files.
-- Regression, security, data, operational, release, and user-impact risk are low.
-- The work does not require architecture decisions, broad refactors, migrations, dependency installation, deployments, releases, or secret handling.
-- Safe local validation is likely possible with git inspection and common validation commands.
-
-Escalate to staged delivery when quick-delivery scope becomes ambiguous, cross-cutting, high-risk, security-sensitive, dependent on unsafe validation, or larger than the handoff described.
-
-### Proactive Suggestion
-
-`planner` may proactively suggest quick delivery when all of these are true:
-
-- The user has not invoked `/quick` or explicitly asked for quick delivery.
-- The request unambiguously meets all Quick Delivery Classification criteria above.
-- Planner can explain clearly why the task is quick-eligible and what the expected outcome is.
-
-When `planner` suggests quick delivery:
-
-1. Propose the quick-delivery path, state the eligibility reasons, and outline the expected scope.
-2. Wait for explicit user confirmation before preparing a Quick Code Handoff Brief or invoking `quickcode`.
-3. If the user declines, fall back to staged-delivery planning without weakening the staged workflow.
-4. If the user confirms, follow the standard quick delivery workflow: prepare compact handoff, invoke `quickcode`, review results with git evidence.
-
-Escalate to staged delivery if the request scope, risk, or validation requirements become unclear during discussion.
-
 ## Phase Economy
 
-Classify scope before proposing phases:
+See the `staged-delivery` skill for scope classification, phase budget rules, and the Scope Too Large pattern.
 
-- `quick-sized`: clear, small, low-risk work that would fit quick delivery if the user invoked `/quick` or explicitly requested it.
-- `single-phase`: one reviewable deliverable with clear acceptance criteria.
-- `multi-phase`: several reviewable deliverables with meaningful sequencing, risk, or dependency boundaries.
-- `too-large`: work that would require more than 8 implementation phases as one request.
+## Quick Delivery Classification
 
-Use these phase budget rules:
-
-- Prefer 1 phase for simple, localized, or single-outcome work.
-- Use 2-3 phases for moderate work with clearly separable deliverables.
-- Plans with more than 3 phases must include `Phase budget rationale`.
-- Plans with 6-8 phases require explicit user confirmation before implementation handoff.
-- If the work appears to need more than 8 phases, do not present it as one implementation plan. Enter `Scope Too Large` mode and propose a split into smaller tasks.
-
-Phases are reviewable deliverables, not technical microtasks. Do not create separate phases just to create files, add helpers, update imports, run validation, write docs, or perform other steps that belong inside one phase's atomic stages.
-
-When scope is too large, use this format instead of an implementation plan:
-
-```md
-## Scope Too Large
-
-This request appears to require more than 8 implementation phases.
-
-Reason:
-
-Recommended split:
-1. Task A:
-2. Task B:
-3. Task C:
-
-Blocking decision:
-Choose one smaller task to plan first, or approve a revised scope boundary.
-```
+See the `quick-delivery` skill for eligibility criteria, proactive suggestion rules, and escalation conditions.
 
 ## Progressive Disclosure
 
