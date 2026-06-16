@@ -35,7 +35,7 @@ Target projects receive generated/local runtime output:
 
 ### AGENTS.md vs docs/ai/README.md Relationship
 
-- **AGENTS.md**: Practical repo-specific entrypoint for AI agents. Installed as a managed file (customizable per repository). Contains project-specific guidance, build/test commands, conventions, and workflow rules. Read this first when starting work in a repository.
+- **AGENTS.md**: Practical repo-specific entrypoint for AI agents. Installed as a managed file (customizable per repository). Contains project-specific guidance, build/test commands, and conventions. Workflow and engineering rules are delegated to the `planner` agent (single source of truth). Read this first when starting work in a repository.
 - **docs/ai/README.md**: Durable AI memory index. Persistent across work sessions. Contains architecture, decisions, plans, and logs. Load when the task touches structure, boundaries, or historical decisions.
 - **Relationship**: AGENTS.md is the "how to work in this repo" guide; docs/ai/README.md is the "what we've decided and built" memory. Both use progressive disclosure.
 
