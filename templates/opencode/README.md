@@ -1,6 +1,6 @@
 # OpenCode Generated Surface Template
 
-This directory is reserved for Phase 2 generation templates.
+This directory templates the generated runtime surface for installed consuming repositories.
 
 Expected generated output in consuming repositories:
 
