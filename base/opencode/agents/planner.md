@@ -157,97 +157,13 @@ Risks:
 ## Decisions To Record
 ```
 
-## Research Handoff Brief
+## Research Handoff Brief — `base/opencode/agents/planner/references/research-handoff-template.md`
 
-Use this format when invoking `research`:
+## Code Handoff Brief — `base/opencode/agents/planner/references/code-handoff-template.md`
 
-```md
-## Research Handoff Brief
+## Quick Code Handoff Brief — `base/opencode/agents/planner/references/quickcode-handoff-template.md`
 
-Goal:
-Repository root:
-Repository state:
-Known docs or entrypoints:
-Areas to inspect:
-Memory files to create or update:
-Constraints: Do not plan feature work. Do not modify product code. Create or update only the `docs/ai/**` memory files explicitly approved in this brief.
-Expected output: Repository Research Brief plus initial memory updates or proposed memory files.
-```
-
-## Code Handoff Brief
-
-Use this format when invoking `code`:
-
-```md
-## Code Handoff Brief
-
-Phase:
-Goal:
-Repository root:
-Acceptance criteria:
-Atomic stages:
-Relevant files:
-Confirmed decisions:
-Constraints:
-Reuse expectation: Required when touching repeatable logic; name existing patterns/utilities/tests/conventions to inspect, or state why none are expected.
-References to load:
-Stop rule: Implement exactly one atomic stage, then stop. Atomic stages are not new phases. Report changed files, behavior changed, manual validation commands, risks, reuse outcome, and the next proposed stage. Wait for explicit user approval before continuing in this same child session.
-```
-
-## Quick Code Handoff Brief
-
-Use this format when invoking `quickcode`:
-
-```md
-## Quick Code Handoff Brief
-
-Task:
-Goal:
-Repository root:
-Acceptance criteria:
-Approved scope:
-Expected files:
-References to load:
-Validation expectations:
-Reuse expectation: Required when touching repeatable logic; name existing patterns/utilities/tests/conventions to inspect, or state why none are expected.
-Escalation conditions:
-Constraints: Stay within approved scope. Do not invoke other subagents. Do not commit, push, run destructive git operations, install dependencies, modify secrets, or broaden scope. Complete all approved quick-task steps without staged pauses, then report once.
-```
-
-Keep quick handoffs compact and include only directly relevant references. Do not include broad staged-delivery context unless it is required for the quick task.
-
-## Test Handoff Brief
-
-Use this format when invoking `test`:
-
-```md
-## Test Handoff Brief
-
-Phase:
-Repository root:
-Acceptance criteria:
-Changed files:
-Risk areas:
-Existing validation:
-Mode:
-New tests approved:
-Approval source:
-Test budget:
-Allowed test types:
-Reuse expectation: Review existing tests, helpers, fixtures, and coverage before recommending or writing new tests.
-References to load:
-Expected output:
-```
-
-`Mode` must be one of: `review-only`, `recommend-only`, or `write-tests`.
-
-`New tests approved` must be `yes` only when test creation authorization is auditable. Otherwise set `no`.
-
-`Approval source` must identify why test creation is allowed: `user explicit request`, `approved acceptance criteria`, `user approved recommendation`, or `not approved`.
-
-`Test budget` must be concrete and minimal. Use `none` when new tests are not approved or not needed. Do not use broad budgets such as "add relevant tests".
-
-`Allowed test types` must constrain scope to observable behavior, public contracts, error paths, or edge cases tied to the named risk.
+## Test Handoff Brief — `base/opencode/agents/planner/references/test-handoff-template.md`
 
 ## Shared Task Workflow
 
@@ -263,20 +179,7 @@ Use `/issue create` for user requests that should become shared GitHub Issues in
 
 Use `/issue` for shared issue operations (`list`, `claim`, `assign`, `release`, `close`, `prclose`).
 
-## Task Analysis Brief
-
-Use this format when invoking `taskanalyst`:
-
-```md
-## Task Analysis Brief
-
-Raw request:
-Repository root:
-Workflow references:
-Known context:
-Constraints: Analyze only. Do not edit files, invoke subagents, or create implementation plans.
-Expected output: Task Analysis with issue title/body draft, suggested labels (status/type/priority), duplicate assessment, acceptance criteria, and open questions.
-```
+## Task Analysis Brief — `base/opencode/agents/planner/references/task-analysis-template.md`
 
 ## Memory Duties
 

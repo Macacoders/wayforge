@@ -698,13 +698,16 @@ function install-repo {
                 Sync-ManagedFile (Join-Path $SOURCE_DIR 'templates/AGENTS.md') (Join-Path $Repo 'AGENTS.md')
             }
 
-            # Agent files
+            # Agent files (recursive — includes reference subdirectories)
             $agentsDir = Join-Path $SOURCE_DIR 'base/opencode/agents'
             if (Test-Path $agentsDir -PathType Container) {
-                Get-ChildItem $agentsDir -Filter '*.md' -File | ForEach-Object {
-                    $relPath = ".opencode/agents/$($_.Name)"
+                Get-ChildItem $agentsDir -Recurse -File | ForEach-Object {
+                    $subpath = $_.FullName.Substring($agentsDir.Length).TrimStart('\', '/').Replace('\', '/')
+                    $relPath = ".opencode/agents/$subpath"
                     if ($manifestSet -notcontains $relPath) {
                         log "new managed path discovered: $relPath"
+                        $dstParent = Split-Path -Parent (Join-Path $Repo $relPath)
+                        ensure-dir $dstParent
                         Sync-ManagedFile $_.FullName (Join-Path $Repo $relPath)
                     }
                 }
@@ -752,6 +755,18 @@ function install-repo {
                 }
             }
 
+            # Rewrite base/opencode/ paths to .opencode/ in installed agent files
+            $installedAgentsDir = Join-Path (Join-Path $Repo '.opencode') 'agents'
+            if (Test-Path $installedAgentsDir -PathType Container) {
+                Get-ChildItem $installedAgentsDir -Recurse -Filter '*.md' -File | ForEach-Object {
+                    $content = Get-Content $_.FullName -Raw
+                    if ($content -match 'base/opencode/') {
+                        $content = $content -replace 'base/opencode/', '.opencode/'
+                        Set-Content $_.FullName -Value $content -NoNewline
+                    }
+                }
+            }
+
             Finalize-ManagedManifest $Repo
             $script:FORCE = $savedForce
             Track-InstalledProject $Repo
@@ -769,6 +784,19 @@ function install-repo {
     Sync-GeneratedOpenCodeJsonc -Dst (Join-Path $Repo $configFilename) -Runtime $RUNTIME
     Sync-ManagedFile (Join-Path (Join-Path $SOURCE_DIR 'templates') 'AGENTS.md') (Join-Path $Repo 'AGENTS.md')
     Sync-ManagedTree (Join-Path (Join-Path $SOURCE_DIR 'base') 'opencode/agents') (Join-Path (Join-Path $Repo '.opencode') 'agents') $true
+
+    # Rewrite base/opencode/ paths to .opencode/ in installed agent files
+    $installedAgentsDir = Join-Path (Join-Path $Repo '.opencode') 'agents'
+    if (Test-Path $installedAgentsDir -PathType Container) {
+        Get-ChildItem $installedAgentsDir -Recurse -Filter '*.md' -File | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw
+            if ($content -match 'base/opencode/') {
+                $content = $content -replace 'base/opencode/', '.opencode/'
+                Set-Content $_.FullName -Value $content -NoNewline
+            }
+        }
+    }
+
     Sync-ManagedTree (Join-Path (Join-Path $SOURCE_DIR 'base') 'opencode/commands') (Join-Path (Join-Path $Repo '.opencode') 'commands') $true
     Sync-ManagedTree (Join-Path (Join-Path $SOURCE_DIR 'base') 'opencode/skills') (Join-Path (Join-Path $Repo '.opencode') 'skills') $true
     Sync-ManagedTree (Join-Path (Join-Path $SOURCE_DIR 'base') 'opencode/plugins') (Join-Path (Join-Path $Repo '.opencode') 'plugins') $true

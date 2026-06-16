@@ -831,16 +831,17 @@ install_repo() {
 				sync_managed_file "$SOURCE_DIR/templates/AGENTS.md" "$repo/AGENTS.md"
 			fi
 
-			# Agent files
-			for entry in "$SOURCE_DIR/base/opencode/agents"/*.md; do
-				[[ -f "$entry" ]] || continue
-				fname="$(basename "$entry")"
-				rel_path=".opencode/agents/$fname"
+			# Agent files (recursive — includes reference subdirectories)
+			while IFS= read -r -d '' entry; do
+				subpath="${entry#"$SOURCE_DIR"/base/opencode/agents/}"
+				rel_path=".opencode/agents/$subpath"
 				if ! [[ " ${_MANAGED_MANIFEST_PATHS[*]} " == *" $rel_path "* ]]; then
 					log "new managed path discovered: $rel_path"
+					dst_parent="$(dirname "$repo/$rel_path")"
+					ensure_dir "$dst_parent"
 					sync_managed_file "$entry" "$repo/$rel_path"
 				fi
-			done
+			done < <(find "$SOURCE_DIR/base/opencode/agents" -type f -print0)
 
 			# Command files
 			for entry in "$SOURCE_DIR/base/opencode/commands"/*.md; do
@@ -877,6 +878,9 @@ install_repo() {
 				fi
 			done < <(find "$SOURCE_DIR/base/opencode/plugins" -type f -print0)
 
+			# Rewrite base/opencode/ paths to .opencode/ in installed agent files
+			find "$repo/.opencode/agents" -type f -name '*.md' -exec sed -i 's|base/opencode/|.opencode/|g' {} +
+
 			finalize_managed_manifest "$repo"
 			FORCE="$_saved_force"
 			track_installed_project "$repo"
@@ -893,6 +897,10 @@ install_repo() {
 	sync_generated_opencode_jsonc "$repo" "$RUNTIME"
 	sync_managed_file "$SOURCE_DIR/templates/AGENTS.md" "$repo/AGENTS.md"
 	sync_managed_tree "$SOURCE_DIR/base/opencode/agents" "$repo/.opencode/agents" 1
+
+	# Rewrite base/opencode/ paths to .opencode/ in installed agent files
+	find "$repo/.opencode/agents" -type f -name '*.md' -exec sed -i 's|base/opencode/|.opencode/|g' {} +
+
 	sync_managed_tree "$SOURCE_DIR/base/opencode/commands" "$repo/.opencode/commands" 1
 	sync_managed_tree "$SOURCE_DIR/base/opencode/skills" "$repo/.opencode/skills" 1
 	sync_managed_tree "$SOURCE_DIR/base/opencode/plugins" "$repo/.opencode/plugins" 1
