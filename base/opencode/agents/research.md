@@ -92,20 +92,4 @@ If write approval is not explicit, do not edit `docs/ai/**`; return a concise pr
 
 Keep memory concise. Record unknowns instead of guessing.
 
-## AGENTS.md Guidance
-
-During onboarding, propose or create AGENTS.md as a repo-specific practical entrypoint for AI agents:
-
-Template/source rule: `templates/AGENTS.md` is a generic placeholder template (`[FILL IN]` values preserved). During onboarding, fill repository-specific guidance into the target repository root `AGENTS.md`; do not remove placeholders from the template source.
-
-1. Check if AGENTS.md exists and has useful content.
-2. If missing or incomplete, propose creating/updating it with:
-   - **Project Overview**: What is this repository for? What problem does it solve? Who are the users?
-   - **Build/Test Commands**: How to build, run tests, and lint this project.
-   - **Code Style & Conventions**: Naming conventions, formatting rules, and architecture patterns.
-   - **Testing Expectations**: Test framework, coverage targets, CI requirements.
-   - **Security Notes**: Secrets handling, auth patterns, sensitive data requirements.
-   - **Deployment**: Platform, environments, CI/CD, release process.
-   - **PR/Commit Guidance**: Commit message format, PR conventions, review requirements.
-3. Reference `docs/ai/README.md` for durable AI memory (architecture, decisions, plans, logs).
-4. Clarify the relationship: AGENTS.md = practical repo-specific entrypoint; docs/ai/README.md = durable memory index.
+## AGENTS.md Guidance — `base/opencode/agents/research/references/agents-guidance.md`

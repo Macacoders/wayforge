@@ -30,11 +30,12 @@ Target projects receive generated/local runtime output:
 - `.opencode/agents/**` (copied/generated local output)
 - `.opencode/commands/**` (copied/generated local output)
 - `.opencode/skills/**` (copied/generated local output)
+- `.opencode/plugins/**` (copied/generated local output)
 - `AGENTS.md` (repo-specific entrypoint generated/curated per repository)
 
 ### AGENTS.md vs docs/ai/README.md Relationship
 
-- **AGENTS.md**: Practical repo-specific entrypoint for AI agents. Installed as a managed file (customizable per repository). Contains project-specific guidance, build/test commands, conventions, and workflow rules. Read this first when starting work in a repository.
+- **AGENTS.md**: Practical repo-specific entrypoint for AI agents. Installed as a managed file (customizable per repository). Contains project-specific guidance, build/test commands, and conventions. Workflow and engineering rules are delegated to the `planner` agent (single source of truth). Read this first when starting work in a repository.
 - **docs/ai/README.md**: Durable AI memory index. Persistent across work sessions. Contains architecture, decisions, plans, and logs. Load when the task touches structure, boundaries, or historical decisions.
 - **Relationship**: AGENTS.md is the "how to work in this repo" guide; docs/ai/README.md is the "what we've decided and built" memory. Both use progressive disclosure.
 
@@ -42,9 +43,9 @@ The `.opencode/` directory in consuming repositories is local/generated runtime 
 
 ## Repository-Self Editing Rule
 
-- In the `ai-config` repository itself, durable workflow changes should normally be made in `base/opencode/**`, `templates/AGENTS.md`, and the installer scripts.
+- In the `ai-config` repository itself, durable workflow changes should normally be made in `base/opencode/**`, `base/AGENTS.md`, and the installer scripts.
 - Root `.opencode/` and root `opencode.jsonc` are local/generated artifacts and are gitignored in this repository.
-- `templates/AGENTS.md` is the generic placeholder template (`[FILL IN]` values preserved) used for onboarding target repositories.
+- `base/AGENTS.md` is the generic placeholder template (`[FILL IN]` values preserved) used for onboarding target repositories.
 - `/onboard-repo` + `research` are responsible for filling repo-specific guidance into each target repository root `AGENTS.md`.
 - Root `AGENTS.md` in this `ai-config` repository is curated repo-specific guidance and may be tracked/updated directly when repository guidance changes.
 
