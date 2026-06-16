@@ -12,52 +12,32 @@ Treat `docs/ai/README.md` as a tiny router. Do not load all memory files by defa
 
 ## Repository Guidance
 
+The sections below contain repository-specific guidance. `/onboard-repo` and `research` fill these values during onboarding.
+
 ### Project Overview
 
-`ai-config` is a project-local OpenCode/Kilo Code configuration repository. It provides reusable workflow sources, installer scripts, and durable AI-memory conventions for repositories that want staged delivery, quick delivery, progressive disclosure, and shared GitHub Issue task workflows. The main users are maintainers of this repo and maintainers of consuming repositories that install this configuration. Start with `README.md` for the installation model and workflow contract.
+`ai-config` is a project-local OpenCode configuration repository that provides reusable AI-assisted development workflow sources (agents, skills, commands, plugins), installer scripts, and durable AI-memory conventions. Users are maintainers of this repo and maintainers of consuming repositories that install the configuration. See [README.md](./README.md) for the installation model and workflow contract.
 
 ### Build/Test Commands
 
-- Build/generate installed output: `./install/bootstrap.sh --repo /path/to/repo --providers openai` or `./install/bootstrap.sh --repo /path/to/repo --runtime kilocode --providers openai`; PowerShell equivalent: `./install/bootstrap.ps1 -Repo /path/to/repo -Providers openai`
-- Preview changes safely: `./install/bootstrap.sh --repo /path/to/repo --dry-run` or `./install/bootstrap.ps1 -Repo /path/to/repo -DryRun`
-- Test: no dedicated automated test suite was found; use targeted validation such as `bash -n install/bootstrap.sh` and PowerShell parsing/smoke checks when `pwsh` is available
-- Lint/format: no repo-wide linter/formatter config was found; preserve existing Markdown, Bash, PowerShell, YAML, and JSONC formatting conventions
-- Run locally: source `install/bashrc_snippet.sh` or `install/powershell_profile_snippet.ps1` to expose `ai-setup-repo` and `ai-setup-repo-dry-run` helpers
+- **Full QA**: `make check` — runs Bash lint/format (shfmt + ShellCheck), PowerShell analysis (PSScriptAnalyzer), Bats/Pester tests, and duplication checks (jscpd)
+- **Bash only**: `make check-bash` — shfmt formatting + ShellCheck lint
+- **PowerShell only**: `make check-powershell` — PSScriptAnalyzer + Pester tests (requires `pwsh`)
+- **Tests only**: `make check-tests` — Bats for Bash (`tests/bash/*.bats`), Pester for PowerShell
+- **Coverage**: `make coverage` (Bash + PowerShell)
+- **Duplication**: `make check-duplication` (jscpd, 8% threshold on `.sh`/`.ps1` files)
+- **Fix Bash formatting**: `make fix-bash`
+- **Install QA deps**: `make install-deps`
+- **Installer dry-run**: `./install/bootstrap.sh --repo /path/to/repo --dry-run`
+- **Installer install**: `./install/bootstrap.sh --repo /path/to/repo --providers free-tier`
+- See [Makefile](./Makefile) for all targets.
 
-### Code Style & Conventions
+### Key Conventions & Constraints
 
-- Language/Framework: Markdown, Bash, PowerShell, JSONC, YAML; OpenCode/Kilo Code agent/command/skill configuration
-- Style guide: keep docs concise and operational; preserve progressive disclosure; keep workflow contracts explicit; prefer the smallest safe diff
-- Formatter: no enforced formatter found; match surrounding style and indentation
-- Key patterns: `base/opencode/**` and `base/AGENTS.md` are reusable source-of-truth; `base/AGENTS.md` stays generic with placeholders for onboarding; root `AGENTS.md` is curated repo-specific guidance for this repository; `.opencode/**` and root `opencode.jsonc` are generated/local runtime artifacts
-
-### Testing Expectations
-
-- Test framework: no dedicated framework found in this repository
-- Coverage target: none documented
-- Test types: script syntax checks, dry-run installer verification, git diff review, and targeted runtime checks in a consuming repository when installer behavior changes
-- CI requirements: no tracked GitHub Actions workflow was found during onboarding; before merge, run the smallest relevant local checks and record exactly what was and was not validated
-
-### Security Notes
-
-- Secrets handling: never commit `.env*`, `.gh-config/`, tokens, or generated auth state; OpenAI and GitHub Copilot auth should be established in OpenCode via `/connect`; laberit credentials live in local environment variables such as `OPENAI_BASE_URL` and `OPENAI_API_KEY`
-- Auth patterns: OpenCode `/connect` for model providers; fine-grained GitHub token for shared-task issue operations, ideally through repository-local `GH_CONFIG_DIR`
-- Sensitive data: this repo should store templates and workflow logic, not live credentials; consuming repositories receive generated config, but secrets remain local
-- Dependencies: prefer conservative script/docs changes, inspect generated-surface implications carefully, and avoid editing `.opencode/node_modules` or other local runtime artifacts
-
-### Deployment
-
-- Platform: not a deployed service; this repository is consumed by local/project-level installs into target repositories
-- Environments: source repository (`ai-config`) plus generated runtime output in consuming repositories; supported runtimes are OpenCode (default) and Kilo Code
-- CI/CD: issue template exists under `.github/ISSUE_TEMPLATE/`; no tracked GitHub Actions workflow was found during onboarding
-- Release process: manual repository updates, then rerun installer scripts in consuming repositories; use `--dry-run` first and `--force` only when intentionally refreshing managed runtime trees
-
-### PR/Commit Guidance
-
-- Commit format: no enforced convention was found; use concise imperative subjects that describe the affected area, for example `docs: clarify installer guidance`
-- PR template: no PR template was found; summarize workflow impact, source-vs-generated surface touched, validation run, and any follow-up needed in consuming repositories
-- Branch naming: no enforced convention was found; use short descriptive names
-- Review requirements: review source templates and installer logic rather than generated local output where possible; include git diff evidence, relevant local validation, and keep root `AGENTS.md` aligned with this repository's actual guidance while preserving generic placeholders in `base/AGENTS.md`
+1. **Source vs generated**: Edit `base/opencode/**` for durable agent/skill/command/plugin changes. `.opencode/` and `opencode.jsonc` are gitignored generated artifacts — never edit them directly in this repo.
+2. **Template preservation**: Keep `base/AGENTS.md` generic with `[FILL IN]` placeholders for consuming-repo onboarding. Root `AGENTS.md` is curated repo-specific guidance for this repository only.
+3. **Secrets boundary**: Never commit `.env*`, `.gh-config/`, tokens, or auth state. Provider auth is established in OpenCode via `/connect`; laberit uses local environment variables.
+4. **Installer safety**: Always use `--dry-run` first when testing installer changes. `--force` overwrites managed output — use only when intentionally refreshing.
 
 ## Workflow & Engineering Rules
 
