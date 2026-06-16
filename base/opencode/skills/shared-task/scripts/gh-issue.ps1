@@ -390,7 +390,9 @@ Fixes #$issue
 
 <!-- List any breaking changes, or state "None." -->
 "@
-        $prUrl = gh pr create --repo $repo --title "[Issue #$issue] '$issueTitle'" --body $prBody
+        $me = gh api user --jq '.login' 2>$null
+        if ($LASTEXITCODE -ne 0) { throw "gh api user query failed (exit $LASTEXITCODE)" }
+        $prUrl = gh pr create --repo $repo --title "[Issue #$issue] '$issueTitle'" --body $prBody --assignee $me
         if ($LASTEXITCODE -ne 0) {
             throw "Error: gh pr create failed (exit $LASTEXITCODE)"
         }

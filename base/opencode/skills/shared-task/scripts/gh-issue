@@ -404,7 +404,8 @@ case "$command" in
 
 <!-- List any breaking changes, or state \"None.\" -->
 "
-    pr_url="$(gh pr create --repo "$repo" --title "[Issue #$issue] '$issue_title'" --body "$pr_body")"
+    me="$(current_user)"
+    pr_url="$(gh pr create --repo "$repo" --title "[Issue #$issue] '$issue_title'" --body "$pr_body" --assignee "$me")"
 
     gh_issue comment "$issue" --body "$summary"$'\n\n'"Pull request: $pr_url"
     ensure_label_absent "$issue" "status:doing"
