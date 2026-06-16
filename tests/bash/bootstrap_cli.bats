@@ -8,7 +8,6 @@ setup() {
 	mkdir -p "$TEST_REPO" "$TEST_AI_CONFIG"
 	cp -a "$REPO_ROOT/install" "$TEST_AI_CONFIG/install"
 	cp -a "$REPO_ROOT/base" "$TEST_AI_CONFIG/base"
-	cp -a "$REPO_ROOT/templates" "$TEST_AI_CONFIG/templates"
 	cp "$REPO_ROOT/VERSION" "$TEST_AI_CONFIG/VERSION"
 }
 
@@ -84,7 +83,11 @@ remove_manifest_path() {
 	run "$TEST_AI_CONFIG/install/bootstrap.sh" --repo "$TEST_REPO"
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"existing install detected, refreshing managed paths from manifest"* ]]
-	cmp -s "$TEST_AI_CONFIG/base/opencode/agents/planner.md" "$TEST_REPO/.opencode/agents/planner.md"
+	local expected="$(mktemp)"
+	cp "$TEST_AI_CONFIG/base/opencode/agents/planner.md" "$expected"
+	sed -i 's|base/opencode/|.opencode/|g' "$expected"
+	cmp -s "$expected" "$TEST_REPO/.opencode/agents/planner.md"
+	rm "$expected"
 }
 
 @test "bootstrap.sh keeps AGENTS.md on reinstall without force" {
@@ -108,7 +111,7 @@ remove_manifest_path() {
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"generated local config: $TEST_REPO/opencode.jsonc"* ]]
 	[[ "$output" == *"copied managed file: $TEST_REPO/AGENTS.md"* ]]
-	cmp -s "$TEST_AI_CONFIG/templates/AGENTS.md" "$TEST_REPO/AGENTS.md"
+	cmp -s "$TEST_AI_CONFIG/base/AGENTS.md" "$TEST_REPO/AGENTS.md"
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" != *'// local override'* ]]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"$schema": "https://opencode.ai/config.json"'* ]]
 }
@@ -138,7 +141,7 @@ remove_manifest_path() {
 	[[ "$output" == *"new managed path discovered: AGENTS.md"* ]]
 	[[ "$output" == *"new managed path discovered: .opencode/commands/issue.md"* ]]
 	[[ "$output" == *"new managed path discovered: .opencode/skills/shared-task/scripts/gh-issue"* ]]
-	cmp -s "$TEST_AI_CONFIG/templates/AGENTS.md" "$TEST_REPO/AGENTS.md"
+	cmp -s "$TEST_AI_CONFIG/base/AGENTS.md" "$TEST_REPO/AGENTS.md"
 	cmp -s "$TEST_AI_CONFIG/base/opencode/commands/issue.md" "$TEST_REPO/.opencode/commands/issue.md"
 	cmp -s "$TEST_AI_CONFIG/base/opencode/skills/shared-task/scripts/gh-issue" "$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue"
 }
@@ -167,7 +170,7 @@ remove_manifest_path() {
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"existing install detected, refreshing managed paths from manifest"* ]]
 	[[ "$output" == *"new managed path discovered: .opencode/commands/issue.md"* ]]
-	cmp -s "$REPO_ROOT/templates/AGENTS.md" "$TEST_REPO/AGENTS.md"
+	cmp -s "$REPO_ROOT/base/AGENTS.md" "$TEST_REPO/AGENTS.md"
 	cmp -s "$REPO_ROOT/base/opencode/commands/plan.md" "$TEST_REPO/.opencode/commands/plan.md"
 	cmp -s "$REPO_ROOT/base/opencode/commands/issue.md" "$TEST_REPO/.opencode/commands/issue.md"
 	cmp -s "$REPO_ROOT/base/opencode/skills/shared-task/scripts/gh-issue" "$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue"

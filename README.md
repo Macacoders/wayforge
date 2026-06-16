@@ -374,9 +374,9 @@ For the full release process — including version updates, changelog management
 
 ## Contributing
 
-**When working on the ai-config repository itself**, durable changes to agents, skills, commands, and generated config logic should be made to the **source templates** under `base/opencode/**` and `templates/**`.
+**When working on the ai-config repository itself**, durable changes to agents, skills, commands, and generated config logic should be made to the **source templates** under `base/opencode/**` and `base/AGENTS.md`.
 
-Keep `templates/AGENTS.md` generic with `[FILL IN]` placeholders. During onboarding in consuming repositories, `/onboard-repo` + `research` are responsible for filling repository-specific guidance into each target repository's root `AGENTS.md`.
+Keep `base/AGENTS.md` generic with `[FILL IN]` placeholders. During onboarding in consuming repositories, `/onboard-repo` + `research` are responsible for filling repository-specific guidance into each target repository's root `AGENTS.md`.
 
 In this repository specifically, root `AGENTS.md` is curated repo-specific guidance and may be updated when ai-config repository guidance changes.
 
@@ -384,7 +384,7 @@ In this repository specifically, root `AGENTS.md` is curated repo-specific guida
 
 - `base/opencode/**` contains the source-of-truth templates that get copied/generated into consuming repositories
 - `.opencode/**` is generated local runtime output in this repository and is gitignored
-- `templates/AGENTS.md` is the generic placeholder template used by onboarding to produce repository-specific root `AGENTS.md` guidance in consuming repositories
+- `base/AGENTS.md` is the generic placeholder template used by onboarding to produce repository-specific root `AGENTS.md` guidance in consuming repositories
 - root `AGENTS.md` in this repository is curated repo-specific guidance
 - Changes made directly to `.opencode/` files are **not persistent**; they will be lost the next time the installation scripts run or when the repository is cloned fresh
 - The installation model (described above) treats `base/opencode/` as the reusable source and `.opencode/` as the per-project runtime
@@ -397,8 +397,8 @@ In this repository specifically, root `AGENTS.md` is curated repo-specific guida
 | Agents | `base/opencode/agents/**` | `.opencode/agents/**` |
 | Skills | `base/opencode/skills/**` | `.opencode/skills/**` |
 | Commands | `base/opencode/commands/**` | `.opencode/commands/**` |
-| Agent documentation template | `templates/AGENTS.md` | `.opencode/**` generated output |
-| ai-config repo guidance | `AGENTS.md` (root) | `templates/AGENTS.md` placeholders |
+| Agent documentation template | `base/AGENTS.md` | `.opencode/**` generated output |
+| ai-config repo guidance | `AGENTS.md` (root) | `base/AGENTS.md` placeholders |
 | Configuration | `install/bootstrap.sh` and `install/bootstrap.ps1` | `opencode.jsonc` (root) |
 
 ## Handoff Contracts

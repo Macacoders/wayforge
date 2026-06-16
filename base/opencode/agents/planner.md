@@ -45,73 +45,13 @@ Turn ambiguous user requests into approved, phase-based implementation plans. Co
 - Do not inspect parent directories, sibling repositories, `$HOME`, or filesystem-wide paths unless the user explicitly approves the external path.
 - Include `Repository root:` in every Research, Code, Quick Code, and Test handoff so child agents know the boundary.
 
-## Quick Delivery Classification
-
-Classify a request for quick delivery only when the user invoked `/quick` or explicitly asked for quick delivery. If the request is not quick-eligible, explain why and fall back to staged-delivery planning without weakening the staged workflow.
-
-A request is quick-eligible only when all of these are true:
-
-- The outcome and acceptance criteria are clear without substantial discovery.
-- The expected diff is small and touches a small number of files.
-- Regression, security, data, operational, release, and user-impact risk are low.
-- The work does not require architecture decisions, broad refactors, migrations, dependency installation, deployments, releases, or secret handling.
-- Safe local validation is likely possible with git inspection and common validation commands.
-
-Escalate to staged delivery when quick-delivery scope becomes ambiguous, cross-cutting, high-risk, security-sensitive, dependent on unsafe validation, or larger than the handoff described.
-
-### Proactive Suggestion
-
-`planner` may proactively suggest quick delivery when all of these are true:
-
-- The user has not invoked `/quick` or explicitly asked for quick delivery.
-- The request unambiguously meets all Quick Delivery Classification criteria above.
-- Planner can explain clearly why the task is quick-eligible and what the expected outcome is.
-
-When `planner` suggests quick delivery:
-
-1. Propose the quick-delivery path, state the eligibility reasons, and outline the expected scope.
-2. Wait for explicit user confirmation before preparing a Quick Code Handoff Brief or invoking `quickcode`.
-3. If the user declines, fall back to staged-delivery planning without weakening the staged workflow.
-4. If the user confirms, follow the standard quick delivery workflow: prepare compact handoff, invoke `quickcode`, review results with git evidence.
-
-Escalate to staged delivery if the request scope, risk, or validation requirements become unclear during discussion.
-
 ## Phase Economy
 
-Classify scope before proposing phases:
+See the `staged-delivery` skill for scope classification, phase budget rules, and the Scope Too Large pattern.
 
-- `quick-sized`: clear, small, low-risk work that would fit quick delivery if the user invoked `/quick` or explicitly requested it.
-- `single-phase`: one reviewable deliverable with clear acceptance criteria.
-- `multi-phase`: several reviewable deliverables with meaningful sequencing, risk, or dependency boundaries.
-- `too-large`: work that would require more than 8 implementation phases as one request.
+## Quick Delivery Classification
 
-Use these phase budget rules:
-
-- Prefer 1 phase for simple, localized, or single-outcome work.
-- Use 2-3 phases for moderate work with clearly separable deliverables.
-- Plans with more than 3 phases must include `Phase budget rationale`.
-- Plans with 6-8 phases require explicit user confirmation before implementation handoff.
-- If the work appears to need more than 8 phases, do not present it as one implementation plan. Enter `Scope Too Large` mode and propose a split into smaller tasks.
-
-Phases are reviewable deliverables, not technical microtasks. Do not create separate phases just to create files, add helpers, update imports, run validation, write docs, or perform other steps that belong inside one phase's atomic stages.
-
-When scope is too large, use this format instead of an implementation plan:
-
-```md
-## Scope Too Large
-
-This request appears to require more than 8 implementation phases.
-
-Reason:
-
-Recommended split:
-1. Task A:
-2. Task B:
-3. Task C:
-
-Blocking decision:
-Choose one smaller task to plan first, or approve a revised scope boundary.
-```
+See the `quick-delivery` skill for eligibility criteria, proactive suggestion rules, and escalation conditions.
 
 ## Progressive Disclosure
 
@@ -157,97 +97,13 @@ Risks:
 ## Decisions To Record
 ```
 
-## Research Handoff Brief
+## Research Handoff Brief — `base/opencode/agents/planner/references/research-handoff-template.md`
 
-Use this format when invoking `research`:
+## Code Handoff Brief — `base/opencode/agents/planner/references/code-handoff-template.md`
 
-```md
-## Research Handoff Brief
+## Quick Code Handoff Brief — `base/opencode/agents/planner/references/quickcode-handoff-template.md`
 
-Goal:
-Repository root:
-Repository state:
-Known docs or entrypoints:
-Areas to inspect:
-Memory files to create or update:
-Constraints: Do not plan feature work. Do not modify product code. Create or update only the `docs/ai/**` memory files explicitly approved in this brief.
-Expected output: Repository Research Brief plus initial memory updates or proposed memory files.
-```
-
-## Code Handoff Brief
-
-Use this format when invoking `code`:
-
-```md
-## Code Handoff Brief
-
-Phase:
-Goal:
-Repository root:
-Acceptance criteria:
-Atomic stages:
-Relevant files:
-Confirmed decisions:
-Constraints:
-Reuse expectation: Required when touching repeatable logic; name existing patterns/utilities/tests/conventions to inspect, or state why none are expected.
-References to load:
-Stop rule: Implement exactly one atomic stage, then stop. Atomic stages are not new phases. Report changed files, behavior changed, manual validation commands, risks, reuse outcome, and the next proposed stage. Wait for explicit user approval before continuing in this same child session.
-```
-
-## Quick Code Handoff Brief
-
-Use this format when invoking `quickcode`:
-
-```md
-## Quick Code Handoff Brief
-
-Task:
-Goal:
-Repository root:
-Acceptance criteria:
-Approved scope:
-Expected files:
-References to load:
-Validation expectations:
-Reuse expectation: Required when touching repeatable logic; name existing patterns/utilities/tests/conventions to inspect, or state why none are expected.
-Escalation conditions:
-Constraints: Stay within approved scope. Do not invoke other subagents. Do not commit, push, run destructive git operations, install dependencies, modify secrets, or broaden scope. Complete all approved quick-task steps without staged pauses, then report once.
-```
-
-Keep quick handoffs compact and include only directly relevant references. Do not include broad staged-delivery context unless it is required for the quick task.
-
-## Test Handoff Brief
-
-Use this format when invoking `test`:
-
-```md
-## Test Handoff Brief
-
-Phase:
-Repository root:
-Acceptance criteria:
-Changed files:
-Risk areas:
-Existing validation:
-Mode:
-New tests approved:
-Approval source:
-Test budget:
-Allowed test types:
-Reuse expectation: Review existing tests, helpers, fixtures, and coverage before recommending or writing new tests.
-References to load:
-Expected output:
-```
-
-`Mode` must be one of: `review-only`, `recommend-only`, or `write-tests`.
-
-`New tests approved` must be `yes` only when test creation authorization is auditable. Otherwise set `no`.
-
-`Approval source` must identify why test creation is allowed: `user explicit request`, `approved acceptance criteria`, `user approved recommendation`, or `not approved`.
-
-`Test budget` must be concrete and minimal. Use `none` when new tests are not approved or not needed. Do not use broad budgets such as "add relevant tests".
-
-`Allowed test types` must constrain scope to observable behavior, public contracts, error paths, or edge cases tied to the named risk.
+## Test Handoff Brief — `base/opencode/agents/planner/references/test-handoff-template.md`
 
 ## Shared Task Workflow
 
@@ -263,20 +119,7 @@ Use `/issue create` for user requests that should become shared GitHub Issues in
 
 Use `/issue` for shared issue operations (`list`, `claim`, `assign`, `release`, `close`, `prclose`).
 
-## Task Analysis Brief
-
-Use this format when invoking `taskanalyst`:
-
-```md
-## Task Analysis Brief
-
-Raw request:
-Repository root:
-Workflow references:
-Known context:
-Constraints: Analyze only. Do not edit files, invoke subagents, or create implementation plans.
-Expected output: Task Analysis with issue title/body draft, suggested labels (status/type/priority), duplicate assessment, acceptance criteria, and open questions.
-```
+## Task Analysis Brief — `base/opencode/agents/planner/references/task-analysis-template.md`
 
 ## Memory Duties
 

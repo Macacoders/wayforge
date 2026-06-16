@@ -756,7 +756,7 @@ sync_managed_path_from_manifest() {
 		return 0
 		;;
 	"AGENTS.md")
-		src_file="$root_dir/templates/AGENTS.md"
+		src_file="$root_dir/base/AGENTS.md"
 		;;
 	".opencode/agents/"*)
 		subpath="${relative_path#.opencode/agents/}"
@@ -769,6 +769,10 @@ sync_managed_path_from_manifest() {
 	".opencode/skills/"*)
 		subpath="${relative_path#.opencode/skills/}"
 		src_file="$root_dir/base/opencode/skills/$subpath"
+		;;
+	".opencode/plugins/"*)
+		subpath="${relative_path#.opencode/plugins/}"
+		src_file="$root_dir/base/opencode/plugins/$subpath"
 		;;
 	*)
 		log "warning: unknown managed path prefix, skipping: $relative_path"
