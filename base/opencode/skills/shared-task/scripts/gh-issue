@@ -390,7 +390,21 @@ case "$command" in
     fi
 
     issue_title="$(gh_issue view "$issue" --json title --jq '.title')"
-    pr_url="$(gh pr create --repo "$repo" --title "$issue_title" --body "Fixes #$issue")"
+    pr_body="Fixes #$issue
+
+## Summary
+
+<!-- Describe the purpose and scope of this change. -->
+
+## Testing
+
+<!-- Describe how you validated this change. -->
+
+## Breaking changes
+
+<!-- List any breaking changes, or state \"None.\" -->
+"
+    pr_url="$(gh pr create --repo "$repo" --title "[Issue #$issue] '$issue_title'" --body "$pr_body")"
 
     gh_issue comment "$issue" --body "$summary"$'\n\n'"Pull request: $pr_url"
     ensure_label_absent "$issue" "status:doing"

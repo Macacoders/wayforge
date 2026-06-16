@@ -35,3 +35,33 @@ Helper commands:
 ## Safety minimums
 
 - Use repo-local credentials (`GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"`).
+
+## prclose conventions
+
+Use `/issue prclose <issue-number>` to create a pull request from a feature branch.
+
+### PR title format
+
+```
+[Issue #XX] 'Title of issue #XX'
+```
+
+### PR body template sections
+
+The pull request body is populated with these sections (matching `.github/pull_request_template.md`):
+
+- **Summary**
+- **Testing**
+- **Breaking changes**
+- **Fixes** — `Fixes #<issue-number>`
+
+After the PR is created, the user edits these sections to fill in details.
+
+### Pre-PR validation expectations
+
+Before `prclose` creates the PR, confirm:
+
+- Current branch is a feature branch (not `develop`, `main`, or `master`).
+- Working tree is clean.
+- All acceptance criteria from the issue are addressed.
+- Tests and validation have been considered and run as appropriate.

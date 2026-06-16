@@ -91,3 +91,54 @@ If required labels are missing, stop task creation/updates and report the missin
 - Keep issue state current through assignees, status labels, and short comments.
 - Link ADRs, plans, or pull requests from the issue when a task creates durable decisions or implementation work.
 - Do not store raw diffs, transcripts, or long logs in issues; summarize outcomes and link durable references instead.
+
+## PR Creation Standards
+
+When creating a Pull Request for a shared task, follow these conventions.
+
+### Branch naming
+
+```
+feature/issue-{number}-{slugified-title}
+```
+
+Derived from the issue number and a slugified version of the issue title. The `prclose` workflow generates this automatically.
+
+### PR title format
+
+```
+[Issue #XX] 'Title of issue #XX'
+```
+
+Example: `[Issue #12] 'Add pipeline status badge to README'`
+
+The title is constructed from the issue number and the issue title.
+
+### PR body template sections
+
+Every PR body should contain these sections (matching the template at `.github/pull_request_template.md`):
+
+- **Summary** — What problem does this change solve? What does it implement?
+- **Testing** — How was this change validated? List tests run, commands executed, or review scenarios checked.
+- **Breaking changes** — Any breaking changes to contracts, workflows, configuration, or APIs. State "None" if not applicable.
+- **Fixes** — `Fixes #<issue-number>` to auto-close the referenced issue on merge.
+
+### prclose workflow
+
+Use `/issue prclose <issue-number>` from a feature branch to open a PR against the default branch. The workflow:
+
+1. Verifies the current branch is a feature branch (refuses `develop`, `main`, `master`).
+2. Checks for a clean working tree (no uncommitted changes).
+3. Sets `status:in-review` and removes `status:doing`.
+4. Posts a short completion summary comment on the issue.
+5. Creates a pull request using the conventions above (title format, template body).
+6. Leaves the issue open — it auto-closes when the PR is merged.
+
+### Pre-PR validation checklist
+
+Before running `prclose`, confirm:
+
+- [ ] All acceptance criteria from the issue are addressed
+- [ ] Working tree is clean (`git status` shows no modified or untracked files)
+- [ ] Current branch is not `develop`, `main`, or `master`
+- [ ] Tests and validation have been considered and run as appropriate for the change

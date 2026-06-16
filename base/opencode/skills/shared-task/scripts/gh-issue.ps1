@@ -375,7 +375,22 @@ switch ($command) {
         }
 
         $issueTitle = Invoke-GhIssue view $issue --json title --jq '.title'
-        $prUrl = gh pr create --repo $repo --title $issueTitle --body "Fixes #$issue"
+        $prBody = @"
+Fixes #$issue
+
+## Summary
+
+<!-- Describe the purpose and scope of this change. -->
+
+## Testing
+
+<!-- Describe how you validated this change. -->
+
+## Breaking changes
+
+<!-- List any breaking changes, or state "None." -->
+"@
+        $prUrl = gh pr create --repo $repo --title "[Issue #$issue] '$issueTitle'" --body $prBody
         if ($LASTEXITCODE -ne 0) {
             throw "Error: gh pr create failed (exit $LASTEXITCODE)"
         }
