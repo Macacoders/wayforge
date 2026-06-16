@@ -205,7 +205,17 @@ switch ($command) {
     }
     'list' {
         Ensure-RequiredLabels
-        Invoke-GhIssue list --state open --limit 100 --json number,title,assignees,labels --jq '.[] | "#\(.number)\t\(.title)\tassignee:\((.assignees|map(.login)|join(",")|if . == "" then "-" else . end))\tstatus:\((.labels|map(.name)|map(select(startswith("status:")))|join(",")|if . == "" then "-" else . end))"'
+        $json = gh issue list --repo $repo --state open --limit 100 --json number,title,assignees,labels
+        if ($LASTEXITCODE -ne 0) {
+            throw "gh issue list failed (exit $LASTEXITCODE)"
+        }
+        $issues = $json | ConvertFrom-Json
+        foreach ($issue in $issues) {
+            $assignee = if ($issue.assignees.Count -gt 0) { ($issue.assignees.login -join ',') } else { '-' }
+            $statusLabel = $issue.labels | Where-Object { $_.name -like 'status:*' } | ForEach-Object { $_.name }
+            $status = if ($statusLabel) { $statusLabel -join ',' } else { '-' }
+            "#$($issue.number)`t$($issue.title)`tassignee:$assignee`t$status"
+        }
     }
     'create' {
         Ensure-RequiredLabels

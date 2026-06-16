@@ -116,9 +116,7 @@ foreach ($relPath in $script:_ManagedManifestPaths) {
         }
         # Safety: ensure we make progress toward repo root
         $parent = Split-Path -Parent $dir
-        if ($parent -eq $dir) {
-            break
-        }
+        if ([string]::IsNullOrEmpty($parent) -or $parent -eq $dir) { break }
         $dir = $parent
     }
 }
