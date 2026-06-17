@@ -86,6 +86,7 @@ is_managed_opencode_file() {
 	fi
 	local first_line
 	IFS= read -r first_line <"$path" || true
+	first_line=${first_line%$'\r'}
 	[[ "$first_line" == "$MANAGED_OPENCODE_HEADER" ]]
 }
 
