@@ -173,21 +173,6 @@ case "$MODEL_PRESET_CHOICE" in
 	;;
 esac
 
-printf '\nAgent preset:\n'
-printf '  1) balanced (default)\n'
-printf '  2) fast\n'
-printf '  3) thorough\n'
-AGENT_PRESET_CHOICE="$(prompt_menu_choice "Choose agent preset" "1")"
-case "$AGENT_PRESET_CHOICE" in
-1) AGENT_PRESET="balanced" ;;
-2) AGENT_PRESET="fast" ;;
-3) AGENT_PRESET="thorough" ;;
-*)
-	log "invalid agent preset selection: $AGENT_PRESET_CHOICE"
-	exit 1
-	;;
-esac
-
 printf '\nDry run:\n'
 printf '  1) no (default)\n'
 printf '  2) yes\n'
@@ -232,9 +217,6 @@ fi
 if [[ -n "$SMALL_MODEL_OVERRIDE" ]]; then
 	cmd+=(--small-model "$SMALL_MODEL_OVERRIDE")
 fi
-if [[ "$AGENT_PRESET" != "balanced" ]]; then
-	cmd+=(--agent-preset "$AGENT_PRESET")
-fi
 if [[ "$DRY_RUN" -eq 1 ]]; then
 	cmd+=(--dry-run)
 fi
@@ -256,7 +238,6 @@ if [[ -n "$SMALL_MODEL_OVERRIDE" ]]; then
 else
 	printf '  Small model override: none (installer default)\n'
 fi
-printf '  Agent preset: %s\n' "$AGENT_PRESET"
 printf '  Dry run: %s\n' "$DRY_RUN"
 printf '  Force: %s\n' "$FORCE"
 

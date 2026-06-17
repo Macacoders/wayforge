@@ -1,50 +1,26 @@
 "agent": {
     "planner": {
       "model": "openai/gpt-5.5",
-      "steps": 20,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "medium"
-      }
+      "steps": 20
     },
     "research": {
       "model": "openai/gpt-5.5",
-      "steps": 10,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
+      "steps": 10
     },
     "code": {
       "model": "openai/gpt-5.5",
-      "steps": 5,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
+      "steps": 5
     },
     "quickcode": {
       "model": "openai/gpt-5.5",
-      "steps": 4,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
+      "steps": 4
     },
     "test": {
       "model": "openai/gpt-5.5",
-      "steps": 8,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
+      "steps": 8
     },
     "taskanalyst": {
       "model": "openai/gpt-5.4-mini",
-      "steps": 8,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
+      "steps": 8
     }
   }
