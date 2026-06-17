@@ -79,4 +79,10 @@ Replace `base/opencode/skills/shared-task/scripts/gh-issue` (Bash, 413 lines) an
 
 ## Status
 
-Planned (awaiting review)
+**Blocked** by #27 — must wait until the PR creation workflow standardisation PR is merged before starting implementation.
+
+### Dependency chain
+
+- #16 ← blocked by #84
+- #84 ← blocked by #27
+- #85 ← blocked by #84 + #70
