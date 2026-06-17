@@ -1,50 +1,26 @@
 "agent": {
     "planner": {
       "model": "opencode-go/deepseek-v4-pro",
-      "steps": 24,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "medium"
-      }
+      "steps": 24
     },
     "research": {
       "model": "opencode-go/qwen3.7-max",
-      "steps": 16,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
+      "steps": 16
     },
     "code": {
       "model": "opencode-go/kimi-k2.7-code",
-      "steps": 12,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
+      "steps": 12
     },
     "quickcode": {
       "model": "opencode-go/deepseek-v4-flash",
-      "steps": 8,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
+      "steps": 8
     },
     "test": {
       "model": "opencode-go/qwen3.7-plus",
-      "steps": 12,
-      "options": {
-        "reasoningEffort": "medium",
-        "textVerbosity": "low"
-      }
+      "steps": 12
     },
     "taskanalyst": {
       "model": "opencode-go/mimo-v2.5",
-      "steps": 8,
-      "options": {
-        "reasoningEffort": "low",
-        "textVerbosity": "low"
-      }
+      "steps": 8
     }
   }

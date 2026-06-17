@@ -181,19 +181,6 @@ switch ($MODEL_PRESET_CHOICE) {
     }
 }
 
-# Agent preset
-Write-Host "`nAgent preset:"
-Write-Host '  1) balanced (default)'
-Write-Host '  2) fast'
-Write-Host '  3) thorough'
-$AGENT_PRESET_CHOICE = prompt_menu_choice 'Choose agent preset' '1'
-switch ($AGENT_PRESET_CHOICE) {
-    '1' { $AGENT_PRESET = 'balanced' }
-    '2' { $AGENT_PRESET = 'fast' }
-    '3' { $AGENT_PRESET = 'thorough' }
-    default { log "invalid agent preset selection: $AGENT_PRESET_CHOICE"; exit 1 }
-}
-
 # Dry run
 Write-Host "`nDry run:"
 Write-Host '  1) no (default)'
@@ -239,7 +226,6 @@ $cmd = @(
 )
 if ($MODEL_OVERRIDE) { $cmd += '-Model'; $cmd += $MODEL_OVERRIDE }
 if ($SMALL_MODEL_OVERRIDE) { $cmd += '-SmallModel'; $cmd += $SMALL_MODEL_OVERRIDE }
-if ($AGENT_PRESET -ne 'balanced') { $cmd += '-AgentPreset'; $cmd += $AGENT_PRESET }
 if ($DRY_RUN) { $cmd += '-DryRun' }
 if ($FORCE) { $cmd += '-Force' }
 
@@ -258,7 +244,6 @@ if ($SMALL_MODEL_OVERRIDE) {
 } else {
     Write-Host '  Small model override: none (installer default)'
 }
-Write-Host "  Agent preset: $AGENT_PRESET"
 Write-Host "  Dry run: $(if ($DRY_RUN) { 1 } else { 0 })"
 Write-Host "  Force: $(if ($FORCE) { 1 } else { 0 })"
 

@@ -1,13 +1,43 @@
     "opencode-go": {
       "models": {
-        "deepseek-v4-pro": {},
-        "deepseek-v4-flash": {},
-        "kimi-k2.7-code": {},
+        "deepseek-v4-pro": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "medium"
+          }
+        },
+        "deepseek-v4-flash": {
+          "options": {
+            "reasoningEffort": "low",
+            "textVerbosity": "low"
+          }
+        },
+        "kimi-k2.7-code": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "low"
+          }
+        },
         "kimi-k2.6": {},
-        "qwen3.7-max": {},
-        "qwen3.7-plus": {},
+        "qwen3.7-max": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "low"
+          }
+        },
+        "qwen3.7-plus": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "low"
+          }
+        },
         "qwen3.6-plus": {},
-        "mimo-v2.5": {},
+        "mimo-v2.5": {
+          "options": {
+            "reasoningEffort": "low",
+            "textVerbosity": "low"
+          }
+        },
         "mimo-v2.5-pro": {},
         "minimax-m3": {},
         "minimax-m2.7": {},

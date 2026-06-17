@@ -24,7 +24,6 @@ teardown() {
 1
 1
 1
-1
 n
 "
 	run bash -c 'printf "%s" "$1" | "$2/install/bootstrap-interactive.sh"' _ "$input" "$REPO_ROOT"
@@ -41,7 +40,6 @@ n
 4
 2
 2
-2
 1
 Y
 "
@@ -49,7 +47,6 @@ Y
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"Model override: opencode-go/deepseek-v4-flash"* ]]
 	[[ "$output" == *"Small model override: opencode-go/deepseek-v4-flash"* ]]
-	[[ "$output" == *"Agent preset: fast"* ]]
 	[[ "$output" == *"DRY-RUN: would generate local config: $TEST_REPO/kilo.jsonc"* ]]
 	[ ! -e "$TEST_REPO/.opencode" ]
 	[ ! -e "$TEST_REPO/kilo.jsonc" ]
