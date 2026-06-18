@@ -48,12 +48,13 @@ Use `/issue prclose <issue-number>` to create a pull request from a feature bran
 
 ### PR body template sections
 
-The pull request body is populated with these sections (matching `.github/pull_request_template.md`):
+The pull request body is populated from the `.github/pull_request_template.md` template (with `Fixes #<issue-number>` prepended as bare keyword text). The template contains these sections:
 
 - **Summary**
 - **Testing**
 - **Breaking changes**
-- **Fixes** — `Fixes #<issue-number>`
+
+`Fixes #<issue-number>` is prepended as bare keyword text (not a section) to auto-close the referenced issue on merge.
 
 After the PR is created, the user edits these sections to fill in details.
 
@@ -61,7 +62,7 @@ After the PR is created, the user edits these sections to fill in details.
 
 Before `prclose` creates the PR, confirm:
 
-- Current branch is a feature branch (not `develop`, `main`, or `master`).
-- Working tree is clean.
+- If on a protected branch (`main`, `master`, `develop`), prclose automatically creates a feature branch, commits, and pushes.
+- Working tree is clean (checked only on feature branches — auto-committed on protected branches).
 - All acceptance criteria from the issue are addressed.
 - Tests and validation have been considered and run as appropriate.

@@ -10,7 +10,3 @@
 
 <!-- List any breaking changes to contracts, workflows, configuration, or APIs. If none, state "None." -->
 
-## Fixes
-
-<!-- Reference the issue this PR closes: replace XX with the issue number. -->
-Fixes #

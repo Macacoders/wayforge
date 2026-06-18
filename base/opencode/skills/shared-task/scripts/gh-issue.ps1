@@ -365,19 +365,33 @@ switch ($command) {
         if (-not $branch -or $branch -eq 'HEAD') {
             throw 'Error: prclose requires an active local branch.'
         }
-        if ($branch -in @('main', 'master', 'develop')) {
-            throw "Error: prclose refused on protected branch $branch. Create/switch to feature branch and commit/push first."
-        }
-
-        $dirty = git status --porcelain
-        if ($dirty) {
-            throw 'Error: prclose requires a clean working tree. Commit or stash changes first.'
-        }
-
         $issueTitle = Invoke-GhIssue view $issue --json title --jq '.title'
-        $prBody = @"
-Fixes #$issue
+        $protectedBranch = $false
+        if ($branch -in @('main', 'master', 'develop')) {
+            $protectedBranch = $true
+            # Generate slug from issue title
+            $slug = ($issueTitle.ToLower() -replace '[^a-z0-9\s-]', '') -replace '\s+', '-' -replace '-{2,}', '-' -replace '^-|-$', ''
+            if ($slug.Length -gt 60) { $slug = $slug.Substring(0, 60) -replace '-$', '' }
+            $featureBranch = "feature/issue-$issue-$slug"
+            Write-Output "On protected branch '$branch'. Creating feature branch '$featureBranch'..."
+            git checkout -b $featureBranch
+            git add -A
+            git commit -m "[Issue #$issue] $issueTitle"
+            git push -u origin $featureBranch
+            $branch = $featureBranch
+        }
 
+        if (-not $protectedBranch) {
+            $dirty = git status --porcelain
+            if ($dirty) {
+                throw 'Error: prclose requires a clean working tree. Commit or stash changes first.'
+            }
+        }
+        $templateFile = Join-Path $repo_root '.github\pull_request_template.md'
+        if (Test-Path $templateFile) {
+            $templateBody = Get-Content $templateFile -Raw
+        } else {
+            $templateBody = @"
 ## Summary
 
 <!-- Describe the purpose and scope of this change. -->
@@ -390,6 +404,8 @@ Fixes #$issue
 
 <!-- List any breaking changes, or state "None." -->
 "@
+        }
+        $prBody = "Fixes #${issue}`n`n$templateBody"
         $me = gh api user --jq '.login' 2>$null
         if ($LASTEXITCODE -ne 0) { throw "gh api user query failed (exit $LASTEXITCODE)" }
         $prUrl = gh pr create --repo $repo --title "[Issue #$issue] '$issueTitle'" --body $prBody --assignee $me

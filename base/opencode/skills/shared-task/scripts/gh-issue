@@ -378,21 +378,31 @@ case "$command" in
       printf 'Error: prclose requires an active local branch.\n' >&2
       exit 1
     fi
+    issue_title="$(gh_issue view "$issue" --json title --jq '.title')"
+    protected_branch=0
     case "$current_branch" in
       main|master|develop)
-        printf 'Error: prclose refused on protected branch %s. Create/switch to feature branch and commit/push first.\n' "$current_branch" >&2
-        exit 1
+        protected_branch=1
+        # Generate feature branch name
+        slug="$(echo "$issue_title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-60 | sed 's/-$//')"
+        feature_branch="feature/issue-$issue-$slug"
+        echo "On protected branch '$current_branch'. Creating feature branch '$feature_branch'..."
+        git checkout -b "$feature_branch"
+        git add -A
+        git commit -m "[Issue #$issue] $issue_title"
+        git push -u origin "$feature_branch"
+        current_branch="$feature_branch"
         ;;
     esac
-    if [[ -n "$(git status --porcelain)" ]]; then
+    if [[ "$protected_branch" -eq 0 && -n "$(git status --porcelain)" ]]; then
       printf 'Error: prclose requires a clean working tree. Commit or stash changes first.\n' >&2
       exit 1
     fi
-
-    issue_title="$(gh_issue view "$issue" --json title --jq '.title')"
-    pr_body="Fixes #$issue
-
-## Summary
+    template_file="$repo_root/.github/pull_request_template.md"
+    if [[ -f "$template_file" ]]; then
+      template_body="$(cat "$template_file")"
+    else
+      template_body="## Summary
 
 <!-- Describe the purpose and scope of this change. -->
 
@@ -402,8 +412,9 @@ case "$command" in
 
 ## Breaking changes
 
-<!-- List any breaking changes, or state \"None.\" -->
-"
+<!-- List any breaking changes, or state \"None.\" -->"
+    fi
+    pr_body="Fixes #$issue"$'\n\n'"$template_body"
     me="$(current_user)"
     pr_url="$(gh pr create --repo "$repo" --title "[Issue #$issue] '$issue_title'" --body "$pr_body" --assignee "$me")"
 

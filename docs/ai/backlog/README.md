@@ -116,19 +116,20 @@ The title is constructed from the issue number and the issue title.
 
 ### PR body template sections
 
-Every PR body should contain these sections (matching the template at `.github/pull_request_template.md`):
+The PR body is populated from the `.github/pull_request_template.md` template. The template contains these sections with detailed comment guidance:
 
 - **Summary** — What problem does this change solve? What does it implement?
 - **Testing** — How was this change validated? List tests run, commands executed, or review scenarios checked.
 - **Breaking changes** — Any breaking changes to contracts, workflows, configuration, or APIs. State "None" if not applicable.
-- **Fixes** — `Fixes #<issue-number>` to auto-close the referenced issue on merge.
+
+`Fixes #<issue-number>` is prepended as bare keyword text (not a section) to auto-close the referenced issue on merge. This is automatically handled by `prclose`; for manual PR creation, add `Fixes #<issue-number>` at the top of the body.
 
 ### prclose workflow
 
 Use `/issue prclose <issue-number>` from a feature branch to open a PR against the default branch. The workflow:
 
-1. Verifies the current branch is a feature branch (refuses `develop`, `main`, `master`).
-2. Checks for a clean working tree (no uncommitted changes).
+1. On protected branches (`develop`, `main`, `master`), automatically creates a feature branch, stages all changes, commits, and pushes before creating the PR.
+2. On feature branches: checks for a clean working tree (no uncommitted changes). On protected branches: changes are auto-committed to the new feature branch.
 3. Sets `status:in-review` and removes `status:doing`.
 4. Posts a short completion summary comment on the issue.
 5. Creates a pull request using the conventions above (title format, template body).
