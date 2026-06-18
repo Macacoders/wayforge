@@ -392,7 +392,7 @@ switch ($command) {
         New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
         $tempBody = Join-Path $tempDir "pr-body-$issue.md"
 
-        "Fixes #${issue}`n" | Set-Content -Path $tempBody -NoNewline
+        "Fixes #${issue}`n`n" | Set-Content -Path $tempBody -NoNewline
         if (Test-Path $templateFile) {
             Get-Content $templateFile -Raw | Add-Content -Path $tempBody -NoNewline
         } else {
