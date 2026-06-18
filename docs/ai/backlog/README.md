@@ -41,10 +41,9 @@ Do not require or assume a top-level `scripts/` directory for shared task issue 
    - Remove self assignee.
    - Set `status:to-do` unless blocked (then set `status:blocked` with a short reason).
 6. **prclose**: Use `/issue prclose <issue-number>` when ready for code review (creates a PR and keeps the issue open).
-   - Conservative guardrails: it refuses protected branches (`develop`, `main`, `master`) and dirty working trees.
+   - The script handles branch protection, PR formatting, status labels, and comments automatically.
    - Ensure acceptance criteria are addressed before opening the PR.
-   - Add a short completion summary comment.
-   - Remove `status:doing` and add `status:in-review` label.
+   - Remove `status:doing` and add `status:in-review` label — handled by the script.
    - Create the Pull Request (issue remains open, will auto-close on merge).
 7. **Close**: Use `/issue close <issue-number>` after completion and validation.
    - Use for tasks completed without code review or when closing rejected/abandoned work.
@@ -94,52 +93,4 @@ If required labels are missing, stop task creation/updates and report the missin
 
 ## PR Creation Standards
 
-When creating a Pull Request for a shared task, follow these conventions.
-
-### Branch naming
-
-```
-feature/issue-{number}-{slugified-title}
-```
-
-Derived from the issue number and a slugified version of the issue title. The `prclose` workflow generates this automatically.
-
-### PR title format
-
-```
-[Issue #XX] 'Title of issue #XX'
-```
-
-Example: `[Issue #12] 'Add pipeline status badge to README'`
-
-The title is constructed from the issue number and the issue title.
-
-### PR body template sections
-
-The PR body is populated from the `.github/pull_request_template.md` template. The template contains these sections with detailed comment guidance:
-
-- **Summary** — What problem does this change solve? What does it implement?
-- **Testing** — How was this change validated? List tests run, commands executed, or review scenarios checked.
-- **Breaking changes** — Any breaking changes to contracts, workflows, configuration, or APIs. State "None" if not applicable.
-
-`Fixes #<issue-number>` is prepended as bare keyword text (not a section) to auto-close the referenced issue on merge. This is automatically handled by `prclose`; for manual PR creation, add `Fixes #<issue-number>` at the top of the body.
-
-### prclose workflow
-
-Use `/issue prclose <issue-number>` from a feature branch to open a PR against the default branch. The workflow:
-
-1. On protected branches (`develop`, `main`, `master`), automatically creates a feature branch, stages all changes, commits, and pushes before creating the PR.
-2. On feature branches: checks for a clean working tree (no uncommitted changes). On protected branches: changes are auto-committed to the new feature branch.
-3. Sets `status:in-review` and removes `status:doing`.
-4. Posts a short completion summary comment on the issue.
-5. Creates a pull request using the conventions above (title format, template body).
-6. Leaves the issue open — it auto-closes when the PR is merged.
-
-### Pre-PR validation checklist
-
-Before running `prclose`, confirm:
-
-- [ ] All acceptance criteria from the issue are addressed
-- [ ] Working tree is clean (`git status` shows no modified or untracked files)
-- [ ] Current branch is not `develop`, `main`, or `master`
-- [ ] Tests and validation have been considered and run as appropriate for the change
+Use `/issue prclose <issue-number>` to create a pull request. The script handles branch protection, PR formatting, status labels, and comments automatically. The branch naming convention is `feature/issue-{number}-{slugified-title}`.

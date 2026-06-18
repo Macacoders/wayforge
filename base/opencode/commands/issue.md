@@ -26,7 +26,7 @@ For `/issue create <description>`:
 7. Create with `.opencode/skills/shared-task/scripts/gh-issue create <title> --body-file <tmp> --label ...`.
 8. Report the created issue number and URL.
 
-For non-create operations, call the following helper command directly and do not restate operation procedures.
+For non-create operations, call the following helper command directly and do not restate operation procedures. The script handles all guardrails (branch protection, PR formatting, status labels, etc.) automatically.
 
 Helper commands:
 - Bash: `.opencode/skills/shared-task/scripts/gh-issue <operation> ...`
@@ -35,34 +35,3 @@ Helper commands:
 ## Safety minimums
 
 - Use repo-local credentials (`GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"`).
-
-## prclose conventions
-
-Use `/issue prclose <issue-number>` to create a pull request from a feature branch.
-
-### PR title format
-
-```
-[Issue #XX] 'Title of issue #XX'
-```
-
-### PR body template sections
-
-The pull request body is populated from the `.github/pull_request_template.md` template (with `Fixes #<issue-number>` prepended as bare keyword text). The template contains these sections:
-
-- **Summary**
-- **Testing**
-- **Breaking changes**
-
-`Fixes #<issue-number>` is prepended as bare keyword text (not a section) to auto-close the referenced issue on merge.
-
-After the PR is created, the user edits these sections to fill in details.
-
-### Pre-PR validation expectations
-
-Before `prclose` creates the PR, confirm:
-
-- If on a protected branch (`main`, `master`, `develop`), prclose automatically creates a feature branch, commits, and pushes.
-- Working tree is clean (checked only on feature branches — auto-committed on protected branches).
-- All acceptance criteria from the issue are addressed.
-- Tests and validation have been considered and run as appropriate.
