@@ -658,7 +658,7 @@ function install-repo {
     # Full install (fresh install or fallback)
     $configFilename = if ($RUNTIME -eq 'kilocode') { 'kilo.jsonc' } else { 'opencode.jsonc' }
     Sync-GeneratedOpenCodeJsonc -Dst (Join-Path $Repo $configFilename) -Runtime $RUNTIME
-    Sync-ManagedFile (Join-Path (Join-Path $SOURCE_DIR 'templates') 'AGENTS.md') (Join-Path $Repo 'AGENTS.md')
+    Sync-ManagedFile (Join-Path (Join-Path $SOURCE_DIR 'base') 'AGENTS.md') (Join-Path $Repo 'AGENTS.md')
     Sync-ManagedTree (Join-Path (Join-Path $SOURCE_DIR 'base') 'opencode/agents') (Join-Path (Join-Path $Repo '.opencode') 'agents') $true
 
     # Rewrite base/opencode/ paths to .opencode/ in installed agent files
