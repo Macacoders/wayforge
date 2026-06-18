@@ -403,11 +403,13 @@ case "$command" in
     mkdir -p "$temp_dir"
     temp_body="$temp_dir/pr-body-$issue.md"
 
-    printf 'Fixes #%s\n\n' "$issue" > "$temp_body"
-    if [[ -f "$template_file" ]]; then
-      cat "$template_file" >> "$temp_body"
-    else
-      printf '## Summary\n\n_Describe the purpose and scope of this change. What problem does it solve? What does it implement?_\n\n## Testing\n\n_Describe how you validated this change. List tests run, commands executed, or review scenarios checked._\n\n## Breaking changes\n\n_List any breaking changes to contracts, workflows, configuration, or APIs. If none, state "None."_\n' >> "$temp_body"
+    if [[ ! -f "$temp_body" ]]; then
+      printf 'Fixes #%s\n\n' "$issue" > "$temp_body"
+      if [[ -f "$template_file" ]]; then
+        cat "$template_file" >> "$temp_body"
+      else
+        printf '## Summary\n\n_Describe the purpose and scope of this change. What problem does it solve? What does it implement?_\n\n## Testing\n\n_Describe how you validated this change. List tests run, commands executed, or review scenarios checked._\n\n## Breaking changes\n\n_List any breaking changes to contracts, workflows, configuration, or APIs. If none, state "None."_\n' >> "$temp_body"
+      fi
     fi
 
     me="$(current_user)"

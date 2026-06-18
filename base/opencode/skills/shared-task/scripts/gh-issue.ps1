@@ -392,11 +392,12 @@ switch ($command) {
         New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
         $tempBody = Join-Path $tempDir "pr-body-$issue.md"
 
-        "Fixes #${issue}`n`n" | Set-Content -Path $tempBody -NoNewline
-        if (Test-Path $templateFile) {
-            Get-Content $templateFile -Raw | Add-Content -Path $tempBody -NoNewline
-        } else {
-            @"
+        if (-not (Test-Path $tempBody)) {
+            "Fixes #${issue}`n`n" | Set-Content -Path $tempBody -NoNewline
+            if (Test-Path $templateFile) {
+                Get-Content $templateFile -Raw | Add-Content -Path $tempBody -NoNewline
+            } else {
+                @"
 ## Summary
 
 _Describe the purpose and scope of this change. What problem does it solve? What does it implement?_
@@ -409,6 +410,7 @@ _Describe how you validated this change. List tests run, commands executed, or r
 
 _List any breaking changes to contracts, workflows, configuration, or APIs. If none, state "None."_
 "@ | Add-Content -Path $tempBody -NoNewline
+            }
         }
 
         $me = gh api user --jq '.login' 2>$null
