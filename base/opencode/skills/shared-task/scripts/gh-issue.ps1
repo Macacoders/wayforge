@@ -387,13 +387,39 @@ switch ($command) {
                 throw 'Error: prclose requires a clean working tree. Commit or stash changes first.'
             }
         }
-        $prBody = "Fixes #${issue}`n`n## Summary`n`n_Describe the purpose and scope of this change._`n`n## Testing`n`n_Describe how you validated this change. List tests run, commands executed, or review scenarios checked._`n`n## Breaking changes`n`nNone."
+        $templateFile = Join-Path $repo_root '.github\pull_request_template.md'
+        $tempDir = Join-Path $repo_root 'temp'
+        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+        $tempBody = Join-Path $tempDir "pr-body-$issue.md"
+
+        "Fixes #${issue}`n" | Set-Content -Path $tempBody -NoNewline
+        if (Test-Path $templateFile) {
+            Get-Content $templateFile -Raw | Add-Content -Path $tempBody -NoNewline
+        } else {
+            @"
+## Summary
+
+_Describe the purpose and scope of this change. What problem does it solve? What does it implement?_
+
+## Testing
+
+_Describe how you validated this change. List tests run, commands executed, or review scenarios checked._
+
+## Breaking changes
+
+_List any breaking changes to contracts, workflows, configuration, or APIs. If none, state "None."_
+"@ | Add-Content -Path $tempBody -NoNewline
+        }
+
         $me = gh api user --jq '.login' 2>$null
         if ($LASTEXITCODE -ne 0) { throw "gh api user query failed (exit $LASTEXITCODE)" }
-        $prUrl = gh pr create --repo $repo --title "[Issue #$issue] '$issueTitle'" --body $prBody --assignee $me
+        $prUrl = gh pr create --repo $repo --title "[Issue #$issue] '$issueTitle'" --body-file $tempBody --assignee $me
         if ($LASTEXITCODE -ne 0) {
+            Remove-Item $tempBody -Force -ErrorAction SilentlyContinue
             throw "Error: gh pr create failed (exit $LASTEXITCODE)"
         }
+
+        Remove-Item $tempBody -Force -ErrorAction SilentlyContinue
 
         Invoke-GhIssue comment $issue --body ($summary + "`n`nPull request: $prUrl") | Out-Null
         Ensure-LabelAbsent $issue 'status:doing'

@@ -398,21 +398,22 @@ case "$command" in
       printf 'Error: prclose requires a clean working tree. Commit or stash changes first.\n' >&2
       exit 1
     fi
-    pr_body="Fixes #${issue}
+    template_file="$repo_root/.github/pull_request_template.md"
+    temp_dir="$repo_root/temp"
+    mkdir -p "$temp_dir"
+    temp_body="$temp_dir/pr-body-$issue.md"
 
-## Summary
+    printf 'Fixes #%s\n\n' "$issue" > "$temp_body"
+    if [[ -f "$template_file" ]]; then
+      cat "$template_file" >> "$temp_body"
+    else
+      printf '## Summary\n\n_Describe the purpose and scope of this change. What problem does it solve? What does it implement?_\n\n## Testing\n\n_Describe how you validated this change. List tests run, commands executed, or review scenarios checked._\n\n## Breaking changes\n\n_List any breaking changes to contracts, workflows, configuration, or APIs. If none, state "None."_\n' >> "$temp_body"
+    fi
 
-_Describe the purpose and scope of this change._
-
-## Testing
-
-_Describe how you validated this change. List tests run, commands executed, or review scenarios checked._
-
-## Breaking changes
-
-None."
     me="$(current_user)"
-    pr_url="$(gh pr create --repo "$repo" --title "[Issue #$issue] '$issue_title'" --body "$pr_body" --assignee "$me")"
+    pr_url="$(gh pr create --repo "$repo" --title "[Issue #$issue] '$issue_title'" --body-file "$temp_body" --assignee "$me")"
+
+    rm -f "$temp_body"
 
     gh_issue comment "$issue" --body "$summary"$'\n\n'"Pull request: $pr_url"
     ensure_label_absent "$issue" "status:doing"
