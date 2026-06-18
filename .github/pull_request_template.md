@@ -1,12 +1,12 @@
 ## Summary
 
-<!-- Describe the purpose and scope of this change. What problem does it solve? What does it implement? -->
+_Describe the purpose and scope of this change. What problem does it solve? What does it implement?_
 
 ## Testing
 
-<!-- Describe how you validated this change. List tests run, commands executed, or review scenarios checked. -->
+_Describe how you validated this change. List tests run, commands executed, or review scenarios checked._
 
 ## Breaking changes
 
-<!-- List any breaking changes to contracts, workflows, configuration, or APIs. If none, state "None." -->
+_List any breaking changes to contracts, workflows, configuration, or APIs. If none, state "None."_
 
