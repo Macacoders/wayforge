@@ -26,37 +26,13 @@ For `/issue create <description>`:
 7. Create with `.opencode/skills/shared-task/scripts/gh-issue create <title> --body-file <tmp> --label ...`.
 8. Report the created issue number and URL.
 
-For non-create operations, call the following helper command directly and do not restate operation procedures. The script handles all guardrails (branch protection, PR formatting, temp file, status labels, etc.) automatically.
+For non-create operations, call the helper command directly. The script handles all guardrails, labels, and formatting automatically.
 
 Helper commands:
 - Bash: `.opencode/skills/shared-task/scripts/gh-issue <operation> ...`
 - PowerShell: `.opencode/skills/shared-task/scripts/gh-issue.ps1 <operation> ...`
 
-## prclose conventions
-
-Use `/issue prclose <issue-number>` to create a pull request from a feature branch.
-
-### PR title format
-
-```
-[Issue #XX] 'Title of issue #XX'
-```
-
-### PR body — temp file workflow
-
-The script checks for a pre-populated temp file at `temp/pr-body-<issue>.md`:
-
-- **If the file exists** (agent pre-populated): used verbatim with `gh pr create --body-file`.
-- **If the file does not exist**: generated from `.github/pull_request_template.md` as fallback, with `Fixes #XX` prepended.
-
-In both modes the temp file is cleaned up after PR creation.
-
-### Pre-PR validation
-
-- Current branch is a feature branch (not `develop`, `main`, or `master`), OR auto-branching triggered for protected branches.
-- Working tree is clean (for feature branches).
-- All acceptance criteria from the issue are addressed.
-- Tests and validation have been considered and run as appropriate.
+For `prclose`: before calling the script, optionally create `temp/pr-body-<issue>.md` with populated Summary, Testing, and Breaking changes sections. If the file exists, the script uses it verbatim. If absent, the script generates defaults from `.github/pull_request_template.md`.
 
 ## Safety minimums
 
