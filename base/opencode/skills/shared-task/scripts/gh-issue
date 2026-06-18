@@ -379,10 +379,6 @@ case "$command" in
       exit 1
     fi
     issue_title="$(gh_issue view "$issue" --json title --jq '.title')"
-    issue_body="$(gh_issue view "$issue" --json body --jq '.body')"
-    if [[ -z "$issue_body" || "$issue_body" == "null" ]]; then
-      issue_body="_Describe the purpose and scope of this change._"
-    fi
     protected_branch=0
     case "$current_branch" in
       main|master|develop)
@@ -406,7 +402,7 @@ case "$command" in
 
 ## Summary
 
-${issue_body}
+_Describe the purpose and scope of this change._
 
 ## Testing
 

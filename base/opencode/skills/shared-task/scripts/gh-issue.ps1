@@ -366,10 +366,6 @@ switch ($command) {
             throw 'Error: prclose requires an active local branch.'
         }
         $issueTitle = Invoke-GhIssue view $issue --json title --jq '.title'
-        $issueBody = Invoke-GhIssue view $issue --json body --jq '.body'
-        if ([string]::IsNullOrEmpty($issueBody) -or $issueBody -eq 'null') {
-            $issueBody = '_Describe the purpose and scope of this change._'
-        }
         $protectedBranch = $false
         if ($branch -in @('main', 'master', 'develop')) {
             $protectedBranch = $true
@@ -391,7 +387,7 @@ switch ($command) {
                 throw 'Error: prclose requires a clean working tree. Commit or stash changes first.'
             }
         }
-        $prBody = "Fixes #${issue}`n`n## Summary`n`n$issueBody`n`n## Testing`n`n_Describe how you validated this change. List tests run, commands executed, or review scenarios checked._`n`n## Breaking changes`n`nNone."
+        $prBody = "Fixes #${issue}`n`n## Summary`n`n_Describe the purpose and scope of this change._`n`n## Testing`n`n_Describe how you validated this change. List tests run, commands executed, or review scenarios checked._`n`n## Breaking changes`n`nNone."
         $me = gh api user --jq '.login' 2>$null
         if ($LASTEXITCODE -ne 0) { throw "gh api user query failed (exit $LASTEXITCODE)" }
         $prUrl = gh pr create --repo $repo --title "[Issue #$issue] '$issueTitle'" --body $prBody --assignee $me
