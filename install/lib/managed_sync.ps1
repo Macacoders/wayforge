@@ -748,7 +748,7 @@ function Sync-ManagedPathFromManifest {
     }
 
     if ($RelativePath -eq 'AGENTS.md') {
-        $srcFile = Join-Path $RootDir 'templates\AGENTS.md'
+        $srcFile = Join-Path $RootDir 'base\AGENTS.md'
     } elseif ($RelativePath.StartsWith('.opencode/agents/')) {
         $subpath = $RelativePath.Substring('.opencode/agents/'.Length)
         $srcFile = "$RootDir\base\opencode\agents\$subpath"
