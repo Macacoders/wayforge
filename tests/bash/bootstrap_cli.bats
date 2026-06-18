@@ -48,7 +48,7 @@ remove_manifest_path() {
 }
 
 @test "bootstrap.sh dry-run for kilocode leaves repo untouched" {
-	run "$TEST_AI_CONFIG/install/bootstrap.sh" --repo "$TEST_REPO" --runtime kilocode --providers openai,github-copilot --agent-preset fast --dry-run
+	run "$TEST_AI_CONFIG/install/bootstrap.sh" --repo "$TEST_REPO" --runtime kilocode --providers openai,github-copilot --dry-run
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"DRY-RUN: would generate local config: $TEST_REPO/kilo.jsonc"* ]]
 	[[ "$output" == *"repo bootstrap complete for: $TEST_REPO"* ]]
@@ -83,11 +83,10 @@ remove_manifest_path() {
 	run "$TEST_AI_CONFIG/install/bootstrap.sh" --repo "$TEST_REPO"
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"existing install detected, refreshing managed paths from manifest"* ]]
-	local expected="$(mktemp)"
-	cp "$TEST_AI_CONFIG/base/opencode/agents/planner.md" "$expected"
-	sed -i 's|base/opencode/|.opencode/|g' "$expected"
-	cmp -s "$expected" "$TEST_REPO/.opencode/agents/planner.md"
-	rm "$expected"
+	# Planner.md should have permission frontmatter injected and original agent content
+	[[ "$(<"$TEST_REPO/.opencode/agents/planner.md")" == *"permission:"* ]]
+	[[ "$(<"$TEST_REPO/.opencode/agents/planner.md")" == *"edit: ask"* ]]
+	[[ "$(<"$TEST_REPO/.opencode/agents/planner.md")" == *"planner"* ]]
 }
 
 @test "bootstrap.sh keeps AGENTS.md on reinstall without force" {
@@ -177,12 +176,13 @@ remove_manifest_path() {
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" != *'// local override'* ]]
 }
 
-@test "root bootstrap.sh renders github-copilot thorough preset defaults" {
-	run "$REPO_ROOT/install/bootstrap.sh" --repo "$TEST_REPO" --force --providers github-copilot --agent-preset thorough
+@test "root bootstrap.sh renders github-copilot balanced defaults" {
+	run "$REPO_ROOT/install/bootstrap.sh" --repo "$TEST_REPO" --force --providers github-copilot
 	[ "$status" -eq 0 ]
+	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"enabled_providers": ["opencode", "github-copilot"]'* ]]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"model": "github-copilot/gpt-5.4"'* ]]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"small_model": "github-copilot/gpt-5.3-codex"'* ]]
-	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"steps": 40'* ]]
+	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"steps": 16'* ]]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"reasoningEffort": "medium"'* ]]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"github-copilot"'* ]]
 }
@@ -198,13 +198,13 @@ remove_manifest_path() {
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"steps": 30'* ]]
 }
 
-@test "root bootstrap.sh honors openai-only overrides with fast preset" {
-	run "$REPO_ROOT/install/bootstrap.sh" --repo "$TEST_REPO" --force --providers openai --model openai/gpt-5.4-mini --small-model openai/gpt-5.4-nano --agent-preset fast
+@test "root bootstrap.sh honors openai-only overrides" {
+	run "$REPO_ROOT/install/bootstrap.sh" --repo "$TEST_REPO" --force --providers openai --model openai/gpt-5.4-mini --small-model openai/gpt-5.4-nano
 	[ "$status" -eq 0 ]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"enabled_providers": ["opencode", "openai"]'* ]]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"model": "openai/gpt-5.4-mini"'* ]]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"small_model": "openai/gpt-5.4-nano"'* ]]
-	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"steps": 12'* ]]
+	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"steps": 20'* ]]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"reasoningEffort": "low"'* ]]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"textVerbosity": "low"'* ]]
 }

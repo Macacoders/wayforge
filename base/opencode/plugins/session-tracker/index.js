@@ -19,10 +19,12 @@ let matchedCount = 0;
 
 // Temporary: log first few token-bearing events to diagnose shape
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 let msgUpdatedCount = 0;
 let partUpdatedCount = 0;
 function diag(label, data) {
-  try { fs.appendFileSync("/tmp/token-tracker-diag.log", `[${new Date().toISOString()}] ${label}: ${JSON.stringify(data)}\n`); } catch {}
+  try { fs.appendFileSync(path.join(os.tmpdir(), "token-tracker-diag.log"), `[${new Date().toISOString()}] ${label}: ${JSON.stringify(data)}\n`); } catch {}
 }
 
 function getSession(sessionID) {

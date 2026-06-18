@@ -196,7 +196,7 @@ switch ($command) {
         Write-Output "OK: GitHub access verified for $repo"
     }
     'labels-check' {
-        $missing = Get-MissingRequiredLabels
+        $missing = @(Get-MissingRequiredLabels)
         if ($missing.Count -gt 0) {
             Write-Error ("Missing required labels in ${repo}:`n  - " + ($missing -join "`n  - "))
             exit 1
