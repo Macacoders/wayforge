@@ -174,7 +174,7 @@ _managed_track_file() {
 			return
 		fi
 	fi
-	run_write_file "${dst_file}.ai-config-managed" "generated-by=ai-config-bootstrap.sh"
+	run_write_file "${dst_file}.ai-config-managed" "generated-by=ai-config-bootstrap"
 }
 
 # Initialize a managed manifest accumulator for a repo install.
@@ -556,7 +556,7 @@ sync_managed_tree() {
 	fi
 
 	if [[ "$dst_tree_existed" -eq 0 || "$dst_tree_was_managed" -eq 1 ]] && [[ ! -f "$dst/$MANAGED_DIR_MARKER" ]] && [[ "$_manifest_active" -eq 0 ]]; then
-		run_write_file "$dst/$MANAGED_DIR_MARKER" "generated-by=ai-config-bootstrap.sh"
+		run_write_file "$dst/$MANAGED_DIR_MARKER" "generated-by=ai-config-bootstrap"
 		if [[ "$DRY_RUN" -eq 1 ]]; then
 			log "DRY-RUN: would mark managed tree: $dst"
 		else
