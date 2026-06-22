@@ -199,6 +199,12 @@ case "$FORCE_CHOICE" in
 	;;
 esac
 
+printf '\nGitHub App for issue management (/issue command):\n'
+printf '  If you have a GitHub App with Issues and PR permissions, enter its Client ID below.\n'
+printf '  Leave blank to skip — you can configure it later in .gh-config/app.yml\n'
+read -r -p "GitHub App Client ID (leave blank to skip): " GH_APP_CLIENT_ID_INPUT
+GH_APP_CLIENT_ID_INPUT="${GH_APP_CLIENT_ID_INPUT:-}"
+
 printf '\nProvider connection instructions (not automated):\n'
 if contains_provider "$PROVIDERS" "openai"; then
 	printf '  - OpenAI: in OpenCode/Kilo Code, run /connect and complete OpenAI auth.\n'
@@ -211,6 +217,9 @@ if contains_provider "$PROVIDERS" "laberit"; then
 fi
 
 cmd=("$BOOTSTRAP_SH" --repo "$REPO_PATH" --runtime "$RUNTIME" --providers "$PROVIDERS")
+if [[ -n "$GH_APP_CLIENT_ID_INPUT" ]]; then
+	cmd+=(--gh-app-client-id "$GH_APP_CLIENT_ID_INPUT")
+fi
 if [[ -n "$MODEL_OVERRIDE" ]]; then
 	cmd+=(--model "$MODEL_OVERRIDE")
 fi
@@ -240,6 +249,11 @@ else
 fi
 printf '  Dry run: %s\n' "$DRY_RUN"
 printf '  Force: %s\n' "$FORCE"
+if [[ -n "$GH_APP_CLIENT_ID_INPUT" ]]; then
+	printf '  GitHub App Client ID: %s\n' "$GH_APP_CLIENT_ID_INPUT"
+else
+	printf '  GitHub App Client ID: (not set — configure later in .gh-config/app.yml)\n'
+fi
 
 printf '\nProceed with install? [Y/n]: '
 read -r proceed

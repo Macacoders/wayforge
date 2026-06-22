@@ -13,6 +13,7 @@ agents:
       "git ls-files*": allow
       ".opencode/skills/shared-task/scripts/gh-issue*": allow
       ".opencode/skills/shared-task/scripts/gh-issue.ps1*": allow
+      "npx tsx .opencode/skills/shared-task/scripts/github-app-auth.ts*": allow
     task:
       "*": deny
       research: allow

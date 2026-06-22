@@ -24,6 +24,7 @@ teardown() {
 1
 1
 1
+
 n
 "
 	run bash -c 'printf "%s" "$1" | "$2/install/bootstrap-interactive.sh"' _ "$input" "$REPO_ROOT"
@@ -41,6 +42,7 @@ n
 2
 2
 1
+
 Y
 "
 	run bash -c 'printf "%s" "$1" | "$2/install/bootstrap-interactive.sh"' _ "$input" "$REPO_ROOT"
