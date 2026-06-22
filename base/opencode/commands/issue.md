@@ -34,4 +34,5 @@ Helper commands:
 
 ## Safety minimums
 
-- Use repo-local credentials (`GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"`).
+- Authentication uses the GitHub App Device Flow via `.opencode/skills/shared-task/scripts/github-app-auth.ts`. On first use, the agent will prompt for browser authorization. Subsequent runs use the cached token.
+- To bypass app auth, set `GITHUB_TOKEN` manually.

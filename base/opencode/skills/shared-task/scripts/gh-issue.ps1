@@ -184,6 +184,23 @@ function Get-CurrentUser {
 }
 
 $command = $remaining[0]
+
+# Resolve GITHUB_TOKEN from GitHub App device flow if not already set
+if (-not $env:GITHUB_TOKEN) {
+    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $oldErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $token = & npx tsx "$scriptDir/github-app-auth.ts" --token
+        if ($LASTEXITCODE -eq 0 -and $token) {
+            $env:GITHUB_TOKEN = ($token -join "`n").Trim()
+        }
+    } catch {
+        Write-Warning 'Could not resolve GitHub token. Ensure you have run the device flow setup.'
+    }
+    $ErrorActionPreference = $oldErrorAction
+}
+
 $rangeResult = $remaining.GetRange(1, $remaining.Count - 1)
 $rest = [string[]]$rangeResult
 

@@ -203,6 +203,12 @@ switch ($FORCE_CHOICE) {
     default { log "invalid force selection: $FORCE_CHOICE"; exit 1 }
 }
 
+# GitHub App Client ID
+Write-Host "`nGitHub App for issue management (/issue command):"
+Write-Host '  If you have a GitHub App with Issues and PR permissions, enter its Client ID below.'
+Write-Host '  Leave blank to skip - you can configure it later in .gh-config/app.yml'
+$GH_APP_CLIENT_ID_INPUT = (Read-Host 'GitHub App Client ID (leave blank to skip)').Trim()
+
 # Provider connection instructions
 Write-Host "`nProvider connection instructions (not automated):"
 if (contains_provider $PROVIDERS 'openai') {
@@ -228,6 +234,7 @@ if ($MODEL_OVERRIDE) { $cmd += '-Model'; $cmd += $MODEL_OVERRIDE }
 if ($SMALL_MODEL_OVERRIDE) { $cmd += '-SmallModel'; $cmd += $SMALL_MODEL_OVERRIDE }
 if ($DRY_RUN) { $cmd += '-DryRun' }
 if ($FORCE) { $cmd += '-Force' }
+if ($GH_APP_CLIENT_ID_INPUT) { $cmd += '-GhAppClientId'; $cmd += $GH_APP_CLIENT_ID_INPUT }
 
 # Summary
 Write-Host "`nSummary:"
@@ -246,6 +253,11 @@ if ($SMALL_MODEL_OVERRIDE) {
 }
 Write-Host "  Dry run: $(if ($DRY_RUN) { 1 } else { 0 })"
 Write-Host "  Force: $(if ($FORCE) { 1 } else { 0 })"
+if ($GH_APP_CLIENT_ID_INPUT) {
+    Write-Host "  GitHub App Client ID: $GH_APP_CLIENT_ID_INPUT"
+} else {
+    Write-Host '  GitHub App Client ID: (not set - configure later in .gh-config/app.yml)'
+}
 
 # Confirmation
 $proceed = Read-Host "`nProceed with install? [Y/n]"

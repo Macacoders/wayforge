@@ -27,7 +27,8 @@ Helper commands:
 
 ## Safety minimums
 
-- Use repo-local credentials (`GH_CONFIG_DIR="$(git rev-parse --show-toplevel)/.gh-config"`).
+- Authentication uses the GitHub App Device Flow via `github-app-auth.ts`. First use requires browser authorization; token is cached for subsequent runs.
+- Set `GITHUB_TOKEN` to bypass app authentication.
 - Required labels must exist already:
   - Status: `status:to-do`, `status:doing`, `status:in-review`, `status:blocked`
   - Type: `type:task`, `type:feature`, `type:bug`, `type:docs`, `type:chore`

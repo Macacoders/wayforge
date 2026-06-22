@@ -20,6 +20,23 @@ EOF
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 export GH_CONFIG_DIR="${GH_CONFIG_DIR:-$repo_root/.gh-config}"
 
+# Resolve GITHUB_TOKEN from GitHub App device flow if not already set
+resolve_github_token() {
+  if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    return 0
+  fi
+  local script_dir token
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+  if token=$(GH_CONFIG_DIR="$GH_CONFIG_DIR" npx tsx "$script_dir/github-app-auth.ts" --token); then
+    if [[ -n "$token" ]]; then
+      export GITHUB_TOKEN="$token"
+      return 0
+    fi
+  fi
+  printf 'Warning: Could not resolve GitHub token. Ensure you have run the device flow setup.\n' >&2
+  return 1
+}
+
 required_labels=(
   status:to-do
   status:doing
@@ -168,6 +185,9 @@ ensure_open_issue() {
 current_user() {
   gh api user --jq '.login'
 }
+
+# Try to resolve a GitHub token via device flow; non-fatal on failure.
+resolve_github_token || true
 
 case "$command" in
   check)
