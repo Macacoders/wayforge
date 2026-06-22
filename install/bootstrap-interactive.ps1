@@ -57,7 +57,7 @@ if ($args.Count -gt 0) {
         exit 0
     }
     $POSITIONAL_REPO = $args[0]
-    if (-not (Test-Path $POSITIONAL_REPO -PathType Container)) {
+    if (-not (Test-Path -LiteralPath $POSITIONAL_REPO -PathType Container)) {
         log "warning: specified path does not exist or is not a directory: $POSITIONAL_REPO"
         log "will fall back to current directory prompt"
         $POSITIONAL_REPO = $null
@@ -65,7 +65,7 @@ if ($args.Count -gt 0) {
 }
 
 # Check bootstrap.ps1 exists
-if (-not (Test-Path $BOOTSTRAP_PS1 -PathType Leaf)) {
+if (-not (Test-Path -LiteralPath $BOOTSTRAP_PS1 -PathType Leaf)) {
     log "error: missing installer script: $BOOTSTRAP_PS1"
     exit 1
 }
@@ -77,7 +77,7 @@ while ($true) {
     if ([string]::IsNullOrWhiteSpace($REPO_PATH)) {
         $REPO_PATH = $DEFAULT_REPO
     }
-    if (Test-Path $REPO_PATH -PathType Container) {
+    if (Test-Path -LiteralPath $REPO_PATH -PathType Container) {
         break
     }
     log "path does not exist or is not a directory: $REPO_PATH"

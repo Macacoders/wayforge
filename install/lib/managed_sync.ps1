@@ -185,7 +185,7 @@ function _ManagedTrackFile {
             return
         }
     }
-    run-writefile "${DstFile}.ai-config-managed" 'generated-by=ai-config-bootstrap.sh'
+    run-writefile "${DstFile}.ai-config-managed" 'generated-by=ai-config-bootstrap'
 }
 
 # Initialize a managed manifest accumulator for a repo install.
@@ -381,7 +381,7 @@ function Sync-ManagedTree {
 
     $dstMarker = Join-Path $Dst $MANAGED_DIR_MARKER
     if ((-not $dstTreeExisted -or $dstTreeWasManaged) -and -not (Test-Path $dstMarker -PathType Leaf) -and -not $_manifestActive) {
-        run-writefile $dstMarker 'generated-by=ai-config-bootstrap.sh'
+        run-writefile $dstMarker 'generated-by=ai-config-bootstrap'
         if ($DRY_RUN) {
             log "DRY-RUN: would mark managed tree: $Dst"
         } else {
@@ -748,7 +748,7 @@ function Sync-ManagedPathFromManifest {
     }
 
     if ($RelativePath -eq 'AGENTS.md') {
-        $srcFile = Join-Path $RootDir 'templates\AGENTS.md'
+        $srcFile = Join-Path $RootDir 'base\AGENTS.md'
     } elseif ($RelativePath.StartsWith('.opencode/agents/')) {
         $subpath = $RelativePath.Substring('.opencode/agents/'.Length)
         $srcFile = "$RootDir\base\opencode\agents\$subpath"

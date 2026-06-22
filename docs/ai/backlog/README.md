@@ -41,10 +41,9 @@ Do not require or assume a top-level `scripts/` directory for shared task issue 
    - Remove self assignee.
    - Set `status:to-do` unless blocked (then set `status:blocked` with a short reason).
 6. **prclose**: Use `/issue prclose <issue-number>` when ready for code review (creates a PR and keeps the issue open).
-   - Conservative guardrails: it refuses protected branches (`develop`, `main`, `master`) and dirty working trees.
+   - The script handles branch protection, PR formatting, status labels, and comments automatically.
    - Ensure acceptance criteria are addressed before opening the PR.
-   - Add a short completion summary comment.
-   - Remove `status:doing` and add `status:in-review` label.
+   - Remove `status:doing` and add `status:in-review` label — handled by the script.
    - Create the Pull Request (issue remains open, will auto-close on merge).
 7. **Close**: Use `/issue close <issue-number>` after completion and validation.
    - Use for tasks completed without code review or when closing rejected/abandoned work.
@@ -91,3 +90,7 @@ If required labels are missing, stop task creation/updates and report the missin
 - Keep issue state current through assignees, status labels, and short comments.
 - Link ADRs, plans, or pull requests from the issue when a task creates durable decisions or implementation work.
 - Do not store raw diffs, transcripts, or long logs in issues; summarize outcomes and link durable references instead.
+
+## PR Creation Standards
+
+Use `/issue prclose <issue-number>` to create a pull request. The script handles branch protection, PR formatting, status labels, and comments automatically. The branch naming convention is `feature/issue-{number}-{slugified-title}`.
