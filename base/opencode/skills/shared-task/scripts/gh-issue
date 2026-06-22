@@ -378,19 +378,44 @@ case "$command" in
       printf 'Error: prclose requires an active local branch.\n' >&2
       exit 1
     fi
+    issue_title="$(gh_issue view "$issue" --json title --jq '.title')"
+    protected_branch=0
     case "$current_branch" in
       main|master|develop)
-        printf 'Error: prclose refused on protected branch %s. Create/switch to feature branch and commit/push first.\n' "$current_branch" >&2
-        exit 1
+        protected_branch=1
+        # Generate feature branch name
+        slug="$(echo "$issue_title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-60 | sed 's/-$//')"
+        feature_branch="feature/issue-$issue-$slug"
+        echo "On protected branch '$current_branch'. Creating feature branch '$feature_branch'..."
+        git checkout -b "$feature_branch"
+        git add -A
+        git commit -m "[Issue #$issue] $issue_title"
+        git push -u origin "$feature_branch"
+        current_branch="$feature_branch"
         ;;
     esac
-    if [[ -n "$(git status --porcelain)" ]]; then
+    if [[ "$protected_branch" -eq 0 && -n "$(git status --porcelain)" ]]; then
       printf 'Error: prclose requires a clean working tree. Commit or stash changes first.\n' >&2
       exit 1
     fi
+    template_file="$repo_root/.github/pull_request_template.md"
+    temp_dir="$repo_root/temp"
+    mkdir -p "$temp_dir"
+    temp_body="$temp_dir/pr-body-$issue.md"
 
-    issue_title="$(gh_issue view "$issue" --json title --jq '.title')"
-    pr_url="$(gh pr create --repo "$repo" --title "$issue_title" --body "Fixes #$issue")"
+    if [[ ! -f "$temp_body" ]]; then
+      printf 'Fixes #%s\n\n' "$issue" > "$temp_body"
+      if [[ -f "$template_file" ]]; then
+        cat "$template_file" >> "$temp_body"
+      else
+        printf '## Summary\n\n_Describe the purpose and scope of this change. What problem does it solve? What does it implement?_\n\n## Testing\n\n_Describe how you validated this change. List tests run, commands executed, or review scenarios checked._\n\n## Breaking changes\n\n_List any breaking changes to contracts, workflows, configuration, or APIs. If none, state "None."_\n' >> "$temp_body"
+      fi
+    fi
+
+    me="$(current_user)"
+    pr_url="$(gh pr create --repo "$repo" --title "[Issue #$issue] '$issue_title'" --body-file "$temp_body" --assignee "$me")"
+
+    rm -f "$temp_body"
 
     gh_issue comment "$issue" --body "$summary"$'\n\n'"Pull request: $pr_url"
     ensure_label_absent "$issue" "status:doing"

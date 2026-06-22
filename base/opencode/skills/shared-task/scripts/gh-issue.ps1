@@ -365,20 +365,63 @@ switch ($command) {
         if (-not $branch -or $branch -eq 'HEAD') {
             throw 'Error: prclose requires an active local branch.'
         }
-        if ($branch -in @('main', 'master', 'develop')) {
-            throw "Error: prclose refused on protected branch $branch. Create/switch to feature branch and commit/push first."
-        }
-
-        $dirty = git status --porcelain
-        if ($dirty) {
-            throw 'Error: prclose requires a clean working tree. Commit or stash changes first.'
-        }
-
         $issueTitle = Invoke-GhIssue view $issue --json title --jq '.title'
-        $prUrl = gh pr create --repo $repo --title $issueTitle --body "Fixes #$issue"
+        $protectedBranch = $false
+        if ($branch -in @('main', 'master', 'develop')) {
+            $protectedBranch = $true
+            # Generate slug from issue title
+            $slug = ($issueTitle.ToLower() -replace '[^a-z0-9\s-]', '') -replace '\s+', '-' -replace '-{2,}', '-' -replace '^-|-$', ''
+            if ($slug.Length -gt 60) { $slug = $slug.Substring(0, 60) -replace '-$', '' }
+            $featureBranch = "feature/issue-$issue-$slug"
+            Write-Output "On protected branch '$branch'. Creating feature branch '$featureBranch'..."
+            git checkout -b $featureBranch
+            git add -A
+            git commit -m "[Issue #$issue] $issueTitle"
+            git push -u origin $featureBranch
+            $branch = $featureBranch
+        }
+
+        if (-not $protectedBranch) {
+            $dirty = git status --porcelain
+            if ($dirty) {
+                throw 'Error: prclose requires a clean working tree. Commit or stash changes first.'
+            }
+        }
+        $templateFile = Join-Path $repo_root '.github\pull_request_template.md'
+        $tempDir = Join-Path $repo_root 'temp'
+        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+        $tempBody = Join-Path $tempDir "pr-body-$issue.md"
+
+        if (-not (Test-Path $tempBody)) {
+            "Fixes #${issue}`n`n" | Set-Content -Path $tempBody -NoNewline
+            if (Test-Path $templateFile) {
+                Get-Content $templateFile -Raw | Add-Content -Path $tempBody -NoNewline
+            } else {
+                @"
+## Summary
+
+_Describe the purpose and scope of this change. What problem does it solve? What does it implement?_
+
+## Testing
+
+_Describe how you validated this change. List tests run, commands executed, or review scenarios checked._
+
+## Breaking changes
+
+_List any breaking changes to contracts, workflows, configuration, or APIs. If none, state "None."_
+"@ | Add-Content -Path $tempBody -NoNewline
+            }
+        }
+
+        $me = gh api user --jq '.login' 2>$null
+        if ($LASTEXITCODE -ne 0) { throw "gh api user query failed (exit $LASTEXITCODE)" }
+        $prUrl = gh pr create --repo $repo --title "[Issue #$issue] '$issueTitle'" --body-file $tempBody --assignee $me
         if ($LASTEXITCODE -ne 0) {
+            Remove-Item $tempBody -Force -ErrorAction SilentlyContinue
             throw "Error: gh pr create failed (exit $LASTEXITCODE)"
         }
+
+        Remove-Item $tempBody -Force -ErrorAction SilentlyContinue
 
         Invoke-GhIssue comment $issue --body ($summary + "`n`nPull request: $prUrl") | Out-Null
         Ensure-LabelAbsent $issue 'status:doing'

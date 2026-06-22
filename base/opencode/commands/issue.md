@@ -26,11 +26,13 @@ For `/issue create <description>`:
 7. Create with `.opencode/skills/shared-task/scripts/gh-issue create <title> --body-file <tmp> --label ...`.
 8. Report the created issue number and URL.
 
-For non-create operations, call the following helper command directly and do not restate operation procedures.
+For non-create operations, call the helper command directly. The script handles all guardrails, labels, and formatting automatically.
 
 Helper commands:
 - Bash: `.opencode/skills/shared-task/scripts/gh-issue <operation> ...`
 - PowerShell: `.opencode/skills/shared-task/scripts/gh-issue.ps1 <operation> ...`
+
+For `prclose`: before calling the script, optionally create `temp/pr-body-<issue>.md` with populated Summary, Testing, and Breaking changes sections. If the file exists, the script uses it verbatim. If absent, the script generates defaults from `.github/pull_request_template.md`.
 
 ## Safety minimums
 
