@@ -2,8 +2,10 @@
 
 Date: 2026-06-09  
 Repository root: `/home/pabloben/dev/ai-config`  
-Status: Phase 1 complete  
+Status: Phase 1 complete; Phases 2–3 moved to ponytail integration plan  
 Issue: #2
+
+Next: See `docs/ai/plans/2026-06-23-ponytail-integration-issue-2.md` for the ponytail-based Phase 2 (plugin) and Phase 3 (commands/skills/docs) plan.
 
 ## Goal
 
