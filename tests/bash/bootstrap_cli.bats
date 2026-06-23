@@ -119,30 +119,30 @@ remove_manifest_path() {
 	run "$TEST_AI_CONFIG/install/bootstrap.sh" --repo "$TEST_REPO"
 	[ "$status" -eq 0 ]
 	printf 'user edited command\n' >"$TEST_REPO/.opencode/commands/plan.md"
-	printf 'user edited skill\n' >"$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue"
+	printf 'user edited skill\n' >"$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue.ts"
 
 	run "$TEST_AI_CONFIG/install/bootstrap.sh" --repo "$TEST_REPO"
 	[ "$status" -eq 0 ]
 	cmp -s "$TEST_AI_CONFIG/base/opencode/commands/plan.md" "$TEST_REPO/.opencode/commands/plan.md"
-	cmp -s "$TEST_AI_CONFIG/base/opencode/skills/shared-task/scripts/gh-issue" "$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue"
+	cmp -s "$TEST_AI_CONFIG/base/opencode/skills/shared-task/scripts/gh-issue.ts" "$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue.ts"
 }
 
 @test "bootstrap.sh discovers manifest paths added since prior install" {
 	run "$TEST_AI_CONFIG/install/bootstrap.sh" --repo "$TEST_REPO"
 	[ "$status" -eq 0 ]
-	rm -f "$TEST_REPO/AGENTS.md" "$TEST_REPO/.opencode/commands/issue.md" "$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue"
+	rm -f "$TEST_REPO/AGENTS.md" "$TEST_REPO/.opencode/commands/issue.md" "$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue.ts"
 	remove_manifest_path "$TEST_REPO/.ai-config-managed" "AGENTS.md"
 	remove_manifest_path "$TEST_REPO/.ai-config-managed" ".opencode/commands/issue.md"
-	remove_manifest_path "$TEST_REPO/.ai-config-managed" ".opencode/skills/shared-task/scripts/gh-issue"
+	remove_manifest_path "$TEST_REPO/.ai-config-managed" ".opencode/skills/shared-task/scripts/gh-issue.ts"
 
 	run "$TEST_AI_CONFIG/install/bootstrap.sh" --repo "$TEST_REPO"
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"new managed path discovered: AGENTS.md"* ]]
 	[[ "$output" == *"new managed path discovered: .opencode/commands/issue.md"* ]]
-	[[ "$output" == *"new managed path discovered: .opencode/skills/shared-task/scripts/gh-issue"* ]]
+	[[ "$output" == *"new managed path discovered: .opencode/skills/shared-task/scripts/gh-issue.ts"* ]]
 	cmp -s "$TEST_AI_CONFIG/base/AGENTS.md" "$TEST_REPO/AGENTS.md"
 	cmp -s "$TEST_AI_CONFIG/base/opencode/commands/issue.md" "$TEST_REPO/.opencode/commands/issue.md"
-	cmp -s "$TEST_AI_CONFIG/base/opencode/skills/shared-task/scripts/gh-issue" "$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue"
+	cmp -s "$TEST_AI_CONFIG/base/opencode/skills/shared-task/scripts/gh-issue.ts" "$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue.ts"
 }
 
 @test "root bootstrap.sh --force performs a tracked-free fresh install" {
@@ -152,7 +152,7 @@ remove_manifest_path() {
 	[ -f "$TEST_REPO/opencode.jsonc" ]
 	[ -f "$TEST_REPO/AGENTS.md" ]
 	[ -f "$TEST_REPO/.opencode/commands/issue.md" ]
-	[ -f "$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue" ]
+	[ -f "$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue.ts" ]
 }
 
 @test "root bootstrap.sh --force refreshes managed files from manifest" {
@@ -161,7 +161,7 @@ remove_manifest_path() {
 	printf 'custom repo instructions\n' >"$TEST_REPO/AGENTS.md"
 	printf '// local override\n' >"$TEST_REPO/opencode.jsonc"
 	printf 'user edited command\n' >"$TEST_REPO/.opencode/commands/plan.md"
-	printf 'user edited skill\n' >"$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue"
+	printf 'user edited skill\n' >"$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue.ts"
 	rm -f "$TEST_REPO/.opencode/commands/issue.md"
 	remove_manifest_path "$TEST_REPO/.ai-config-managed" ".opencode/commands/issue.md"
 
@@ -172,7 +172,7 @@ remove_manifest_path() {
 	cmp -s "$REPO_ROOT/base/AGENTS.md" "$TEST_REPO/AGENTS.md"
 	cmp -s "$REPO_ROOT/base/opencode/commands/plan.md" "$TEST_REPO/.opencode/commands/plan.md"
 	cmp -s "$REPO_ROOT/base/opencode/commands/issue.md" "$TEST_REPO/.opencode/commands/issue.md"
-	cmp -s "$REPO_ROOT/base/opencode/skills/shared-task/scripts/gh-issue" "$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue"
+	cmp -s "$REPO_ROOT/base/opencode/skills/shared-task/scripts/gh-issue.ts" "$TEST_REPO/.opencode/skills/shared-task/scripts/gh-issue.ts"
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" != *'// local override'* ]]
 }
 

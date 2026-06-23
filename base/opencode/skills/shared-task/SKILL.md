@@ -20,10 +20,9 @@ Use this skill for shared issue workflow through `/issue`.
 - `/issue close <issue-number>`
 - `/issue prclose <issue-number>`
 
-Helper commands:
+Helper command:
 
-- Bash: `.opencode/skills/shared-task/scripts/gh-issue <operation> ...`
-- PowerShell: `.opencode/skills/shared-task/scripts/gh-issue.ps1 <operation> ...`
+- TypeScript: `.opencode/skills/shared-task/scripts/gh-issue.ts <operation> ...`
 
 ## Safety minimums
 

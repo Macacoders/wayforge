@@ -1,7 +1,7 @@
 # ADR-0011: Standardize PR Creation Workflow for Shared Tasks
 
-Date: 2026-06-16 (amended 2026-06-18, 2026-06-18 rev.2, 2026-06-18 rev.3, 2026-06-18 rev.4, 2026-06-18 rev.5)
-Status: Accepted
+Date: 2026-06-16 (amended 2026-06-18, 2026-06-18 rev.2, 2026-06-18 rev.3, 2026-06-18 rev.4, 2026-06-18 rev.5, 2026-06-23)
+Status: Accepted (partially superseded by ADR-0017)
 
 ## Context
 
@@ -30,7 +30,7 @@ Standardize PR creation in the shared task workflow with these conventions:
 - All PRs created via `prclose` will have consistent titles and bodies. When an agent pre-populates the temp file, the body contains real content. When no temp file exists, the body defaults to the template or built-in fallback.
 - The temp file at `temp/pr-body-<issue>.md` is the contract between agent and script: the agent writes it, the script consumes it. After PR creation, the file is cleaned up.
 - Manual PR creation (outside prclose) benefits from `.github/pull_request_template.md` with visible italic guidance.
-- The `gh-issue` scripts for both bash and PowerShell must be kept in sync for all future changes.
+- ~~The `gh-issue` scripts for both bash and PowerShell must be kept in sync for all future changes.~~ *(Superseded 2026-06-23 by ADR-0017: single TypeScript `gh-issue.ts` replaces both scripts.)*
 - Protected branch auto-branching reduces friction — users no longer need to manually create feature branches before running prclose on main/master/develop.
 
 ## Alternatives Considered

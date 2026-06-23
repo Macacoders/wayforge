@@ -1,6 +1,6 @@
 # ADR-0016: Authenticate gh-issue via GitHub App Device Flow
 
-Date: 2026-06-22
+Date: 2026-06-22 (amended 2026-06-23)
 Status: Accepted
 
 ## Context
@@ -16,7 +16,7 @@ Switch `gh-issue` authentication from PAT to GitHub App OAuth Device Flow:
 - The GitHub App acts as an OAuth app, supporting the Device Flow grant — only the Client ID is needed, no client secret or private key required.
 - A TypeScript helper (`github-app-auth.ts`) implements the Device Flow: on first use, it prompts the user to authorize via browser (`https://github.com/login/device`); after authorization, the access token (and optional refresh token) are cached in `.gh-config/github-token.json` with `0o600` permissions.
 - The helper exports `getValidToken()` — checks cached token validity, attempts silent refresh if expired, or launches the device flow if no valid token exists.
-- Both `gh-issue` (Bash) and `gh-issue.ps1` (PowerShell) call the helper before issuing `gh` CLI commands, setting `GITHUB_TOKEN` from the resolved token.
+- The `gh-issue.ts` TypeScript script imports `getValidToken()` directly and wraps it with `GITHUB_TOKEN` / `GH_TOKEN` env var checks before falling back to device flow. Uses native `fetch` for API calls — no `gh` CLI dependency.
 - `GITHUB_TOKEN` env var still takes precedence, preserving backward compatibility for headless/CI environments.
 
 Token resolution order:
