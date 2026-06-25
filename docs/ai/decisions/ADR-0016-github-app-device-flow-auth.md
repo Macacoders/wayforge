@@ -14,7 +14,7 @@ A new GitHub App was created (Client ID `Iv23lizSyNH79b6RJr56`) with read/write 
 Switch `gh-issue` authentication from PAT to GitHub App OAuth Device Flow:
 
 - The GitHub App acts as an OAuth app, supporting the Device Flow grant — only the Client ID is needed, no client secret or private key required.
-- A TypeScript helper (`github-app-auth.ts`) implements the Device Flow: on first use, it prompts the user to authorize via browser (`https://github.com/login/device`); after authorization, the access token (and optional refresh token) are cached in `.gh-config/github-token.json` with `0o600` permissions.
+- A TypeScript helper (`gh-app-auth.ts`) implements the Device Flow: on first use, it prompts the user to authorize via browser (`https://github.com/login/device`); after authorization, the access token (and optional refresh token) are cached in `.gh-config/github-token.json` with `0o600` permissions.
 - The helper exports `getValidToken()` — checks cached token validity, attempts silent refresh if expired, or launches the device flow if no valid token exists.
 - The `gh-issue.ts` TypeScript script imports `getValidToken()` directly and wraps it with `GITHUB_TOKEN` / `GH_TOKEN` env var checks before falling back to device flow. Uses native `fetch` for API calls — no `gh` CLI dependency.
 - `GITHUB_TOKEN` env var still takes precedence, preserving backward compatibility for headless/CI environments.
@@ -22,7 +22,7 @@ Switch `gh-issue` authentication from PAT to GitHub App OAuth Device Flow:
 Token resolution order:
 1. `GITHUB_TOKEN` env var
 2. `GH_TOKEN` env var
-3. Device Flow via `github-app-auth.ts` (cached token → refresh → new device flow)
+3. Device Flow via `gh-app-auth.ts` (cached token → refresh → new device flow)
 
 ## Consequences
 

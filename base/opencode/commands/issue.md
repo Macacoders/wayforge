@@ -35,5 +35,5 @@ For `prclose`: before calling the script, optionally create `temp/pr-body-<issue
 
 ## Safety minimums
 
-- Authentication uses the GitHub App Device Flow via `.opencode/skills/shared-task/scripts/github-app-auth.ts`. On first use, the agent will prompt for browser authorization. Subsequent runs use the cached token. Run the helper via `npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts`.
+- Authentication uses the GitHub App Device Flow via `.opencode/skills/shared-task/scripts/gh-app-auth.ts`. On first use, the agent will prompt for browser authorization. Subsequent runs use the cached token. Run the helper via `npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts`.
 - To bypass app auth, set `GITHUB_TOKEN` manually.

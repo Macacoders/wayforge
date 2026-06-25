@@ -26,7 +26,7 @@ Helper command:
 
 ## Safety minimums
 
-- Authentication uses the GitHub App Device Flow via `github-app-auth.ts`. First use requires browser authorization; token is cached for subsequent runs.
+- Authentication uses the GitHub App Device Flow via `gh-app-auth.ts`. First use requires browser authorization; token is cached for subsequent runs.
 - Set `GITHUB_TOKEN` to bypass app authentication.
 - Required labels must exist already:
   - Status: `status:to-do`, `status:doing`, `status:in-review`, `status:blocked`
@@ -35,4 +35,4 @@ Helper command:
 - Do not auto-create labels.
 - Do not use `gh repo view`.
 - Do not mutate issues without clear user intent.
-- `gh-issue.ts` does not have a `view` subcommand. To read issue bodies, comments, or full details, use `gh issue view <number>` (set `GITHUB_TOKEN` from `github-app-auth.ts --token` if needed).
+- `gh-issue.ts` does not have a `view` subcommand. To read issue bodies, comments, or full details, use `gh issue view <number>` (set `GITHUB_TOKEN` from `gh-app-auth.ts --token` if needed).
