@@ -20,10 +20,9 @@ Use this skill for shared issue workflow through `/issue`.
 - `/issue close <issue-number>`
 - `/issue prclose <issue-number>`
 
-Helper commands:
+Helper command:
 
-- Bash: `.opencode/skills/shared-task/scripts/gh-issue <operation> ...`
-- PowerShell: `.opencode/skills/shared-task/scripts/gh-issue.ps1 <operation> ...`
+- TypeScript: `.opencode/skills/shared-task/scripts/gh-issue.ts <operation> ...`
 
 ## Safety minimums
 
@@ -36,3 +35,4 @@ Helper commands:
 - Do not auto-create labels.
 - Do not use `gh repo view`.
 - Do not mutate issues without clear user intent.
+- `gh-issue.ts` does not have a `view` subcommand. To read issue bodies, comments, or full details, use `gh issue view <number>` (set `GITHUB_TOKEN` from `github-app-auth.ts --token` if needed).

@@ -4,57 +4,48 @@
 
 Replace the duplicated Bash and PowerShell `gh-issue` scripts with one portable TypeScript implementation using the GitHub REST API through native `fetch`.
 
-Keep temporary compatibility wrappers during migration, then remove them after all references and validations are updated.
+Integration with existing `github-app-auth.ts` for authentication. No compatibility wrappers — TypeScript is the sole implementation from the start.
 
 Drop the `raw` subcommand.
 
+## Assumptions
+
+- Runtime: `npx tsx` (no build step, no `package.json`, no `tsconfig.json`)
+- Tests via `npx vitest run` (vitest 4.1.9 available globally, no local `node_modules` needed)
+- Auth: `GITHUB_TOKEN` env → `GH_TOKEN` env → `import { getValidToken } from './github-app-auth.ts'` (reuses existing cache/refresh/device-flow logic)
+- `--json` for structured agent output; `--dry-run` for mutating operations
+- No compatibility wrappers — `gh-issue.ts` is the sole implementation
+- Drop the `raw` subcommand entirely
+- Preserve current human-readable output format unless `--json` is specified
+
 ## Scope Classification
 
-| Field                       | Value                                                                                                                                                                                                                  |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Size**                    | Moderate                                                                                                                                                                                                               |
-| **Phase budget**            | 3 phases                                                                                                                                                                                                               |
-| **Phase budget rationale**  | Phase 1 introduces the TypeScript implementation, tests, and compatibility layer. Phase 2 migrates all references and validates integration. Phase 3 removes legacy wrappers after successful validation and adoption. |
-| **Quick delivery eligible** | No                                                                                                                                                                                                                     |
-| **Split required**          | No                                                                                                                                                                                                                     |
+| Field | Value |
+|---|---|
+| **Size** | Moderate |
+| **Phase budget** | 1 phase |
+| **Phase budget rationale** | All changes are tightly coupled — new script, tests, reference updates, and legacy cleanup form one atomic deliverable. No meaningful sequencing, dependency, or risk boundary between them. |
+| **Quick delivery eligible** | No |
+| **Split required** | No |
 
 ## Key Decisions
 
-* Runtime: TypeScript via `tsx`
-* Language: TypeScript, no build step
-* API: GitHub REST API via native `fetch`
-* Auth order:
-
-  1. `GITHUB_TOKEN`
-  2. `GH_TOKEN`
-  3. `GH_CONFIG_DIR/hosts.yml`
-  4. Optional `gh auth token` fallback if `gh` is available
-* Add `--json` for agent-friendly structured output
-* Add `--dry-run` for mutating operations
-* Keep temporary compatibility wrappers during migration
-* Remove `raw`
-* Preserve current human-readable output format unless `--json` is specified
+- Runtime: TypeScript via `npx tsx`, no build step, no package.json
+- Language: TypeScript, no build step
+- API: GitHub REST API via native `fetch`
+- Auth order: `GITHUB_TOKEN` → `GH_TOKEN` → `getValidToken()` from `github-app-auth.ts`
+- `getValidToken()` handles: cached token → silent refresh → device flow
+- Add `--json` for agent-friendly structured output
+- Add `--dry-run` for mutating operations
+- No compatibility wrappers — TypeScript-only replacement
+- Remove `raw` subcommand
+- Preserve current human-readable output format unless `--json` is specified
 
 ---
 
-# Phase 1 — TypeScript Implementation, Tests, and Compatibility Wrappers
+# Phase 1 — TypeScript Implementation & Migration
 
 ## Scope
-
-### Toolchain
-
-Create:
-
-* `package.json`
-* `tsconfig.json`
-* `vitest.config.ts`
-
-Add dev dependencies:
-
-* `tsx`
-* `typescript`
-* `@types/node`
-* `vitest`
 
 ### New Script
 
@@ -66,180 +57,52 @@ base/opencode/skills/shared-task/scripts/gh-issue.ts
 
 Implement operations:
 
-* `check`
-* `labels-check`
-* `list`
-* `create`
-* `claim`
-* `assign`
-* `release`
-* `close`
-* `prclose`
+- `check`
+- `labels-check`
+- `list`
+- `create`
+- `claim`
+- `assign`
+- `release`
+- `close`
+- `prclose`
 
 Do not implement:
 
-* `raw`
+- `raw`
 
 ### Features
 
 Implement:
 
-* `--repo`
-* `-R`
-* `--json`
-* `--dry-run`
-* stable exit codes
-* stable text output compatible with existing scripts
+- `--repo`
+- `-R`
+- `--json`
+- `--dry-run`
+- stable exit codes
+- stable text output compatible with existing scripts
 
 ### Authentication
 
-Implement authentication resolution in the following order:
+```typescript
+import { getValidToken } from './github-app-auth.ts';
 
-1. `GITHUB_TOKEN`
-2. `GH_TOKEN`
-3. `GH_CONFIG_DIR/hosts.yml`
-4. Optional `gh auth token` fallback
+function resolveToken(): string {
+  if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
+  if (process.env.GH_TOKEN) return process.env.GH_TOKEN;
+  return await getValidToken(); // cache → refresh → device flow
+}
+```
 
 ### Repository Resolution
 
 Support:
 
-* Explicit `--repo`
-* Explicit `-R`
-* Automatic detection from git `origin` remote
+- Explicit `--repo`
+- Explicit `-R`
+- Automatic detection from git `origin` remote
 
-### Compatibility Wrappers
-
-Retain existing entrypoints temporarily:
-
-```text
-base/opencode/skills/shared-task/scripts/gh-issue
-base/opencode/skills/shared-task/scripts/gh-issue.ps1
-```
-
-Both wrappers should delegate to:
-
-```bash
-npx tsx gh-issue.ts "$@"
-```
-
-(or the PowerShell equivalent)
-
-## Tests
-
-Create:
-
-```text
-tests/gh-issue/
-```
-
-Cover:
-
-* argument parsing
-* auth resolution order
-* repository resolution
-* all operations
-* `--json`
-* `--dry-run`
-* output compatibility
-* exit codes
-* expected failures
-
-### Failure Cases
-
-Cover:
-
-* missing token
-* invalid repository
-* issue not found
-* issue already assigned
-* issue already closed
-* missing labels
-* insufficient permissions
-
-Mock GitHub API calls in unit tests.
-
-## Acceptance Criteria
-
-1. `npx vitest run` passes
-2. `npx tsx <script> check` succeeds
-3. `npx tsx <script> labels-check` succeeds
-4. `npx tsx <script> list` preserves current output format
-5. `--json` returns valid structured JSON
-6. Mutating commands support `--dry-run`
-7. Compatibility wrappers function correctly
-8. Clear error messages are produced for all expected failure scenarios
-9. `raw` is not implemented
-
----
-
-# Phase 2 — Wiring and Reference Migration
-
-## Scope
-
-Update all references to use the TypeScript implementation.
-
-### Files to Update
-
-```text
-base/opencode/permissions/agents.yml
-base/opencode/commands/issue.md
-base/opencode/skills/shared-task/SKILL.md
-docs/ai/architecture.md
-docs/ai/backlog/README.md
-tests/bash/bootstrap_cli.bats
-```
-
-### Permissions
-
-Allow:
-
-```text
-gh-issue.ts*
-```
-
-Retain legacy allowances during this phase only.
-
-### Documentation
-
-Update documentation to reflect:
-
-* single TypeScript implementation
-* GitHub REST API usage
-* `tsx` runtime
-* deprecation of Bash and PowerShell implementations
-
-## Validation
-
-Run:
-
-```bash
-npx vitest run
-make check
-```
-
-Manual validation:
-
-```bash
-npx tsx base/opencode/skills/shared-task/scripts/gh-issue.ts check
-npx tsx base/opencode/skills/shared-task/scripts/gh-issue.ts labels-check
-npx tsx base/opencode/skills/shared-task/scripts/gh-issue.ts list
-```
-
-## Acceptance Criteria
-
-1. New TypeScript script is the documented implementation
-2. Commands and skills reference the TypeScript script
-3. Permissions allow the TypeScript script
-4. Compatibility wrappers continue to function
-5. `make check` passes
-6. `npx vitest run` passes
-
----
-
-# Phase 3 — Legacy Removal
-
-## Scope
+### Legacy Cleanup
 
 Delete:
 
@@ -248,82 +111,74 @@ base/opencode/skills/shared-task/scripts/gh-issue
 base/opencode/skills/shared-task/scripts/gh-issue.ps1
 ```
 
-Remove:
+### Reference Updates
 
-* legacy permissions
-* legacy documentation
-* legacy references
-
-Keep only:
+Update these files to reference `gh-issue.ts` instead of the legacy scripts:
 
 ```text
-base/opencode/skills/shared-task/scripts/gh-issue.ts
+base/opencode/skills/shared-task/SKILL.md
+base/opencode/commands/issue.md
+base/opencode/permissions/agents.yml
+tests/bash/bootstrap_cli.bats
 ```
 
-## Validation
+## Tests
 
-Search for remaining references:
+Create:
 
-```bash
-grep -R "gh-issue.ps1\|scripts/gh-issue[^.]" .
+```text
+tests/typescript/gh-issue/
 ```
 
-Run:
+Cover:
 
-```bash
-npx vitest run
-make check
-```
+- argument parsing
+- auth resolution order
+- repository resolution
+- all operations
+- `--json`
+- `--dry-run`
+- output compatibility
+- exit codes
+- expected failures
 
-Manual validation:
+### Failure Cases
 
-```bash
-npx tsx base/opencode/skills/shared-task/scripts/gh-issue.ts check
-npx tsx base/opencode/skills/shared-task/scripts/gh-issue.ts labels-check
-npx tsx base/opencode/skills/shared-task/scripts/gh-issue.ts list
-```
+Cover:
+
+- missing token
+- invalid repository
+- issue not found
+- issue already assigned
+- issue already closed
+- missing labels
+- insufficient permissions
+
+Mock GitHub API calls in unit tests.
 
 ## Acceptance Criteria
 
-1. Bash implementation deleted
-2. PowerShell implementation deleted
-3. No remaining references to legacy implementations
-4. TypeScript implementation is the only supported version
-5. `make check` passes
-6. `npx vitest run` passes
+1. `npx vitest run` passes
+2. `npx tsx base/opencode/skills/shared-task/scripts/gh-issue.ts check` succeeds
+3. `npx tsx base/opencode/skills/shared-task/scripts/gh-issue.ts labels-check` succeeds
+4. `npx tsx base/opencode/skills/shared-task/scripts/gh-issue.ts list` preserves current human-readable format
+5. `--json` returns valid structured JSON
+6. Mutating commands support `--dry-run` without side effects
+7. `raw` subcommand is absent (not implemented)
+8. SKILL.md, issue.md, agents.yml, and bootstrap_cli.bats all reference `gh-issue.ts`
+9. Legacy `gh-issue` (Bash) and `gh-issue.ps1` deleted
+10. `make check` passes
 
----
+## Risks
 
-# Output Compatibility Requirement
+- `prclose` is the most complex operation (PR creation with body generation, protected-branch auto-branching) — careful `fetch` implementation required
+- `list` output format must match `gh issue list` output exactly for agent compatibility
+- `make check` runs bash-only checks (shfmt, shellcheck) — ensure deletions don't break `make check-bash`
 
-The TypeScript implementation must preserve the current human-readable output used by existing agents and workflows unless `--json` is explicitly specified.
+## Validation Strategy
 
-This allows incremental migration of commands, skills, and agents without requiring simultaneous prompt changes.
-
-## JSON Mode
-
-When `--json` is specified, commands must emit structured machine-readable output suitable for agent workflows.
-
-Example:
-
-```json
-{
-  "status": "ok",
-  "issue": 84,
-  "assignedTo": "user"
-}
-```
-
-## Future Migration Recommendation
-
-Once the TypeScript implementation is stable, agent workflows should gradually migrate to `--json` mode to reduce parsing complexity, improve determinism, and simplify future maintenance.
-
-## Status
-
-**Blocked** by #27 — must wait until the PR creation workflow standardisation PR is merged before starting implementation.
-
-### Dependency chain
-
-- #16 ← blocked by #84
-- #84 ← blocked by #27
-- #85 ← blocked by #84 + #70
+- `npx vitest run` (unit tests with mocked API)
+- Manual smoke test: `gh-issue.ts check`
+- Manual smoke test: `gh-issue.ts labels-check`
+- Manual smoke test: `gh-issue.ts list`
+- `make check` (bash lint, duplication checks, test suite)

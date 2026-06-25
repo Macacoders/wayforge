@@ -8,4 +8,7 @@ echo "==> Bash tests"
 echo "==> PowerShell tests"
 ./qa/check-pester
 
+echo "==> TypeScript tests"
+npx vitest run
+
 echo "Tests passed."

@@ -18,6 +18,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Node.js / vitest cache
+node_modules/
+
 # Python artifacts (optional local tooling)
 __pycache__/
 *.py[cod]

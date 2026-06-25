@@ -20,7 +20,7 @@ Rule: each person/collaborator should use one responsible agent/session to inter
   1. Use `GH_REPO` if set.
   2. Otherwise derive `OWNER/REPO` from `git remote get-url origin`.
 
-Use `.opencode/skills/shared-task/scripts/gh-issue` (and `.ps1`) as the shared helper for issue operations. It enforces repository-local `GH_CONFIG_DIR` and repository resolution without requiring `gh repo view`.
+Use `.opencode/skills/shared-task/scripts/gh-issue.ts` as the shared helper for issue operations. It enforces repository-local `GH_CONFIG_DIR` and repository resolution via native GitHub REST API calls.
 
 Do not require or assume a top-level `scripts/` directory for shared task issue operations.
 

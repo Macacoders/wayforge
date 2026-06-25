@@ -18,23 +18,22 @@ Usage:
 For `/issue create <description>`:
 
 1. Use/load the `shared-task` skill as needed.
-2. Run `.opencode/skills/shared-task/scripts/gh-issue check`; if access is missing, ask the user to authenticate/login.
-3. Run `.opencode/skills/shared-task/scripts/gh-issue labels-check`; if labels are missing, report missing labels and stop.
+2. Run `.opencode/skills/shared-task/scripts/gh-issue.ts check`; if access is missing, ask the user to authenticate/login.
+3. Run `.opencode/skills/shared-task/scripts/gh-issue.ts labels-check`; if labels are missing, report missing labels and stop.
 4. Invoke `taskanalyst` to extract the issue description.
 5. Iterate in the same `taskanalyst` session only when the extracted description is ambiguous, duplicate-prone/likely duplicate, vague, missing acceptance criteria, or missing required labels.
 6. Write the final issue body to a temporary aux file.
-7. Create with `.opencode/skills/shared-task/scripts/gh-issue create <title> --body-file <tmp> --label ...`.
+7. Create with `.opencode/skills/shared-task/scripts/gh-issue.ts create <title> --body-file <tmp> --label ...`.
 8. Report the created issue number and URL.
 
 For non-create operations, call the helper command directly. The script handles all guardrails, labels, and formatting automatically.
 
-Helper commands:
-- Bash: `.opencode/skills/shared-task/scripts/gh-issue <operation> ...`
-- PowerShell: `.opencode/skills/shared-task/scripts/gh-issue.ps1 <operation> ...`
+Helper command:
+- TypeScript: `.opencode/skills/shared-task/scripts/gh-issue.ts <operation> ...`
 
 For `prclose`: before calling the script, optionally create `temp/pr-body-<issue>.md` with populated Summary, Testing, and Breaking changes sections. If the file exists, the script uses it verbatim. If absent, the script generates defaults from `.github/pull_request_template.md`.
 
 ## Safety minimums
 
-- Authentication uses the GitHub App Device Flow via `.opencode/skills/shared-task/scripts/github-app-auth.ts`. On first use, the agent will prompt for browser authorization. Subsequent runs use the cached token.
+- Authentication uses the GitHub App Device Flow via `.opencode/skills/shared-task/scripts/github-app-auth.ts`. On first use, the agent will prompt for browser authorization. Subsequent runs use the cached token. Run the helper via `npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts`.
 - To bypass app auth, set `GITHUB_TOKEN` manually.

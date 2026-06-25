@@ -178,7 +178,7 @@ Use GitHub Issues as the operational source of truth for shared repository work 
 
 Use `/issue` to create, list, claim, assign, release, close, and prclose shared GitHub issue work.
 
-Shared issue tooling boundary: `gh-issue` / `gh-issue.ps1` is the single helper wrapper for GitHub issue operations.
+Shared issue tooling boundary: `gh-issue.ts` is the single helper wrapper for GitHub issue operations.
 
 Do not store full chat transcripts, long terminal output, raw diffs, or trivial implementation notes.
 

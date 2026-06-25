@@ -1,0 +1,11 @@
+{
+  "name": "ai-config",
+  "private": true,
+  "description": "OpenCode AI configuration repository — TypeScript tooling workspace",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.9"
+  }
+}
