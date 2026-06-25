@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -179,7 +179,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
 
   // 204 No Content — no response body
   if (response.status === 204) {
-    return undefined;
+    return undefined as unknown as T;
   }
 
   // Try to parse JSON body for error details
@@ -204,7 +204,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
   }
 
   if (!responseBody) {
-    return undefined;
+    return undefined as unknown as T;
   }
 
   // Only parse JSON if content-type indicates it
@@ -810,14 +810,13 @@ async function cmdPrclose(args: string[]): Promise<void> {
     const slug = slugify(issueTitle);
     const featureBranch = `feature/issue-${issueNumber}-${slug}`;
     process.stdout.write(`On protected branch '${currentBranch}'. Creating feature branch '${featureBranch}'...\n`);
-    execSync(`git checkout -b "${featureBranch}"`, { encoding: 'utf8', timeout: 15000 });
-    execSync('git add -A', { encoding: 'utf8', timeout: 15000 });
-    const safeTitle = issueTitle.replaceAll('"', "'");
-    execSync(`git commit -m "[Issue #${issueNumber}] ${safeTitle}"`, {
+    execFileSync('git', ['checkout', '-b', featureBranch], { encoding: 'utf8', timeout: 15000 });
+    execFileSync('git', ['add', '-A'], { encoding: 'utf8', timeout: 15000 });
+    execFileSync('git', ['commit', '-m', `[Issue #${issueNumber}] ${issueTitle}`], {
       encoding: 'utf8',
       timeout: 15000,
     });
-    execSync(`git push -u origin "${featureBranch}"`, { encoding: 'utf8', timeout: 30000 });
+    execFileSync('git', ['push', '-u', 'origin', featureBranch], { encoding: 'utf8', timeout: 30000 });
     currentBranch = featureBranch;
     branchWasCreated = true;
   }
@@ -828,6 +827,9 @@ async function cmdPrclose(args: string[]): Promise<void> {
   // Get default branch for PR base
   const defaultBranch = await getDefaultBranch();
 
+  // Get current user for PR assignee
+  const me = await getCurrentUser();
+
   // Create PR
   const pr = await apiPost<GitHubPR>(`/repos/${repo}/pulls`, {
     title: `[Issue #${issueNumber}] '${issueTitle}'`,
@@ -835,6 +837,7 @@ async function cmdPrclose(args: string[]): Promise<void> {
     base: defaultBranch,
     body: prBody,
     maintainer_can_modify: true,
+    assignees: [me],
   });
   const prUrl = pr.html_url;
   process.stdout.write(`${prUrl}\n`);

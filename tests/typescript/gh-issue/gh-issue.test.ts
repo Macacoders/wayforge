@@ -857,6 +857,7 @@ describe('cmdPrclose', () => {
       if (url === 'https://api.github.com/repos/test/repo' && method === 'GET') {
         return Promise.resolve(okResponse({ default_branch: 'main' }));
       }
+      if (url.includes('/user') && method === 'GET') { return Promise.resolve(okResponse({ login: 'testuser' })); }
       if (url.includes('/pulls') && method === 'POST') { return Promise.resolve(okResponse(PR_RESPONSE)); }
       if (url.includes('/comments') && method === 'POST') { return Promise.resolve(okResponse({})); }
       if (url.includes('/labels/') && method === 'DELETE') {
