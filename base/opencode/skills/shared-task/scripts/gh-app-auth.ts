@@ -2,6 +2,7 @@ import { promises as fs, statSync } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { setTimeout } from 'timers/promises';
 
 const DEVICE_CODE_URL = 'https://github.com/login/device/code';
 const ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -51,8 +52,6 @@ interface TokenCache {
   refresh_token_expires_at?: number;
 }
 
-let tokenOnlyMode = false;
-
 function logInfo(message: string): void {
   process.stderr.write(`${message}\n`);
 }
@@ -92,7 +91,7 @@ async function readCache(): Promise<TokenCache | null> {
       return parsed;
     }
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+    if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
       logInfo(`Warning: could not read token cache: ${String(err)}`);
     }
   }
@@ -132,10 +131,6 @@ async function postForm(url: string, params: Record<string, string>): Promise<Re
     throw new Error(`HTTP ${response.status} from ${url}`);
   }
   return data;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function openBrowser(url: string): Promise<void> {
@@ -209,7 +204,7 @@ async function doDeviceFlow(): Promise<TokenCache> {
   let pollIntervalMs = intervalSeconds * 1000;
 
   while (Date.now() < expiresAt) {
-    await sleep(pollIntervalMs);
+    await setTimeout(pollIntervalMs);
 
     const tokenResponse = await postForm(ACCESS_TOKEN_URL, {
       client_id: await getClientId(),
@@ -266,7 +261,7 @@ export async function getValidToken(): Promise<string> {
 }
 
 function usage(): void {
-  process.stdout.write(`Usage: npx tsx github-app-auth.ts [--token] [--help]
+  process.stdout.write(`Usage: npx tsx gh-app-auth.ts [--token] [--help]
 
 Options:
   --token   Output only the token string (stdout). All logs go to stderr.
@@ -275,6 +270,7 @@ Options:
 }
 
 async function main(): Promise<void> {
+  let tokenOnlyMode = false;
   const args = process.argv.slice(2);
   tokenOnlyMode = args.includes('--token');
 
@@ -297,5 +293,14 @@ if (
   __filename === process.argv[1] ||
   process.argv.slice(1).some((arg) => arg === __filename || arg.endsWith(path.basename(__filename)))
 ) {
-  void main();
+  main().then(
+    () => {
+      process.exitCode = 0;
+    },
+    (err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message) process.stderr.write(`${message}\n`);
+      process.exitCode = 1;
+    },
+  );
 }

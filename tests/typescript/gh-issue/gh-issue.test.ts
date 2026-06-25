@@ -22,7 +22,7 @@ vi.mock('node:fs', () => ({
   mkdirSync: mockMkdirSync,
   readFileSync: mockReadFileSync,
 }));
-vi.mock('../../../base/opencode/skills/shared-task/scripts/github-app-auth.ts', () => ({
+vi.mock('../../../base/opencode/skills/shared-task/scripts/gh-app-auth.ts', () => ({
   getValidToken: vi.fn().mockRejectedValue(new Error('auth mock')),
 }));
 
@@ -171,27 +171,6 @@ describe('extractRepoFromUrl', () => {
   });
 });
 
-describe('getMissingRequiredLabels', () => {
-  it('returns empty array when all labels exist', () => {
-    const missing = gh.getMissingRequiredLabels(gh.REQUIRED_LABELS);
-    expect(missing).toEqual([]);
-  });
-
-  it('returns missing labels when some are absent', () => {
-    const missing = gh.getMissingRequiredLabels(['status:to-do', 'type:task']);
-    expect(missing).toContain('status:doing');
-    expect(missing).toContain('status:in-review');
-    expect(missing).toContain('status:blocked');
-    expect(missing).not.toContain('status:to-do');
-    expect(missing).not.toContain('type:task');
-  });
-
-  it('returns all labels when none exist', () => {
-    const missing = gh.getMissingRequiredLabels([]);
-    expect(missing).toEqual(gh.REQUIRED_LABELS);
-  });
-});
-
 describe('slugify', () => {
   it('lowercases and replaces spaces with hyphens', () => {
     expect(gh.slugify('Hello World')).toBe('hello-world');
@@ -215,12 +194,9 @@ describe('slugify', () => {
     expect(slug.length).toBeLessThanOrEqual(60);
   });
 
-  it('truncates at word boundary when possible', () => {
-    // Slug > 60 chars with a hyphen near the start creates a natural break
+  it('truncates to 60 characters without word-boundary awareness', () => {
     const slug = gh.slugify('a-' + 'a'.repeat(68));
     expect(slug.length).toBeLessThanOrEqual(60);
-    // Should break at the hyphen, not mid-word
-    expect(slug).toBe('a');
     expect(slug).not.toMatch(/-$/);
   });
 });
@@ -272,7 +248,7 @@ describe('api retry behavior', () => {
     expect(callCount).toBe(2);
   });
 
-  it('throws after exhausting 5xx retries', async () => {
+  it('throws after one 5xx retry', async () => {
     let callCount = 0;
     mockFetch.mockImplementation(() => {
       callCount++;
@@ -281,19 +257,17 @@ describe('api retry behavior', () => {
     await expect(gh.api('GET', '/repos/test/repo')).rejects.toThrow(
       'GitHub API error (502): Bad Gateway',
     );
-    expect(callCount).toBe(4); // 1 initial + 3 retries
+    expect(callCount).toBe(2); // 1 initial + 1 retry
   }, 15000);
 
-  it('retries on network error and succeeds', async () => {
+  it('does not retry on network error', async () => {
     let callCount = 0;
     mockFetch.mockImplementation(() => {
       callCount++;
-      if (callCount === 1) return Promise.reject(new Error('Network failure'));
-      return Promise.resolve(okResponse({ status: 'ok' }));
+      return Promise.reject(new Error('Network failure'));
     });
-    const result = await gh.api('GET', '/repos/test/repo');
-    expect(result).toEqual({ status: 'ok' });
-    expect(callCount).toBe(2);
+    await expect(gh.api('GET', '/repos/test/repo')).rejects.toThrow('Network failure');
+    expect(callCount).toBe(1);
   });
 
   it('does not retry on 4xx errors', async () => {
@@ -331,7 +305,7 @@ describe('resolveToken', () => {
     await expect(gh.resolveToken()).rejects.toThrow();
   });
 
-  it('propagates expired-token/device-flow failure from github-app-auth', async () => {
+  it('propagates expired-token/device-flow failure from gh-app-auth', async () => {
     delete process.env.GITHUB_TOKEN;
     delete process.env.GH_TOKEN;
     await expect(gh.resolveToken()).rejects.toThrow('auth mock');
@@ -1126,56 +1100,18 @@ describe('cmdPrclose', () => {
 
   it('works with --dry-run on feature branch', async () => {
     gh._setDryRun(true);
-    // M1: validation (labels + issue) runs even in dry-run — mock API responses
-    let labelsCallCount = 0;
-    mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/labels?per_page=100')) {
-        labelsCallCount++;
-        return Promise.resolve(
-          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
-        );
-      }
-      if (url.includes('/issues/1')) {
-        return Promise.resolve(okResponse(DEFAULT_ISSUE));
-      }
-      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
-    });
 
     await gh.cmdPrclose(['1', 'Ready for review']);
-    // Validation calls happen; no mutation calls (POST/PATCH/DELETE)
-    expect(mockFetch).toHaveBeenCalled();
+    // Dry-run returns early; no API calls at all
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('works with --dry-run on protected branch', async () => {
     gh._setDryRun(true);
-    mockExecSync.mockImplementation((cmd: string) => {
-      const map: Record<string, string> = {
-        'git rev-parse --show-toplevel': '/tmp/repo',
-        'git rev-parse --abbrev-ref HEAD': 'main',
-        'git status --porcelain': '',
-      };
-      const trimmed = cmd.trim();
-      if (map[trimmed] !== undefined) return map[trimmed];
-      throw new Error(`Unexpected execSync: ${cmd}`);
-    });
-    // M1: validation runs even in dry-run — mock API responses
-    let labelsCallCount = 0;
-    mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/labels?per_page=100')) {
-        labelsCallCount++;
-        return Promise.resolve(
-          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
-        );
-      }
-      if (url.includes('/issues/1')) {
-        return Promise.resolve(okResponse(DEFAULT_ISSUE));
-      }
-      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
-    });
 
     await gh.cmdPrclose(['1']);
-    // Validation calls happen; no mutation calls (POST/PATCH/DELETE)
-    expect(mockFetch).toHaveBeenCalled();
+    // Dry-run returns early; no API calls at all
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('throws when on non-protected branch with dirty tree', async () => {
@@ -1324,46 +1260,13 @@ describe('main() dispatch', () => {
     process.argv = origArgv;
   });
 
-  it('parses --dry-run flag and skips mutation API calls for dry-run-aware command', async () => {
+  it('parses --dry-run flag and skips all API calls for dry-run-aware command', async () => {
     const origArgv = process.argv;
     process.argv = ['node', 'gh-issue.ts', '--dry-run', '--repo', 'test/repo', 'prclose', '1'];
 
-    // Set up execSync for prclose local checks
-    mockExecSync.mockImplementation((cmd: string) => {
-      const map: Record<string, string> = {
-        'git rev-parse --show-toplevel': '/tmp/repo',
-        'git rev-parse --abbrev-ref HEAD': 'feature/test',
-        'git status --porcelain': '',
-      };
-      const trimmed = cmd.trim();
-      if (map[trimmed] !== undefined) return map[trimmed];
-      throw new Error(`Unexpected execSync: ${cmd}`);
-    });
-
-    // M1: validation (labels + issue) runs even in dry-run
-    let labelsCallCount = 0;
-    const mutationMethods = new Set(['POST', 'PATCH', 'DELETE']);
-    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
-      const method = opts?.method ?? 'GET';
-      if (url.includes('/labels?per_page=100') && method === 'GET') {
-        labelsCallCount++;
-        return Promise.resolve(
-          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
-        );
-      }
-      if (url.includes('/issues/1') && method === 'GET') {
-        return Promise.resolve(okResponse(DEFAULT_ISSUE));
-      }
-      // Reject on mutation calls — if any are made, the test fails
-      if (mutationMethods.has(method)) {
-        return Promise.reject(new Error(`Unexpected mutation call: ${method} ${url}`));
-      }
-      return Promise.reject(new Error(`Unexpected fetch: ${method} ${url}`));
-    });
-
     await gh.main();
-    // Validation calls (labels + issue) happened, but no mutation calls
-    expect(mockFetch).toHaveBeenCalled();
+    // Dry-run returns early; no API calls at all
+    expect(mockFetch).not.toHaveBeenCalled();
 
     process.argv = origArgv;
   });

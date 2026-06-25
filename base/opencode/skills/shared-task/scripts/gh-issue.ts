@@ -4,7 +4,7 @@ import { execSync, execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getValidToken } from './github-app-auth.ts';
+import { getValidToken } from './gh-app-auth.ts';
 
 // ── Custom error for clean non-zero exit ────────────────────────────────────
 // Avoids process.exit() during pending async handles, which can trigger a
@@ -165,89 +165,65 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
     throw new Error('GET request must not include a body');
   }
   const url = `${GITHUB_API_BASE}${path}`;
-  const maxRetries = 3;
-  let lastError: Error | undefined;
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    // Build headers
-    const headers: Record<string, string> = {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'X-GitHub-Api-Version': API_VERSION,
-    };
-
-    if (body !== undefined && method !== 'GET') {
-      headers['Content-Type'] = 'application/json';
-    }
-
-    // Make the HTTP request — network errors (fetch throws) are retried
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        method,
-        headers,
-        body: body !== undefined && method !== 'GET' ? JSON.stringify(body) : undefined,
-      });
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      if (attempt < maxRetries) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
-      }
-      throw lastError;
-    }
-
-    // 204 No Content — no response body
-    if (response.status === 204) {
-      return undefined as unknown as T;
-    }
-
-    // Read response body text
-    let responseBody: string | undefined;
-    try {
-      responseBody = await response.text();
-    } catch {
-      responseBody = undefined;
-    }
-
-    if (!response.ok) {
-      // Retry on 5xx only
-      if (response.status >= 500 && attempt < maxRetries) {
-        const retryAfter = response.headers.get('Retry-After');
-        const delay = retryAfter
-          ? parseInt(retryAfter, 10) * 1000
-          : Math.min(1000 * Math.pow(2, attempt), 10000);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
-      }
-      // 4xx and other errors — throw immediately (will not be caught by retry)
-      let detail = `HTTP ${response.status}`;
-      if (responseBody) {
-        try {
-          const parsed = JSON.parse(responseBody) as { message?: string };
-          if (parsed.message) detail = parsed.message;
-        } catch {
-          detail = responseBody.slice(0, 500);
-        }
-      }
-      throw new Error(`GitHub API error (${response.status}): ${detail}`);
-    }
-
-    if (!responseBody) {
-      return undefined as unknown as T;
-    }
-
-    // Only parse JSON if content-type indicates it
-    const ct = (response.headers.get('content-type') || '').toLowerCase();
-    if (ct.includes('application/json')) {
-      return JSON.parse(responseBody) as T;
-    }
-
-    return responseBody as unknown as T;
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    Authorization: `Bearer ${token}`,
+    'X-GitHub-Api-Version': API_VERSION,
+  };
+  if (body !== undefined && method !== 'GET') {
+    headers['Content-Type'] = 'application/json';
   }
 
-  throw lastError ?? new Error('Unexpected error in api()');
+  const fetchOptions = {
+    method,
+    headers,
+    body: body !== undefined && method !== 'GET' ? JSON.stringify(body) : undefined,
+  };
+
+  let response = await fetch(url, fetchOptions);
+  if (!response.ok && response.status >= 500) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    response = await fetch(url, fetchOptions);
+  }
+
+  // 204 No Content — no response body
+  if (response.status === 204) {
+    return undefined as unknown as T;
+  }
+
+  // Read response body text
+  let responseBody: string | undefined;
+  try {
+    responseBody = await response.text();
+  } catch {
+    responseBody = undefined;
+  }
+
+  if (!response.ok) {
+    let detail = `HTTP ${response.status}`;
+    if (responseBody) {
+      try {
+        const parsed = JSON.parse(responseBody) as { message?: string };
+        if (parsed.message) detail = parsed.message;
+      } catch {
+        detail = responseBody.slice(0, 500);
+      }
+    }
+    throw new Error(`GitHub API error (${response.status}): ${detail}`);
+  }
+
+  if (!responseBody) {
+    return undefined as unknown as T;
+  }
+
+  // Only parse JSON if content-type indicates it
+  const ct = (response.headers.get('content-type') || '').toLowerCase();
+  if (ct.includes('application/json')) {
+    return JSON.parse(responseBody) as T;
+  }
+
+  return responseBody as unknown as T;
 }
 
 function apiGet<T>(path: string): Promise<T> {
@@ -280,14 +256,10 @@ async function getRepoLabels(): Promise<string[]> {
   return allLabels;
 }
 
-function getMissingRequiredLabels(existing: string[]): string[] {
-  const set = new Set(existing);
-  return REQUIRED_LABELS.filter((l) => !set.has(l));
-}
-
 async function ensureRequiredLabels(): Promise<void> {
   const existing = await getRepoLabels();
-  const missing = getMissingRequiredLabels(existing);
+  const existingSet = new Set(existing);
+  const missing = REQUIRED_LABELS.filter((l) => !existingSet.has(l));
   if (missing.length > 0) {
     throw new Error(`missing required labels: ${missing.join(', ')}`);
   }
@@ -297,23 +269,19 @@ async function getIssue(issueNumber: number): Promise<GitHubIssue> {
   return apiGet<GitHubIssue>(`/repos/${repo}/issues/${issueNumber}`);
 }
 
-async function getIssueState(issueNumber: number): Promise<string> {
-  const issue = await getIssue(issueNumber);
+function getIssueState(issue: GitHubIssue): string {
   return issue.state;
 }
 
-async function getIssueAssigneeCount(issueNumber: number): Promise<number> {
-  const issue = await getIssue(issueNumber);
+function getIssueAssigneeCount(issue: GitHubIssue): number {
   return issue.assignees?.length ?? 0;
 }
 
-async function getIssueFirstAssignee(issueNumber: number): Promise<string> {
-  const issue = await getIssue(issueNumber);
+function getIssueFirstAssignee(issue: GitHubIssue): string {
   return issue.assignees?.[0]?.login ?? '';
 }
 
-async function issueHasLabel(issueNumber: number, labelName: string): Promise<boolean> {
-  const issue = await getIssue(issueNumber);
+function issueHasLabel(issue: GitHubIssue, labelName: string): boolean {
   return issue.labels?.some((l) => l.name === labelName) ?? false;
 }
 
@@ -372,22 +340,22 @@ async function getCurrentUser(): Promise<string> {
 
 // ── Guard helpers (with dry-run awareness) ──────────────────────────────────
 
-async function ensureLabelPresent(issueNumber: number, labelName: string): Promise<void> {
-  if (!(await issueHasLabel(issueNumber, labelName))) {
-    await addLabel(issueNumber, labelName);
+async function ensureLabelPresent(issue: GitHubIssue, labelName: string): Promise<void> {
+  if (!issueHasLabel(issue, labelName)) {
+    await addLabel(issue.number, labelName);
   }
 }
 
-async function ensureLabelAbsent(issueNumber: number, labelName: string): Promise<void> {
-  if (await issueHasLabel(issueNumber, labelName)) {
-    await removeLabel(issueNumber, labelName);
+async function ensureLabelAbsent(issue: GitHubIssue, labelName: string): Promise<void> {
+  if (issueHasLabel(issue, labelName)) {
+    await removeLabel(issue.number, labelName);
   }
 }
 
-async function ensureOpenIssue(issueNumber: number): Promise<void> {
-  const state = await getIssueState(issueNumber);
+async function ensureOpenIssue(issue: GitHubIssue): Promise<void> {
+  const state = getIssueState(issue);
   if (state !== 'open') {  // GitHub REST API always returns lowercase "open"
-    throw new Error(`issue #${issueNumber} is not open.`);
+    throw new Error(`issue #${issue.number} is not open.`);
   }
 }
 
@@ -426,22 +394,12 @@ function workingTreeIsClean(): boolean {
 }
 
 function slugify(text: string): string {
-  // Lowercase, collapse non-alnum sequences to '-', strip leading/trailing hyphens,
-  // truncate at 60 chars with word-boundary awareness
   const slug = text
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
-  if (slug.length <= 60) return slug.replace(/-+$/, '');
-
-  // Try to break at a word boundary to avoid mid-word truncation
-  const candidate = slug.slice(0, 61);
-  const lastHyphen = candidate.lastIndexOf('-');
-  if (lastHyphen > 0) {
-    return candidate.slice(0, lastHyphen).replace(/-+$/, '');
-  }
-  return slug.slice(0, 60).replace(/-+$/, '');
+  return slug.replace(/-+$/, '').slice(0, 60).replace(/-+$/, '');
 }
 
 function buildPRBody(issueNumber: number): string {
@@ -492,7 +450,8 @@ async function cmdCheck(): Promise<void> {
 
 async function cmdLabelsCheck(): Promise<void> {
   const existing = await getRepoLabels();
-  const missing = getMissingRequiredLabels(existing);
+  const existingSet = new Set(existing);
+  const missing = REQUIRED_LABELS.filter((l) => !existingSet.has(l));
   if (missing.length > 0) {
     if (jsonMode) {
       outputJson({ status: 'error', repo, missing });
@@ -639,21 +598,22 @@ async function cmdClaim(args: string[]): Promise<void> {
   }
 
   await ensureRequiredLabels();
-  await ensureOpenIssue(issueNumber);
+  const issue = await getIssue(issueNumber);
+  await ensureOpenIssue(issue);
 
-  if ((await getIssueAssigneeCount(issueNumber)) !== 0) {
-    const assignee = await getIssueFirstAssignee(issueNumber);
+  if (getIssueAssigneeCount(issue) !== 0) {
+    const assignee = getIssueFirstAssignee(issue);
     throw new Error(`issue #${issueNumber} is already assigned to @${assignee}.`);
   }
 
-  if (await issueHasLabel(issueNumber, 'status:doing')) {
+  if (issueHasLabel(issue, 'status:doing')) {
     throw new Error(`issue #${issueNumber} already has status:doing.`);
   }
 
   const me = await getCurrentUser();
   await addAssignee(issueNumber, me);
-  await ensureLabelPresent(issueNumber, 'status:doing');
-  await ensureLabelAbsent(issueNumber, 'status:to-do');
+  await ensureLabelPresent(issue, 'status:doing');
+  await ensureLabelAbsent(issue, 'status:to-do');
   await addComment(issueNumber, `Claimed by @${me} and starting work.`);
 
   if (jsonMode) {
@@ -675,21 +635,27 @@ async function cmdAssign(args: string[]): Promise<void> {
 
   const collaborator = args[1];
 
-  await ensureRequiredLabels();
-  await ensureOpenIssue(issueNumber);
+  if (dryRun) {
+    console.error(`[DRY-RUN] would assign @${collaborator} to issue #${issueNumber}`);
+    return;
+  }
 
-  if ((await getIssueAssigneeCount(issueNumber)) !== 0) {
-    const assignee = await getIssueFirstAssignee(issueNumber);
+  await ensureRequiredLabels();
+  const issue = await getIssue(issueNumber);
+  await ensureOpenIssue(issue);
+
+  if (getIssueAssigneeCount(issue) !== 0) {
+    const assignee = getIssueFirstAssignee(issue);
     throw new Error(`issue #${issueNumber} is already assigned to @${assignee}.`);
   }
 
-  if (await issueHasLabel(issueNumber, 'status:doing')) {
+  if (issueHasLabel(issue, 'status:doing')) {
     throw new Error(`issue #${issueNumber} already has status:doing.`);
   }
 
   await addAssignee(issueNumber, collaborator);
-  await ensureLabelPresent(issueNumber, 'status:doing');
-  await ensureLabelAbsent(issueNumber, 'status:to-do');
+  await ensureLabelPresent(issue, 'status:doing');
+  await ensureLabelAbsent(issue, 'status:to-do');
   await addComment(issueNumber, `Assigned to @${collaborator} and marked status:doing.`);
 
   if (jsonMode) {
@@ -725,11 +691,17 @@ async function cmdRelease(args: string[]): Promise<void> {
     }
   }
 
+  if (dryRun) {
+    console.error(`[DRY-RUN] would release issue #${issueNumber}${blockedReason ? ` (blocked: ${blockedReason})` : ''}`);
+    return;
+  }
+
   await ensureRequiredLabels();
-  await ensureOpenIssue(issueNumber);
+  const issue = await getIssue(issueNumber);
+  await ensureOpenIssue(issue);
 
   const me = await getCurrentUser();
-  const assignee = await getIssueFirstAssignee(issueNumber);
+  const assignee = getIssueFirstAssignee(issue);
 
   if (assignee && assignee !== me) {
     throw new Error(`issue #${issueNumber} is assigned to @${assignee} (not @${me}).`);
@@ -739,19 +711,19 @@ async function cmdRelease(args: string[]): Promise<void> {
     await removeAssignee(issueNumber, me);
   }
 
-  await ensureLabelAbsent(issueNumber, 'status:doing');
+  await ensureLabelAbsent(issue, 'status:doing');
 
   if (blockedReason) {
-    await ensureLabelAbsent(issueNumber, 'status:to-do');
-    await ensureLabelPresent(issueNumber, 'status:blocked');
+    await ensureLabelAbsent(issue, 'status:to-do');
+    await ensureLabelPresent(issue, 'status:blocked');
     await addComment(issueNumber, `Released by @${me}. Blocked: ${blockedReason}`);
     if (jsonMode) {
       outputJson({ number: issueNumber, status: 'blocked', blocked_reason: blockedReason });
     }
   } else {
-    await ensureLabelAbsent(issueNumber, 'status:blocked');
-    await ensureLabelAbsent(issueNumber, 'status:in-review');
-    await ensureLabelPresent(issueNumber, 'status:to-do');
+    await ensureLabelAbsent(issue, 'status:blocked');
+    await ensureLabelAbsent(issue, 'status:in-review');
+    await ensureLabelPresent(issue, 'status:to-do');
     await addComment(issueNumber, `Released by @${me} and returned to status:to-do.`);
     if (jsonMode) {
       outputJson({ number: issueNumber, status: 'to-do' });
@@ -773,14 +745,20 @@ async function cmdClose(args: string[]): Promise<void> {
 
   const summary = args.slice(1).join(' ') || 'Completed and validated.';
 
+  if (dryRun) {
+    console.error(`[DRY-RUN] would close issue #${issueNumber}`);
+    return;
+  }
+
   await ensureRequiredLabels();
-  await ensureOpenIssue(issueNumber);
+  const issue = await getIssue(issueNumber);
+  await ensureOpenIssue(issue);
 
   await addComment(issueNumber, summary);
-  await ensureLabelAbsent(issueNumber, 'status:doing');
-  await ensureLabelAbsent(issueNumber, 'status:to-do');
-  await ensureLabelAbsent(issueNumber, 'status:in-review');
-  await ensureLabelAbsent(issueNumber, 'status:blocked');
+  await ensureLabelAbsent(issue, 'status:doing');
+  await ensureLabelAbsent(issue, 'status:to-do');
+  await ensureLabelAbsent(issue, 'status:in-review');
+  await ensureLabelAbsent(issue, 'status:blocked');
   await closeIssue(issueNumber);
 
   if (jsonMode) {
@@ -843,6 +821,13 @@ async function cmdPrclose(args: string[]): Promise<void> {
 
   const summary = args.slice(1).join(' ') || 'Ready for review via PR.';
 
+  // Early dry-run guard — skip all local git checks and API calls
+  if (dryRun) {
+    console.error(`[DRY-RUN] would create PR for issue #${issueNumber}`);
+    console.error(`[DRY-RUN] would update labels to status:in-review`);
+    return;
+  }
+
   // ── Local checks (no API calls) ──────────────────────────────────────────
   // Get current branch
   let currentBranch: string;
@@ -875,19 +860,13 @@ async function cmdPrclose(args: string[]): Promise<void> {
 
   // ── Validate before dry-run guard ───────────────────────────────────────
   await ensureRequiredLabels();
-  await ensureOpenIssue(issueNumber);
-
-  // Early dry-run guard — skip remaining API calls
-  if (dryRun) {
-    console.error(`[DRY-RUN] would create PR for issue #${issueNumber}`);
-    console.error(`[DRY-RUN] would update labels to status:in-review`);
-    return;
-  }
+  const issue = await getIssue(issueNumber);
+  await ensureOpenIssue(issue);
 
   // ── API calls ───────────────────────────────────────────────────────────
 
   // Get issue title for PR / feature branch
-  const issueTitle = (await getIssue(issueNumber)).title;
+  const issueTitle = issue.title;
 
   // Handle protected branch auto-commit
   let branchWasCreated = false;
@@ -931,10 +910,10 @@ async function cmdPrclose(args: string[]): Promise<void> {
   await addComment(issueNumber, `${summary}\n\nPull request: ${prUrl}`);
 
   // Update labels
-  await ensureLabelAbsent(issueNumber, 'status:doing');
-  await ensureLabelAbsent(issueNumber, 'status:to-do');
-  await ensureLabelAbsent(issueNumber, 'status:blocked');
-  await ensureLabelPresent(issueNumber, 'status:in-review');
+  await ensureLabelAbsent(issue, 'status:doing');
+  await ensureLabelAbsent(issue, 'status:to-do');
+  await ensureLabelAbsent(issue, 'status:blocked');
+  await ensureLabelPresent(issue, 'status:in-review');
 
   if (jsonMode) {
     outputJson({ number: issueNumber, pr_url: prUrl, status: 'in-review' });
@@ -1034,7 +1013,7 @@ async function main(): Promise<void> {
 export {
   addAssignee, addComment, addLabel, api, apiDelete, apiGet, apiPatch, apiPost, buildPRBody, closeIssue, cmdAssign, cmdCheck, cmdClaim, cmdClose, cmdCreate, cmdLabelsCheck,
   cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureOpenIssue, ensureRequiredLabels, ExitError, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
-  getIssueFirstAssignee, getIssueState, getMissingRequiredLabels, getRepoLabels, issueHasLabel, main, output,
+  getIssueFirstAssignee, getIssueState, getRepoLabels, issueHasLabel, main, output,
   outputJson, printUsage, removeAssignee, removeLabel, REQUIRED_LABELS, resolveRepo, resolveToken, slugify
 };
 

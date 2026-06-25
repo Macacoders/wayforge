@@ -4,7 +4,7 @@
 
 Replace the duplicated Bash and PowerShell `gh-issue` scripts with one portable TypeScript implementation using the GitHub REST API through native `fetch`.
 
-Integration with existing `github-app-auth.ts` for authentication. No compatibility wrappers — TypeScript is the sole implementation from the start.
+Integration with existing `gh-app-auth.ts` for authentication. No compatibility wrappers — TypeScript is the sole implementation from the start.
 
 Drop the `raw` subcommand.
 
@@ -12,7 +12,7 @@ Drop the `raw` subcommand.
 
 - Runtime: `npx tsx` (no build step, no `package.json`, no `tsconfig.json`)
 - Tests via `npx vitest run` (vitest 4.1.9 available globally, no local `node_modules` needed)
-- Auth: `GITHUB_TOKEN` env → `GH_TOKEN` env → `import { getValidToken } from './github-app-auth.ts'` (reuses existing cache/refresh/device-flow logic)
+- Auth: `GITHUB_TOKEN` env → `GH_TOKEN` env → `import { getValidToken } from './gh-app-auth.ts'` (reuses existing cache/refresh/device-flow logic)
 - `--json` for structured agent output; `--dry-run` for mutating operations
 - No compatibility wrappers — `gh-issue.ts` is the sole implementation
 - Drop the `raw` subcommand entirely
@@ -33,7 +33,7 @@ Drop the `raw` subcommand.
 - Runtime: TypeScript via `npx tsx`, no build step, no package.json
 - Language: TypeScript, no build step
 - API: GitHub REST API via native `fetch`
-- Auth order: `GITHUB_TOKEN` → `GH_TOKEN` → `getValidToken()` from `github-app-auth.ts`
+- Auth order: `GITHUB_TOKEN` → `GH_TOKEN` → `getValidToken()` from `gh-app-auth.ts`
 - `getValidToken()` handles: cached token → silent refresh → device flow
 - Add `--json` for agent-friendly structured output
 - Add `--dry-run` for mutating operations
@@ -85,7 +85,7 @@ Implement:
 ### Authentication
 
 ```typescript
-import { getValidToken } from './github-app-auth.ts';
+import { getValidToken } from './gh-app-auth.ts';
 
 function resolveToken(): string {
   if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
