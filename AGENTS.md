@@ -23,6 +23,7 @@ The sections below contain repository-specific guidance. `/onboard-repo` and `re
 - **Full QA**: `make check` — runs Bash lint/format (shfmt + ShellCheck), PowerShell analysis (PSScriptAnalyzer), Bats/Pester tests, and duplication checks (jscpd)
 - **Bash only**: `make check-bash` — shfmt formatting + ShellCheck lint
 - **PowerShell only**: `make check-powershell` — PSScriptAnalyzer + Pester tests (requires `pwsh`)
+- **TypeScript type-check**: `npx --yes -p typescript -p @types/node -- tsc --noEmit` (requires `node_modules/` with `@types/node`; `strict: true` is now enabled)
 - **Tests only**: `make check-tests` — Bats for Bash (`tests/bash/*.bats`), Pester for PowerShell
 - **Coverage**: `make coverage` (Bash + PowerShell)
 - **Duplication**: `make check-duplication` (jscpd, 8% threshold on `.sh`/`.ps1` files)
