@@ -32,6 +32,7 @@ Target projects receive generated/local runtime output:
 - `.opencode/skills/**` (copied/generated local output)
 - `.opencode/plugins/**` (copied/generated local output)
 - `AGENTS.md` (repo-specific entrypoint generated/curated per repository)
+- The ponytail plugin (`.opencode/plugins/ponytail/ponytail.mjs`) injects the reuse-first ladder into the system prompt via `experimental.chat.system.transform` and persists intensity mode via `command.execute.before`. Disable with `/ponytail off` or `PONYTAIL_DEFAULT_MODE=off`.
 
 ### AGENTS.md vs docs/ai/README.md Relationship
 

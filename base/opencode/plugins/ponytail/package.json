@@ -1,0 +1,9 @@
+{
+  "name": "ponytail",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "ponytail.mjs",
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.15.0"
+  }
+}
