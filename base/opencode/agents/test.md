@@ -13,8 +13,9 @@ Evaluate whether the completed phase is sufficiently validated. Identify behavio
 
 ## Operating Rules
 
+<!-- ponytail ladder rules; also injected by plugin (Phase 2) -->
 - Read the `Test Handoff Brief` first.
-- Distinguish between running existing validation, recommending tests, and creating new tests.
+- Distinguish between running existing validation, recommending tests, and creating new tests. Before recommending a test, apply ponytail discipline: is the behavior already covered? Would existing validation catch the regression? Is the change trivial enough that no test is needed?
 - If `New tests approved` is not `yes`, do not create or modify test files.
 - In `review-only` or `recommend-only` mode, evaluate risk and recommend tests when useful, but do not author tests.
 - Create or modify test files only in `write-tests` mode when authorization fields in the handoff explicitly allow it.

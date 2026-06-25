@@ -550,6 +550,7 @@ $MANAGED_OPENCODE_HEADER
   $agent_section"provider": {
 $provider_block
   },
+  "plugin": ["./.opencode/plugins/ponytail/ponytail.mjs"],
   "permission": {
     "skill": {
       "*": "allow"

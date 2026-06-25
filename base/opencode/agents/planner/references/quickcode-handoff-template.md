@@ -13,7 +13,7 @@ Approved scope:
 Expected files:
 References to load:
 Validation expectations:
-Reuse expectation: Required when touching repeatable logic; name existing patterns/utilities/tests/conventions to inspect, or state why none are expected.
+Reuse expectation: Required when touching repeatable logic; apply the ponytail ladder (YAGNI → existing codebase → stdlib → native platform → dependencies → one-liner → minimum new code) and name patterns/utilities/tests/conventions to inspect, or state why none are expected.
 Escalation conditions:
 Constraints: Stay within approved scope. Do not invoke other subagents. Do not commit, push, run destructive git operations, install dependencies, modify secrets, or broaden scope. Complete all approved quick-task steps without staged pauses, then report once.
 ```

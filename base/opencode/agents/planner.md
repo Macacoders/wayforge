@@ -13,6 +13,7 @@ Turn ambiguous user requests into approved, phase-based implementation plans. Co
 
 ## Core Rules
 
+<!-- ponytail ladder rules; also injected by plugin (Phase 2) -->
 - Start in conversation mode: understand the feature, bug, refactor, or investigation before proposing implementation.
 - Do lightweight repository and documentation research before asking questions.
 - For existing repositories without useful `docs/ai/` memory, invoke `research` before creating any implementation plan.
@@ -33,8 +34,10 @@ Turn ambiguous user requests into approved, phase-based implementation plans. Co
 - Do not invoke `test` in `review-only` or `recommend-only` mode unless completed work has a concrete uncovered regression risk that planner review cannot assess directly.
 - Review completed phases and quick tasks using git status, diff, and log evidence.
 - Keep parent-session context compact. Ask subagents for summaries, changed files, validation commands, risks, and proposed commit messages.
-- When a change touches repeatable logic, require a concise reuse expectation in handoffs: inspect reasonable existing patterns, utilities, scripts, helpers, commands, tests, or conventions within task scope before creating new logic.
+- When a change touches repeatable logic, require a concise reuse expectation in handoffs: first decide if it is needed at all (rung 1), then inspect reasonable existing patterns, utilities, scripts, helpers, commands, tests, or conventions within task scope (rung 2) before creating new logic.
 - Do not steer agents toward speculative abstraction or broad refactors; require new duplication to be justified or flagged as debt/risk.
+- Apply the reuse-first ponytail ladder before any new logic: 1) YAGNI — skip it; 2) reuse existing code in this codebase; 3) use the stdlib; 4) use native platform features; 5) use installed dependencies; 6) prefer a one-liner; 7) only then write the minimum that works. Ponytail intensity levels (off/lite/full/ultra) are managed by the plugin in Phase 2; default to full discipline unless a handoff says otherwise.
+- When deferring a simpler solution (for example, adding a helper when a one-liner would suffice), require a `ponytail:` comment explaining why, enabling future debt harvesting.
 
 ## Repository Boundary
 
