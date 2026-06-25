@@ -100,6 +100,7 @@ function printUsage(): void {
     '  gh-issue.ts [--repo OWNER/REPO|-R OWNER/REPO] [--json] [--dry-run] release <issue-number> [--blocked <reason>]',
     '  gh-issue.ts [--repo OWNER/REPO|-R OWNER/REPO] [--json] [--dry-run] close <issue-number> [completion-summary]',
     '  gh-issue.ts [--repo OWNER/REPO|-R OWNER/REPO] [--json] [--dry-run] prclose <issue-number> [completion-summary]',
+  '  gh-issue.ts [--repo OWNER/REPO|-R OWNER/REPO] [--json] [--dry-run] show <issue-number>',
   ].join('\n');
   process.stdout.write(text + '\n');
 }
@@ -382,7 +383,7 @@ async function ensureLabelAbsent(issueNumber: number, labelName: string): Promis
 
 async function ensureOpenIssue(issueNumber: number): Promise<void> {
   const state = await getIssueState(issueNumber);
-  if (state !== 'open' && state !== 'OPEN') {
+  if (state !== 'open') {  // GitHub REST API always returns lowercase "open"
     throw new Error(`issue #${issueNumber} is not open.`);
   }
 }
@@ -783,6 +784,47 @@ async function cmdClose(args: string[]): Promise<void> {
   }
 }
 
+async function cmdShow(args: string[]): Promise<void> {
+  if (args.length < 1) {
+    console.error('Error: show requires <issue-number>.');
+    throw new ExitError(1);
+  }
+
+  const issueNumber = Number(args[0]);
+  if (!Number.isInteger(issueNumber) || issueNumber < 1) {
+    console.error('Error: invalid issue number.');
+    throw new ExitError(1);
+  }
+
+  const issue = await getIssue(issueNumber);
+
+  if (jsonMode) {
+    outputJson({
+      number: issue.number,
+      title: issue.title,
+      state: issue.state,
+      assignees: (issue.assignees ?? []).map((a) => a.login),
+      labels: (issue.labels ?? []).map((l) => l.name),
+      body: issue.body ?? '',
+      url: issue.html_url,
+    });
+    return;
+  }
+
+  const assigneeStr =
+    issue.assignees?.length ? issue.assignees.map((a) => a.login).join(', ') : '(unassigned)';
+  const labelsStr =
+    issue.labels?.length ? issue.labels.map((l) => l.name).join(', ') : '(none)';
+
+  process.stdout.write(
+    `Issue #${issue.number}: ${issue.title}\n` +
+    `State: ${issue.state}\n` +
+    `Assignees: ${assigneeStr}\n` +
+    `Labels: ${labelsStr}\n` +
+    `\n${issue.body ?? '(no description)'}\n`,
+  );
+}
+
 async function cmdPrclose(args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: prclose requires <issue-number>.');
@@ -827,7 +869,11 @@ async function cmdPrclose(args: string[]): Promise<void> {
     }
   }
 
-  // Early dry-run guard — skip all API calls
+  // ── Validate before dry-run guard ───────────────────────────────────────
+  await ensureRequiredLabels();
+  await ensureOpenIssue(issueNumber);
+
+  // Early dry-run guard — skip remaining API calls
   if (dryRun) {
     console.error(`[DRY-RUN] would create PR for issue #${issueNumber}`);
     console.error(`[DRY-RUN] would update labels to status:in-review`);
@@ -835,8 +881,6 @@ async function cmdPrclose(args: string[]): Promise<void> {
   }
 
   // ── API calls ───────────────────────────────────────────────────────────
-  await ensureRequiredLabels();
-  await ensureOpenIssue(issueNumber);
 
   // Get issue title for PR / feature branch
   const issueTitle = (await getIssue(issueNumber)).title;
@@ -848,7 +892,7 @@ async function cmdPrclose(args: string[]): Promise<void> {
     const featureBranch = `feature/issue-${issueNumber}-${slug}`;
     process.stdout.write(`On protected branch '${currentBranch}'. Creating feature branch '${featureBranch}'...\n`);
     execFileSync('git', ['checkout', '-b', featureBranch], { encoding: 'utf8', timeout: 15000 });
-    execFileSync('git', ['add', '-A'], { encoding: 'utf8', timeout: 15000 });
+    execFileSync('git', ['add', '-u'], { encoding: 'utf8', timeout: 15000 });  // stage only tracked files (exclude untracked)
     execFileSync('git', ['commit', '-m', `[Issue #${issueNumber}] ${issueTitle}`], {
       encoding: 'utf8',
       timeout: 15000,
@@ -968,6 +1012,9 @@ async function main(): Promise<void> {
     case 'prclose':
       await cmdPrclose(cmdArgs);
       break;
+    case 'show':
+      await cmdShow(cmdArgs);
+      break;
     case 'raw':
       console.error('Error: raw subcommand is not available in the TypeScript implementation.');
       throw new ExitError(1);
@@ -982,7 +1029,7 @@ async function main(): Promise<void> {
 
 export {
   addAssignee, addComment, addLabel, api, apiDelete, apiGet, apiPatch, apiPost, buildPRBody, closeIssue, cmdAssign, cmdCheck, cmdClaim, cmdClose, cmdCreate, cmdLabelsCheck,
-  cmdList, cmdPrclose, cmdRelease, ensureLabelAbsent, ensureLabelPresent, ensureOpenIssue, ensureRequiredLabels, ExitError, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
+  cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureOpenIssue, ensureRequiredLabels, ExitError, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
   getIssueFirstAssignee, getIssueState, getMissingRequiredLabels, getRepoLabels, issueHasLabel, main, output,
   outputJson, printUsage, removeAssignee, removeLabel, REQUIRED_LABELS, resolveRepo, resolveToken, slugify
 };

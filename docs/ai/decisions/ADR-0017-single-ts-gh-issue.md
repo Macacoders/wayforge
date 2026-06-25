@@ -21,7 +21,7 @@ Replace both legacy scripts with a single TypeScript implementation (`gh-issue.t
 - **Operations**: `check`, `labels-check`, `list`, `create`, `claim`, `assign`, `release`, `close`, `prclose`
 - **Dropped**: `raw` subcommand (was a passthrough to `gh` CLI) — no longer applicable
 - **No compatibility wrappers**: TypeScript is the sole implementation from the start
-- **Tests**: `tests/typescript/gh-issue/` (vitest, 62 tests, mocked API)
+- **Tests**: `tests/typescript/gh-issue/` (vitest, 88 tests, mocked API)
 
 ## Consequences
 
@@ -31,6 +31,7 @@ Replace both legacy scripts with a single TypeScript implementation (`gh-issue.t
 - Token resolution is more robust (env vars checked in-process before falling back to device flow).
 - The `raw` subcommand (passthrough to `gh issue`) is no longer needed or available.
 - Vitest replaces bats/Bash-only tests for gh-issue functionality.
+- `buildPRBody()` gracefully falls through to template/default body when `temp/pr-body-<N>.md` doesn't exist (unlike the legacy scripts that required `temp/` to pre-exist).
 
 ## ADRs Affected
 

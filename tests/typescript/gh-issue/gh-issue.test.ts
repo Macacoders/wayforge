@@ -214,6 +214,15 @@ describe('slugify', () => {
     const slug = gh.slugify(long);
     expect(slug.length).toBeLessThanOrEqual(60);
   });
+
+  it('truncates at word boundary when possible', () => {
+    // Slug > 60 chars with a hyphen near the start creates a natural break
+    const slug = gh.slugify('a-' + 'a'.repeat(68));
+    expect(slug.length).toBeLessThanOrEqual(60);
+    // Should break at the hyphen, not mid-word
+    expect(slug).toBe('a');
+    expect(slug).not.toMatch(/-$/);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -320,6 +329,12 @@ describe('resolveToken', () => {
     delete process.env.GITHUB_TOKEN;
     delete process.env.GH_TOKEN;
     await expect(gh.resolveToken()).rejects.toThrow();
+  });
+
+  it('propagates expired-token/device-flow failure from github-app-auth', async () => {
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.GH_TOKEN;
+    await expect(gh.resolveToken()).rejects.toThrow('auth mock');
   });
 });
 
@@ -657,6 +672,15 @@ describe('cmdCreate', () => {
   it('throws when --label has no value', async () => {
     await expect(gh.cmdCreate(['Title', '--label'])).rejects.toThrow(gh.ExitError);
   });
+
+  it('parses --body-file=path syntax with equals sign', async () => {
+    gh._setRepo('test/repo');
+    gh._setToken('t');
+    gh._setDryRun(true);
+    // The --body-file=path format (with =) should be parsed correctly without error
+    await expect(gh.cmdCreate(['Title', '--body-file=some/path.md']))
+      .resolves.toBeUndefined();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -915,6 +939,70 @@ describe('cmdRelease', () => {
   it('throws when --blocked has no reason', async () => {
     await expect(gh.cmdRelease(['1', '--blocked'])).rejects.toThrow(gh.ExitError);
   });
+
+  it('mutates labels correctly on release to status:to-do', async () => {
+    gh._setRepo('test/repo');
+    gh._setToken('t');
+    // Issue has all deletable status labels but NOT status:to-do
+    const assignedToMe = {
+      number: 1,
+      title: 'Test Issue',
+      state: 'open',
+      assignees: [{ login: 'testuser' }],
+      labels: [
+        { name: 'status:doing' },
+        { name: 'status:blocked' },
+        { name: 'status:in-review' },
+      ],
+      html_url: 'https://github.com/test/repo/issues/1',
+    };
+
+    let labelsCallCount = 0;
+    const deleteUrls: string[] = [];
+    const postUrls: string[] = [];
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = opts?.method ?? 'GET';
+      if (url.includes('/labels?per_page=100') && method === 'GET') {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
+      if (url.includes('/issues/1') && method === 'GET') {
+        return Promise.resolve(okResponse(assignedToMe));
+      }
+      if (url.includes('/user') && method === 'GET') {
+        return Promise.resolve(okResponse({ login: 'testuser' }));
+      }
+      if (url.includes('/assignees') && method === 'DELETE') {
+        return Promise.resolve(okResponse({}));
+      }
+      if (url.includes('/labels/') && method === 'DELETE') {
+        deleteUrls.push(url);
+        return Promise.resolve(okResponse({}));
+      }
+      if (url.includes('/labels') && method === 'POST') {
+        postUrls.push(url);
+        return Promise.resolve(okResponse({}));
+      }
+      if (url.includes('/comments') && method === 'POST') {
+        return Promise.resolve(okResponse({}));
+      }
+      return Promise.reject(new Error(`Unexpected: ${method} ${url}`));
+    });
+
+    await gh.cmdRelease(['1']);
+
+    // Must delete status:doing, status:blocked, status:in-review
+    // (Colon is URL-encoded as %3A in the API path)
+    expect(deleteUrls.some((u) => u.includes('status%3Adoing'))).toBe(true);
+    expect(deleteUrls.some((u) => u.includes('status%3Ablocked'))).toBe(true);
+    expect(deleteUrls.some((u) => u.includes('status%3Ain-review'))).toBe(true);
+    // Verify exactly 3 label DELETE calls were made
+    expect(deleteUrls).toHaveLength(3);
+    // Must add status:to-do (issue doesn't have it initially)
+    expect(postUrls.some((u) => u.includes('/labels'))).toBe(true);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -963,6 +1051,41 @@ describe('cmdClose', () => {
     await gh.cmdClose(['1']);
   });
 
+  it('calls PATCH with state closed to close the issue', async () => {
+    gh._setRepo('test/repo');
+    gh._setToken('t');
+
+    let labelsCallCount = 0;
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = opts?.method ?? 'GET';
+      if (url.includes('/labels?per_page=100') && method === 'GET') {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
+      if (url.includes('/issues/1') && method === 'GET') { return Promise.resolve(okResponse(DEFAULT_ISSUE)); }
+      if (url.includes('/comments') && method === 'POST') { return Promise.resolve(okResponse({})); }
+      if (url.includes('/labels/') && method === 'DELETE') { return Promise.resolve(okResponse({})); }
+      if (url.includes('/labels') && method === 'POST') { return Promise.resolve(okResponse({})); }
+      if (url.includes('/issues/1') && method === 'PATCH') {
+        return Promise.resolve(okResponse({ ...DEFAULT_ISSUE, state: 'closed' }));
+      }
+      return Promise.reject(new Error(`Unexpected: ${method} ${url}`));
+    });
+
+    await gh.cmdClose(['1']);
+
+    // Find the PATCH call and verify the request body
+    const patchCalls = mockFetch.mock.calls.filter(
+      ([url, opts]: [string, RequestInit]) =>
+        url.includes('/issues/1') && opts?.method === 'PATCH',
+    );
+    expect(patchCalls).toHaveLength(1);
+    const body = JSON.parse(patchCalls[0][1].body as string);
+    expect(body).toEqual({ state: 'closed' });
+  });
+
   it('throws when issue is already closed', async () => {
     const closed = { ...DEFAULT_ISSUE, state: 'closed' };
     let labelsCallCount = 0;
@@ -1003,10 +1126,24 @@ describe('cmdPrclose', () => {
 
   it('works with --dry-run on feature branch', async () => {
     gh._setDryRun(true);
-    mockLabelsResponse();
+    // M1: validation (labels + issue) runs even in dry-run — mock API responses
+    let labelsCallCount = 0;
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/labels?per_page=100')) {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
+      if (url.includes('/issues/1')) {
+        return Promise.resolve(okResponse(DEFAULT_ISSUE));
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
 
     await gh.cmdPrclose(['1', 'Ready for review']);
-    expect(mockFetch).not.toHaveBeenCalled();
+    // Validation calls happen; no mutation calls (POST/PATCH/DELETE)
+    expect(mockFetch).toHaveBeenCalled();
   });
 
   it('works with --dry-run on protected branch', async () => {
@@ -1021,9 +1158,24 @@ describe('cmdPrclose', () => {
       if (map[trimmed] !== undefined) return map[trimmed];
       throw new Error(`Unexpected execSync: ${cmd}`);
     });
+    // M1: validation runs even in dry-run — mock API responses
+    let labelsCallCount = 0;
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/labels?per_page=100')) {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
+      if (url.includes('/issues/1')) {
+        return Promise.resolve(okResponse(DEFAULT_ISSUE));
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
 
     await gh.cmdPrclose(['1']);
-    expect(mockFetch).not.toHaveBeenCalled();
+    // Validation calls happen; no mutation calls (POST/PATCH/DELETE)
+    expect(mockFetch).toHaveBeenCalled();
   });
 
   it('throws when on non-protected branch with dirty tree', async () => {
@@ -1172,7 +1324,7 @@ describe('main() dispatch', () => {
     process.argv = origArgv;
   });
 
-  it('parses --dry-run flag and skips API calls for dry-run-aware command', async () => {
+  it('parses --dry-run flag and skips mutation API calls for dry-run-aware command', async () => {
     const origArgv = process.argv;
     process.argv = ['node', 'gh-issue.ts', '--dry-run', '--repo', 'test/repo', 'prclose', '1'];
 
@@ -1188,8 +1340,30 @@ describe('main() dispatch', () => {
       throw new Error(`Unexpected execSync: ${cmd}`);
     });
 
+    // M1: validation (labels + issue) runs even in dry-run
+    let labelsCallCount = 0;
+    const mutationMethods = new Set(['POST', 'PATCH', 'DELETE']);
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = opts?.method ?? 'GET';
+      if (url.includes('/labels?per_page=100') && method === 'GET') {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
+      if (url.includes('/issues/1') && method === 'GET') {
+        return Promise.resolve(okResponse(DEFAULT_ISSUE));
+      }
+      // Reject on mutation calls — if any are made, the test fails
+      if (mutationMethods.has(method)) {
+        return Promise.reject(new Error(`Unexpected mutation call: ${method} ${url}`));
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${method} ${url}`));
+    });
+
     await gh.main();
-    expect(mockFetch).not.toHaveBeenCalled();
+    // Validation calls (labels + issue) happened, but no mutation calls
+    expect(mockFetch).toHaveBeenCalled();
 
     process.argv = origArgv;
   });
@@ -1272,5 +1446,116 @@ describe('main() dispatch', () => {
     await expect(gh.main()).resolves.toBeUndefined();
 
     process.argv = origArgv;
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Show operation
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('cmdShow', () => {
+  beforeEach(() => {
+    gh._setRepo('test/repo');
+    gh._setToken('t');
+    mockFetch.mockReset();
+  });
+
+  it('outputs human-readable issue details', async () => {
+    const issue = {
+      number: 123,
+      title: 'Test Issue Title',
+      state: 'open',
+      assignees: [{ login: 'user1' }, { login: 'user2' }],
+      labels: [{ name: 'status:doing' }, { name: 'type:task' }],
+      html_url: 'https://github.com/test/repo/issues/123',
+      body: 'Description text here.',
+    };
+    mockFetch.mockResolvedValue(okResponse(issue));
+
+    const stdout: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      stdout.push(String(chunk));
+      return true;
+    });
+
+    await gh.cmdShow(['123']);
+    const output = stdout.join('');
+    expect(output).toContain('Issue #123: Test Issue Title');
+    expect(output).toContain('State: open');
+    expect(output).toContain('Assignees: user1, user2');
+    expect(output).toContain('Labels: status:doing, type:task');
+    expect(output).toContain('Description text here.');
+  });
+
+  it('handles unassigned issue with no labels', async () => {
+    const issue = {
+      number: 456,
+      title: 'Minimal Issue',
+      state: 'open',
+      assignees: [],
+      labels: [],
+      html_url: 'https://github.com/test/repo/issues/456',
+      body: null,
+    };
+    mockFetch.mockResolvedValue(okResponse(issue));
+
+    const stdout: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      stdout.push(String(chunk));
+      return true;
+    });
+
+    await gh.cmdShow(['456']);
+    const output = stdout.join('');
+    expect(output).toContain('(unassigned)');
+    expect(output).toContain('(none)');
+    expect(output).toContain('(no description)');
+  });
+
+  it('outputs JSON in --json mode', async () => {
+    gh._setJsonMode(true);
+    const issue = {
+      number: 789,
+      title: 'JSON Issue',
+      state: 'closed',
+      assignees: [{ login: 'assignee1' }],
+      labels: [{ name: 'type:bug' }],
+      html_url: 'https://github.com/test/repo/issues/789',
+      body: 'JSON body.',
+    };
+    mockFetch.mockResolvedValue(okResponse(issue));
+
+    const stdout: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      stdout.push(String(chunk));
+      return true;
+    });
+
+    await gh.cmdShow(['789']);
+    const json = JSON.parse(stdout.join(''));
+    expect(json).toEqual({
+      number: 789,
+      title: 'JSON Issue',
+      state: 'closed',
+      assignees: ['assignee1'],
+      labels: ['type:bug'],
+      body: 'JSON body.',
+      url: 'https://github.com/test/repo/issues/789',
+    });
+  });
+
+  it('throws on non-existent issue', async () => {
+    mockFetch.mockResolvedValue(errorResponse(404, 'Not Found'));
+    await expect(gh.cmdShow(['999'])).rejects.toThrow('GitHub API error (404): Not Found');
+  });
+
+  it('throws when issue number is missing', async () => {
+    await expect(gh.cmdShow([])).rejects.toThrow(gh.ExitError);
+  });
+
+  it('throws on invalid issue number', async () => {
+    await expect(gh.cmdShow(['0'])).rejects.toThrow(gh.ExitError);
+    await expect(gh.cmdShow(['-1'])).rejects.toThrow(gh.ExitError);
+    await expect(gh.cmdShow(['abc'])).rejects.toThrow(gh.ExitError);
   });
 });
