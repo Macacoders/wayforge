@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getValidToken } from './github-app-auth.ts';
@@ -153,7 +153,7 @@ function resolveRepo(explicitRepo: string): string {
     if (err instanceof Error && err.message.startsWith('unsupported')) {
       throw err;
     }
-    throw new Error('GH_REPO is not set and git remote origin is unavailable.');
+    throw new ExitError(1, 'GH_REPO is not set and git remote origin is unavailable.');
   }
 }
 
@@ -386,17 +386,29 @@ function workingTreeIsClean(): boolean {
 
 function slugify(text: string): string {
   // Match the Bash tr + sed pipeline: lowercase, collapse non-alnum to '-', strip edges, truncate 60
-  return text
+  const slug = text
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60)
-    .replace(/-+$/, '');
+    .replace(/^-+|-+$/g, '');
+
+  if (slug.length <= 60) return slug.replace(/-+$/, '');
+
+  // Try to break at a word boundary to avoid mid-word truncation
+  const candidate = slug.slice(0, 61);
+  const lastHyphen = candidate.lastIndexOf('-');
+  if (lastHyphen > 0) {
+    return candidate.slice(0, lastHyphen).replace(/-+$/, '');
+  }
+  return slug.slice(0, 60).replace(/-+$/, '');
 }
 
 function buildPRBody(issueNumber: number): string {
   const repoRoot = getRepoRoot();
   const tempPath = path.join(repoRoot, 'temp', `pr-body-${issueNumber}.md`);
+  const tempDir = path.dirname(tempPath);
+  if (!existsSync(tempDir)) {
+    mkdirSync(tempDir, { recursive: true });
+  }
   if (existsSync(tempPath)) {
     return readFileSync(tempPath, 'utf8');
   }
@@ -825,9 +837,7 @@ async function cmdPrclose(args: string[]): Promise<void> {
     maintainer_can_modify: true,
   });
   const prUrl = pr.html_url;
-  if (!branchWasCreated) {
-    process.stdout.write(`${prUrl}\n`);
-  }
+  process.stdout.write(`${prUrl}\n`);
 
   // Comment on issue
   await addComment(issueNumber, `${summary}\n\nPull request: ${prUrl}`);
@@ -882,7 +892,9 @@ async function main(): Promise<void> {
   const cmdArgs = remainingArgs.slice(1);
 
   // Resolve auth token (may throw if no token available and device flow fails)
-  token = await resolveToken();
+  if (!dryRun) {
+    token = await resolveToken();
+  }
 
   // Resolve repository owner/name
   repo = resolveRepo(explicitRepo);

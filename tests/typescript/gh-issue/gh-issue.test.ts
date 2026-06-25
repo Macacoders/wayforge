@@ -13,6 +13,15 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 const mockExecSync = vi.hoisted(() => vi.fn());
 vi.mock('child_process', () => ({ execSync: mockExecSync }));
+
+const mockExistsSync = vi.hoisted(() => vi.fn());
+const mockMkdirSync = vi.hoisted(() => vi.fn());
+const mockReadFileSync = vi.hoisted(() => vi.fn());
+vi.mock('node:fs', () => ({
+  existsSync: mockExistsSync,
+  mkdirSync: mockMkdirSync,
+  readFileSync: mockReadFileSync,
+}));
 vi.mock('../../../base/opencode/skills/shared-task/scripts/github-app-auth.ts', () => ({
   getValidToken: vi.fn().mockRejectedValue(new Error('auth mock')),
 }));
@@ -102,6 +111,12 @@ beforeEach(() => {
   delete process.env.GH_REPO;
   mockFetch.mockReset();
   mockExecSync.mockReset();
+  mockExistsSync.mockReset();
+  mockMkdirSync.mockReset();
+  mockReadFileSync.mockReset();
+  // Default: no temp/template files exist; readFileSync returns empty
+  mockExistsSync.mockReturnValue(false);
+  mockReadFileSync.mockReturnValue('');
 
   // Default execSync: git origin, repo root, current branch, clean tree
   mockExecSync.mockImplementation((cmd: string) => {
@@ -826,8 +841,82 @@ describe('cmdPrclose', () => {
     await expect(gh.cmdPrclose(['1'])).rejects.toThrow('active local branch');
   });
 
+  it('performs full API flow on a feature branch and outputs PR URL', async () => {
+    // Full non-dry-run flow on feature/test branch
+    const PR_RESPONSE = {
+      html_url: 'https://github.com/test/repo/pull/42',
+      number: 42,
+      title: 'PR Title',
+      state: 'open',
+    };
+
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = opts?.method ?? 'GET';
+      if (url.includes('/labels?per_page=100')) { return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API)); }
+      if (url.includes('/issues/1') && method === 'GET') { return Promise.resolve(okResponse(DEFAULT_ISSUE)); }
+      if (url === 'https://api.github.com/repos/test/repo' && method === 'GET') {
+        return Promise.resolve(okResponse({ default_branch: 'main' }));
+      }
+      if (url.includes('/pulls') && method === 'POST') { return Promise.resolve(okResponse(PR_RESPONSE)); }
+      if (url.includes('/comments') && method === 'POST') { return Promise.resolve(okResponse({})); }
+      if (url.includes('/labels/') && method === 'DELETE') {
+        return Promise.resolve({ ok: true, status: 204, headers: new Headers(), text: async () => '' });
+      }
+      if (url.includes('/issues/1/labels') && method === 'POST') { return Promise.resolve(okResponse({})); }
+      return Promise.reject(new Error(`Unexpected fetch: ${method} ${url}`));
+    });
+
+    const stdout: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      stdout.push(String(chunk));
+      return true;
+    });
+
+    await gh.cmdPrclose(['1', 'Ready for review']);
+    expect(stdout.join('')).toContain(PR_RESPONSE.html_url);
+  });
+
   it('throws when issue number is missing', async () => {
     await expect(gh.cmdPrclose([])).rejects.toThrow(gh.ExitError);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// buildPRBody
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('buildPRBody', () => {
+  it('reads from temp file when it exists', () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue('Custom body from temp/pr-body-1.md');
+
+    const body = gh.buildPRBody(1);
+    expect(body).toBe('Custom body from temp/pr-body-1.md');
+  });
+
+  it('falls back to PR template when temp file is missing', () => {
+    // Call 1: existsSync(tempDir) → false → mkdirSync
+    // Call 2: existsSync(tempPath) → false
+    // Call 3: existsSync(templatePath) → true → readFileSync
+    mockExistsSync
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    mockReadFileSync.mockReturnValue('Template content\n# PR Title');
+
+    const body = gh.buildPRBody(1);
+    expect(body).toContain('Fixes #1');
+    expect(body).toContain('Template content');
+  });
+
+  it('generates default body when no files exist', () => {
+    mockExistsSync.mockReturnValue(false);
+
+    const body = gh.buildPRBody(1);
+    expect(body.startsWith('Fixes #1')).toBe(true);
+    expect(body).toContain('## Summary');
+    expect(body).toContain('## Testing');
+    expect(body).toContain('## Breaking changes');
   });
 });
 
@@ -863,6 +952,98 @@ describe('main() dispatch', () => {
     process.argv = ['node', 'gh-issue.ts', '--repo', 'test/repo', 'bogus'];
 
     await expect(gh.main()).rejects.toThrow(gh.ExitError);
+
+    process.argv = origArgv;
+  });
+
+  it('parses --dry-run flag and skips API calls for dry-run-aware command', async () => {
+    const origArgv = process.argv;
+    process.argv = ['node', 'gh-issue.ts', '--dry-run', '--repo', 'test/repo', 'prclose', '1'];
+
+    // Set up execSync for prclose local checks
+    mockExecSync.mockImplementation((cmd: string) => {
+      const map: Record<string, string> = {
+        'git rev-parse --show-toplevel': '/tmp/repo',
+        'git rev-parse --abbrev-ref HEAD': 'feature/test',
+        'git status --porcelain': '',
+      };
+      const trimmed = cmd.trim();
+      if (map[trimmed] !== undefined) return map[trimmed];
+      throw new Error(`Unexpected execSync: ${cmd}`);
+    });
+
+    await gh.main();
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    process.argv = origArgv;
+  });
+
+  it('parses --json flag and outputs JSON via check', async () => {
+    const origArgv = process.argv;
+    process.argv = ['node', 'gh-issue.ts', '--json', '--repo', 'test/repo', 'check'];
+
+    mockFetch.mockResolvedValue(okResponse({ full_name: 'test/repo' }));
+
+    const stdout: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      stdout.push(String(chunk));
+      return true;
+    });
+
+    await gh.main();
+    const json = JSON.parse(stdout.join(''));
+    expect(json).toEqual({ status: 'ok', repo: 'test/repo' });
+
+    process.argv = origArgv;
+  });
+
+  it('parses --repo flag and dispatches to list without throwing', async () => {
+    const origArgv = process.argv;
+    process.argv = ['node', 'gh-issue.ts', '--repo', 'custom/repo', 'list'];
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/labels?per_page=100')) {
+        return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      }
+      if (url.includes('/issues?state=open')) {
+        return Promise.resolve(okResponse([]));
+      }
+      return Promise.reject(new Error(`Unexpected: ${url}`));
+    });
+
+    await expect(gh.main()).resolves.toBeUndefined();
+
+    process.argv = origArgv;
+  });
+
+  it('throws ExitError when no command is provided', async () => {
+    const origArgv = process.argv;
+    process.argv = ['node', 'gh-issue.ts'];
+
+    await expect(gh.main()).rejects.toThrow(gh.ExitError);
+
+    process.argv = origArgv;
+  });
+
+  it('dispatches to cmdClaim through main()', async () => {
+    const origArgv = process.argv;
+    process.argv = ['node', 'gh-issue.ts', '--repo', 'test/repo', 'claim', '1'];
+
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = opts?.method ?? 'GET';
+      if (url.includes('/labels?per_page=100')) { return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API)); }
+      if (url.includes('/issues/1') && method === 'GET') { return Promise.resolve(okResponse(DEFAULT_ISSUE)); }
+      if (url.includes('/user')) { return Promise.resolve(okResponse({ login: 'testuser' })); }
+      if (url.includes('/assignees') && method === 'POST') { return Promise.resolve(okResponse({})); }
+      if (url.includes('/comments') && method === 'POST') { return Promise.resolve(okResponse({})); }
+      if (url.includes('/labels/') && method === 'DELETE') {
+        return Promise.resolve({ ok: true, status: 204, headers: new Headers(), text: async () => '' });
+      }
+      if (url.includes('/labels') && method === 'POST') { return Promise.resolve(okResponse({})); }
+      return Promise.reject(new Error(`Unexpected: ${method} ${url}`));
+    });
+
+    await expect(gh.main()).resolves.toBeUndefined();
 
     process.argv = origArgv;
   });
