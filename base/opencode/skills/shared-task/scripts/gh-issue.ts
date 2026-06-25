@@ -161,59 +161,89 @@ function resolveRepo(explicitRepo: string): string {
 
 async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
   const url = `${GITHUB_API_BASE}${path}`;
-  const headers: Record<string, string> = {
-    Accept: 'application/vnd.github+json',
-    Authorization: `Bearer ${token}`,
-    'X-GitHub-Api-Version': API_VERSION,
-  };
+  const maxRetries = 3;
+  let lastError: Error | undefined;
 
-  if (body !== undefined && method !== 'GET') {
-    headers['Content-Type'] = 'application/json';
-  }
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    // Build headers
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${token}`,
+      'X-GitHub-Api-Version': API_VERSION,
+    };
 
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: body !== undefined && method !== 'GET' ? JSON.stringify(body) : undefined,
-  });
-
-  // 204 No Content — no response body
-  if (response.status === 204) {
-    return undefined as unknown as T;
-  }
-
-  // Try to parse JSON body for error details
-  let responseBody: string | undefined;
-  try {
-    responseBody = await response.text();
-  } catch {
-    responseBody = undefined;
-  }
-
-  if (!response.ok) {
-    let detail = `HTTP ${response.status}`;
-    if (responseBody) {
-      try {
-        const parsed = JSON.parse(responseBody) as { message?: string };
-        if (parsed.message) detail = parsed.message;
-      } catch {
-        detail = responseBody.slice(0, 500);
-      }
+    if (body !== undefined && method !== 'GET') {
+      headers['Content-Type'] = 'application/json';
     }
-    throw new Error(`GitHub API error (${response.status}): ${detail}`);
+
+    // Make the HTTP request — network errors (fetch throws) are retried
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers,
+        body: body !== undefined && method !== 'GET' ? JSON.stringify(body) : undefined,
+      });
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+      throw lastError;
+    }
+
+    // 204 No Content — no response body
+    if (response.status === 204) {
+      return undefined as unknown as T;
+    }
+
+    // Read response body text
+    let responseBody: string | undefined;
+    try {
+      responseBody = await response.text();
+    } catch {
+      responseBody = undefined;
+    }
+
+    if (!response.ok) {
+      // Retry on 5xx only
+      if (response.status >= 500 && attempt < maxRetries) {
+        const retryAfter = response.headers.get('Retry-After');
+        const delay = retryAfter
+          ? parseInt(retryAfter, 10) * 1000
+          : Math.min(1000 * Math.pow(2, attempt), 10000);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+      // 4xx and other errors — throw immediately (will not be caught by retry)
+      let detail = `HTTP ${response.status}`;
+      if (responseBody) {
+        try {
+          const parsed = JSON.parse(responseBody) as { message?: string };
+          if (parsed.message) detail = parsed.message;
+        } catch {
+          detail = responseBody.slice(0, 500);
+        }
+      }
+      throw new Error(`GitHub API error (${response.status}): ${detail}`);
+    }
+
+    if (!responseBody) {
+      return undefined as unknown as T;
+    }
+
+    // Only parse JSON if content-type indicates it
+    const ct = (response.headers.get('content-type') || '').toLowerCase();
+    if (ct.includes('application/json')) {
+      return JSON.parse(responseBody) as T;
+    }
+
+    return responseBody as unknown as T;
   }
 
-  if (!responseBody) {
-    return undefined as unknown as T;
-  }
-
-  // Only parse JSON if content-type indicates it
-  const ct = (response.headers.get('content-type') || '').toLowerCase();
-  if (ct.includes('application/json')) {
-    return JSON.parse(responseBody) as T;
-  }
-
-  return responseBody as unknown as T;
+  throw lastError ?? new Error('Unexpected error in api()');
 }
 
 function apiGet<T>(path: string): Promise<T> {
@@ -235,8 +265,15 @@ function apiDelete<T>(path: string, body?: unknown): Promise<T> {
 // ── Issue / label helper functions ──────────────────────────────────────────
 
 async function getRepoLabels(): Promise<string[]> {
-  const labels = await apiGet<GitHubLabel[]>(`/repos/${repo}/labels?per_page=100`);
-  return labels.map((l) => l.name);
+  const allLabels: string[] = [];
+  let page = 1;
+  while (true) {
+    const labels = await apiGet<GitHubLabel[]>(`/repos/${repo}/labels?per_page=100&page=${page}`);
+    if (labels.length === 0) break;
+    allLabels.push(...labels.map((l) => l.name));
+    page++;
+  }
+  return allLabels;
 }
 
 function getMissingRequiredLabels(existing: string[]): string[] {
@@ -499,10 +536,10 @@ async function cmdList(): Promise<void> {
       issue.assignees?.length ? issue.assignees.map((a) => a.login).join(',') : '-';
     const statusLabels = (issue.labels ?? [])
       .filter((l) => l.name.startsWith('status:'))
-      .map((l) => l.name.replace(/^status:/, ''));
+      .map((l) => l.name);
     const statusStr = statusLabels.length ? statusLabels.join(',') : '-';
     process.stdout.write(
-      `#${issue.number}\t${issue.title}\tassignee:${assigneeStr}\tstatus:${statusStr}\n`,
+      `#${issue.number}\t${issue.title}\tassignee:${assigneeStr}\t${statusStr}\n`,
     );
   }
 }

@@ -71,28 +71,37 @@ const DEFAULT_ISSUE = {
   html_url: 'https://github.com/test/repo/issues/1',
 };
 
-/** Helper: makes mockFetch respond to labels endpoint */
+/** Helper: makes mockFetch respond to labels endpoint (pagination-aware) */
 function mockLabelsResponse(): void {
+  let labelsCallCount = 0;
   mockFetch.mockImplementation((url: string) => {
     if (url.includes('/labels?per_page=100')) {
-      return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      labelsCallCount++;
+      return Promise.resolve(
+        labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+      );
     }
     return Promise.reject(new Error(`Unexpected fetch: ${url}`));
   });
 }
 
-/** Helper: makes mockFetch respond to labels + a specific endpoint */
+/** Helper: makes mockFetch respond to labels + a specific endpoint (pagination-aware) */
 function mockWithLabels(
   urlPattern: string | RegExp,
   data: unknown,
   method = 'GET',
 ): void {
+  let labelsCallCount = 0;
   mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
     const reqMethod = opts?.method ?? 'GET';
     const matches =
       typeof urlPattern === 'string' ? url.includes(urlPattern) : urlPattern.test(url);
 
     if (url.includes('/labels?per_page=100') && reqMethod === 'GET') {
+      labelsCallCount++;
+      if (labelsCallCount > 1) {
+        return Promise.resolve(okResponse([]));
+      }
       return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
     }
     if (matches && reqMethod === method) {
@@ -208,6 +217,87 @@ describe('slugify', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// getRepoLabels (H1: pagination)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('getRepoLabels', () => {
+  it('collects all labels across multiple pages', async () => {
+    gh._setRepo('test/repo');
+    gh._setToken('t');
+    const page1 = [{ name: 'status:to-do' }, { name: 'status:doing' }];
+    const page2 = [{ name: 'type:task' }, { name: 'type:bug' }];
+    let page = 0;
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/labels?per_page=100')) {
+        page++;
+        if (page === 1) return Promise.resolve(okResponse(page1));
+        if (page === 2) return Promise.resolve(okResponse(page2));
+        return Promise.resolve(okResponse([]));
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    const labels = await gh.getRepoLabels();
+    expect(labels).toEqual(['status:to-do', 'status:doing', 'type:task', 'type:bug']);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API retry behavior (H5)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('api retry behavior', () => {
+  beforeEach(() => {
+    gh._setRepo('test/repo');
+    gh._setToken('t');
+  });
+
+  it('retries on 502 and succeeds', async () => {
+    let callCount = 0;
+    mockFetch.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return Promise.resolve(errorResponse(502, 'Server Error'));
+      return Promise.resolve(okResponse({ status: 'ok' }));
+    });
+    const result = await gh.api('GET', '/repos/test/repo');
+    expect(result).toEqual({ status: 'ok' });
+    expect(callCount).toBe(2);
+  });
+
+  it('throws after exhausting 5xx retries', async () => {
+    let callCount = 0;
+    mockFetch.mockImplementation(() => {
+      callCount++;
+      return Promise.resolve(errorResponse(502, 'Bad Gateway'));
+    });
+    await expect(gh.api('GET', '/repos/test/repo')).rejects.toThrow(
+      'GitHub API error (502): Bad Gateway',
+    );
+    expect(callCount).toBe(4); // 1 initial + 3 retries
+  }, 15000);
+
+  it('retries on network error and succeeds', async () => {
+    let callCount = 0;
+    mockFetch.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return Promise.reject(new Error('Network failure'));
+      return Promise.resolve(okResponse({ status: 'ok' }));
+    });
+    const result = await gh.api('GET', '/repos/test/repo');
+    expect(result).toEqual({ status: 'ok' });
+    expect(callCount).toBe(2);
+  });
+
+  it('does not retry on 4xx errors', async () => {
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(errorResponse(404, 'Not Found')),
+    );
+    await expect(gh.api('GET', '/repos/test/repo')).rejects.toThrow(
+      'GitHub API error (404): Not Found',
+    );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Auth resolution
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -314,7 +404,13 @@ describe('cmdLabelsCheck', () => {
   it('succeeds when all required labels exist', async () => {
     gh._setRepo('test/repo');
     gh._setToken('t');
-    mockFetch.mockResolvedValue(okResponse(ALL_REQUIRED_LABELS_API));
+    let labelsCallCount = 0;
+    mockFetch.mockImplementation(() => {
+      labelsCallCount++;
+      return Promise.resolve(
+        labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+      );
+    });
 
     const stdout: string[] = [];
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
@@ -329,7 +425,14 @@ describe('cmdLabelsCheck', () => {
   it('fails with numeric exit code when labels are missing', async () => {
     gh._setRepo('test/repo');
     gh._setToken('t');
-    mockFetch.mockResolvedValue(okResponse([{ name: 'status:to-do' }, { name: 'type:task' }]));
+    let labelsCallCount = 0;
+    mockFetch.mockImplementation(() => {
+      labelsCallCount++;
+      const data = labelsCallCount === 1
+        ? okResponse([{ name: 'status:to-do' }, { name: 'type:task' }])
+        : okResponse([]);
+      return Promise.resolve(data);
+    });
 
     await expect(gh.cmdLabelsCheck()).rejects.toThrow(gh.ExitError);
   });
@@ -338,7 +441,14 @@ describe('cmdLabelsCheck', () => {
     gh._setRepo('test/repo');
     gh._setToken('t');
     gh._setJsonMode(true);
-    mockFetch.mockResolvedValue(okResponse([{ name: 'status:to-do' }]));
+    let labelsCallCount = 0;
+    mockFetch.mockImplementation(() => {
+      labelsCallCount++;
+      const data = labelsCallCount === 1
+        ? okResponse([{ name: 'status:to-do' }])
+        : okResponse([]);
+      return Promise.resolve(data);
+    });
 
     const stdout: string[] = [];
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
@@ -432,6 +542,33 @@ describe('cmdList', () => {
     expect(json).toHaveLength(2);
     expect(json[0]).toMatchObject({ number: 1, title: 'Issue One' });
     expect(json[1]).toMatchObject({ number: 2, title: 'Issue Two' });
+  });
+
+  it('outputs full status label names with status: prefix for multiple status labels', async () => {
+    gh._setRepo('test/repo');
+    gh._setToken('t');
+    const multiStatusIssues = [
+      {
+        number: 5,
+        title: 'Multi Status',
+        state: 'open',
+        assignees: [],
+        labels: [{ name: 'status:doing' }, { name: 'status:in-review' }, { name: 'type:task' }],
+        html_url: 'https://github.com/test/repo/issues/5',
+      },
+    ];
+    mockWithLabels('/issues?state=open', multiStatusIssues);
+
+    const stdout: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      stdout.push(String(chunk));
+      return true;
+    });
+
+    await gh.cmdList();
+    const output = stdout.join('');
+    // Single status label with prefix preserved
+    expect(output).toContain('#5\tMulti Status\tassignee:-\tstatus:doing,status:in-review');
   });
 });
 
@@ -534,11 +671,13 @@ describe('cmdClaim', () => {
 
   it('claims an open unassigned issue', async () => {
     // Labels → Issue view → Issue view (assignee count) → Issue view (labels) → User → Assignee POST
-    let callCount = 0;
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
-      callCount++;
       if (url.includes('/labels?per_page=100')) {
-        return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
       }
       if (url.includes('/issues/1')) {
         return Promise.resolve(okResponse(DEFAULT_ISSUE));
@@ -561,8 +700,14 @@ describe('cmdClaim', () => {
 
   it('throws when issue is already assigned', async () => {
     const assignedIssue = { ...DEFAULT_ISSUE, assignees: [{ login: 'other' }] };
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/labels?per_page=100')) return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      if (url.includes('/labels?per_page=100')) {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
       if (url.includes('/issues/1')) return Promise.resolve(okResponse(assignedIssue));
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
@@ -572,8 +717,14 @@ describe('cmdClaim', () => {
 
   it('throws when issue already has status:doing', async () => {
     const doingIssue = { ...DEFAULT_ISSUE, labels: [{ name: 'status:doing' }] };
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/labels?per_page=100')) return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      if (url.includes('/labels?per_page=100')) {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
       if (url.includes('/issues/1')) return Promise.resolve(okResponse(doingIssue));
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
@@ -583,8 +734,14 @@ describe('cmdClaim', () => {
 
   it('throws when issue is closed', async () => {
     const closedIssue = { ...DEFAULT_ISSUE, state: 'closed' };
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/labels?per_page=100')) return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      if (url.includes('/labels?per_page=100')) {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
       if (url.includes('/issues/1')) return Promise.resolve(okResponse(closedIssue));
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
@@ -602,10 +759,14 @@ describe('cmdClaim', () => {
   it('outputs JSON in --json mode', async () => {
     gh._setJsonMode(true);
 
-    let callCount = 0;
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
-      callCount++;
-      if (url.includes('/labels?per_page=100')) return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      if (url.includes('/labels?per_page=100')) {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
       if (url.includes('/issues/1')) return Promise.resolve(okResponse(DEFAULT_ISSUE));
       if (url.includes('/user')) return Promise.resolve(okResponse({ login: 'testuser' }));
       if (url.includes('/assignees')) return Promise.resolve(okResponse({}));
@@ -641,8 +802,14 @@ describe('cmdAssign', () => {
   });
 
   it('assigns a collaborator to an open unassigned issue', async () => {
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/labels?per_page=100')) return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      if (url.includes('/labels?per_page=100')) {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
       if (url.includes('/issues/1')) return Promise.resolve(okResponse(DEFAULT_ISSUE));
       if (url.includes('/assignees')) return Promise.resolve(okResponse({}));
       if (url.includes('/comments')) return Promise.resolve(okResponse({}));
@@ -659,8 +826,14 @@ describe('cmdAssign', () => {
 
   it('throws when issue is already assigned', async () => {
     const assigned = { ...DEFAULT_ISSUE, assignees: [{ login: 'other' }] };
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/labels?per_page=100')) return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      if (url.includes('/labels?per_page=100')) {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
       if (url.includes('/issues/1')) return Promise.resolve(okResponse(assigned));
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
@@ -681,8 +854,14 @@ describe('cmdRelease', () => {
 
   it('releases issue back to status:to-do', async () => {
     const assignedToMe = { ...DEFAULT_ISSUE, assignees: [{ login: 'testuser' }] };
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/labels?per_page=100')) return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      if (url.includes('/labels?per_page=100')) {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
       if (url.includes('/issues/1')) return Promise.resolve(okResponse(assignedToMe));
       if (url.includes('/user')) return Promise.resolve(okResponse({ login: 'testuser' }));
       if (url.includes('/assignees')) return Promise.resolve(okResponse({}));
@@ -696,8 +875,14 @@ describe('cmdRelease', () => {
 
   it('handles --blocked reason', async () => {
     const assignedToMe = { ...DEFAULT_ISSUE, assignees: [{ login: 'testuser' }] };
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/labels?per_page=100')) return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      if (url.includes('/labels?per_page=100')) {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
       if (url.includes('/issues/1')) return Promise.resolve(okResponse(assignedToMe));
       if (url.includes('/user')) return Promise.resolve(okResponse({ login: 'testuser' }));
       if (url.includes('/assignees')) return Promise.resolve(okResponse({}));
@@ -711,8 +896,14 @@ describe('cmdRelease', () => {
 
   it('throws when assigned to another user', async () => {
     const assignedToOther = { ...DEFAULT_ISSUE, assignees: [{ login: 'other' }] };
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/labels?per_page=100')) return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      if (url.includes('/labels?per_page=100')) {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
       if (url.includes('/issues/1')) return Promise.resolve(okResponse(assignedToOther));
       if (url.includes('/user')) return Promise.resolve(okResponse({ login: 'testuser' }));
       return Promise.reject(new Error(`Unexpected: ${url}`));
@@ -737,8 +928,14 @@ describe('cmdClose', () => {
   });
 
   it('closes an open issue with custom summary', async () => {
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/labels?per_page=100')) return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      if (url.includes('/labels?per_page=100')) {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
       if (url.includes('/issues/1')) return Promise.resolve(okResponse(DEFAULT_ISSUE));
       if (url.includes('/comments')) return Promise.resolve(okResponse({}));
       if (url.includes('/labels')) return Promise.resolve(okResponse({}));
@@ -749,8 +946,14 @@ describe('cmdClose', () => {
   });
 
   it('uses default summary when none provided', async () => {
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/labels?per_page=100')) return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      if (url.includes('/labels?per_page=100')) {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
       if (url.includes('/issues/1')) return Promise.resolve(okResponse(DEFAULT_ISSUE));
       if (url.includes('/comments')) return Promise.resolve(okResponse({}));
       if (url.includes('/labels')) return Promise.resolve(okResponse({}));
@@ -762,8 +965,14 @@ describe('cmdClose', () => {
 
   it('throws when issue is already closed', async () => {
     const closed = { ...DEFAULT_ISSUE, state: 'closed' };
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/labels?per_page=100')) return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      if (url.includes('/labels?per_page=100')) {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
       if (url.includes('/issues/1')) return Promise.resolve(okResponse(closed));
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
@@ -850,9 +1059,15 @@ describe('cmdPrclose', () => {
       state: 'open',
     };
 
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
       const method = opts?.method ?? 'GET';
-      if (url.includes('/labels?per_page=100')) { return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API)); }
+      if (url.includes('/labels?per_page=100') && method === 'GET') {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
       if (url.includes('/issues/1') && method === 'GET') { return Promise.resolve(okResponse(DEFAULT_ISSUE)); }
       if (url === 'https://api.github.com/repos/test/repo' && method === 'GET') {
         return Promise.resolve(okResponse({ default_branch: 'main' }));
@@ -1002,9 +1217,13 @@ describe('main() dispatch', () => {
     const origArgv = process.argv;
     process.argv = ['node', 'gh-issue.ts', '--repo', 'custom/repo', 'list'];
 
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
       if (url.includes('/labels?per_page=100')) {
-        return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
       }
       if (url.includes('/issues?state=open')) {
         return Promise.resolve(okResponse([]));
@@ -1030,9 +1249,15 @@ describe('main() dispatch', () => {
     const origArgv = process.argv;
     process.argv = ['node', 'gh-issue.ts', '--repo', 'test/repo', 'claim', '1'];
 
+    let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
       const method = opts?.method ?? 'GET';
-      if (url.includes('/labels?per_page=100')) { return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API)); }
+      if (url.includes('/labels?per_page=100') && method === 'GET') {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
       if (url.includes('/issues/1') && method === 'GET') { return Promise.resolve(okResponse(DEFAULT_ISSUE)); }
       if (url.includes('/user')) { return Promise.resolve(okResponse({ login: 'testuser' })); }
       if (url.includes('/assignees') && method === 'POST') { return Promise.resolve(okResponse({})); }
