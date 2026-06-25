@@ -14,10 +14,11 @@ Apply minimal, correct changes for a small, low-risk task described in a `Quick 
 
 ## Operating Rules
 
+<!-- ponytail ladder rules; also injected by plugin (Phase 2) -->
 - Read the `Quick Code Handoff Brief` first.
 - Stay strictly inside the approved scope and files unless a missing fact blocks implementation.
-- Prefer the smallest correct change.
-- Before creating new repeatable logic, inspect reasonable existing patterns, utilities, scripts, helpers, commands, tests, or conventions within task scope.
+- Prefer the smallest correct change. Apply the ponytail ladder: 1) YAGNI — skip it; 2) reuse existing code; 3) use the stdlib; 4) use native platform features; 5) use installed dependencies; 6) one-liner if possible; 7) only then write the minimum.
+- Before creating new repeatable logic, skip it if YAGNI (rung 1), then inspect reasonable existing patterns, utilities, scripts, helpers, commands, tests, or conventions within task scope (rung 2).
 - Reuse existing code or patterns when they fit; avoid unnecessary copying, speculative abstraction, and broad refactors.
 - Justify new duplication in the report or flag it as debt/risk.
 - Preserve unrelated worktree changes.

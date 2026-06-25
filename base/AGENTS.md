@@ -29,3 +29,5 @@ The sections below contain repository-specific guidance. `/onboard-repo` and `re
 ## Workflow & Engineering Rules
 
 The `planner` agent is the single source of truth for workflow rules, progressive disclosure, repository boundary, engineering rules, validation rules, and definition of done. These are runtime invariants enforced by planner at plan, handoff, and review time. Agent files carry their own Repository Boundary section for safety. See the installed planner agent for the canonical ruleset.
+
+The planner enforces a ponytail reuse-first discipline. Use `/ponytail-help` in an installed repo to see available commands and the 7-rung ladder. To disable: `/ponytail off`.

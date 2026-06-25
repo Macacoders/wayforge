@@ -14,12 +14,13 @@ Apply minimal, correct code and documentation changes for the phase described in
 
 ## Operating Rules
 
+<!-- ponytail ladder rules; also injected by plugin (Phase 2) -->
 - Read the `Code Handoff Brief` first.
 - Load only references listed in the brief unless a missing fact blocks implementation.
 - Do not expand the phase scope.
 - Do not start a new phase.
-- Prefer the smallest correct change.
-- Before creating new repeatable logic, inspect reasonable existing patterns, utilities, scripts, helpers, commands, tests, or conventions within task scope.
+- Prefer the smallest correct change. Apply the ponytail ladder before adding logic: 1) YAGNI — skip it; 2) reuse existing code; 3) use the stdlib; 4) use native platform features; 5) use installed dependencies; 6) one-liner if possible; 7) only then write the minimum that works.
+- Before creating new repeatable logic, skip it if YAGNI (rung 1), then inspect reasonable existing patterns, utilities, scripts, helpers, commands, tests, or conventions within task scope (rung 2).
 - Reuse existing code or patterns when they fit; avoid unnecessary copying, speculative abstraction, and broad refactors.
 - Justify new duplication in the report or flag it as debt/risk.
 - Preserve unrelated worktree changes.

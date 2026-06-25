@@ -62,6 +62,46 @@ The staged-delivery workflow keeps repository onboarding, planning, implementati
 7. `quickcode` reports once for `planner` review.
 8. `planner` reviews the result with git status/diff/log evidence before responding to the user.
 
+## Ponytail Reuse-First Discipline
+
+ai-config integrates the [ponytail](https://github.com/DietrichGebert/ponytail) reuse-first discipline. Before writing any new code, agents climb a 7-rung ladder:
+
+1. Does this need to exist? (YAGNI) → skip it
+2. Already in this codebase? → reuse it
+3. Stdlib does it? → use it
+4. Native platform feature? → use it
+5. Installed dependency solves it? → use it
+6. One line? → one line
+7. Only then: write the minimum that works
+
+### Intensity Levels
+
+| Mode | Behavior |
+|------|----------|
+| `off` | No reuse-first injection |
+| `lite` | Gentle reminder to prefer reuse |
+| `full` | Standard 7-rung ladder (default) |
+| `ultra` | Strict — no new code without rung justification |
+
+### Commands
+
+| Command | Purpose |
+|---------|---------|
+| `/ponytail [mode]` | Switch intensity (persists across sessions) |
+| `/ponytail-review` | Review current diff for over-engineering |
+| `/ponytail-audit` | Whole-repository audit |
+| `/ponytail-debt` | Harvest `ponytail:` comments into a debt ledger |
+| `/ponytail-gain` | Impact scoreboard |
+| `/ponytail-help` | Quick reference |
+
+### Configuration
+
+- Default mode: `full`
+- Override via `PONYTAIL_DEFAULT_MODE` env var
+- Disable entirely: `/ponytail off` or `PONYTAIL_DEFAULT_MODE=off`
+- Mode persists in `~/.config/opencode/.ponytail-active`
+- The ponytail plugin injects ladder rules into the system prompt at the configured intensity
+
 ## Agents
 
 The target OpenCode setup uses one primary agent and five specialized subagents.
