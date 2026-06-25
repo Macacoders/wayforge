@@ -161,6 +161,9 @@ function resolveRepo(explicitRepo: string): string {
 // ── GitHub API helper ───────────────────────────────────────────────────────
 
 async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
+  if (method === 'GET' && body !== undefined) {
+    throw new Error('GET request must not include a body');
+  }
   const url = `${GITHUB_API_BASE}${path}`;
   const maxRetries = 3;
   let lastError: Error | undefined;
@@ -423,7 +426,8 @@ function workingTreeIsClean(): boolean {
 }
 
 function slugify(text: string): string {
-  // Match the Bash tr + sed pipeline: lowercase, collapse non-alnum to '-', strip edges, truncate 60
+  // Lowercase, collapse non-alnum sequences to '-', strip leading/trailing hyphens,
+  // truncate at 60 chars with word-boundary awareness
   const slug = text
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -590,8 +594,6 @@ async function cmdCreate(args: string[]): Promise<void> {
     return;
   }
 
-  await ensureRequiredLabels();
-
   const bodyPayload: { title: string; body?: string; labels?: string[] } = {
     title,
   };
@@ -607,6 +609,8 @@ async function cmdCreate(args: string[]): Promise<void> {
   if (labels.length > 0) {
     bodyPayload.labels = labels;
   }
+
+  await ensureRequiredLabels();
 
   const created = await apiPost<GitHubIssue>(`/repos/${repo}/issues`, bodyPayload);
 
