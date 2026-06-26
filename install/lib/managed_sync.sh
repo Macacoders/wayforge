@@ -17,16 +17,6 @@ run_rm() {
 	rm -f "$path"
 }
 
-run_ln() {
-	local src="$1"
-	local dst="$2"
-	if [[ "$DRY_RUN" -eq 1 ]]; then
-		log "DRY-RUN: ln -s $src $dst"
-		return
-	fi
-	ln -s "$src" "$dst"
-}
-
 run_cp_a() {
 	local src="$1"
 	local dst="$2"

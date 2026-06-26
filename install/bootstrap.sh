@@ -25,54 +25,6 @@ log() {
 	printf '[ai-config] %s\n' "$*"
 }
 
-safe_link() {
-	local src="$1"
-	local dst="$2"
-
-	if [[ ! -e "$src" ]]; then
-		log "error: source does not exist: $src"
-		exit 1
-	fi
-
-	if [[ -L "$dst" ]]; then
-		local current
-		current="$(readlink "$dst")"
-		if [[ "$current" == "$src" && "$FORCE" -eq 0 ]]; then
-			log "kept existing symlink: $dst -> $src"
-			return
-		fi
-
-		if [[ "$FORCE" -eq 1 ]]; then
-			run_rm "$dst"
-			run_ln "$src" "$dst"
-			if [[ "$DRY_RUN" -eq 1 ]]; then
-				log "DRY-RUN: would replace symlink: $dst -> $src"
-			else
-				log "linked (replaced symlink): $dst -> $src"
-			fi
-			return
-		fi
-
-		log "skip existing symlink (use --force to replace): $dst -> $current"
-		return
-	fi
-
-	if [[ -e "$dst" ]]; then
-		log "skip existing non-symlink: $dst"
-		return
-	fi
-
-	local parent
-	parent="$(dirname "$dst")"
-	ensure_dir "$parent"
-	run_ln "$src" "$dst"
-	if [[ "$DRY_RUN" -eq 1 ]]; then
-		log "DRY-RUN: would link: $dst -> $src"
-	else
-		log "linked: $dst -> $src"
-	fi
-}
-
 contains_provider() {
 	local needle="$1"
 	local item
