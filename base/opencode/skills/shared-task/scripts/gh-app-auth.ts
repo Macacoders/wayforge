@@ -7,6 +7,8 @@ import { setTimeout } from 'timers/promises';
 const DEVICE_CODE_URL = 'https://github.com/login/device/code';
 const ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const SAFETY_MARGIN_SECONDS = 60;
+const MAX_POLL_INTERVAL_MS = 30_000;
+const MAX_POLL_RETRIES = 60;
 
 let _clientId: string | null = null;
 
@@ -202,9 +204,15 @@ async function doDeviceFlow(): Promise<TokenCache> {
 
   const expiresAt = Date.now() + expiresIn * 1000;
   let pollIntervalMs = intervalSeconds * 1000;
+  let pollRetries = 0;
 
   while (Date.now() < expiresAt) {
     await setTimeout(pollIntervalMs);
+
+    pollRetries++;
+    if (pollRetries > MAX_POLL_RETRIES) {
+      throw new Error('Device flow timed out: maximum polling retries reached due to repeated throttling.');
+    }
 
     const tokenResponse = await postForm(ACCESS_TOKEN_URL, {
       client_id: await getClientId(),
@@ -221,7 +229,8 @@ async function doDeviceFlow(): Promise<TokenCache> {
       case 'authorization_pending':
         break;
       case 'slow_down':
-        pollIntervalMs += 5000;
+        pollIntervalMs = Math.min(pollIntervalMs + 5000, MAX_POLL_INTERVAL_MS);
+        logInfo('Authorization polling throttled (slow_down) — retrying...');
         break;
       case 'expired_token':
         throw new Error('Device code expired before authorization.');
