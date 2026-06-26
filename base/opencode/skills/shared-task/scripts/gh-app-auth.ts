@@ -10,7 +10,7 @@ const SAFETY_MARGIN_SECONDS = 60;
 
 let _clientId: string | null = null;
 
-async function getClientId(): Promise<string> {
+export async function getClientId(): Promise<string> {
   if (_clientId) return _clientId;
 
   // 1. GH_APP_CLIENT_ID env var (explicit override)
@@ -60,7 +60,7 @@ function logError(message: string): void {
   process.stderr.write(`Error: ${message}\n`);
 }
 
-function getConfigDir(): string {
+export function getConfigDir(): string {
   if (process.env.GH_CONFIG_DIR) {
     return process.env.GH_CONFIG_DIR;
   }
@@ -79,26 +79,29 @@ function getConfigDir(): string {
   return path.join(os.homedir(), '.config', 'opencode');
 }
 
-function getTokenPath(): string {
+export function getTokenPath(): string {
   return path.join(getConfigDir(), 'github-token.json');
 }
 
-async function readCache(): Promise<TokenCache | null> {
+export async function readCache(): Promise<TokenCache | null> {
   try {
     const raw = await fs.readFile(getTokenPath(), 'utf8');
     const parsed = JSON.parse(raw) as TokenCache;
     if (parsed.access_token) {
       return parsed;
     }
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
-      logInfo(`Warning: could not read token cache: ${String(err)}`);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code === 'ENOENT') {
+        logInfo('Token cache not found; proceeding without cached credentials.');
+      } else {
+        logInfo(`Warning: could not read token cache: ${String(err)}`);
+      }
     }
-  }
   return null;
 }
 
-async function writeCache(cache: TokenCache): Promise<void> {
+export async function writeCache(cache: TokenCache): Promise<void> {
   const tokenPath = getTokenPath();
   await fs.mkdir(path.dirname(tokenPath), { recursive: true });
   await fs.writeFile(tokenPath, JSON.stringify(cache, null, 2), {
@@ -107,7 +110,7 @@ async function writeCache(cache: TokenCache): Promise<void> {
   });
 }
 
-function isValid(cache: TokenCache): boolean {
+export function isValid(cache: TokenCache): boolean {
   if (!cache.expires_at) {
     return false;
   }
@@ -115,7 +118,7 @@ function isValid(cache: TokenCache): boolean {
   return nowSeconds + SAFETY_MARGIN_SECONDS < cache.expires_at;
 }
 
-async function postForm(url: string, params: Record<string, string>): Promise<Record<string, unknown>> {
+export async function postForm(url: string, params: Record<string, string>): Promise<Record<string, unknown>> {
   const body = new URLSearchParams(params);
   const response = await fetch(url, {
     method: 'POST',
@@ -133,7 +136,7 @@ async function postForm(url: string, params: Record<string, string>): Promise<Re
   return data;
 }
 
-async function openBrowser(url: string): Promise<void> {
+export async function openBrowser(url: string): Promise<void> {
   try {
     const openModule = (await import('open')) as { default?: (target: string) => Promise<unknown> };
     if (openModule.default) {
@@ -144,7 +147,7 @@ async function openBrowser(url: string): Promise<void> {
   }
 }
 
-function toTokenCache(response: Record<string, unknown>): TokenCache {
+export function toTokenCache(response: Record<string, unknown>): TokenCache {
   const cache: TokenCache = {
     access_token: String(response.access_token),
   };
@@ -162,7 +165,7 @@ function toTokenCache(response: Record<string, unknown>): TokenCache {
   return cache;
 }
 
-async function refreshAccessToken(refreshToken: string): Promise<TokenCache> {
+export async function refreshAccessToken(refreshToken: string): Promise<TokenCache> {
   const response = await postForm(ACCESS_TOKEN_URL, {
     client_id: await getClientId(),
     grant_type: 'refresh_token',
@@ -177,7 +180,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenCache> {
   return toTokenCache(response);
 }
 
-async function doDeviceFlow(): Promise<TokenCache> {
+export async function doDeviceFlow(): Promise<TokenCache> {
   const deviceResponse = await postForm(DEVICE_CODE_URL, {
     client_id: await getClientId(),
   });
