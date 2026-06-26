@@ -1167,6 +1167,7 @@ describe('cmdPrclose', () => {
         return Promise.resolve({ ok: true, status: 204, headers: new Headers(), text: async () => '' });
       }
       if (url.includes('/issues/1/labels') && method === 'POST') { return Promise.resolve(okResponse({})); }
+      if (url.includes('/issues/42/assignees') && method === 'POST') { return Promise.resolve(okResponse({})); }
       return Promise.reject(new Error(`Unexpected fetch: ${method} ${url}`));
     });
 

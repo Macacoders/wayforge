@@ -906,8 +906,8 @@ async function cmdPrclose(args: string[]): Promise<void> {
     base: defaultBranch,
     body: prBody,
     maintainer_can_modify: true,
-    assignees: [me],
   });
+  await addAssignee(pr.number, me);
   const prUrl = pr.html_url;
   process.stdout.write(`${prUrl}\n`);
 
