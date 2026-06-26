@@ -120,7 +120,7 @@ Use `/issue create` for user requests that should become shared GitHub Issues in
 - Create the issue with `status:to-do` plus one type label and one priority label.
 - Report the created issue number and URL.
 
-Use `/issue` for shared issue operations (`list`, `claim`, `assign`, `release`, `close`, `prclose`).
+Use `/issue` for shared issue operations (`list`, `claim`, `assign`, `release`, `close`, `prclose`, `show`).
 
 ## Task Analysis Brief — `base/opencode/agents/planner/references/task-analysis-template.md`
 

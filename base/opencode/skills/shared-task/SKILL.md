@@ -19,6 +19,7 @@ Use this skill for shared issue workflow through `/issue`.
 - `/issue release <issue-number>`
 - `/issue close <issue-number>`
 - `/issue prclose <issue-number>`
+- `/issue show <issue-number>`
 
 Helper command:
 
@@ -35,4 +36,4 @@ Helper command:
 - Do not auto-create labels.
 - Do not use `gh repo view`.
 - Do not mutate issues without clear user intent.
-- `gh-issue.ts` does not have a `view` subcommand. To read issue bodies, comments, or full details, use `gh issue view <number>` (set `GITHUB_TOKEN` from `gh-app-auth.ts --token` if needed).
+- `gh-issue.ts` has a `show <issue-number>` subcommand to view issue details (title, body, assignee, labels). For comments or full raw details, use `gh issue view <number>` (set `GITHUB_TOKEN` from `gh-app-auth.ts --token` if needed).

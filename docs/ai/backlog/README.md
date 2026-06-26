@@ -3,7 +3,7 @@
 GitHub Issues is the operational source of truth for shared repository tasks. Use issues for active teamwork: create, list, claim, assign, release, and close work.
 
 Use `/issue create <description>` to create shared tasks as GitHub Issues.
-Use `/issue` for list/claim/assign/release/close/prclose operations.
+Use `/issue` for list/claim/assign/release/close/prclose/show operations.
 
 Rule: each person/collaborator should use one responsible agent/session to interact with GitHub Issues for this repository to reduce duplicate updates and race conditions.
 
@@ -28,24 +28,25 @@ Do not require or assume a top-level `scripts/` directory for shared task issue 
 
 1. **Create**: Use `/issue create <description>` to open a new GitHub Issue.
 2. **List available work**: Use `/issue list` and focus on open issues with `status:to-do` and no assignee.
-3. **Claim**: Use `/issue claim <issue-number>`.
+3. **View details**: Use `/issue show <issue-number>` to inspect an issue's title, body, assignee, and labels before claiming.
+4. **Claim**: Use `/issue claim <issue-number>`.
    - First verify the issue is not assigned and does not already have `status:doing`.
    - Then assign yourself and set `status:doing` (remove `status:to-do` if present).
    - Add a short claim comment before implementation.
-4. **Assign**: Use `/issue assign <issue-number> <collaborator>` to assign an issue to another collaborator.
+5. **Assign**: Use `/issue assign <issue-number> <collaborator>` to assign an issue to another collaborator.
    - First check the current assignee and `status:doing`; if already assigned or already `status:doing`, stop and resolve ownership before proceeding.
    - Then attempt to assign to the specified collaborator; if GitHub rejects the username (invalid user, not a collaborator, etc.), the command fails with an error and no changes are made.
    - On success, assign to the collaborator and set `status:doing` (remove `status:to-do` if present), then add a short assignment comment.
    - Note: `claim` is for self-assignment; `assign` is for assigning to others.
-5. **Release**: Use `/issue release <issue-number>` when pausing or handing off.
+6. **Release**: Use `/issue release <issue-number>` when pausing or handing off.
    - Remove self assignee.
    - Set `status:to-do` unless blocked (then set `status:blocked` with a short reason).
-6. **prclose**: Use `/issue prclose <issue-number>` when ready for code review (creates a PR and keeps the issue open).
+7. **prclose**: Use `/issue prclose <issue-number>` when ready for code review (creates a PR and keeps the issue open).
    - The script handles branch protection, PR formatting, status labels, and comments automatically.
    - Ensure acceptance criteria are addressed before opening the PR.
    - Remove `status:doing` and add `status:in-review` label — handled by the script.
    - Create the Pull Request (issue remains open, will auto-close on merge).
-7. **Close**: Use `/issue close <issue-number>` after completion and validation.
+8. **Close**: Use `/issue close <issue-number>` after completion and validation.
    - Use for tasks completed without code review or when closing rejected/abandoned work.
    - Ensure acceptance criteria are addressed.
    - Add a short completion summary comment.

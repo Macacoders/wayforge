@@ -14,6 +14,7 @@ Usage:
 - `/issue release <issue-number>`
 - `/issue close <issue-number>`
 - `/issue prclose <issue-number>`
+- `/issue show <issue-number>`
 
 For `/issue create <description>`:
 
