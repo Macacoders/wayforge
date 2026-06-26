@@ -1195,7 +1195,7 @@ describe('buildPRBody', () => {
     mockReadFileSync.mockReturnValue('Custom body from temp/pr-body-1.md');
 
     const body = gh.buildPRBody(1);
-    expect(body).toBe('Custom body from temp/pr-body-1.md');
+    expect(body).toBe('Fixes #1\n\nCustom body from temp/pr-body-1.md');
   });
 
   it('falls back to PR template when temp file is missing', () => {

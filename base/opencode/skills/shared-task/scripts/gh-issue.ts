@@ -409,12 +409,17 @@ function buildPRBody(issueNumber: number): string {
   if (!existsSync(tempDir)) {
     mkdirSync(tempDir, { recursive: true });
   }
+
+  // Always prepend the auto-close keyword so the issue closes when the PR merges.
+  // This applies to both custom temp files and template fallback bodies.
+  let body = `Fixes #${issueNumber}\n\n`;
+
   if (existsSync(tempPath)) {
-    return readFileSync(tempPath, 'utf8');
+    body += readFileSync(tempPath, 'utf8');
+    return body;
   }
 
   const templatePath = path.join(repoRoot, '.github', 'pull_request_template.md');
-  let body = `Fixes #${issueNumber}\n\n`;
 
   if (existsSync(templatePath)) {
     body += readFileSync(templatePath, 'utf8');
