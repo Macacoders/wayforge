@@ -1,6 +1,6 @@
 # ADR-0016: Authenticate gh-issue via GitHub App Device Flow
 
-Date: 2026-06-22 (amended 2026-06-23)
+Date: 2026-06-22 (amended 2026-06-26)
 Status: Accepted
 
 ## Context
@@ -31,6 +31,7 @@ Token resolution order:
 - Cached tokens survive restarts; refresh tokens extend the session transparently.
 - The exposed PATs in `.gh-config/hosts.yml` and `_config.yml` were removed.
 - TypeScript dependency (`tsx`) is introduced for auth — lightweight, auto-downloaded via `npx`.
+- On Windows, the token cache file is additionally hardened via `icacls` to remove inherited permissions and grant access only to the current user, since `fs.writeFile`'s POSIX `mode: 0o600` parameter is Unix-only.
 
 ## Alternatives Considered
 

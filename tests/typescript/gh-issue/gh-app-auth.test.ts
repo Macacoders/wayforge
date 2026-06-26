@@ -37,6 +37,11 @@ vi.mock('open', () => ({
   default: vi.fn(),
 }));
 
+const mockExecSync = vi.hoisted(() => vi.fn());
+vi.mock('node:child_process', () => ({
+  execSync: mockExecSync,
+}));
+
 // ── Stub globals before imports ─────────────────────────────────────────────
 
 const mockFetch = vi.fn();
@@ -84,6 +89,7 @@ beforeEach(() => {
   mockStatSync.mockReset();
   mockSetTimeout.mockReset();
   mockFetch.mockReset();
+  mockExecSync.mockReset();
 
   // Use a fixed config dir so we don't depend on cwd or homedir
   process.env.GH_CONFIG_DIR = '/tmp/.gh-config';
@@ -256,6 +262,16 @@ describe('writeCache', () => {
       JSON.stringify(cache, null, 2),
       { mode: 0o600, flag: 'w' }
     );
+
+    // On Windows, verify icacls was called to restrict ACL
+    if (process.platform === 'win32') {
+      expect(mockExecSync).toHaveBeenCalledWith(
+        expect.stringContaining('icacls'),
+        expect.objectContaining({ stdio: 'ignore' })
+      );
+    } else {
+      expect(mockExecSync).not.toHaveBeenCalled();
+    }
   });
 });
 
