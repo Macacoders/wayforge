@@ -126,7 +126,7 @@ function renderTable(headers, rows) {
 
 function renderSummary(sessionID, session) {
   if (session.agents.size === 0) {
-    return `## Session Token Summary\n\nNo token usage recorded for this session.\n\n_Events: ${eventCount} rcvd, ${matchedCount} matched | msg.updated: ${msgUpdatedCount}, part.updated: ${partUpdatedCount}_`;
+    return `## Session Token Summary\n\nNo token usage recorded for this session.`;
   }
 
   const total = sessionTotal(session);
@@ -198,8 +198,6 @@ function renderSummary(sessionID, session) {
   } else {
     parts.push("No command invocations recorded.");
   }
-
-  parts.push("", `---`, `_Events: ${eventCount} rcvd, ${matchedCount} matched | msg.updated: ${msgUpdatedCount}, part.updated: ${partUpdatedCount}_`);
 
   return parts.join("\n");
 }
