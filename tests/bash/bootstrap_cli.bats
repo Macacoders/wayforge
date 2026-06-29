@@ -255,3 +255,31 @@ remove_manifest_path() {
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"enabled_providers": ["opencode", "laberit"]'* ]]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"laberit"'* ]]
 }
+
+@test "bootstrap.sh --help includes --no-track" {
+	run "$TEST_AI_CONFIG/install/bootstrap.sh" --help
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"--no-track"* ]]
+}
+
+@test "bootstrap.sh auto-detects temp paths and skips tracking" {
+	run "$TEST_AI_CONFIG/install/bootstrap.sh" --repo "$TEST_REPO"
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"skip tracking temporary/debug path"* ]]
+	# Verify no entry was created in installed-projects.json
+	if [[ -f "$TEST_AI_CONFIG/installed-projects.json" ]]; then
+		[[ "$(<"$TEST_AI_CONFIG/installed-projects.json")" != *"$TEST_REPO"* ]]
+	fi
+}
+
+@test "bootstrap.sh --no-track prevents tracking entry" {
+	run "$TEST_AI_CONFIG/install/bootstrap.sh" --repo "$TEST_REPO" --no-track
+	[ "$status" -eq 0 ]
+	# NO_TRACK guard fires silently before canonicalization
+	[[ "$output" != *"skip tracking temporary/debug path"* ]]
+	[[ "$output" != *"tracked installed project"* ]]
+	# Verify no entry in tracking file
+	if [[ -f "$TEST_AI_CONFIG/installed-projects.json" ]]; then
+		[[ "$(<"$TEST_AI_CONFIG/installed-projects.json")" != *"$TEST_REPO"* ]]
+	fi
+}

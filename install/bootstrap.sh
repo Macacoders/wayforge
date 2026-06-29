@@ -10,6 +10,7 @@ source "$SCRIPT_DIR/lib/managed_sync.sh"
 
 DRY_RUN=0
 FORCE=0
+NO_TRACK=0
 REPO_PATH=""
 PROVIDERS_RAW="free-tier"
 MODEL_OVERRIDE=""
@@ -130,10 +131,43 @@ validate_model_override() {
 	fi
 }
 
+is_temp_path() {
+	local path="$1"
+
+	# Check well-known Unix temp directories
+	case "$path" in
+		/tmp/*|/tmp) return 0 ;;
+		/var/tmp/*|/var/tmp) return 0 ;;
+	esac
+
+	# Check TMPDIR environment variable
+	if [[ -n "${TMPDIR:-}" ]]; then
+		case "$path" in
+			"${TMPDIR}"/*|"${TMPDIR}") return 0 ;;
+		esac
+	fi
+
+	# On Windows (Git Bash/MSYS2), check %TEMP%
+	local win_temp
+	if command -v cmd &>/dev/null; then
+		win_temp="$(cmd //c "echo %TEMP%" 2>/dev/null | tr -d '\r\n')"
+		if [[ -n "$win_temp" && -d "$win_temp" ]]; then
+			local win_temp_canonical
+			win_temp_canonical="$(cd "$win_temp" 2>/dev/null && pwd -P || echo "$win_temp")"
+			case "$path" in
+				"${win_temp_canonical}"/*|"${win_temp_canonical}") return 0 ;;
+			esac
+		fi
+	fi
+
+	return 1
+}
+
 track_installed_project() {
 	local path="$1"
 	[[ "$DRY_RUN" -eq 1 ]] && return
 	[[ "$FORCE" -eq 1 ]] && return
+	[[ "$NO_TRACK" -eq 1 ]] && return
 
 	local tracking_file="$ROOT_DIR/installed-projects.json"
 	local canonical name timestamp escaped_path
@@ -143,6 +177,12 @@ track_installed_project() {
 	# Convert to Windows-native format for cross-platform compatibility
 	if command -v wslpath &>/dev/null; then
 		canonical=$(wslpath -w "$canonical" 2>/dev/null || printf '%s' "$canonical")
+	fi
+
+	# Skip tracking for temporary/debug paths
+	if is_temp_path "$canonical"; then
+		log "skip tracking temporary/debug path: $canonical"
+		return
 	fi
 
 	name=$(basename "$canonical")
@@ -664,6 +704,7 @@ Options:
   --gh-app-client-id <id>   GitHub App Client ID for issue management (Iv1...). Creates .gh-config/app.yml.
   --dry-run      Print planned operations without modifying files.
   --force        Refresh managed targets and generated runtime trees; preserve unmanaged local files.
+  --no-track     Skip recording this project in installed-projects.json.
   -h, --help     Show this help.
 EOF
 }
@@ -713,6 +754,10 @@ while [[ $# -gt 0 ]]; do
 		;;
 	--force)
 		FORCE=1
+		shift
+		;;
+	--no-track)
+		NO_TRACK=1
 		shift
 		;;
 	--runtime)
