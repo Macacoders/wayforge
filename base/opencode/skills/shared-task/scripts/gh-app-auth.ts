@@ -63,7 +63,7 @@ function logError(message: string): void {
   process.stderr.write(`Error: ${message}\n`);
 }
 
-function getConfigDir(): string {
+export function getConfigDir(): string {
   if (process.env.GH_CONFIG_DIR) {
     return process.env.GH_CONFIG_DIR;
   }
@@ -82,7 +82,7 @@ function getConfigDir(): string {
   return path.join(os.homedir(), '.config', 'opencode');
 }
 
-function getTokenPath(): string {
+export function getTokenPath(): string {
   return path.join(getConfigDir(), 'github-token.json');
 }
 
@@ -93,11 +93,14 @@ export async function readCache(): Promise<TokenCache | null> {
     if (parsed.access_token) {
       return parsed;
     }
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
-      logInfo(`Warning: could not read token cache: ${String(err)}`);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code === 'ENOENT') {
+        logInfo('Token cache not found; proceeding without cached credentials.');
+      } else {
+        logInfo(`Warning: could not read token cache: ${String(err)}`);
+      }
     }
-  }
   return null;
 }
 
@@ -129,7 +132,7 @@ export function isValid(cache: TokenCache): boolean {
   return nowSeconds + SAFETY_MARGIN_SECONDS < cache.expires_at;
 }
 
-async function postForm(url: string, params: Record<string, string>): Promise<Record<string, unknown>> {
+export async function postForm(url: string, params: Record<string, string>): Promise<Record<string, unknown>> {
   const body = new URLSearchParams(params);
   const response = await fetch(url, {
     method: 'POST',
@@ -147,7 +150,7 @@ async function postForm(url: string, params: Record<string, string>): Promise<Re
   return data;
 }
 
-async function openBrowser(url: string): Promise<void> {
+export async function openBrowser(url: string): Promise<void> {
   try {
     const openModule = (await import('open')) as { default?: (target: string) => Promise<unknown> };
     if (openModule.default) {

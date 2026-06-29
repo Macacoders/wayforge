@@ -183,12 +183,13 @@ describe('readCache', () => {
     expect(result).toEqual(cacheData);
   });
 
-  it('returns null on ENOENT', async () => {
-    mockReadFile.mockRejectedValue(
-      Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
-    );
+  it('returns null on ENOENT and logs info', async () => {
+    const infoSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    mockReadFile.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
     const result = await auth.readCache();
     expect(result).toBeNull();
+    expect(infoSpy).toHaveBeenCalledWith('Token cache not found; proceeding without cached credentials.\n');
+    infoSpy.mockRestore();
   });
 
   it('returns null on malformed JSON', async () => {
