@@ -15,6 +15,7 @@ $AI_CONFIG_VERSION = if (Test-Path (Join-Path $SOURCE_DIR 'VERSION')) { (Get-Con
 
 $DRY_RUN = $false
 $FORCE = $false
+$NO_TRACK = $false
 $REPO_PATH = ''
 $PROVIDERS_RAW = 'free-tier'
 $MODEL_OVERRIDE = ''
@@ -28,11 +29,34 @@ $MANAGED_DIR_MARKER = '.ai-config-managed'
 $SELECTED_PROVIDERS = @()
 $SYNC_MANAGED_TREE_LAST_ACTION = 'skipped'
 
+function Test-TempPath {
+    param([string]$Path)
+
+    # Check well-known Unix temp directories (WSL/Git Bash/MSYS2)
+    if ($Path -like '/tmp*' -or $Path -like '/var/tmp*') { return $true }
+
+    # Check TMPDIR environment variable (Unix convention)
+    $tmpdir = [Environment]::GetEnvironmentVariable('TMPDIR')
+    if ($tmpdir -and ($Path -eq $tmpdir -or $Path -like "$tmpdir/*")) { return $true }
+
+    # Check Windows TEMP/TMP environment variables
+    $winTemp = [Environment]::GetEnvironmentVariable('TEMP')
+    if (-not $winTemp) { $winTemp = [Environment]::GetEnvironmentVariable('TMP') }
+    if ($winTemp) {
+        # Normalize separators for comparison
+        $winTemp = $winTemp.TrimEnd('\')
+        if ($Path -eq $winTemp -or $Path -like "$winTemp\*" -or $Path -like "$winTemp/*") { return $true }
+    }
+
+    return $false
+}
+
 function Track-InstalledProject {
     param([string]$RepoPath)
 
     if ($DRY_RUN) { return }
     if ($FORCE) { return }
+    if ($NO_TRACK) { return }
 
     $trackingFile = Join-Path $ROOT_DIR 'installed-projects.json'
 
@@ -40,6 +64,12 @@ function Track-InstalledProject {
     $canonical = Resolve-Path -LiteralPath $RepoPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
     if (-not $canonical) {
         $canonical = (Get-Item $RepoPath).FullName
+    }
+
+    # Skip tracking for temporary/debug paths
+    if (Test-TempPath -Path $canonical) {
+        log "skip tracking temporary/debug path: $canonical"
+        return
     }
 
     $name = Split-Path $canonical -Leaf
@@ -726,7 +756,7 @@ client_id: $GH_APP_CLIENT_ID
 function usage {
     @'
 Usage:
-  .\install\bootstrap.ps1 -Repo <path> [-Providers <list>] [-Model <provider/model>] [-SmallModel <provider/model>] [-Runtime <runtime>] [-DryRun] [-Force]
+  .\install\bootstrap.ps1 -Repo <path> [-Providers <list>] [-Model <provider/model>] [-SmallModel <provider/model>] [-Runtime <runtime>] [-DryRun] [-Force] [-NoTrack]
 
 Options:
   -Repo <path>     Install OpenCode config into a target project.
@@ -739,6 +769,7 @@ Options:
   -GhAppClientId <id>   GitHub App Client ID for issue management (Iv1...). Creates .gh-config/app.yml.
   -DryRun          Print planned operations without modifying files.
   -Force           Refresh managed targets and generated runtime trees; preserve unmanaged local files.
+  -NoTrack         Skip recording this project in installed-projects.json.
   -h, -Help        Show this help.
 '@ | Write-Host
 }
@@ -796,6 +827,9 @@ for ($i = 0; $i -lt $args.Count; $i++) {
         }
         '-Force' {
             $FORCE = $true
+        }
+        '-NoTrack' {
+            $NO_TRACK = $true
         }
         '-Ref' {
             $i++
