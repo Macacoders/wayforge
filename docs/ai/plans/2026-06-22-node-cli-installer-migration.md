@@ -1,7 +1,7 @@
 # Plan: Node.js CLI Installer Migration
 
 **Created**: 2026-06-22
-**Status**: Proposed (not yet approved for implementation)
+**Status**: Superseded by `2026-06-26-ts-cli-zero-dep-migration-issue-131.md` — the new plan adds the zero-dependency end-user constraint (standalone binary via `deno compile`) that this plan did not address.
 **Related**: ADR-0015 (remove agent presets), Issue #50 (global CLI installation and service registration)
 **Distinction from #27/#84**: Issues #27 and #84 target an OpenCode plugin/tool running *inside* OpenCode's runtime. This plan delivers a standalone CLI that runs *outside* OpenCode — it is the installer that bootstraps OpenCode configuration into target repositories. The two are complementary, not dependent.
 
