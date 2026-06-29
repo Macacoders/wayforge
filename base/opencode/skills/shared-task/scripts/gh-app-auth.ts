@@ -1,4 +1,5 @@
 import { promises as fs, statSync } from 'fs';
+import { execSync } from 'node:child_process';
 import * as os from 'os';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -105,6 +106,17 @@ export async function writeCache(cache: TokenCache): Promise<void> {
     mode: 0o600,
     flag: 'w',
   });
+
+  // Restrict file to current user only on Windows (icacls replaces Unix mode 0o600)
+  if (process.platform === 'win32') {
+    try {
+      execSync(`icacls "${tokenPath}" /inheritance:r /grant "${process.env.USERNAME}:F"`, {
+        stdio: 'ignore',
+      });
+    } catch {
+      // Best-effort; ACL failure is non-fatal.
+    }
+  }
 }
 
 export function isValid(cache: TokenCache): boolean {
