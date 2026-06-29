@@ -15,6 +15,36 @@ function Get-AIConfigRoot {
     return Resolve-Path (Join-Path $scriptDir '..') | Select-Object -ExpandProperty Path
 }
 
+function Invoke-AIConfigScript {
+    <#
+    .SYNOPSIS
+        Private helper: validates RepoPath and invokes an installer script.
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$RepoPath,
+
+        [Parameter(Mandatory=$true)]
+        [string]$ScriptName,
+
+        [switch]$DryRun
+    )
+
+    if (-not (Test-Path $RepoPath -PathType Container)) {
+        Write-Error "error: repo path does not exist: $RepoPath"
+        return 1
+    }
+
+    $root = Get-AIConfigRoot
+    $scriptPath = "$root\install\$ScriptName.ps1"
+
+    if ($DryRun) {
+        & $scriptPath -Repo $RepoPath -DryRun
+    } else {
+        & $scriptPath -Repo $RepoPath
+    }
+}
+
 function Install-AIConfigRepo {
     <#
     .SYNOPSIS
@@ -31,13 +61,7 @@ function Install-AIConfigRepo {
         [string]$RepoPath
     )
 
-    if (-not (Test-Path $RepoPath -PathType Container)) {
-        Write-Error "error: repo path does not exist: $RepoPath"
-        return 1
-    }
-
-    $root = Get-AIConfigRoot
-    & "$root\install\bootstrap.ps1" -Repo $RepoPath
+    return Invoke-AIConfigScript -RepoPath $RepoPath -ScriptName "bootstrap"
 }
 
 Set-Alias -Name ai-setup-repo -Value Install-AIConfigRepo
@@ -58,13 +82,7 @@ function Install-AIConfigRepoDryRun {
         [string]$RepoPath
     )
 
-    if (-not (Test-Path $RepoPath -PathType Container)) {
-        Write-Error "error: repo path does not exist: $RepoPath"
-        return 1
-    }
-
-    $root = Get-AIConfigRoot
-    & "$root\install\bootstrap.ps1" -Repo $RepoPath -DryRun
+    return Invoke-AIConfigScript -RepoPath $RepoPath -ScriptName "bootstrap" -DryRun
 }
 
 Set-Alias -Name ai-setup-repo-dry-run -Value Install-AIConfigRepoDryRun
@@ -85,13 +103,7 @@ function Uninstall-AIConfigRepo {
         [string]$RepoPath
     )
 
-    if (-not (Test-Path $RepoPath -PathType Container)) {
-        Write-Error "error: repo path does not exist: $RepoPath"
-        return 1
-    }
-
-    $root = Get-AIConfigRoot
-    & "$root\install\uninstall.ps1" -Repo $RepoPath
+    return Invoke-AIConfigScript -RepoPath $RepoPath -ScriptName "uninstall"
 }
 
 Set-Alias -Name ai-uninstall-repo -Value Uninstall-AIConfigRepo
@@ -112,13 +124,7 @@ function Uninstall-AIConfigRepoDryRun {
         [string]$RepoPath
     )
 
-    if (-not (Test-Path $RepoPath -PathType Container)) {
-        Write-Error "error: repo path does not exist: $RepoPath"
-        return 1
-    }
-
-    $root = Get-AIConfigRoot
-    & "$root\install\uninstall.ps1" -Repo $RepoPath -DryRun
+    return Invoke-AIConfigScript -RepoPath $RepoPath -ScriptName "uninstall" -DryRun
 }
 
 Set-Alias -Name ai-uninstall-repo-dry-run -Value Uninstall-AIConfigRepoDryRun
