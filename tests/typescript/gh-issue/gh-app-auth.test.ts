@@ -606,6 +606,30 @@ describe('getValidToken', () => {
       // The refreshed token should have been written to cache
       expect(mockWriteFile).toHaveBeenCalled();
     });
+
+    it('attempts refresh when refresh_token_expires_at is in the future', async () => {
+      const past = Math.floor(Date.now() / 1000) - 100;
+      const futureRefresh = Math.floor(Date.now() / 1000) + 86400;
+      mockReadFile.mockResolvedValue(
+        JSON.stringify({
+          access_token: 'ghu_expired',
+          refresh_token: 'ghr_fresh',
+          expires_at: past,
+          refresh_token_expires_at: futureRefresh,
+        })
+      );
+      mockFetch.mockResolvedValue(
+        okResponse({
+          access_token: 'ghu_refreshed_future',
+          refresh_token: 'ghr_new_future',
+          expires_in: 28_800,
+        })
+      );
+
+      const result = await auth.getValidToken();
+      expect(result).toBe('ghu_refreshed_future');
+      expect(mockWriteFile).toHaveBeenCalled();
+    });
   });
 
   describe('device flow fallback paths', () => {
@@ -704,6 +728,40 @@ describe('getValidToken', () => {
 
       const result = await auth.getValidToken();
       expect(result).toBe('ghu_malformed');
+      expect(mockWriteFile).toHaveBeenCalled();
+    });
+
+    it('skips refresh when refresh_token_expires_at is in the past', async () => {
+      const past = Math.floor(Date.now() / 1000) - 100;
+      const pastRefresh = Math.floor(Date.now() / 1000) - 1;
+      mockReadFile.mockResolvedValue(
+        JSON.stringify({
+          access_token: 'ghu_stale',
+          refresh_token: 'ghr_stale',
+          expires_at: past,
+          refresh_token_expires_at: pastRefresh,
+        })
+      );
+
+      mockFetch
+        .mockResolvedValueOnce(
+          okResponse({
+            device_code: 'dc_skip_refresh',
+            user_code: '999-000',
+            verification_uri: 'https://github.com/login/device',
+            expires_in: 900,
+            interval: 5,
+          })
+        )
+        .mockResolvedValueOnce(
+          okResponse({
+            access_token: 'ghu_skip_refresh',
+            expires_in: 28_800,
+          })
+        );
+
+      const result = await auth.getValidToken();
+      expect(result).toBe('ghu_skip_refresh');
       expect(mockWriteFile).toHaveBeenCalled();
     });
 

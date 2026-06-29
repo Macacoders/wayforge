@@ -244,13 +244,21 @@ export async function getValidToken(): Promise<string> {
     }
 
     if (cache.refresh_token) {
-      try {
-        const refreshed = await refreshAccessToken(cache.refresh_token);
-        await writeCache(refreshed);
-        return refreshed.access_token;
-      } catch (err) {
-        logInfo(`Token refresh failed: ${err instanceof Error ? err.message : String(err)}`);
-        logInfo('Falling back to device flow.');
+      const refreshExpired =
+        cache.refresh_token_expires_at &&
+        Math.floor(Date.now() / 1000) > cache.refresh_token_expires_at;
+
+      if (refreshExpired) {
+        logInfo('Refresh token has expired; falling back to device flow.');
+      } else {
+        try {
+          const refreshed = await refreshAccessToken(cache.refresh_token);
+          await writeCache(refreshed);
+          return refreshed.access_token;
+        } catch (err) {
+          logInfo(`Token refresh failed: ${err instanceof Error ? err.message : String(err)}`);
+          logInfo('Falling back to device flow.');
+        }
       }
     }
   }
