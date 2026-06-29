@@ -1,6 +1,6 @@
 # ADR-0016: Authenticate gh-issue via GitHub App Device Flow
 
-Date: 2026-06-22 (amended 2026-06-23)
+Date: 2026-06-22 (amended 2026-06-26)
 Status: Accepted
 
 ## Context
@@ -31,6 +31,8 @@ Token resolution order:
 - Cached tokens survive restarts; refresh tokens extend the session transparently.
 - The exposed PATs in `.gh-config/hosts.yml` and `_config.yml` were removed.
 - TypeScript dependency (`tsx`) is introduced for auth — lightweight, auto-downloaded via `npx`.
+- The device flow polling loop (`doDeviceFlow()`) now caps `slow_down` interval growth at 30 seconds (`MAX_POLL_INTERVAL_MS`), limits retries to 60 (`MAX_POLL_RETRIES`), logs throttling events to stderr, and throws a clear error when the retry limit is exceeded — preventing unbounded polling while maintaining user visibility.
+- On Windows, the token cache file is additionally hardened via `icacls` to remove inherited permissions and grant access only to the current user, since `fs.writeFile`'s POSIX `mode: 0o600` parameter is Unix-only.
 
 ## Alternatives Considered
 

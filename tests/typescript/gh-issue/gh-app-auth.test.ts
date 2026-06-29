@@ -37,6 +37,11 @@ vi.mock('open', () => ({
   default: vi.fn(),
 }));
 
+const mockExecSync = vi.hoisted(() => vi.fn());
+vi.mock('node:child_process', () => ({
+  execSync: mockExecSync,
+}));
+
 // ── Stub globals before imports ─────────────────────────────────────────────
 
 const mockFetch = vi.fn();
@@ -84,6 +89,7 @@ beforeEach(() => {
   mockStatSync.mockReset();
   mockSetTimeout.mockReset();
   mockFetch.mockReset();
+  mockExecSync.mockReset();
 
   // Use a fixed config dir so we don't depend on cwd or homedir
   process.env.GH_CONFIG_DIR = '/tmp/.gh-config';
@@ -177,12 +183,13 @@ describe('readCache', () => {
     expect(result).toEqual(cacheData);
   });
 
-  it('returns null on ENOENT', async () => {
-    mockReadFile.mockRejectedValue(
-      Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
-    );
+  it('returns null on ENOENT and logs info', async () => {
+    const infoSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    mockReadFile.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
     const result = await auth.readCache();
     expect(result).toBeNull();
+    expect(infoSpy).toHaveBeenCalledWith('Token cache not found; proceeding without cached credentials.\n');
+    infoSpy.mockRestore();
   });
 
   it('returns null on malformed JSON', async () => {
@@ -256,6 +263,16 @@ describe('writeCache', () => {
       JSON.stringify(cache, null, 2),
       { mode: 0o600, flag: 'w' }
     );
+
+    // On Windows, verify icacls was called to restrict ACL
+    if (process.platform === 'win32') {
+      expect(mockExecSync).toHaveBeenCalledWith(
+        expect.stringContaining('icacls'),
+        expect.objectContaining({ stdio: 'ignore' })
+      );
+    } else {
+      expect(mockExecSync).not.toHaveBeenCalled();
+    }
   });
 });
 
@@ -583,6 +600,94 @@ describe('doDeviceFlow', () => {
     expect(result.access_token).toBe('ghu_custom');
     expect(mockSetTimeout).toHaveBeenCalledWith(10000); // 10 * 1000
   });
+
+  it('caps poll interval after repeated slow_down', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        okResponse({
+          device_code: 'dc_cap',
+          user_code: '111-222',
+          verification_uri: 'https://github.com/login/device',
+          expires_in: 900,
+          interval: 5,
+        })
+      )
+      // 6 slow_down responses: 5k → 10k → 15k → 20k → 25k → 30k → 30k
+      .mockResolvedValueOnce(okResponse({ error: 'slow_down' }))
+      .mockResolvedValueOnce(okResponse({ error: 'slow_down' }))
+      .mockResolvedValueOnce(okResponse({ error: 'slow_down' }))
+      .mockResolvedValueOnce(okResponse({ error: 'slow_down' }))
+      .mockResolvedValueOnce(okResponse({ error: 'slow_down' }))
+      .mockResolvedValueOnce(
+        okResponse({
+          access_token: 'ghu_capped',
+          expires_in: 28_800,
+        })
+      );
+
+    const result = await auth.doDeviceFlow();
+    expect(result.access_token).toBe('ghu_capped');
+    // 6 slow_downs produce 7 setTimeout calls with capped progression
+    expect(mockSetTimeout).toHaveBeenCalledTimes(7);
+    expect(mockSetTimeout.mock.calls[0][0]).toBe(5000);
+    expect(mockSetTimeout.mock.calls[1][0]).toBe(10000);
+    expect(mockSetTimeout.mock.calls[2][0]).toBe(15000);
+    expect(mockSetTimeout.mock.calls[3][0]).toBe(20000);
+    expect(mockSetTimeout.mock.calls[4][0]).toBe(25000);
+    expect(mockSetTimeout.mock.calls[5][0]).toBe(30000);
+    expect(mockSetTimeout.mock.calls[6][0]).toBe(30000);
+  });
+
+  it('throws error when max poll retries exceeded', async () => {
+    // Set short interval and long expires_in so retry limit is reached first
+    mockFetch
+      .mockResolvedValueOnce(
+        okResponse({
+          device_code: 'dc_retry',
+          user_code: '333-444',
+          verification_uri: 'https://github.com/login/device',
+          expires_in: 99999, // Long enough to not expire
+          interval: 0,       // Immediate retry
+        })
+      );
+
+    // Add 61 authorization_pending responses (to exceed MAX_POLL_RETRIES = 60)
+    for (let i = 0; i < 61; i++) {
+      mockFetch.mockResolvedValueOnce(okResponse({ error: 'authorization_pending' }));
+    }
+
+    await expect(auth.doDeviceFlow()).rejects.toThrow(
+      'maximum polling retries reached'
+    );
+  });
+
+  it('logs message on slow_down', async () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    mockFetch
+      .mockResolvedValueOnce(
+        okResponse({
+          device_code: 'dc_log',
+          user_code: '555-666',
+          verification_uri: 'https://github.com/login/device',
+          expires_in: 900,
+          interval: 5,
+        })
+      )
+      .mockResolvedValueOnce(okResponse({ error: 'slow_down' }))
+      .mockResolvedValueOnce(
+        okResponse({
+          access_token: 'ghu_log',
+          expires_in: 28_800,
+        })
+      );
+
+    await auth.doDeviceFlow();
+    expect(stderrSpy).toHaveBeenCalledWith(
+      expect.stringContaining('slow_down')
+    );
+    stderrSpy.mockRestore();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -630,6 +735,30 @@ describe('getValidToken', () => {
       const result = await auth.getValidToken();
       expect(result).toBe('ghu_refreshed');
       // The refreshed token should have been written to cache
+      expect(mockWriteFile).toHaveBeenCalled();
+    });
+
+    it('attempts refresh when refresh_token_expires_at is in the future', async () => {
+      const past = Math.floor(Date.now() / 1000) - 100;
+      const futureRefresh = Math.floor(Date.now() / 1000) + 86400;
+      mockReadFile.mockResolvedValue(
+        JSON.stringify({
+          access_token: 'ghu_expired',
+          refresh_token: 'ghr_fresh',
+          expires_at: past,
+          refresh_token_expires_at: futureRefresh,
+        })
+      );
+      mockFetch.mockResolvedValue(
+        okResponse({
+          access_token: 'ghu_refreshed_future',
+          refresh_token: 'ghr_new_future',
+          expires_in: 28_800,
+        })
+      );
+
+      const result = await auth.getValidToken();
+      expect(result).toBe('ghu_refreshed_future');
       expect(mockWriteFile).toHaveBeenCalled();
     });
   });
@@ -730,6 +859,40 @@ describe('getValidToken', () => {
 
       const result = await auth.getValidToken();
       expect(result).toBe('ghu_malformed');
+      expect(mockWriteFile).toHaveBeenCalled();
+    });
+
+    it('skips refresh when refresh_token_expires_at is in the past', async () => {
+      const past = Math.floor(Date.now() / 1000) - 100;
+      const pastRefresh = Math.floor(Date.now() / 1000) - 1;
+      mockReadFile.mockResolvedValue(
+        JSON.stringify({
+          access_token: 'ghu_stale',
+          refresh_token: 'ghr_stale',
+          expires_at: past,
+          refresh_token_expires_at: pastRefresh,
+        })
+      );
+
+      mockFetch
+        .mockResolvedValueOnce(
+          okResponse({
+            device_code: 'dc_skip_refresh',
+            user_code: '999-000',
+            verification_uri: 'https://github.com/login/device',
+            expires_in: 900,
+            interval: 5,
+          })
+        )
+        .mockResolvedValueOnce(
+          okResponse({
+            access_token: 'ghu_skip_refresh',
+            expires_in: 28_800,
+          })
+        );
+
+      const result = await auth.getValidToken();
+      expect(result).toBe('ghu_skip_refresh');
       expect(mockWriteFile).toHaveBeenCalled();
     });
 

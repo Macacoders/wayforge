@@ -1,4 +1,5 @@
 import { promises as fs, statSync } from 'fs';
+import { execSync } from 'node:child_process';
 import * as os from 'os';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -7,10 +8,12 @@ import { setTimeout } from 'timers/promises';
 const DEVICE_CODE_URL = 'https://github.com/login/device/code';
 const ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const SAFETY_MARGIN_SECONDS = 60;
+const MAX_POLL_INTERVAL_MS = 30_000;
+const MAX_POLL_RETRIES = 60;
 
 let _clientId: string | null = null;
 
-async function getClientId(): Promise<string> {
+export async function getClientId(): Promise<string> {
   if (_clientId) return _clientId;
 
   // 1. GH_APP_CLIENT_ID env var (explicit override)
@@ -60,7 +63,7 @@ function logError(message: string): void {
   process.stderr.write(`Error: ${message}\n`);
 }
 
-function getConfigDir(): string {
+export function getConfigDir(): string {
   if (process.env.GH_CONFIG_DIR) {
     return process.env.GH_CONFIG_DIR;
   }
@@ -79,35 +82,49 @@ function getConfigDir(): string {
   return path.join(os.homedir(), '.config', 'opencode');
 }
 
-function getTokenPath(): string {
+export function getTokenPath(): string {
   return path.join(getConfigDir(), 'github-token.json');
 }
 
-async function readCache(): Promise<TokenCache | null> {
+export async function readCache(): Promise<TokenCache | null> {
   try {
     const raw = await fs.readFile(getTokenPath(), 'utf8');
     const parsed = JSON.parse(raw) as TokenCache;
     if (parsed.access_token) {
       return parsed;
     }
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
-      logInfo(`Warning: could not read token cache: ${String(err)}`);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code === 'ENOENT') {
+        logInfo('Token cache not found; proceeding without cached credentials.');
+      } else {
+        logInfo(`Warning: could not read token cache: ${String(err)}`);
+      }
     }
-  }
   return null;
 }
 
-async function writeCache(cache: TokenCache): Promise<void> {
+export async function writeCache(cache: TokenCache): Promise<void> {
   const tokenPath = getTokenPath();
   await fs.mkdir(path.dirname(tokenPath), { recursive: true });
   await fs.writeFile(tokenPath, JSON.stringify(cache, null, 2), {
     mode: 0o600,
     flag: 'w',
   });
+
+  // Restrict file to current user only on Windows (icacls replaces Unix mode 0o600)
+  if (process.platform === 'win32') {
+    try {
+      execSync(`icacls "${tokenPath}" /inheritance:r /grant "${process.env.USERNAME}:F"`, {
+        stdio: 'ignore',
+      });
+    } catch {
+      // Best-effort; ACL failure is non-fatal.
+    }
+  }
 }
 
-function isValid(cache: TokenCache): boolean {
+export function isValid(cache: TokenCache): boolean {
   if (!cache.expires_at) {
     return false;
   }
@@ -115,7 +132,7 @@ function isValid(cache: TokenCache): boolean {
   return nowSeconds + SAFETY_MARGIN_SECONDS < cache.expires_at;
 }
 
-async function postForm(url: string, params: Record<string, string>): Promise<Record<string, unknown>> {
+export async function postForm(url: string, params: Record<string, string>): Promise<Record<string, unknown>> {
   const body = new URLSearchParams(params);
   const response = await fetch(url, {
     method: 'POST',
@@ -133,7 +150,7 @@ async function postForm(url: string, params: Record<string, string>): Promise<Re
   return data;
 }
 
-async function openBrowser(url: string): Promise<void> {
+export async function openBrowser(url: string): Promise<void> {
   try {
     const openModule = (await import('open')) as { default?: (target: string) => Promise<unknown> };
     if (openModule.default) {
@@ -160,7 +177,7 @@ function coerceExpiry(
   }
 }
 
-function toTokenCache(response: Record<string, unknown>): TokenCache {
+export function toTokenCache(response: Record<string, unknown>): TokenCache {
   const cache: TokenCache = {
     access_token: String(response.access_token),
   };
@@ -182,7 +199,7 @@ function toTokenCache(response: Record<string, unknown>): TokenCache {
   return cache;
 }
 
-async function refreshAccessToken(refreshToken: string): Promise<TokenCache> {
+export async function refreshAccessToken(refreshToken: string): Promise<TokenCache> {
   const response = await postForm(ACCESS_TOKEN_URL, {
     client_id: await getClientId(),
     grant_type: 'refresh_token',
@@ -197,7 +214,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenCache> {
   return toTokenCache(response);
 }
 
-async function doDeviceFlow(): Promise<TokenCache> {
+export async function doDeviceFlow(): Promise<TokenCache> {
   const deviceResponse = await postForm(DEVICE_CODE_URL, {
     client_id: await getClientId(),
   });
@@ -222,9 +239,15 @@ async function doDeviceFlow(): Promise<TokenCache> {
 
   const expiresAt = Date.now() + expiresIn * 1000;
   let pollIntervalMs = intervalSeconds * 1000;
+  let pollRetries = 0;
 
   while (Date.now() < expiresAt) {
     await setTimeout(pollIntervalMs);
+
+    pollRetries++;
+    if (pollRetries > MAX_POLL_RETRIES) {
+      throw new Error('Device flow timed out: maximum polling retries reached due to repeated throttling.');
+    }
 
     const tokenResponse = await postForm(ACCESS_TOKEN_URL, {
       client_id: await getClientId(),
@@ -241,7 +264,8 @@ async function doDeviceFlow(): Promise<TokenCache> {
       case 'authorization_pending':
         break;
       case 'slow_down':
-        pollIntervalMs += 5000;
+        pollIntervalMs = Math.min(pollIntervalMs + 5000, MAX_POLL_INTERVAL_MS);
+        logInfo('Authorization polling throttled (slow_down) — retrying...');
         break;
       case 'expired_token':
         throw new Error('Device code expired before authorization.');
@@ -264,13 +288,21 @@ export async function getValidToken(): Promise<string> {
     }
 
     if (cache.refresh_token) {
-      try {
-        const refreshed = await refreshAccessToken(cache.refresh_token);
-        await writeCache(refreshed);
-        return refreshed.access_token;
-      } catch (err) {
-        logInfo(`Token refresh failed: ${err instanceof Error ? err.message : String(err)}`);
-        logInfo('Falling back to device flow.');
+      const refreshExpired =
+        cache.refresh_token_expires_at &&
+        Math.floor(Date.now() / 1000) > cache.refresh_token_expires_at;
+
+      if (refreshExpired) {
+        logInfo('Refresh token has expired; falling back to device flow.');
+      } else {
+        try {
+          const refreshed = await refreshAccessToken(cache.refresh_token);
+          await writeCache(refreshed);
+          return refreshed.access_token;
+        } catch (err) {
+          logInfo(`Token refresh failed: ${err instanceof Error ? err.message : String(err)}`);
+          logInfo('Falling back to device flow.');
+        }
       }
     }
   }
