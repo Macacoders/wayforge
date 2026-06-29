@@ -37,6 +37,11 @@ vi.mock('open', () => ({
   default: vi.fn(),
 }));
 
+const mockExecSync = vi.hoisted(() => vi.fn());
+vi.mock('node:child_process', () => ({
+  execSync: mockExecSync,
+}));
+
 // ── Stub globals before imports ─────────────────────────────────────────────
 
 const mockFetch = vi.fn();
@@ -84,6 +89,7 @@ beforeEach(() => {
   mockStatSync.mockReset();
   mockSetTimeout.mockReset();
   mockFetch.mockReset();
+  mockExecSync.mockReset();
 
   // Use a fixed config dir so we don't depend on cwd or homedir
   process.env.GH_CONFIG_DIR = '/tmp/.gh-config';
@@ -256,6 +262,16 @@ describe('writeCache', () => {
       JSON.stringify(cache, null, 2),
       { mode: 0o600, flag: 'w' }
     );
+
+    // On Windows, verify icacls was called to restrict ACL
+    if (process.platform === 'win32') {
+      expect(mockExecSync).toHaveBeenCalledWith(
+        expect.stringContaining('icacls'),
+        expect.objectContaining({ stdio: 'ignore' })
+      );
+    } else {
+      expect(mockExecSync).not.toHaveBeenCalled();
+    }
   });
 });
 
@@ -694,6 +710,30 @@ describe('getValidToken', () => {
       // The refreshed token should have been written to cache
       expect(mockWriteFile).toHaveBeenCalled();
     });
+
+    it('attempts refresh when refresh_token_expires_at is in the future', async () => {
+      const past = Math.floor(Date.now() / 1000) - 100;
+      const futureRefresh = Math.floor(Date.now() / 1000) + 86400;
+      mockReadFile.mockResolvedValue(
+        JSON.stringify({
+          access_token: 'ghu_expired',
+          refresh_token: 'ghr_fresh',
+          expires_at: past,
+          refresh_token_expires_at: futureRefresh,
+        })
+      );
+      mockFetch.mockResolvedValue(
+        okResponse({
+          access_token: 'ghu_refreshed_future',
+          refresh_token: 'ghr_new_future',
+          expires_in: 28_800,
+        })
+      );
+
+      const result = await auth.getValidToken();
+      expect(result).toBe('ghu_refreshed_future');
+      expect(mockWriteFile).toHaveBeenCalled();
+    });
   });
 
   describe('device flow fallback paths', () => {
@@ -792,6 +832,40 @@ describe('getValidToken', () => {
 
       const result = await auth.getValidToken();
       expect(result).toBe('ghu_malformed');
+      expect(mockWriteFile).toHaveBeenCalled();
+    });
+
+    it('skips refresh when refresh_token_expires_at is in the past', async () => {
+      const past = Math.floor(Date.now() / 1000) - 100;
+      const pastRefresh = Math.floor(Date.now() / 1000) - 1;
+      mockReadFile.mockResolvedValue(
+        JSON.stringify({
+          access_token: 'ghu_stale',
+          refresh_token: 'ghr_stale',
+          expires_at: past,
+          refresh_token_expires_at: pastRefresh,
+        })
+      );
+
+      mockFetch
+        .mockResolvedValueOnce(
+          okResponse({
+            device_code: 'dc_skip_refresh',
+            user_code: '999-000',
+            verification_uri: 'https://github.com/login/device',
+            expires_in: 900,
+            interval: 5,
+          })
+        )
+        .mockResolvedValueOnce(
+          okResponse({
+            access_token: 'ghu_skip_refresh',
+            expires_in: 28_800,
+          })
+        );
+
+      const result = await auth.getValidToken();
+      expect(result).toBe('ghu_skip_refresh');
       expect(mockWriteFile).toHaveBeenCalled();
     });
 

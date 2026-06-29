@@ -1,4 +1,5 @@
 import { promises as fs, statSync } from 'fs';
+import { execSync } from 'node:child_process';
 import * as os from 'os';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -12,7 +13,7 @@ const MAX_POLL_RETRIES = 60;
 
 let _clientId: string | null = null;
 
-async function getClientId(): Promise<string> {
+export async function getClientId(): Promise<string> {
   if (_clientId) return _clientId;
 
   // 1. GH_APP_CLIENT_ID env var (explicit override)
@@ -85,7 +86,7 @@ function getTokenPath(): string {
   return path.join(getConfigDir(), 'github-token.json');
 }
 
-async function readCache(): Promise<TokenCache | null> {
+export async function readCache(): Promise<TokenCache | null> {
   try {
     const raw = await fs.readFile(getTokenPath(), 'utf8');
     const parsed = JSON.parse(raw) as TokenCache;
@@ -100,16 +101,27 @@ async function readCache(): Promise<TokenCache | null> {
   return null;
 }
 
-async function writeCache(cache: TokenCache): Promise<void> {
+export async function writeCache(cache: TokenCache): Promise<void> {
   const tokenPath = getTokenPath();
   await fs.mkdir(path.dirname(tokenPath), { recursive: true });
   await fs.writeFile(tokenPath, JSON.stringify(cache, null, 2), {
     mode: 0o600,
     flag: 'w',
   });
+
+  // Restrict file to current user only on Windows (icacls replaces Unix mode 0o600)
+  if (process.platform === 'win32') {
+    try {
+      execSync(`icacls "${tokenPath}" /inheritance:r /grant "${process.env.USERNAME}:F"`, {
+        stdio: 'ignore',
+      });
+    } catch {
+      // Best-effort; ACL failure is non-fatal.
+    }
+  }
 }
 
-function isValid(cache: TokenCache): boolean {
+export function isValid(cache: TokenCache): boolean {
   if (!cache.expires_at) {
     return false;
   }
@@ -146,7 +158,7 @@ async function openBrowser(url: string): Promise<void> {
   }
 }
 
-function toTokenCache(response: Record<string, unknown>): TokenCache {
+export function toTokenCache(response: Record<string, unknown>): TokenCache {
   const cache: TokenCache = {
     access_token: String(response.access_token),
   };
@@ -164,7 +176,7 @@ function toTokenCache(response: Record<string, unknown>): TokenCache {
   return cache;
 }
 
-async function refreshAccessToken(refreshToken: string): Promise<TokenCache> {
+export async function refreshAccessToken(refreshToken: string): Promise<TokenCache> {
   const response = await postForm(ACCESS_TOKEN_URL, {
     client_id: await getClientId(),
     grant_type: 'refresh_token',
@@ -179,7 +191,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenCache> {
   return toTokenCache(response);
 }
 
-async function doDeviceFlow(): Promise<TokenCache> {
+export async function doDeviceFlow(): Promise<TokenCache> {
   const deviceResponse = await postForm(DEVICE_CODE_URL, {
     client_id: await getClientId(),
   });
@@ -253,13 +265,21 @@ export async function getValidToken(): Promise<string> {
     }
 
     if (cache.refresh_token) {
-      try {
-        const refreshed = await refreshAccessToken(cache.refresh_token);
-        await writeCache(refreshed);
-        return refreshed.access_token;
-      } catch (err) {
-        logInfo(`Token refresh failed: ${err instanceof Error ? err.message : String(err)}`);
-        logInfo('Falling back to device flow.');
+      const refreshExpired =
+        cache.refresh_token_expires_at &&
+        Math.floor(Date.now() / 1000) > cache.refresh_token_expires_at;
+
+      if (refreshExpired) {
+        logInfo('Refresh token has expired; falling back to device flow.');
+      } else {
+        try {
+          const refreshed = await refreshAccessToken(cache.refresh_token);
+          await writeCache(refreshed);
+          return refreshed.access_token;
+        } catch (err) {
+          logInfo(`Token refresh failed: ${err instanceof Error ? err.message : String(err)}`);
+          logInfo('Falling back to device flow.');
+        }
       }
     }
   }
