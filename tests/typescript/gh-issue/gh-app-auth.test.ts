@@ -353,14 +353,40 @@ describe('toTokenCache', () => {
     expect(result.refresh_token_expires_at).toBeUndefined();
   });
 
-  it('handles expires_in as string (typeof check excludes it)', () => {
-    const result = auth.toTokenCache({
-      access_token: 'ghu_str',
-      expires_in: '3600',
+it('handles expires_in as string (coerces to number)', () => {
+      const before = Math.floor(Date.now() / 1000);
+      const result = auth.toTokenCache({
+        access_token: 'ghu_str',
+        expires_in: '3600',
+      });
+      expect(result.access_token).toBe('ghu_str');
+      // Coercion should produce a defined expires_at within +/-2 seconds of now+3600
+      expect(result.expires_at).toBeDefined();
+      expect(typeof result.expires_at).toBe('number');
+      expect(result.expires_at).toBeGreaterThanOrEqual(before + 3600 - 2);
+      expect(result.expires_at).toBeLessThanOrEqual(before + 3600 + 2);
     });
-    expect(result.access_token).toBe('ghu_str');
-    // The function checks `typeof expires_in === 'number'`, so string is skipped
-    expect(result.expires_at).toBeUndefined();
+
+  it('handles refresh_token_expires_in as string (coerces to number and warns)', () => {
+    const before = Math.floor(Date.now() / 1000);
+    const warnSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const result = auth.toTokenCache({
+      access_token: 'ghu_refresh_str',
+      refresh_token: 'ghr_refresh_str',
+      refresh_token_expires_in: '15811200',
+    });
+    expect(result.access_token).toBe('ghu_refresh_str');
+    expect(result.refresh_token).toBe('ghr_refresh_str');
+    // Coercion should produce a defined refresh_token_expires_at within +/-2 seconds of now+15811200
+    expect(result.refresh_token_expires_at).toBeDefined();
+    expect(typeof result.refresh_token_expires_at).toBe('number');
+    expect(result.refresh_token_expires_at).toBeGreaterThanOrEqual(before + 15811200 - 2);
+    expect(result.refresh_token_expires_at).toBeLessThanOrEqual(before + 15811200 + 2);
+    // Warning log should be emitted when coercion occurs
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('refresh_token_expires_in received as string, coerced to number')
+    );
+    warnSpy.mockRestore();
   });
 
   it('preserves refresh_token but omits expires_at when expires_in is missing', () => {

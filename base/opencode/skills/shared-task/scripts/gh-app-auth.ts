@@ -161,6 +161,22 @@ export async function openBrowser(url: string): Promise<void> {
   }
 }
 
+// ponytail:debt Extract to reusable coerceExpiry helper to deduplicate expires_in/refresh_token_expires_in handling
+function coerceExpiry(
+  value: unknown,
+  fieldName: string,
+  cache: TokenCache,
+  setter: (n: number) => void
+): void {
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isInteger(parsed) && parsed > 0) {
+      setter(Math.floor(Date.now() / 1000) + parsed);
+      logInfo(`Warning: ${fieldName} received as string, coerced to number`);
+    }
+  }
+}
+
 export function toTokenCache(response: Record<string, unknown>): TokenCache {
   const cache: TokenCache = {
     access_token: String(response.access_token),
@@ -171,9 +187,13 @@ export function toTokenCache(response: Record<string, unknown>): TokenCache {
   }
   if (typeof response.expires_in === 'number') {
     cache.expires_at = Math.floor(Date.now() / 1000) + response.expires_in;
+  } else {
+    coerceExpiry(response.expires_in, 'expires_in', cache, n => { cache.expires_at = n; });
   }
   if (typeof response.refresh_token_expires_in === 'number') {
     cache.refresh_token_expires_at = Math.floor(Date.now() / 1000) + response.refresh_token_expires_in;
+  } else {
+    coerceExpiry(response.refresh_token_expires_in, 'refresh_token_expires_in', cache, n => { cache.refresh_token_expires_at = n; });
   }
 
   return cache;
@@ -336,3 +356,5 @@ if (
     },
   );
 }
+
+export { getClientId, readCache, writeCache, isValid, toTokenCache, refreshAccessToken, doDeviceFlow };
