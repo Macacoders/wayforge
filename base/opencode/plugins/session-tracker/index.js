@@ -13,20 +13,6 @@ const sessions = new Map();
 /** Pending agent name per session, populated by `chat.params` hook. */
 const pendingAgent = new Map();
 
-/** Counters for diagnostics. */
-let eventCount = 0;
-let matchedCount = 0;
-
-// Temporary: log first few token-bearing events to diagnose shape
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-let msgUpdatedCount = 0;
-let partUpdatedCount = 0;
-function diag(label, data) {
-  try { fs.appendFileSync(path.join(os.tmpdir(), "token-tracker-diag.log"), `[${new Date().toISOString()}] ${label}: ${JSON.stringify(data)}\n`); } catch {}
-}
-
 function getSession(sessionID) {
   let session = sessions.get(sessionID);
   if (!session) {
@@ -126,7 +112,7 @@ function renderTable(headers, rows) {
 
 function renderSummary(sessionID, session) {
   if (session.agents.size === 0) {
-    return `## Session Token Summary\n\nNo token usage recorded for this session.\n\n_Events: ${eventCount} rcvd, ${matchedCount} matched | msg.updated: ${msgUpdatedCount}, part.updated: ${partUpdatedCount}_`;
+    return `## Session Token Summary\n\nNo token usage recorded for this session.`;
   }
 
   const total = sessionTotal(session);
@@ -199,8 +185,6 @@ function renderSummary(sessionID, session) {
     parts.push("No command invocations recorded.");
   }
 
-  parts.push("", `---`, `_Events: ${eventCount} rcvd, ${matchedCount} matched | msg.updated: ${msgUpdatedCount}, part.updated: ${partUpdatedCount}_`);
-
   return parts.join("\n");
 }
 
@@ -225,35 +209,22 @@ export async function server(input) {
       const { sessionID } = payload;
       if (!sessionID) return;
 
-      eventCount++;
       const session = getSession(sessionID);
 
       switch (event.type) {
         // Capture agent from step-start events (may arrive as part updates)
         case "message.updated": {
-          msgUpdatedCount++;
-          if (msgUpdatedCount <= 3) {
-            const info = payload.info;
-            diag("message.updated", { agent: info?.agent, role: info?.role, hasTokens: !!info?.tokens, tokenKeys: info?.tokens ? Object.keys(info.tokens) : null });
-          }
           const info = payload.info;
           if (info?.role === "assistant" && info.tokens) {
-            matchedCount++;
             const agent = pendingAgent.get(sessionID) || info.agent || "unknown";
             accumulateTokens(session, agent, info.tokens, info.cost);
           }
           break;
         }
         case "message.part.updated": {
-          partUpdatedCount++;
-          if (partUpdatedCount <= 3) {
-            const part = payload.part;
-            diag("message.part.updated", { type: part?.type, hasTokens: !!part?.tokens, tokenKeys: part?.tokens ? Object.keys(part.tokens) : null });
-          }
           const part = payload.part;
           // StepFinishPart has tokens and cost
           if (part?.type === "step-finish" && part.tokens) {
-            matchedCount++;
             const agent = pendingAgent.get(sessionID) || "unknown";
             accumulateTokens(session, agent, part.tokens, part.cost);
           }
