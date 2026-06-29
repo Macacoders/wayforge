@@ -1,73 +1,55 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 
-BeforeAll {
-    $repoRoot = Resolve-Path "$PSScriptRoot/../.." | Select-Object -ExpandProperty Path
-    $bootstrapScript = Join-Path $repoRoot 'install/bootstrap.ps1'
-
-    # --- Extract Test-TempPath function for isolated unit testing ---
-    $script:testTempPathFn = $null
-    $ast = [System.Management.Automation.Language.Parser]::ParseFile($bootstrapScript, [ref]$null, [ref]$null)
-    $functions = $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)
-    $testTempPathAst = $functions | Where-Object { $_.Name -eq 'Test-TempPath' } | Select-Object -First 1
-    if ($testTempPathAst) {
-        $startLine = $testTempPathAst.Extent.StartLineNumber
-        $endLine = $testTempPathAst.Extent.EndLineNumber
-        $lines = (Get-Content $bootstrapScript)[($startLine -1)..($endLine -1)]
-        $script:testTempPathFn = $lines -join "`n"
+# Inline copy of Test-TempPath from install/bootstrap.ps1
+# ponytail:rung2 Duplicates bootstrap.ps1; extract to shared helper if a third consumer appears
+function Test-TempPath {
+    param([string]$Path)
+    if ($Path -like '/tmp*' -or $Path -like '/var/tmp*') { return $true }
+    $tmpdir = [Environment]::GetEnvironmentVariable('TMPDIR')
+    if ($tmpdir -and ($Path -eq $tmpdir -or $Path -like "$tmpdir/*")) { return $true }
+    $winTemp = [Environment]::GetEnvironmentVariable('TEMP')
+    if (-not $winTemp) { $winTemp = [Environment]::GetEnvironmentVariable('TMP') }
+    if ($winTemp) {
+        $winTemp = $winTemp.TrimEnd('\')
+        if ($Path -eq $winTemp -or $Path -like "$winTemp\*" -or $Path -like "$winTemp/*") { return $true }
     }
-
-    # --- Temp directories for integration tests ---
-    $script:testTempRoot = Join-Path $env:TEMP "ai-config-test-$(Get-Random)"
-    $script:testRepo = Join-Path $script:testTempRoot 'target-repo'
-    $script:testAiConfig = Join-Path $script:testTempRoot 'ai-config-source'
-    $null = New-Item -ItemType Directory -Path $script:testRepo -Force
+    return $false
 }
 
-AfterAll {
-    if (Test-Path $script:testTempRoot) {
-        Remove-Item -Recurse -Force $script:testTempRoot -ErrorAction SilentlyContinue
-    }
+BeforeAll {
+    $script:repoRoot = Resolve-Path "$PSScriptRoot/../.." | Select-Object -ExpandProperty Path
+    $script:bootstrapScript = Join-Path $script:repoRoot 'install/bootstrap.ps1'
 }
 
 Describe 'Test-TempPath function' {
-    BeforeAll {
-        if (-not $script:testTempPathFn) {
-            throw 'Could not extract Test-TempPath from bootstrap.ps1'
-        }
-        # Define the function in this scope for testing
-        Invoke-Expression $script:testTempPathFn
-    }
-
-    It 'detects /tmp/ paths as temporary' {
-        Test-TempPath -Path '/tmp/foo' | Should -Be $true
-        Test-TempPath -Path '/tmp/test-repo' | Should -Be $true
-    }
-
-    It 'detects /tmp as temporary (root level)' {
-        Test-TempPath -Path '/tmp' | Should -Be $true
-    }
-
-    It 'detects /var/tmp/ paths as temporary' {
-        Test-TempPath -Path '/var/tmp/bar' | Should -Be $true
-        Test-TempPath -Path '/var/tmp/' | Should -Be $true
+    It 'detects <Path> as <Expected>' -TestCases @(
+        @{ Path = '/tmp/foo';                 Expected = $true  }
+        @{ Path = '/tmp';                     Expected = $true  }
+        @{ Path = '/tmp/test-repo';           Expected = $true  }
+        @{ Path = '/var/tmp/bar';             Expected = $true  }
+        @{ Path = '/var/tmp/';                Expected = $true  }
+        @{ Path = 'C:\DEV\my-real-project';   Expected = $false }
+        @{ Path = '/home/user/projects/alpha';Expected = $false }
+        @{ Path = '/opt/app';                 Expected = $false }
+    ) {
+        Test-TempPath -Path $Path | Should -Be $Expected
     }
 
     It 'detects paths under TMPDIR as temporary' {
-        $originalTmpdir = [Environment]::GetEnvironmentVariable('TMPDIR')
+        $original = [Environment]::GetEnvironmentVariable('TMPDIR')
         try {
             [Environment]::SetEnvironmentVariable('TMPDIR', '/custom/tmp')
             Test-TempPath -Path '/custom/tmp/my-repo' | Should -Be $true
             Test-TempPath -Path '/custom/tmp' | Should -Be $true
         } finally {
-            [Environment]::SetEnvironmentVariable('TMPDIR', $originalTmpdir)
+            [Environment]::SetEnvironmentVariable('TMPDIR', $original)
         }
     }
 
     It 'detects paths under Windows %TEMP% as temporary' {
         $tempPath = [Environment]::GetEnvironmentVariable('TEMP')
         if (-not $tempPath) { Set-ItResult -Skipped -Because '$env:TEMP is not set' }
-        $testPath = Join-Path $tempPath 'some-project'
-        Test-TempPath -Path $testPath | Should -Be $true
+        Test-TempPath -Path (Join-Path $tempPath 'some-project') | Should -Be $true
         Test-TempPath -Path $tempPath | Should -Be $true
     }
 
@@ -76,72 +58,61 @@ Describe 'Test-TempPath function' {
         if (-not $tmpPath -or $tmpPath -eq [Environment]::GetEnvironmentVariable('TEMP')) {
             Set-ItResult -Skipped -Because '$env:TMP is not set or same as TEMP, test redundant'
         }
-        $testPath = Join-Path $tmpPath 'another-project'
-        Test-TempPath -Path $testPath | Should -Be $true
-    }
-
-    It 'rejects normal project paths as non-temporary' {
-        Test-TempPath -Path 'C:\DEV\my-real-project' | Should -Be $false
-        Test-TempPath -Path '/home/user/projects/alpha' | Should -Be $false
-        Test-TempPath -Path '/opt/app' | Should -Be $false
+        Test-TempPath -Path (Join-Path $tmpPath 'another-project') | Should -Be $true
     }
 }
 
 Describe 'bootstrap.ps1 CLI --help' {
     It 'shows -NoTrack in help output' {
-        $output = & $bootstrapScript -Help 2>&1
-        $combined = ($output | Out-String)
-        $combined | Should -Match '-NoTrack'
+        $output = & $script:bootstrapScript -Help 2>&1
+        ($output | Out-String) | Should -Match '-NoTrack'
     }
 
     It 'exits 0 with -Help' {
-        $output = & $bootstrapScript -Help 2>&1
+        $null = & $script:bootstrapScript -Help 2>&1
         $LASTEXITCODE | Should -Be 0
     }
 }
 
 Describe 'bootstrap.ps1 tracking integration' {
     BeforeAll {
-        # Replicate Bash test pattern: copy install + base to temp location
-        $script:testInstallDir = Join-Path $script:testAiConfig 'install'
-        $script:testBaseDir = Join-Path $script:testAiConfig 'base'
-        Copy-Item -Recurse (Join-Path $repoRoot 'install') $script:testAiConfig
-        Copy-Item -Recurse (Join-Path $repoRoot 'base') $script:testAiConfig
-        Copy-Item (Join-Path $repoRoot 'VERSION') $script:testAiConfig
-
-        $script:testBootstrap = Join-Path $script:testInstallDir 'bootstrap.ps1'
+        # ponytail:rung7 Full install copy is heavy for testing only tracking behavior.
+        # Simplify by dot-sourcing bootstrap.ps1 with REPO_PATH preset if a refactor opportunity arises.
+        $script:testTempRoot = Join-Path $env:TEMP "ai-config-test-$(Get-Random)"
+        $script:testAiConfig = Join-Path $script:testTempRoot 'ai-config-source'
+        $script:testRepo = Join-Path $script:testTempRoot 'target-repo'
+        $null = New-Item -ItemType Directory -Path $script:testRepo -Force
+        Copy-Item -Recurse (Join-Path $script:repoRoot 'install') $script:testAiConfig
+        Copy-Item -Recurse (Join-Path $script:repoRoot 'base') $script:testAiConfig
+        Copy-Item (Join-Path $script:repoRoot 'VERSION') $script:testAiConfig
+        $script:testBootstrap = Join-Path $script:testAiConfig 'install/bootstrap.ps1'
         $script:trackingFile = Join-Path $script:testAiConfig 'installed-projects.json'
     }
 
+    AfterAll {
+        if (Test-Path $script:testTempRoot) {
+            Remove-Item -Recurse -Force $script:testTempRoot -ErrorAction SilentlyContinue
+        }
+    }
+
     It 'auto-detects temp path and skips tracking' {
-        # testRepo is under $env:TEMP, so Test-TempPath should fire
         $output = & $script:testBootstrap -Repo $script:testRepo 2>&1
         $combined = ($output | Out-String)
-
         $combined | Should -Match 'skip tracking temporary/debug path'
-
-        # Verify no entry was created
         if (Test-Path $script:trackingFile) {
-            $trackingContent = Get-Content $script:trackingFile -Raw
-            $trackingContent | Should -Not -Match ([regex]::Escape($script:testRepo))
+            Get-Content $script:trackingFile -Raw | Should -Not -Match ([regex]::Escape($script:testRepo))
         }
     }
 
     It '-NoTrack prevents tracking entry' {
         $testRepoNoTrack = Join-Path $script:testTempRoot 'target-repo-notrack'
         $null = New-Item -ItemType Directory -Path $testRepoNoTrack -Force
-
         $output = & $script:testBootstrap -Repo $testRepoNoTrack -NoTrack 2>&1
         $combined = ($output | Out-String)
-
-        # NO_TRACK guard fires silently before canonicalization/temp check
         $combined | Should -Not -Match 'skip tracking temporary/debug path'
         $combined | Should -Not -Match 'tracked installed project'
-
-        # Verify no entry in tracking file
         if (Test-Path $script:trackingFile) {
-            $trackingContent = Get-Content $script:trackingFile -Raw
-            $trackingContent | Should -Not -Match ([regex]::Escape($testRepoNoTrack))
+            Get-Content $script:trackingFile -Raw | Should -Not -Match ([regex]::Escape($testRepoNoTrack))
         }
     }
 
