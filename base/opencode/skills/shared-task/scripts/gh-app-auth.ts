@@ -115,7 +115,7 @@ export function isValid(cache: TokenCache): boolean {
   return nowSeconds + SAFETY_MARGIN_SECONDS < cache.expires_at;
 }
 
-export async function postForm(url: string, params: Record<string, string>): Promise<Record<string, unknown>> {
+async function postForm(url: string, params: Record<string, string>): Promise<Record<string, unknown>> {
   const body = new URLSearchParams(params);
   const response = await fetch(url, {
     method: 'POST',
@@ -133,7 +133,7 @@ export async function postForm(url: string, params: Record<string, string>): Pro
   return data;
 }
 
-export async function openBrowser(url: string): Promise<void> {
+async function openBrowser(url: string): Promise<void> {
   try {
     const openModule = (await import('open')) as { default?: (target: string) => Promise<unknown> };
     if (openModule.default) {
