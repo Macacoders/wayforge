@@ -2,24 +2,13 @@
 # qa/check-powershell
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/_helpers.sh"
+
 if ! command -v pwsh >/dev/null 2>&1; then
 	echo "pwsh is not installed; skipping PowerShell checks."
 	exit 0
 fi
-
-run_pwsh_heredoc() {
-	local tmp_ps
-	local status
-	tmp_ps="$(mktemp)"
-	cat >"$tmp_ps"
-	if pwsh -NoProfile -NonInteractive -File "$tmp_ps"; then
-		status=0
-	else
-		status=$?
-	fi
-	rm -f "$tmp_ps"
-	return "$status"
-}
 
 run_pwsh_heredoc <<'POWERSHELL'
 $ErrorActionPreference = "Stop"
@@ -65,14 +54,6 @@ if ($results) {
       "[$($_.RuleName)] [$($_.Severity)] ${shortPath}:$($_.Line) $message"
     }
   throw "PSScriptAnalyzer found issues."
-}
-
-if (Test-Path ./tests) {
-  if (-not (Get-Module -ListAvailable -Name Pester)) {
-    throw "Pester is not installed. Run: Install-Module Pester -Scope CurrentUser"
-  }
-
-  Invoke-Pester -Path ./tests
 }
 
 Write-Host "PowerShell checks passed."

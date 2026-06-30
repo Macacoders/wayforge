@@ -7,11 +7,6 @@ if ! command -v bats >/dev/null 2>&1; then
 	exit 0
 fi
 
-if [[ ! -d tests/bash ]]; then
-	echo "No Bash tests found."
-	exit 0
-fi
-
 shopt -s nullglob
 bash_tests=(tests/bash/*.bats)
 shopt -u nullglob
