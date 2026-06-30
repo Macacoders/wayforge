@@ -1,20 +1,10 @@
 #!/usr/bin/env node
 
-import { execSync, execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getValidToken } from './gh-app-auth.ts';
-
-// ── Custom error for clean non-zero exit ────────────────────────────────────
-// Avoids process.exit() during pending async handles, which can trigger a
-// Node.js-on-Windows libuv assertion (debug builds only, no functional impact).
-class ExitError extends Error {
-  constructor(public code: number, message?: string) {
-    super(message ?? `exit(${code})`);
-    this.name = 'ExitError';
-  }
-}
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -143,7 +133,7 @@ function resolveRepo(explicitRepo: string): string {
     return process.env.GH_REPO;
   }
   try {
-    const url = execSync('git remote get-url origin', {
+    const url = execFileSync('git', ['remote', 'get-url', 'origin'], {
       encoding: 'utf8',
       timeout: 5000,
     }).trim();
@@ -154,7 +144,7 @@ function resolveRepo(explicitRepo: string): string {
     if (err instanceof Error && err.message.startsWith('unsupported')) {
       throw err;
     }
-    throw new ExitError(1, 'GH_REPO is not set and git remote origin is unavailable.');
+    throw new Error('GH_REPO is not set and git remote origin is unavailable.');
   }
 }
 
@@ -226,20 +216,14 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
   return responseBody as unknown as T;
 }
 
+// ponytail: readability — inlining at 6 call sites would be more verbose
 function apiGet<T>(path: string): Promise<T> {
   return api<T>('GET', path);
 }
 
+// ponytail: readability — inlining at 5 call sites would be more verbose
 function apiPost<T>(path: string, body?: unknown): Promise<T> {
   return api<T>('POST', path, body);
-}
-
-function apiPatch<T>(path: string, body?: unknown): Promise<T> {
-  return api<T>('PATCH', path, body);
-}
-
-function apiDelete<T>(path: string, body?: unknown): Promise<T> {
-  return api<T>('DELETE', path, body);
 }
 
 // ── Issue / label helper functions ──────────────────────────────────────────
@@ -298,7 +282,7 @@ async function removeLabel(issueNumber: number, labelName: string): Promise<void
     console.error(`[DRY-RUN] remove label '${labelName}' from issue #${issueNumber}`);
     return;
   }
-  await apiDelete(`/repos/${repo}/issues/${issueNumber}/labels/${encodeURIComponent(labelName)}`);
+  await api('DELETE', `/repos/${repo}/issues/${issueNumber}/labels/${encodeURIComponent(labelName)}`);
 }
 
 async function addAssignee(issueNumber: number, username: string): Promise<void> {
@@ -314,7 +298,7 @@ async function removeAssignee(issueNumber: number, username: string): Promise<vo
     console.error(`[DRY-RUN] remove assignee @${username} from issue #${issueNumber}`);
     return;
   }
-  await apiDelete(`/repos/${repo}/issues/${issueNumber}/assignees`, { assignees: [username] });
+  await api('DELETE', `/repos/${repo}/issues/${issueNumber}/assignees`, { assignees: [username] });
 }
 
 async function addComment(issueNumber: number, body: string): Promise<void> {
@@ -330,7 +314,7 @@ async function closeIssue(issueNumber: number): Promise<void> {
     console.error(`[DRY-RUN] close issue #${issueNumber}`);
     return;
   }
-  await apiPatch(`/repos/${repo}/issues/${issueNumber}`, { state: 'closed' });
+  await api('PATCH', `/repos/${repo}/issues/${issueNumber}`, { state: 'closed' });
 }
 
 async function getCurrentUser(): Promise<string> {
@@ -381,15 +365,15 @@ async function getDefaultBranch(): Promise<string> {
 }
 
 function getRepoRoot(): string {
-  return execSync('git rev-parse --show-toplevel', { encoding: 'utf8', timeout: 5000 }).trim();
+  return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', timeout: 5000 }).trim();
 }
 
 function getCurrentBranch(): string {
-  return execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8', timeout: 5000 }).trim();
+  return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8', timeout: 5000 }).trim();
 }
 
 function workingTreeIsClean(): boolean {
-  const status = execSync('git status --porcelain', { encoding: 'utf8', timeout: 5000 }).trim();
+  const status = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8', timeout: 5000 }).trim();
   return status.length === 0;
 }
 
@@ -399,25 +383,14 @@ function slugify(text: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
-  return slug.replace(/-+$/, '').slice(0, 60).replace(/-+$/, '');
+  return slug.slice(0, 60).replace(/-+$/, '');
 }
 
 function buildPRBody(issueNumber: number): string {
   const repoRoot = getRepoRoot();
-  const tempPath = path.join(repoRoot, 'temp', `pr-body-${issueNumber}.md`);
-  const tempDir = path.dirname(tempPath);
-  if (!existsSync(tempDir)) {
-    mkdirSync(tempDir, { recursive: true });
-  }
 
   // Always prepend the auto-close keyword so the issue closes when the PR merges.
-  // This applies to both custom temp files and template fallback bodies.
   let body = `Fixes #${issueNumber}\n\n`;
-
-  if (existsSync(tempPath)) {
-    body += readFileSync(tempPath, 'utf8');
-    return body;
-  }
 
   const templatePath = path.join(repoRoot, '.github', 'pull_request_template.md');
 
@@ -442,7 +415,7 @@ function buildPRBody(issueNumber: number): string {
   return body;
 }
 
-// ── Command handlers (Stage 1: check + labels-check implemented; others stubbed) ──
+// ── Command handlers ──
 
 async function cmdCheck(): Promise<void> {
   await apiGet(`/repos/${repo}`);
@@ -466,7 +439,7 @@ async function cmdLabelsCheck(): Promise<void> {
         console.error(`  - ${label}`);
       }
     }
-    throw new ExitError(1);
+    throw new Error();
   }
   if (jsonMode) {
     outputJson({ status: 'ok', repo });
@@ -516,7 +489,7 @@ async function cmdList(): Promise<void> {
 async function cmdCreate(args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: create requires <title>.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const title = args[0];
@@ -529,7 +502,7 @@ async function cmdCreate(args: string[]): Promise<void> {
       i++;
       if (i >= args.length) {
         console.error('Error: --body-file requires a path.');
-        throw new ExitError(1);
+        throw new Error();
       }
       bodyFile = args[i];
     } else if (arg.startsWith('--body-file=')) {
@@ -538,14 +511,14 @@ async function cmdCreate(args: string[]): Promise<void> {
       i++;
       if (i >= args.length) {
         console.error('Error: --label requires a value.');
-        throw new ExitError(1);
+        throw new Error();
       }
       labels.push(args[i]);
     } else if (arg.startsWith('--label=')) {
       labels.push(arg.slice('--label='.length));
     } else {
       console.error(`Error: unknown create option: ${arg}`);
-      throw new ExitError(1);
+      throw new Error();
     }
   }
 
@@ -588,13 +561,13 @@ async function cmdCreate(args: string[]): Promise<void> {
 async function cmdClaim(args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: claim requires <issue-number>.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const issueNumber = Number(args[0]);
   if (!Number.isInteger(issueNumber) || issueNumber < 1) {
     console.error('Error: invalid issue number.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   if (dryRun) {
@@ -629,13 +602,13 @@ async function cmdClaim(args: string[]): Promise<void> {
 async function cmdAssign(args: string[]): Promise<void> {
   if (args.length < 2) {
     console.error('Error: assign requires <issue-number> <collaborator>.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const issueNumber = Number(args[0]);
   if (!Number.isInteger(issueNumber) || issueNumber < 1) {
     console.error('Error: invalid issue number.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const collaborator = args[1];
@@ -671,13 +644,13 @@ async function cmdAssign(args: string[]): Promise<void> {
 async function cmdRelease(args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: release requires <issue-number>.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const issueNumber = Number(args[0]);
   if (!Number.isInteger(issueNumber) || issueNumber < 1) {
     console.error('Error: invalid issue number.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   let blockedReason: string | undefined;
@@ -687,12 +660,12 @@ async function cmdRelease(args: string[]): Promise<void> {
       i++;
       if (i >= args.length) {
         console.error('Error: --blocked requires a reason.');
-        throw new ExitError(1);
+        throw new Error();
       }
       blockedReason = args[i];
     } else {
       console.error(`Error: unknown release option: ${arg}`);
-      throw new ExitError(1);
+      throw new Error();
     }
   }
 
@@ -739,13 +712,13 @@ async function cmdRelease(args: string[]): Promise<void> {
 async function cmdClose(args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: close requires <issue-number>.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const issueNumber = Number(args[0]);
   if (!Number.isInteger(issueNumber) || issueNumber < 1) {
     console.error('Error: invalid issue number.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const summary = args.slice(1).join(' ') || 'Completed and validated.';
@@ -774,13 +747,13 @@ async function cmdClose(args: string[]): Promise<void> {
 async function cmdShow(args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: show requires <issue-number>.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const issueNumber = Number(args[0]);
   if (!Number.isInteger(issueNumber) || issueNumber < 1) {
     console.error('Error: invalid issue number.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const issue = await getIssue(issueNumber);
@@ -815,13 +788,13 @@ async function cmdShow(args: string[]): Promise<void> {
 async function cmdPrclose(args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: prclose requires <issue-number>.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const issueNumber = Number(args[0]);
   if (!Number.isInteger(issueNumber) || issueNumber < 1) {
     console.error('Error: invalid issue number.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const summary = args.slice(1).join(' ') || 'Ready for review via PR.';
@@ -940,7 +913,7 @@ async function main(): Promise<void> {
       i++;
       if (i >= allArgs.length) {
         console.error('Error: --repo/-R requires OWNER/REPO value.');
-        throw new ExitError(1);
+        throw new Error();
       }
       explicitRepo = allArgs[i];
     } else if (arg.startsWith('--repo=') || arg.startsWith('-R=')) {
@@ -957,7 +930,7 @@ async function main(): Promise<void> {
 
   if (remainingArgs.length === 0) {
     printUsage();
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const command = remainingArgs[0];
@@ -1005,19 +978,19 @@ async function main(): Promise<void> {
       break;
     case 'raw':
       console.error('Error: raw subcommand is not available in the TypeScript implementation.');
-      throw new ExitError(1);
+      throw new Error();
     default:
       console.error(`Error: unknown command: ${command}`);
       printUsage();
-      throw new ExitError(1);
+      throw new Error();
   }
 }
 
 // ── Exports for testing ─────────────────────────────────────────────────────
 
 export {
-  addAssignee, addComment, addLabel, api, apiDelete, apiGet, apiPatch, apiPost, buildPRBody, closeIssue, cmdAssign, cmdCheck, cmdClaim, cmdClose, cmdCreate, cmdLabelsCheck,
-  cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureOpenIssue, ensureRequiredLabels, ExitError, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
+  addAssignee, addComment, addLabel, api, apiGet, apiPost, buildPRBody, closeIssue, cmdAssign, cmdCheck, cmdClaim, cmdClose, cmdCreate, cmdLabelsCheck,
+  cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureOpenIssue, ensureRequiredLabels, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
   getIssueFirstAssignee, getIssueState, getRepoLabels, issueHasLabel, main, output,
   outputJson, printUsage, removeAssignee, removeLabel, REQUIRED_LABELS, resolveRepo, resolveToken, slugify
 };
@@ -1039,13 +1012,9 @@ if (
       process.exitCode = 0;
     },
     (err: unknown) => {
-      if (err instanceof ExitError) {
-        process.exitCode = err.code;
-      } else {
-        const message = err instanceof Error ? err.message : String(err);
-        if (message) console.error(message);
-        process.exitCode = 1;
-      }
+      const message = err instanceof Error ? err.message : String(err);
+      if (message) console.error(message);
+      process.exitCode = 1;
     },
   );
 }
