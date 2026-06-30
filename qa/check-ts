@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# qa/check-ts
+# ponytail: script wrapper for inline one-liner; kept for project ./qa/ convention consistency
+set -euo pipefail
+
+exec npx vitest run "$@"

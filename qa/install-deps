@@ -2,36 +2,11 @@
 # qa/install-deps
 set -euo pipefail
 
-if command -v pacman >/dev/null 2>&1; then
-	echo "==> Installing system dependencies with pacman"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/_helpers.sh"
 
-	sudo pacman -Syu --needed \
-		shellcheck \
-		shfmt \
-		bats \
-		nodejs \
-		npm \
-		git \
-		base-devel
-elif command -v apt-get >/dev/null 2>&1; then
-	echo "==> Installing system dependencies with apt-get"
-
-	sudo apt-get update
-	sudo apt-get install -y \
-		shellcheck \
-		shfmt \
-		bats \
-		nodejs \
-		npm \
-		git \
-		build-essential
-else
-	echo "Unsupported platform/package manager."
-	echo
-	echo "This installer supports Arch/CachyOS systems with pacman and Ubuntu/Debian-family systems with apt-get."
-	echo "Install the QA dependencies manually or run this script on a supported system."
-	exit 1
-fi
+# Install shellcheck, shfmt, bats, nodejs, npm, git for your platform.
+# See https://github.com/laberit/ai-config/issues/131 for a future portable installer.
 
 echo "==> Checking PowerShell"
 
@@ -57,20 +32,6 @@ if ! command -v pwsh >/dev/null 2>&1; then
 fi
 
 echo "==> Installing PowerShell QA modules"
-
-run_pwsh_heredoc() {
-	local tmp_ps
-	local status
-	tmp_ps="$(mktemp)"
-	cat >"$tmp_ps"
-	if pwsh -NoProfile -NonInteractive -File "$tmp_ps"; then
-		status=0
-	else
-		status=$?
-	fi
-	rm -f "$tmp_ps"
-	return "$status"
-}
 
 run_pwsh_heredoc <<'POWERSHELL'
 $ErrorActionPreference = "Stop"
