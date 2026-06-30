@@ -20,7 +20,7 @@ import {
 } from "../../src/lib/providers.js";
 import type { Provider, Runtime } from "../../src/types.js";
 
-const sourceDir = path.resolve(process.cwd(), "..");
+const sourceDir = process.cwd();
 
 function makeCtx(dryRun = false, force = false): ManifestContext {
   return new ManifestContext(dryRun, force, false);

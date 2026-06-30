@@ -10,7 +10,6 @@ import {
 
 const permissionsFile = path.resolve(
   process.cwd(),
-  "..",
   "base",
   "opencode",
   "permissions",
