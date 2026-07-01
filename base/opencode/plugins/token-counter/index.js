@@ -1,5 +1,6 @@
 import { tool } from "@opencode-ai/plugin/tool";
 import { encode } from "gpt-tokenizer";
+import { renderTable } from "../lib/render-table.js";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -65,29 +66,13 @@ function collectFiles(patterns) {
 }
 
 function formatResults(results, total, fileCount, encoding) {
-  const fileHeader = "File";
-  const tokenHeader = "Tokens";
-  const fileWidth = Math.max(
-    fileHeader.length,
-    ...results.map(([file]) => file.length),
-  );
+  if (results.length === 0) return `Encoding: ${encoding}`;
 
-  const lines = [
-    `${fileHeader.padEnd(fileWidth)}  ${tokenHeader}`,
-    "-".repeat(fileWidth + 2 + Math.max(tokenHeader.length, 6)),
-  ];
+  const headers = ["File", "Tokens"];
+  const rows = results.map(([file, count]) => [file, count.toLocaleString()]);
+  rows.push([`Total (${fileCount} files):`, total.toLocaleString()]);
 
-  for (const [file, count] of results) {
-    lines.push(`${file.padEnd(fileWidth)}  ${count.toLocaleString()}`);
-  }
-
-  lines.push("-".repeat(fileWidth + 2 + Math.max(tokenHeader.length, 6)));
-  lines.push(
-    `${`Total (${fileCount} files):`.padEnd(fileWidth)}  ${total.toLocaleString()}`,
-  );
-  lines.push(`Encoding: ${encoding}`);
-
-  return lines.join("\n");
+  return renderTable(headers, rows) + "\nEncoding: " + encoding;
 }
 
 export async function server(input) {
