@@ -9,7 +9,8 @@ import {
 } from "../../src/lib/permissions.js";
 
 const permissionsFile = path.resolve(
-  process.cwd(),
+  __dirname,
+  '../../..',
   "base",
   "opencode",
   "permissions",

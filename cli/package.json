@@ -13,18 +13,12 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
-  "vitest": {
-    "include": ["tests/**/*.test.ts"]
-  },
   "dependencies": {
     "commander": "^13.1.0",
     "fs-extra": "^11.3.0"
   },
   "devDependencies": {
-    "@types/fs-extra": "^11.0.4",
-    "@types/node": "^20.0.0",
-    "typescript": "^5.7.0",
-    "vitest": "^4.1.9"
+    "@types/fs-extra": "^11.0.4"
   },
   "engines": {
     "node": ">=18.0.0"
