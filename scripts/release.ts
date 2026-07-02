@@ -1,23 +1,25 @@
-import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import * as path from 'node:path';
+import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
+
+import { git } from './lib/git.ts';
 
 // ── State ──────────────────────────────────────────────────────────────────
 // State is local inside main(). No module-level mutable globals.
 
 // ── Help ─────────────────────────────────────────────────────────────────────
 
-export function printUsage(): void {
+function printUsage(): void {
   console.error([
-    'Usage: scripts/release.ts --version <semver> [--dry-run]',
+    'Usage: scripts/release.ts --set-version <semver> [--dry-run]',
     '',
     'Prepare a new ai-config release.',
     '',
     'Options:',
-    '  --version <semver>  New version (e.g., 0.2.0)',
-    '  --dry-run           Preview operations without making changes',
-    '  -h, --help          Show this help',
+    '  --set-version <semver>  New version (e.g., 0.2.0)',
+    '  --dry-run               Preview operations without making changes',
+    '  -h, --help              Show this help',
   ].join('\n'));
 }
 
@@ -25,13 +27,13 @@ export function printUsage(): void {
 
 const SEMVER_RE = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/;
 
-export function validateSemVer(version: string): boolean {
+function validateSemVer(version: string): boolean {
   return SEMVER_RE.test(version);
 }
 
 // ── CHANGELOG helpers ────────────────────────────────────────────────────────
 
-export function buildNewEntry(version: string, date: string): string {
+function buildNewEntry(version: string, date: string): string {
   return (
     `## [${version}] - ${date}\n` +
     '\n' +
@@ -81,55 +83,68 @@ export function main(argv = process.argv.slice(2), opts?: { dryRun?: boolean; ro
   let dryRun = opts?.dryRun ?? false;
   const rootDir = opts?.rootDir ?? process.cwd();
 
+  if (argv.length === 0) {
+    printUsage();
+    return;
+  }
+
+  let newVersion: string | undefined;
   try {
-    const args = argv;
+    const { values } = parseArgs({
+      args: argv,
+      options: {
+        'set-version': { type: 'string' },
+        'dry-run': { type: 'boolean' },
+        help: { type: 'boolean', short: 'h' },
+      },
+      strict: true,
+    });
 
-    if (args.length === 0) {
+    if (values.help) {
       printUsage();
       return;
     }
 
-    let newVersion = '';
-
-    for (let i = 0; i < args.length; i++) {
-      const arg = args[i];
-      if (arg === '--version') {
-        i++;
-        if (i >= args.length) {
-          console.error('error: --version requires a value');
-          printUsage();
-          process.exitCode = 1;
-          return;
-        }
-        newVersion = args[i];
-      } else if (arg === '--dry-run') {
-        dryRun = true;
-      } else if (arg === '-h' || arg === '--help') {
-        printUsage();
-        return;
-      } else {
-        console.error(`error: unknown option: ${arg}`);
-        printUsage();
-        process.exitCode = 1;
-        return;
-      }
-    }
-
-    if (!newVersion) {
-      console.error('error: --version is required');
+    dryRun = opts?.dryRun ?? values['dry-run'] ?? false;
+    newVersion = values['set-version'];
+  } catch (err) {
+    const typed = err as TypeError & { code?: string; option?: string };
+    if (typed.code === 'ERR_PARSE_ARGS_UNKNOWN_OPTION') {
+      const option =
+        typed.option ??
+        typed.message.match(/Unknown option '(.+?)'/)?.[1] ??
+        'unknown';
+      console.error(`error: unknown option: ${option}`);
       printUsage();
       process.exitCode = 1;
       return;
     }
-
-    // Validate SemVer
-    if (!validateSemVer(newVersion)) {
-      console.error(
-        `error: invalid version format '${newVersion}'. Expected SemVer (e.g., 0.2.0)`,
-      );
+    if (typed.code === 'ERR_PARSE_ARGS_INVALID_OPTION_VALUE') {
+      console.error('error: --set-version requires a value');
+      printUsage();
       process.exitCode = 1;
       return;
     }
+    throw err;
+  }
+
+  if (!newVersion) {
+    console.error('error: --set-version is required');
+    printUsage();
+    process.exitCode = 1;
+    return;
+  }
+
+  // Validate SemVer
+  if (!validateSemVer(newVersion)) {
+    console.error(
+      `error: invalid version format '${newVersion}'. Expected SemVer (e.g., 0.2.0)`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  try {
 
     // Read current version from VERSION file
     const versionPath = path.join(rootDir, 'VERSION');
@@ -145,11 +160,7 @@ export function main(argv = process.argv.slice(2), opts?: { dryRun?: boolean; ro
     console.error('');
 
     // 1. Verify clean working tree
-    const status = execFileSync('git', ['status', '--porcelain'], {
-      cwd: rootDir,
-      encoding: 'utf8',
-      timeout: 10000,
-    }).trim();
+    const status = git(['status', '--porcelain'], rootDir, 10000);
     if (status.length > 0) {
       console.error('error: working tree is not clean. Commit or stash changes first.');
       process.exitCode = 1;
@@ -157,11 +168,7 @@ export function main(argv = process.argv.slice(2), opts?: { dryRun?: boolean; ro
     }
 
     // 2. Verify we're on develop
-    const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-      cwd: rootDir,
-      encoding: 'utf8',
-      timeout: 10000,
-    }).trim();
+    const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], rootDir, 10000);
     if (branch !== 'develop') {
       console.error(
         `error: must be on 'develop' branch (currently on '${branch}')`,
@@ -197,11 +204,7 @@ export function main(argv = process.argv.slice(2), opts?: { dryRun?: boolean; ro
     if (dryRun) {
       console.error('  [dry-run] would create tag');
     } else {
-      execFileSync('git', ['tag', '-a', `v${newVersion}`, '-m', `Release v${newVersion}`], {
-        cwd: rootDir,
-        encoding: 'utf8',
-        timeout: 10000,
-      });
+      git(['tag', '-a', `v${newVersion}`, '-m', `Release v${newVersion}`], rootDir, 10000);
       console.error(`  created tag: v${newVersion}`);
     }
 
@@ -227,11 +230,6 @@ export function main(argv = process.argv.slice(2), opts?: { dryRun?: boolean; ro
 // Only runs when executed directly, not when imported (e.g., by tests).
 
 const __filename = fileURLToPath(import.meta.url);
-if (
-  __filename === process.argv[1] ||
-  process.argv
-    .slice(1)
-    .some((arg) => arg === __filename || arg.endsWith(path.basename(__filename)))
-) {
+if (process.argv[1] === __filename) {
   main();
 }

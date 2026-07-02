@@ -36,3 +36,13 @@ The release preparation logic lived in two parallel scripts (`scripts/release.sh
 - Issue #157
 - ADR-0017 (single TypeScript gh-issue.ts) — precedent for standalone tool scripts
 - Issue #131 (installer TypeScript migration) — broader migration context
+
+## Amendments
+
+### 2026-07-02 — `--set-version` convention
+
+The flag was renamed from `--version` to `--set-version` to avoid conflicting with the universal CLI convention where `--version` prints the tool version. The old `--version` flag was an anti-pattern inherited from the shell scripts.
+
+### 2026-07-02 — Shared git helper
+
+A shared `scripts/lib/git.ts` helper was extracted to wrap `execFileSync('git', ...)` calls. Both `release.ts` and `gh-issue.ts` now import from it, eliminating duplicated options objects and establishing a pattern for future standalone TypeScript tooling scripts.

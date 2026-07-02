@@ -99,7 +99,7 @@ Pushing the tag triggers the GitHub Actions release workflow (see [Release Autom
 Before performing an actual release, validate the steps using the dry-run helper:
 
 ```bash
-npx tsx scripts/release.ts --version 0.2.0 --dry-run
+npx tsx scripts/release.ts --set-version 0.2.0 --dry-run
 ```
 
 The dry-run mode will:
@@ -213,10 +213,10 @@ The following automation tools are now available:
 
 ```bash
 # Preview a release to version 0.2.0
-npx tsx scripts/release.ts --version 0.2.0 --dry-run
+npx tsx scripts/release.ts --set-version 0.2.0 --dry-run
 
 # Prepare a release (updates VERSION, CHANGELOG, creates tag)
-npx tsx scripts/release.ts --version 0.2.0
+npx tsx scripts/release.ts --set-version 0.2.0
 ```
 
 The script validates that the working tree is clean and that you are on the `develop` branch before making changes. After preparation, push the tag and merge to `main`:

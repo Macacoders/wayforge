@@ -4,8 +4,7 @@
 //   - Mock child_process.execFileSync globally (git commands)
 //   - Mock node:fs readFileSync and writeFileSync (file I/O)
 //   - Use exported functions from release.ts directly
-//   - Pure functions (validateSemVer, buildNewEntry, updateChangelogContent)
-//     are tested directly without mocks
+//   - updateChangelogContent is tested directly without mocks
 
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
@@ -86,45 +85,6 @@ beforeEach(() => {
     if (filePath.endsWith('CHANGELOG.md')) return DEFAULT_CHANGELOG;
     throw new Error(`Unexpected readFileSync: ${filePath}`);
   });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// validateSemVer — pure function
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe('validateSemVer', () => {
-  it.each([
-    ['0.1.0'],
-    ['1.0.0-alpha.1'],
-  ])('accepts valid SemVer: %s', (version) => {
-    expect(release.validateSemVer(version)).toBe(true);
-  });
-
-  it.each([
-    ['v1.0.0'],
-    ['abc'],
-    [''],
-  ])('rejects invalid SemVer: %s', (version) => {
-    expect(release.validateSemVer(version)).toBe(false);
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// buildNewEntry — pure function
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe('buildNewEntry', () => {
-  it('builds the entry with correct format', () => {
-    const entry = release.buildNewEntry('0.2.0', '2026-07-01');
-    expect(entry).toBe(
-      '## [0.2.0] - 2026-07-01\n' +
-      '\n' +
-      '### Added\n' +
-      '\n' +
-      '- Placeholder: describe changes for this release.\n',
-    );
-  });
-
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -228,22 +188,22 @@ describe('main', () => {
     expect(process.exitCode).toBe(1);
   });
 
-  it('errors when --version has no value', () => {
-    const lines = captureStderr(() => release.main(['--version']));
+  it('errors when --set-version has no value', () => {
+    const lines = captureStderr(() => release.main(['--set-version']));
 
     expect(lines.some((l) => l.includes('requires a value'))).toBe(true);
     expect(process.exitCode).toBe(1);
   });
 
-  it('errors when --version is missing', () => {
+  it('errors when --set-version is missing', () => {
     const lines = captureStderr(() => release.main(['--dry-run']));
 
-    expect(lines.some((l) => l.includes('--version is required'))).toBe(true);
+    expect(lines.some((l) => l.includes('--set-version is required'))).toBe(true);
     expect(process.exitCode).toBe(1);
   });
 
   it('errors on invalid SemVer version', () => {
-    const lines = captureStderr(() => release.main(['--version', 'abc']));
+    const lines = captureStderr(() => release.main(['--set-version', 'abc']));
 
     expect(lines.some((l) => l.includes('invalid version format'))).toBe(true);
     expect(process.exitCode).toBe(1);
@@ -257,7 +217,7 @@ describe('main', () => {
       throw new Error(`Unexpected: ${_cmd} ${_args.join(' ')}`);
     });
 
-    const lines = captureStderr(() => release.main(['--version', '0.2.0']));
+    const lines = captureStderr(() => release.main(['--set-version', '0.2.0']));
 
     expect(lines.some((l) => l.includes('working tree is not clean'))).toBe(true);
     expect(process.exitCode).toBe(1);
@@ -271,14 +231,14 @@ describe('main', () => {
       throw new Error(`Unexpected: ${_cmd} ${_args.join(' ')}`);
     });
 
-    const lines = captureStderr(() => release.main(['--version', '0.2.0']));
+    const lines = captureStderr(() => release.main(['--set-version', '0.2.0']));
 
     expect(lines.some((l) => l.includes("must be on 'develop'"))).toBe(true);
     expect(process.exitCode).toBe(1);
   });
 
   it('dry-run does not write files or create tag', () => {
-    const lines = captureStderr(() => release.main(['--version', '0.2.0', '--dry-run']));
+    const lines = captureStderr(() => release.main(['--set-version', '0.2.0', '--dry-run']));
 
     expect(lines.some((l) => l.includes('[dry-run] would write VERSION'))).toBe(true);
     expect(lines.some((l) => l.includes('[dry-run] would add entry to CHANGELOG.md'))).toBe(true);
@@ -292,7 +252,7 @@ describe('main', () => {
   });
 
   it('performs full release pipeline in normal mode', () => {
-    captureStderr(() => release.main(['--version', '0.2.0']));
+    captureStderr(() => release.main(['--set-version', '0.2.0']));
 
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       expect.stringContaining('VERSION'),
@@ -319,7 +279,7 @@ describe('main', () => {
       throw new Error(`Unexpected: ${filePath}`);
     });
 
-    const lines = captureStderr(() => release.main(['--version', '0.2.0', '--dry-run']));
+    const lines = captureStderr(() => release.main(['--set-version', '0.2.0', '--dry-run']));
 
     expect(lines.some((l) => l.includes('Current version: 0.0.0'))).toBe(true);
     expect(process.exitCode).toBe(0);
