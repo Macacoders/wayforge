@@ -99,20 +99,16 @@ Pushing the tag triggers the GitHub Actions release workflow (see [Release Autom
 Before performing an actual release, validate the steps using the dry-run helper:
 
 ```bash
-scripts/release.sh --dry-run
-```
-
-Or in PowerShell:
-
-```powershell
-.\scripts\release.ps1 -DryRun
+npx tsx scripts/release.ts --set-version 0.2.0 --dry-run
 ```
 
 The dry-run mode will:
-- Check that `develop` is up-to-date
-- Verify the version and changelog entries
-- Show the planned tag and merge operations
-- Simulate tag creation and branch merge without modifying the repository
+- Verify the working tree is clean and you are on `develop`
+- Validate the version format
+- Show the planned VERSION file update
+- Display the CHANGELOG entry that would be added
+- Show the planned tag creation
+- Exit without modifying any files or creating any tags
 
 ## Consuming-Repo Guidance
 
@@ -211,24 +207,16 @@ After the initial release, subsequent releases follow the standard steps above.
 The following automation tools are now available:
 
 - **GitHub Actions workflow** (`.github/workflows/release.yml`): Auto-creates a GitHub Release when code is pushed or merged to `main`. The release version is read from the `VERSION` file, and the latest CHANGELOG entry is used as the release body.
-- **Helper scripts** (`scripts/release.sh` / `scripts/release.ps1`): Automate preparation steps — update VERSION, update CHANGELOG, create annotated tag, and validate the working tree. Use `--dry-run` / `-DryRun` to preview operations.
+- **Helper script** (`scripts/release.ts`): Automates preparation steps — update VERSION, update CHANGELOG, create annotated tag, and validate the working tree. Use `--dry-run` to preview operations.
 
 ### Using the helper script
 
 ```bash
 # Preview a release to version 0.2.0
-scripts/release.sh --version 0.2.0 --dry-run
+npx tsx scripts/release.ts --set-version 0.2.0 --dry-run
 
 # Prepare a release (updates VERSION, CHANGELOG, creates tag)
-scripts/release.sh --version 0.2.0
-```
-
-```powershell
-# Preview
-.\scripts\release.ps1 -Version 0.2.0 -DryRun
-
-# Prepare
-.\scripts\release.ps1 -Version 0.2.0
+npx tsx scripts/release.ts --set-version 0.2.0
 ```
 
 The script validates that the working tree is clean and that you are on the `develop` branch before making changes. After preparation, push the tag and merge to `main`:

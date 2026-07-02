@@ -15,6 +15,7 @@
                             "skipLibCheck":  true
                         },
     "include":  [
-                    "base/opencode/skills/shared-task/scripts/**/*.ts"
+                    "base/opencode/skills/shared-task/scripts/**/*.ts",
+                    "scripts/**/*.ts"
                 ]
 }
