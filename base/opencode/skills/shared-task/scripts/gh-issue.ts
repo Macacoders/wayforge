@@ -54,6 +54,8 @@ interface GitHubPR {
 }
 
 // ── Global state ────────────────────────────────────────────────────────────
+// ponytail: mutable globals + export-for-testing (rung 7); refactor to
+// ponytail: main(argv, opts?) on next change to eliminate mock harness overhead
 
 let jsonMode = false;
 let dryRun = false;

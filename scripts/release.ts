@@ -3,20 +3,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// ── Global state ─────────────────────────────────────────────────────────────
-// Mutable via exports for testing; rootDir defaults to cwd because the script
-// is expected to run from the repo root.
-
-let dryRun = false;
-let rootDir: string = process.cwd();
-
-export function resetState(): void {
-  dryRun = false;
-  rootDir = process.cwd();
-}
-
-export function _setDryRun(v: boolean): void { dryRun = v; }
-export function _setRootDir(d: string): void { rootDir = d; }
+// ── State ──────────────────────────────────────────────────────────────────
+// State is local inside main(). No module-level mutable globals.
 
 // ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -39,12 +27,6 @@ const SEMVER_RE = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/;
 
 export function validateSemVer(version: string): boolean {
   return SEMVER_RE.test(version);
-}
-
-// ── Date helper ──────────────────────────────────────────────────────────────
-
-export function formatDate(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 // ── CHANGELOG helpers ────────────────────────────────────────────────────────
@@ -93,37 +75,14 @@ export function updateChangelogContent(
   return updated;
 }
 
-// ── Git helpers ──────────────────────────────────────────────────────────────
-
-function getGitStatus(): string {
-  return execFileSync('git', ['status', '--porcelain'], {
-    cwd: rootDir,
-    encoding: 'utf8',
-    timeout: 10000,
-  }).trim();
-}
-
-function getCurrentBranch(): string {
-  return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-    cwd: rootDir,
-    encoding: 'utf8',
-    timeout: 10000,
-  }).trim();
-}
-
-function createTag(version: string): void {
-  execFileSync('git', ['tag', '-a', `v${version}`, '-m', `Release v${version}`], {
-    cwd: rootDir,
-    encoding: 'utf8',
-    timeout: 10000,
-  });
-}
-
 // ── Main pipeline ────────────────────────────────────────────────────────────
 
-export function main(): void {
+export function main(argv = process.argv.slice(2), opts?: { dryRun?: boolean; rootDir?: string }): void {
+  let dryRun = opts?.dryRun ?? false;
+  const rootDir = opts?.rootDir ?? process.cwd();
+
   try {
-    const args = process.argv.slice(2);
+    const args = argv;
 
     if (args.length === 0) {
       printUsage();
@@ -186,7 +145,11 @@ export function main(): void {
     console.error('');
 
     // 1. Verify clean working tree
-    const status = getGitStatus();
+    const status = execFileSync('git', ['status', '--porcelain'], {
+      cwd: rootDir,
+      encoding: 'utf8',
+      timeout: 10000,
+    }).trim();
     if (status.length > 0) {
       console.error('error: working tree is not clean. Commit or stash changes first.');
       process.exitCode = 1;
@@ -194,7 +157,11 @@ export function main(): void {
     }
 
     // 2. Verify we're on develop
-    const branch = getCurrentBranch();
+    const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: rootDir,
+      encoding: 'utf8',
+      timeout: 10000,
+    }).trim();
     if (branch !== 'develop') {
       console.error(
         `error: must be on 'develop' branch (currently on '${branch}')`,
@@ -215,10 +182,10 @@ export function main(): void {
     // 4. Update CHANGELOG.md
     const changelogPath = path.join(rootDir, 'CHANGELOG.md');
     if (dryRun) {
-      console.error('  [dry-run] would add entry to CHANGELOG.md:\n    ' + buildNewEntry(newVersion, formatDate()).split('\n').join('\n    '));
+      console.error('  [dry-run] would add entry to CHANGELOG.md:\n    ' + buildNewEntry(newVersion, new Date().toISOString().slice(0, 10)).split('\n').join('\n    '));
     } else {
       const content = readFileSync(changelogPath, 'utf8');
-      const date = formatDate();
+      const date = new Date().toISOString().slice(0, 10);
       const updated = updateChangelogContent(content, newVersion, currentVersion, date);
       writeFileSync(changelogPath, updated, 'utf8');
       console.error('  updated: CHANGELOG.md');
@@ -230,7 +197,11 @@ export function main(): void {
     if (dryRun) {
       console.error('  [dry-run] would create tag');
     } else {
-      createTag(newVersion);
+      execFileSync('git', ['tag', '-a', `v${newVersion}`, '-m', `Release v${newVersion}`], {
+        cwd: rootDir,
+        encoding: 'utf8',
+        timeout: 10000,
+      });
       console.error(`  created tag: v${newVersion}`);
     }
 
