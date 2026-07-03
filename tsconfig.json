@@ -16,6 +16,7 @@
                         },
     "include":  [
                     "base/opencode/skills/shared-task/scripts/**/*.ts",
+                    "base/opencode/skills/ai-memory/scripts/**/*.ts",
                     "scripts/**/*.ts"
                 ]
 }
