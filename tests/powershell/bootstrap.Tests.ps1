@@ -1,6 +1,7 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }
 
 # Inline copy of Test-TempPath from install/bootstrap.ps1
+# ponytail: deprecated 2026-07 — PowerShell scripts being migrated to TypeScript; debt will vanish with migration
 # ponytail:rung2 Duplicates bootstrap.ps1; extract to shared helper if a third consumer appears
 function Test-TempPath {
     param([string]$Path)
@@ -76,6 +77,7 @@ Describe 'bootstrap.ps1 CLI --help' {
 
 Describe 'bootstrap.ps1 tracking integration' {
     BeforeAll {
+        # ponytail: deprecated 2026-07 — PowerShell scripts being migrated to TypeScript; debt will vanish with migration
         # ponytail:rung7 Full install copy is heavy for testing only tracking behavior.
         # Simplify by dot-sourcing bootstrap.ps1 with REPO_PATH preset if a refactor opportunity arises.
         $script:testTempRoot = Join-Path $env:TEMP "ai-config-test-$(Get-Random)"
