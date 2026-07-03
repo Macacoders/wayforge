@@ -151,6 +151,7 @@ export function removeTrackingEntry(
   ctx.log(`removed tracking entry: ${canonical}`);
 }
 
+// ponytail: /proc fallback is never needed in practice — WSL_DISTRO_NAME alone suffices; simplify to one-liner
 function isWsl(): boolean {
   if (process.env.WSL_DISTRO_NAME) {
     return true;
@@ -162,6 +163,7 @@ function isWsl(): boolean {
     return false;
   }
 }
+// ponytail: replace manual TZ offset arithmetic with Intl.DateTimeFormat (stdlib, rung 3)
 function formatBerlinTimestamp(date: Date): string {
   const berlinStr = date.toLocaleString("en-US", { timeZone: "Europe/Berlin" });
   const berlin = new Date(berlinStr);
