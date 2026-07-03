@@ -26,6 +26,7 @@ Adopt TypeScript as the main language for OpenCode skill scripts across the repo
 - Bash/PowerShell-only environments without Node.js cannot run TypeScript scripts — but such environments cannot run OpenCode either, making this acceptable
 - Existing Bash/PowerShell scripts in the repo (installer, QA) remain unchanged — this ADR covers skill scripts only
 - Future skill development benefits from shared TypeScript utilities and type safety
+- **2026-07-03 update**: Both `gh-issue.ts` and `ai-memory.ts` establish a convention of an inline one-liner `git` wrapper (`const git = (args, cwd?, t?) => execFileSync('git', args, {encoding:'utf8', cwd, timeout: t}).trim()`) rather than importing from `scripts/lib/git.ts`. A shared skill-script utility library is deferred via `ponytail:` comments for future extraction when more than two skill scripts share a pattern.
 
 ## Alternatives Considered
 

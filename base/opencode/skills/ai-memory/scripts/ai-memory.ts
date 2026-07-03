@@ -14,20 +14,16 @@ interface DirEntry {
   isDir: boolean;
 }
 
+interface DocEntry {
+  file: string;
+  label: string;
+  extra?: string;
+}
+
 // ── Global state ────────────────────────────────────────────────────────────
 
 let jsonMode = false;
 let dryRun = false;
-
-/** Reset all global state to defaults — used in tests. */
-function resetState(): void {
-  jsonMode = false;
-  dryRun = false;
-}
-/** @internal Setter for tests */
-function _setJsonMode(v: boolean): void { jsonMode = v; }
-/** @internal Setter for tests */
-function _setDryRun(v: boolean): void { dryRun = v; }
 
 // ── Usage ───────────────────────────────────────────────────────────────────
 
@@ -75,32 +71,14 @@ function readFirstLines(filePath: string, count: number): string[] {
   }
 }
 
-function countLines(filePath: string): number {
-  try {
-    const content = readFileSync(filePath, 'utf8');
-    return content.split('\n').length;
-  } catch {
-    return 0;
-  }
-}
-
-/** Check if git is available and we're inside a repo */
-function tryGit(args: string[]): string | null {
-  try {
-    return execFileSync('git', args, {
-      encoding: 'utf8',
-      timeout: 5000,
-      cwd: process.cwd(),
-    }).trim();
-  } catch {
-    return null;
-  }
-}
+// ponytail: inline git wrapper matches gh-issue.ts pattern;
+// extract to shared scripts/lib/git.ts when skill scripts get a shared lib
+const git = (args: string[], cwd?: string, t?: number): string =>
+  execFileSync('git', args, { encoding: 'utf8', cwd, timeout: t }).trim();
 
 function workingTreeIsClean(): boolean | null {
-  const status = tryGit(['status', '--porcelain']);
-  if (status === null) return null; // git not available or not a repo
-  return status.length === 0;
+  try { return git(['status', '--porcelain'], process.cwd(), 5000).length === 0; }
+  catch { return null; }
 }
 
 /** Read the first 20 lines of a plan file and extract title + status. */
@@ -115,6 +93,84 @@ function parsePlanFile(filePath: string): { title: string; status: string } {
     if (statusMatch && !status) status = statusMatch[1].trim();
   }
   return { title, status };
+}
+
+const adrFileFilter = (e: DirEntry): boolean =>
+  !e.isDir && e.name.startsWith('ADR-') && e.name.endsWith('.md');
+
+async function listDocs(opts: {
+  dirName: string;
+  entityName: string;
+  jsonKey: string;
+  fileFilter: (e: DirEntry) => boolean;
+  parseFn: (filePath: string) => { label: string; extra?: string };
+  textFormatter: (d: DocEntry) => string;
+  jsonFormatter: (d: DocEntry) => unknown;
+}): Promise<DocEntry[]> {
+  const dir = path.join(docsAiDir(), opts.dirName);
+
+  if (!existsSync(dir)) {
+    if (jsonMode) {
+      outputJson({ [opts.jsonKey]: [] });
+    } else {
+      process.stdout.write(`docs/ai/${opts.dirName}/ does not exist\n`);
+    }
+    return [];
+  }
+
+  const entries = listDir(dir)
+    .filter(opts.fileFilter)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const docs: DocEntry[] = entries.map((e) => {
+    const parsed = opts.parseFn(path.join(dir, e.name));
+    return { file: e.name, label: parsed.label, extra: parsed.extra };
+  });
+
+  if (jsonMode) {
+    outputJson({ [opts.jsonKey]: docs.map(opts.jsonFormatter) });
+    return docs;
+  }
+
+  if (docs.length === 0) {
+    process.stdout.write(`No ${opts.entityName} files found in docs/ai/${opts.dirName}/\n`);
+    return docs;
+  }
+
+  for (const d of docs) {
+    process.stdout.write(opts.textFormatter(d));
+  }
+  return docs;
+}
+
+// ponytail: closeCheck now composes from shared helpers;
+// could further extract to pure data-return functions for cleaner composition
+function getActivePlans(): { file: string; status: string; isActive: boolean }[] {
+  const plansDir = path.join(docsAiDir(), 'plans');
+  if (!existsSync(plansDir)) return [];
+
+  const planFiles = listDir(plansDir)
+    .filter((e) => !e.isDir && e.name.endsWith('.md'))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return planFiles.map((entry) => {
+    const filePath = path.join(plansDir, entry.name);
+    const { title, status } = parsePlanFile(filePath);
+    const isActive = !/completed|cancelled|done/i.test(status);
+    return { file: entry.name, status, isActive };
+  });
+}
+
+function getArchitectureInfo(): { exists: boolean; lines: number } {
+  const archPath = path.join(docsAiDir(), 'architecture.md');
+  if (!existsSync(archPath)) return { exists: false, lines: 0 };
+  return { exists: true, lines: readFirstLines(archPath, Number.MAX_SAFE_INTEGER).length };
+}
+
+function countAdrs(): number {
+  const decisionsDir = path.join(docsAiDir(), 'decisions');
+  if (!existsSync(decisionsDir)) return 0;
+  return listDir(decisionsDir).filter(adrFileFilter).length;
 }
 
 // ── Template constants (embedded for init) ────────────────────────────────
@@ -217,149 +273,101 @@ async function cmdStatus(): Promise<void> {
     return;
   }
 
-  // Read specific files
-  const readmePath = path.join(dir, 'README.md');
-  const archPath = path.join(dir, 'architecture.md');
-  const backlogPath = path.join(dir, 'backlog', 'README.md');
-  const decisionsPath = path.join(dir, 'decisions');
-  const plansPath = path.join(dir, 'plans');
-  const logsPath = path.join(dir, 'logs');
+  const items = [
+    { key: 'readme', label: 'README.md', path: path.join(dir, 'README.md'), type: 'file' as const },
+    { key: 'architecture', label: 'architecture.md', path: path.join(dir, 'architecture.md'), type: 'file' as const },
+    { key: 'backlog', label: 'backlog/README.md', path: path.join(dir, 'backlog', 'README.md'), type: 'file' as const },
+    { key: 'decisions', label: 'decisions/', path: path.join(dir, 'decisions'), type: 'dir' as const },
+    { key: 'plans', label: 'plans/', path: path.join(dir, 'plans'), type: 'dir' as const },
+    { key: 'logs', label: 'logs/', path: path.join(dir, 'logs'), type: 'dir' as const },
+  ];
 
-  const readmeLines = existsSync(readmePath) ? countLines(readmePath) : 0;
-  const archLines = existsSync(archPath) ? countLines(archPath) : 0;
-  const backlogLines = existsSync(backlogPath) ? countLines(backlogPath) : 0;
-  const decisionCount = existsSync(decisionsPath) ? listDir(decisionsPath).length : 0;
-  const planCount = existsSync(plansPath) ? listDir(plansPath).length : 0;
-  const logCount = existsSync(logsPath) ? listDir(logsPath).length : 0;
+  const values = new Map<string, number>();
+  for (const item of items) {
+    if (!existsSync(item.path)) {
+      values.set(item.key, 0);
+    } else if (item.type === 'file') {
+      values.set(item.key, readFirstLines(item.path, Number.MAX_SAFE_INTEGER).length);
+    } else {
+      values.set(item.key, listDir(item.path).length);
+    }
+  }
 
   if (jsonMode) {
     outputJson({
       exists: true,
       files: {
-        readme: { exists: readmeLines > 0, lines: readmeLines },
-        architecture: { exists: archLines > 0, lines: archLines },
-        backlog: { exists: backlogLines > 0, lines: backlogLines },
-        decisions: { exists: decisionCount > 0 || existsSync(decisionsPath), count: decisionCount },
-        plans: { exists: planCount > 0 || existsSync(plansPath), count: planCount },
-        logs: { exists: logCount > 0 || existsSync(logsPath), count: logCount },
+        readme: { exists: (values.get('readme') ?? 0) > 0, lines: values.get('readme') ?? 0 },
+        architecture: { exists: (values.get('architecture') ?? 0) > 0, lines: values.get('architecture') ?? 0 },
+        backlog: { exists: (values.get('backlog') ?? 0) > 0, lines: values.get('backlog') ?? 0 },
+        decisions: { exists: (values.get('decisions') ?? 0) > 0 || existsSync(path.join(dir, 'decisions')), count: values.get('decisions') ?? 0 },
+        plans: { exists: (values.get('plans') ?? 0) > 0 || existsSync(path.join(dir, 'plans')), count: values.get('plans') ?? 0 },
+        logs: { exists: (values.get('logs') ?? 0) > 0 || existsSync(path.join(dir, 'logs')), count: values.get('logs') ?? 0 },
       },
     });
     return;
   }
 
   process.stdout.write('docs/ai/ exists\n');
-  if (readmeLines > 0) process.stdout.write(`  README.md: ${readmeLines} lines\n`);
-  else process.stdout.write('  README.md: missing\n');
-
-  if (archLines > 0) process.stdout.write(`  architecture.md: ${archLines} lines\n`);
-  else process.stdout.write('  architecture.md: missing\n');
-
-  if (backlogLines > 0) process.stdout.write(`  backlog/README.md: ${backlogLines} lines\n`);
-  else process.stdout.write('  backlog/README.md: missing\n');
-
-  process.stdout.write(`  decisions/: ${decisionCount} ADRs\n`);
-  process.stdout.write(`  plans/: ${planCount} plans\n`);
-  process.stdout.write(`  logs/: ${logCount} monthly logs\n`);
+  for (const item of items) {
+    const value = values.get(item.key) ?? 0;
+    if (item.type === 'file') {
+      process.stdout.write(value > 0 ? `  ${item.label}: ${value} lines\n` : `  ${item.label}: missing\n`);
+    } else {
+      const noun = item.key === 'decisions' ? 'ADRs' : item.key === 'plans' ? 'plans' : 'monthly logs';
+      process.stdout.write(`  ${item.label}: ${value} ${noun}\n`);
+    }
+  }
 }
 
 async function cmdListPlans(): Promise<void> {
-  const plansDir = path.join(docsAiDir(), 'plans');
-
-  if (!existsSync(plansDir)) {
-    if (jsonMode) {
-      outputJson({ plans: [] });
-    } else {
-      process.stdout.write('docs/ai/plans/ does not exist\n');
-    }
-    return;
-  }
-
-  const entries = listDir(plansDir);
-  const planFiles = entries
-    .filter((e) => !e.isDir && e.name.endsWith('.md'))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  const result: Array<{ file: string; title: string; status: string }> = [];
-
-  for (const entry of planFiles) {
-    const filePath = path.join(plansDir, entry.name);
-    const { title, status } = parsePlanFile(filePath);
-    result.push({ file: entry.name, title, status });
-  }
-
-  if (jsonMode) {
-    outputJson({ plans: result });
-    return;
-  }
-
-  if (result.length === 0) {
-    process.stdout.write('No plan files found in docs/ai/plans/\n');
-    return;
-  }
-
-  for (const p of result) {
-    process.stdout.write(`${p.file}\n`);
-    if (p.title) process.stdout.write(`  Title: ${p.title}\n`);
-    if (p.status) process.stdout.write(`  Status: ${p.status}\n`);
-    if (!p.title && !p.status) process.stdout.write('  (no heading or status found)\n');
-  }
+  await listDocs({
+    dirName: 'plans',
+    entityName: 'plan',
+    jsonKey: 'plans',
+    fileFilter: (e) => !e.isDir && e.name.endsWith('.md'),
+    parseFn: (filePath) => {
+      const { title, status } = parsePlanFile(filePath);
+      return { label: title, extra: status };
+    },
+    jsonFormatter: (d) => ({ file: d.file, title: d.label, status: d.extra ?? '' }),
+    textFormatter: (d) => {
+      let out = `${d.file}\n`;
+      if (d.label) out += `  Title: ${d.label}\n`;
+      if (d.extra) out += `  Status: ${d.extra}\n`;
+      if (!d.label && !d.extra) out += `  (no heading or status found)\n`;
+      return out;
+    },
+  });
 }
 
 async function cmdListAdrs(): Promise<void> {
-  const decisionsDir = path.join(docsAiDir(), 'decisions');
-
-  if (!existsSync(decisionsDir)) {
-    if (jsonMode) {
-      outputJson({ adrs: [] });
-    } else {
-      process.stdout.write('docs/ai/decisions/ does not exist\n');
-    }
-    return;
-  }
-
-  const entries = listDir(decisionsDir);
-  const adrFiles = entries
-    .filter((e) => !e.isDir && e.name.startsWith('ADR-') && e.name.endsWith('.md'))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  const result: Array<{ file: string; number: string; title: string }> = [];
-
-  for (const entry of adrFiles) {
-    const filePath = path.join(decisionsDir, entry.name);
-    const lines = readFirstLines(filePath, 5);
-
-    let number = '';
-    let title = '';
-
-    for (const line of lines) {
-      const match = /^#\s+(ADR-\d+):\s*(.+)/.exec(line);
-      if (match) {
-        number = match[1];
-        title = match[2].trim();
-        break;
+  await listDocs({
+    dirName: 'decisions',
+    entityName: 'ADR',
+    jsonKey: 'adrs',
+    fileFilter: adrFileFilter,
+    parseFn: (filePath) => {
+      const lines = readFirstLines(filePath, 5);
+      for (const line of lines) {
+        const match = /^#\s+(ADR-\d+):\s*(.+)/.exec(line);
+        if (match) {
+          return { label: `${match[1]}: ${match[2].trim()}` };
+        }
       }
-    }
-
-    result.push({ file: entry.name, number, title });
-  }
-
-  if (jsonMode) {
-    outputJson({ adrs: result });
-    return;
-  }
-
-  if (result.length === 0) {
-    process.stdout.write('No ADR files found in docs/ai/decisions/\n');
-    return;
-  }
-
-  for (const a of result) {
-    if (a.number && a.title) {
-      process.stdout.write(`${a.number}: ${a.title}\n`);
-    } else {
-      process.stdout.write(`${a.file}: (unparsable heading)\n`);
-    }
-  }
+      return { label: '' };
+    },
+    jsonFormatter: (d) => {
+      if (!d.label) return { file: d.file, number: '', title: '' };
+      const match = /^(ADR-\d+):\s*(.+)$/.exec(d.label);
+      if (match) {
+        return { file: d.file, number: match[1], title: match[2].trim() };
+      }
+      return { file: d.file, number: '', title: d.label };
+    },
+    textFormatter: (d) =>
+      d.label ? `${d.label}\n` : `${d.file}: (unparsable heading)\n`,
+  });
 }
 
 async function cmdCloseCheck(): Promise<void> {
@@ -367,29 +375,10 @@ async function cmdCloseCheck(): Promise<void> {
   const aiExists = existsSync(dir);
 
   // Plan candidates: plans not marked as completed
-  let activePlanCount = 0;
-  let activePlanDetails: string[] = [];
-
-  if (aiExists) {
-    const plansDir = path.join(dir, 'plans');
-    if (existsSync(plansDir)) {
-      const entries = listDir(plansDir);
-      const planFiles = entries
-        .filter((e) => !e.isDir && e.name.endsWith('.md'))
-        .sort((a, b) => a.name.localeCompare(b.name));
-
-      for (const entry of planFiles) {
-        const filePath = path.join(plansDir, entry.name);
-        const { title, status } = parsePlanFile(filePath);
-        // Consider anything without "Completed" / "Cancelled" / "Done" as active
-        const isActive = !/completed|cancelled|done/i.test(status);
-        if (isActive) {
-          activePlanCount++;
-          activePlanDetails.push(`${entry.name} — ${status || '(no status)'}`);
-        }
-      }
-    }
-  }
+  const plans = aiExists ? getActivePlans() : [];
+  const activePlans = plans.filter((p) => p.isActive);
+  const activePlanCount = activePlans.length;
+  const activePlanDetails = activePlans.map((p) => `${p.file} — ${p.status || '(no status)'}`);
 
   // Monthly log: check current month and recent months
   const now = new Date();
@@ -407,24 +396,12 @@ async function cmdCloseCheck(): Promise<void> {
   }
 
   // Architecture presence
-  let archExists = false;
-  let archLines = 0;
-  if (aiExists) {
-    const archPath = path.join(dir, 'architecture.md');
-    if (existsSync(archPath)) {
-      archExists = true;
-      archLines = countLines(archPath);
-    }
-  }
+  const { exists: archExists, lines: archLines } = aiExists
+    ? getArchitectureInfo()
+    : { exists: false, lines: 0 };
 
   // ADR count
-  let adrCount = 0;
-  if (aiExists) {
-    const decisionsDir = path.join(dir, 'decisions');
-    if (existsSync(decisionsDir)) {
-      adrCount = listDir(decisionsDir).filter((e) => !e.isDir && e.name.startsWith('ADR-') && e.name.endsWith('.md')).length;
-    }
-  }
+  const adrCount = aiExists ? countAdrs() : 0;
 
   // Worktree state
   const isClean = workingTreeIsClean();
@@ -620,25 +597,19 @@ async function main(): Promise<void> {
 
 export {
   cmdCloseCheck, cmdInit, cmdListAdrs, cmdListPlans, cmdStatus,
-  countLines, getSkeleton, listDir, main, outputJson,
-  printUsage, readFirstLines, resetState, _setDryRun, _setJsonMode, tryGit, workingTreeIsClean,
+  getSkeleton, listDir, main, outputJson,
+  printUsage, readFirstLines, workingTreeIsClean,
 };
 
 // ── Main entry guard ────────────────────────────────────────────────────────
 
 const __filename = fileURLToPath(import.meta.url);
-if (
-  __filename === process.argv[1] ||
-  process.argv.slice(1).some((arg) => arg === __filename || arg.endsWith(path.basename(__filename)))
-) {
-  main().then(
-    () => {
-      process.exitCode = 0;
-    },
-    (err: unknown) => {
-      const message = err instanceof Error ? err.message : String(err);
-      if (message) console.error(message);
-      process.exitCode = 1;
-    },
-  );
+const argv1 = process.argv[1] ?? '';
+const argv2 = process.argv[2] ?? '';
+const base = path.basename(__filename);
+if (argv1.endsWith(base) || argv2.endsWith(base)) {
+  main().catch((err) => {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  });
 }
