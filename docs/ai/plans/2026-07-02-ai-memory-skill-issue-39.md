@@ -78,5 +78,5 @@ Create an `ai-memory` OpenCode skill with a deterministic TypeScript helper scri
 
 ## Decisions To Record
 
-- ADR: Adopt TypeScript as the main language for OpenCode skill scripts across the repository (matching the existing `shared-task` pattern) — standardizing on TypeScript for all scriptable skill operations, phasing out Bash/PowerShell script pairs unless explicitly justified
+- ADR: Broadened ADR-0017 to cover TypeScript as the main language for all tooling and skill scripts, absorbing the release migration and skill-script policy into a single consolidated decision
 - ADR: Separate `ai-memory` (deterministic script operations) from `memory-maintenance` (routing/freshness judgment)
