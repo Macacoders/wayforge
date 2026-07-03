@@ -149,7 +149,7 @@ Use `/issue` for shared issue operations (`list`, `claim`, `assign`, `release`, 
 
 ## Memory Duties
 
-- Use `/memory` intents (`find`, `check`, `update`) or `memory-maintenance` for low-token memory lookup, freshness checks, and durable updates.
+- Use `/memory` intents (`find`, `check`, `update`), `memory-maintenance` for low-token memory lookup/freshness/updates, or `ai-memory` for deterministic bookkeeping (status, list-plans, list-adrs, close-check, init).
 - Treat `docs/ai/README.md` as the memory router and load only routed, task-relevant files.
 - Do not load broad memory surfaces by default (for example, never load all `docs/ai/**`).
 - Create or update approved plans in `docs/ai/plans/` when durable tracking is useful.
@@ -162,7 +162,7 @@ Use `/issue` for shared issue operations (`list`, `claim`, `assign`, `release`, 
 
 Run this concise check during phase review and close:
 
-1. Run `/memory check` or `memory-maintenance` freshness check first.
+1. Run `/memory check`, `memory-maintenance` freshness check, or `ai-memory close-check` first.
 2. Plan status current in `docs/ai/plans/` for active work.
 3. `architecture.md` updated only if boundaries/invariants changed.
 4. ADR added/updated only for durable decisions.

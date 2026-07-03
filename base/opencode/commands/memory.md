@@ -9,7 +9,7 @@ $ARGUMENTS
 
 First establish the active repository root. Keep memory reads/writes inside that root unless the user explicitly approves an external path.
 
-Load and follow the `memory-maintenance` skill before routing or persisting updates.
+Load and follow the `memory-maintenance` skill before routing or persisting updates. For deterministic bookkeeping (status, listings, close-check, init scaffold), use the companion `ai-memory` skill instead.
 
 Supported intents:
 

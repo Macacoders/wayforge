@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # qa/check-tests
+# ponytail: pure forwarding script — inline into Makefile and delete (rung 2)
 set -euo pipefail
 
 echo "==> Bash tests"

@@ -161,7 +161,7 @@ export async function openBrowser(url: string): Promise<void> {
   }
 }
 
-// ponytail:debt Extract to reusable coerceExpiry helper to deduplicate expires_in/refresh_token_expires_in handling
+// ponytail: resolved 2026-07 — coerceExpiry helper extracted; two call sites deduplicated
 function coerceExpiry(
   value: unknown,
   fieldName: string,
