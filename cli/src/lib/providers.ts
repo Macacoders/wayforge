@@ -117,3 +117,51 @@ export function resolveDefaultModels(
     smallModel: "openai/gpt-5.4-mini",
   };
 }
+
+// ponytail: extracted from interactive.ts; eliminates 56-line duplicate of model mapping (rung 2)
+/** Model names for the "faster responses" preset, keyed by provider. */
+export const FAST_MODELS: Record<Provider, { model: string; smallModel: string }> = {
+  openai: { model: "openai/gpt-5.4-mini", smallModel: "openai/gpt-5.4-mini" },
+  "github-copilot": {
+    model: "github-copilot/gpt-5.3-codex",
+    smallModel: "github-copilot/gemini-3.5-flash",
+  },
+  "opencode-go": {
+    model: "opencode-go/deepseek-v4-flash",
+    smallModel: "opencode-go/deepseek-v4-flash",
+  },
+  laberit: {
+    model: "laberit/laberit-ai",
+    smallModel: "laberit/laberit-ai",
+  },
+  "free-tier": { model: "", smallModel: "" },
+};
+
+const FAST_MODEL_PRIORITY: Provider[] = [
+  "openai",
+  "github-copilot",
+  "opencode-go",
+  "laberit",
+];
+const FAST_SMALL_MODEL_PRIORITY: Provider[] = [
+  "github-copilot",
+  "openai",
+  "opencode-go",
+  "laberit",
+];
+
+// ponytail: rung 2 — shared with interactive.ts; prevents model-name duplication across 2 files
+export function resolveFastModels(
+  selected: Provider[],
+): { model?: string; smallModel?: string } {
+  const modelProvider = FAST_MODEL_PRIORITY.find((p) => selected.includes(p));
+  const smallProvider = FAST_SMALL_MODEL_PRIORITY.find((p) =>
+    selected.includes(p),
+  );
+  return {
+    model: modelProvider ? FAST_MODELS[modelProvider].model : undefined,
+    smallModel: smallProvider
+      ? FAST_MODELS[smallProvider].smallModel
+      : undefined,
+  };
+}

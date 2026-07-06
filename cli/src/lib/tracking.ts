@@ -151,37 +151,32 @@ export function removeTrackingEntry(
   ctx.log(`removed tracking entry: ${canonical}`);
 }
 
-// ponytail: /proc fallback is never needed in practice — WSL_DISTRO_NAME alone suffices; simplify to one-liner
 function isWsl(): boolean {
-  if (process.env.WSL_DISTRO_NAME) {
-    return true;
-  }
-  try {
-    fs.accessSync("/proc/sys/fs/binfmt_misc/WSLInterop", fs.constants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
+  // ponytail: resolved rung 6 — /proc fallback never needed in practice; WSL_DISTRO_NAME alone suffices
+  return !!process.env.WSL_DISTRO_NAME;
 }
-// ponytail: replace manual TZ offset arithmetic with Intl.DateTimeFormat (stdlib, rung 3)
 function formatBerlinTimestamp(date: Date): string {
-  const berlinStr = date.toLocaleString("en-US", { timeZone: "Europe/Berlin" });
-  const berlin = new Date(berlinStr);
-  const utcStr = date.toLocaleString("en-US", { timeZone: "UTC" });
-  const utc = new Date(utcStr);
-  const pad = (n: number) => String(n).padStart(2, "0");
+  // ponytail: resolved rung 3 — Intl.DateTimeFormat replaces manual TZ offset arithmetic
+  const fmt = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const base = fmt.format(date).replace(" ", "T");
 
-  const y = berlin.getFullYear();
-  const mo = pad(berlin.getMonth() + 1);
-  const d = pad(berlin.getDate());
-  const h = pad(berlin.getHours());
-  const mi = pad(berlin.getMinutes());
-  const s = pad(berlin.getSeconds());
+  const offsetFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Berlin",
+    timeZoneName: "longOffset",
+  });
+  const offset = offsetFmt
+    .formatToParts(date)
+    .find((p) => p.type === "timeZoneName")!
+    .value.slice(3); // strip "GMT" prefix, leaving "+02:00"
 
-  const offsetMs = berlin.getTime() - utc.getTime();
-  const offsetH = Math.floor(Math.abs(offsetMs) / 36e5);
-  const offsetM = Math.floor((Math.abs(offsetMs) % 36e5) / 6e4);
-  const sign = offsetMs >= 0 ? "+" : "-";
-
-  return `${y}-${mo}-${d}T${h}:${mi}:${s}${sign}${pad(offsetH)}:${pad(offsetM)}`;
+  return `${base}${offset}`;
 }

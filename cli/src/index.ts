@@ -11,7 +11,7 @@ const program = new Command("ai-config");
 program
   .name("ai-config")
   .description("Cross-platform CLI installer for ai-config")
-  .version("0.1.0", "-v, --version");
+  .version(process.env.AI_CONFIG_VERSION || "0.1.0", "-v, --version");
 
 program
   .command("install")

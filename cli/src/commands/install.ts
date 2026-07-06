@@ -31,7 +31,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
   doInstall(options);
 }
 
-function doInstall(options: InstallOptions): void {
+export function doInstall(options: InstallOptions): void {
   const ctx = new ManifestContext(options.dryRun, options.force, options.noTrack);
   const repo = options.repo;
 
