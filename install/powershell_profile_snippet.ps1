@@ -1,6 +1,9 @@
 # Source this file from your PowerShell profile to expose ai-config helper functions.
 # Add this line to your profile (run `notepad $PROFILE` to edit):
 # . "C:\path\to\ai-config\install\powershell_profile_snippet.ps1"
+# Note: these functions delegate to install/bootstrap.ps1 (deprecated) and
+# install/uninstall.ps1 (deprecated). Consider using the TypeScript CLI directly:
+#   npx tsx cli/src/index.ts install --repo <path> --providers <list>
 
 function Get-AIConfigRoot {
     <#

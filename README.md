@@ -182,6 +182,36 @@ Shared issue tooling boundary: `gh-issue.ts` is the single helper wrapper for Gi
 
 Do not store full chat transcripts, long terminal output, raw diffs, or trivial implementation notes.
 
+## CLI Installer (TypeScript)
+
+The recommended way to install ai-config is via the TypeScript CLI, which replaces the legacy dual-platform shell installers with a single cross-platform tool.
+
+### Quick install
+
+```bash
+npx tsx cli/src/index.ts install --repo /path/to/your-project --providers openai
+```
+
+The `install/bootstrap.sh` entrypoint is a thin wrapper that auto-downloads a pre-built standalone binary (no Node.js required) or falls back to `npx tsx` if Node.js is available:
+
+```bash
+./install/bootstrap.sh --repo /path/to/your-project --providers openai
+```
+
+### CLI commands
+
+| Command | Purpose |
+|---|---|
+| `npx tsx cli/src/index.ts install` | Install ai-config into a target repository |
+| `npx tsx cli/src/index.ts uninstall` | Remove ai-config managed files |
+| `npx tsx cli/src/index.ts interactive` | Guided interactive installer |
+
+All flags from the legacy shell installers are supported, plus `--gh-app-client-id` and `--no-track`.
+
+### Binary download (no Node.js required)
+
+Run `make cli-binary` to compile a standalone binary for your platform. The thin `install/bootstrap.sh` wrapper uses a 4-tier fallback chain: local binary → cached release → GitHub download → `npx tsx`.
+
 ## Installation Model
 
 This repository keeps reusable OpenCode sources under `base/opencode/**` and generates project-local runtime configuration in each consuming repository.

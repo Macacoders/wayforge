@@ -4,6 +4,11 @@
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', 'SYNC_MANAGED_TREE_LAST_ACTION', Justification = 'Consumed and updated by the dot-sourced install/lib/managed_sync.ps1 helpers.')]
 param()
 
+# DEPRECATED — use the TypeScript CLI instead:
+#   npx tsx cli/src/index.ts install --repo <path> --providers <list>
+# The thin ./install/bootstrap.sh entrypoint on Linux/macOS provides the same
+# zero-dependency experience with binary auto-download.
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 

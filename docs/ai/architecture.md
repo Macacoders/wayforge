@@ -20,6 +20,17 @@ This repository provides reusable OpenCode source configuration and installs gen
 
 ## Installed Surface
 
+### Installer (CLI)
+
+The installer has been migrated from dual-platform shell scripts to a single TypeScript CLI under `cli/src/`.
+
+- **Framework**: TypeScript + Commander for argument parsing
+- **Source**: `cli/src/index.ts` (entrypoint), `cli/src/commands/` (install, uninstall, interactive), `cli/src/lib/` (shared libraries)
+- **Binary compilation**: `make cli-binary` produces a standalone executable via `bun build --compile` (~100MB)
+- **Shell entrypoint**: `install/bootstrap.sh` is an 80-line thin wrapper with 4-tier fallback: local binary → cached release → GitHub download → `npx tsx` → clear error
+- **Legacy reference**: `install/bootstrap-legacy.sh` preserves the original 847-line bash installer for comparison and fallback
+- **Release workflow**: `.github/workflows/release.yml` builds binaries for linux-x64, linux-arm64, darwin-x64, darwin-arm64
+
 Reusable versioned source lives in this repository under `base/opencode/**`.
 
 Agent permissions are centrally maintained in `base/opencode/permissions/agents.yml`. The installer renders those permissions into generated target `.opencode/agents/*.md` frontmatter because OpenCode consumes native agent metadata and does not natively import shared permission fragments from secondary files.

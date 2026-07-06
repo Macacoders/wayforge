@@ -1,4 +1,4 @@
-.PHONY: install-deps check check-bash check-powershell check-tests check-ts check-bats check-pester coverage check-duplication fix-bash cli-binary
+.PHONY: install-deps check check-bash check-powershell check-tests check-ts check-node check-integration check-bats check-pester coverage check-duplication fix-bash fix-node cli-binary
 
 install-deps:
 	./qa/install-deps
@@ -24,6 +24,8 @@ cli-binary:
 check:
 	@echo "==> TypeScript tests"
 	npx vitest run
+	@echo "==> Node checks"
+	@$(MAKE) check-node
 	@echo "==> Duplication checks"
 	./qa/check-duplication
 	@echo "==> All checks passed"
@@ -44,11 +46,31 @@ check-tests:
 	./qa/check-pester
 	@echo "==> TypeScript tests"
 	npx vitest run
+	@echo "==> Integration tests"
+	@$(MAKE) check-integration
 	@echo "Tests passed."
 
-# ponytail: one-liner wrapper — inline `npx vitest run` directly (rung 6)
 check-ts:
-	./qa/check-ts
+	npx vitest run
+
+check-node:
+	@echo "==> TypeScript type check"
+	@cd cli && npx tsc --noEmit
+	@echo "==> ESLint"
+	@cd cli && npx eslint src/
+	@echo "==> Prettier"
+	@cd cli && npx prettier --check src/
+	@echo "Node checks passed."
+
+fix-node:
+	@echo "==> Auto-fixing ESLint issues"
+	@cd cli && npx eslint --fix src/
+	@echo "==> Formatting with Prettier"
+	@cd cli && npx prettier --write src/
+	@echo "Node fixes applied."
+
+check-integration:
+	cli/tests/integration/run.sh
 
 check-bats:
 	./qa/check-bats

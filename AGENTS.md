@@ -20,11 +20,13 @@ The sections below contain repository-specific guidance. `/onboard-repo` and `re
 
 ### Build/Test Commands
 
-- **Full QA**: `make check` — runs Bash lint/format (shfmt + ShellCheck), PowerShell analysis (PSScriptAnalyzer), Bats/Pester tests, and duplication checks (jscpd)
+- **Full QA**: `make check` — runs TypeScript type-check + lint + format, vitest tests, and duplication checks (jscpd)
 - **Bash only**: `make check-bash` — shfmt formatting + ShellCheck lint
 - **PowerShell only**: `make check-powershell` — PSScriptAnalyzer + Pester tests (requires `pwsh`)
-- **TypeScript type-check**: `npx --yes -p typescript -p @types/node -- tsc --noEmit` (requires `node_modules/` with `@types/node`; `strict: true` is now enabled)
-- **Tests only**: `make check-tests` — Bats for Bash (`tests/bash/*.bats`), Pester for PowerShell
+- **Node CLI lint/format/type-check**: `make check-node` — ESLint + Prettier + tsc --noEmit for `cli/src/`
+- **Node CLI auto-fix**: `make fix-node` — auto-fix ESLint + Prettier for `cli/src/`
+- **Node CLI unit tests**: `npx vitest run` (CLI and shared TypeScript tool tests)
+- **Integration tests**: `cli/tests/integration/run.sh` — compares TS CLI output to legacy bash installer
 - **Coverage**: `make coverage` (Bash + PowerShell)
 - **Duplication**: `make check-duplication` (jscpd, 8% threshold on `.sh`/`.ps1` files)
 - **Fix Bash formatting**: `make fix-bash`

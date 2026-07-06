@@ -1,51 +1,48 @@
-import fs from "fs-extra";
-import path from "path";
-import { ManifestContext, MANAGED_OPENCODE_HEADER } from "./context.js";
-import { ensureDir, rm, writeFile } from "./files.js";
-import type { Provider, Runtime } from "../types.js";
-import {
-  validateFreeTierRuntime,
-  resolveDefaultModels,
-} from "./providers.js";
+import fs from 'fs-extra'
+import path from 'path'
+import { ManifestContext, MANAGED_OPENCODE_HEADER } from './context.js'
+import { ensureDir, rm, writeFile } from './files.js'
+import type { Provider, Runtime } from '../types.js'
+import { validateFreeTierRuntime, resolveDefaultModels } from './providers.js'
 
 export interface GenerateOptions {
-  runtime: Runtime;
-  selected: Provider[];
-  modelOverride?: string;
-  smallModelOverride?: string;
-  sourceDir: string;
+  runtime: Runtime
+  selected: Provider[]
+  modelOverride?: string
+  smallModelOverride?: string
+  sourceDir: string
 }
 
 export function readFragment(sourceDir: string, subPath: string): string {
-  const file = path.join(sourceDir, "base", "opencode", "config", subPath);
+  const file = path.join(sourceDir, 'base', 'opencode', 'config', subPath)
   if (!fs.pathExistsSync(file)) {
-    console.error(`error: missing config fragment: ${file}`);
-    process.exit(1);
+    console.error(`error: missing config fragment: ${file}`)
+    process.exit(1)
   }
   // Bash $(<file) command substitution strips a single trailing newline,
   // NOT all whitespace. Preserve fragment indentation.
-  const raw = fs.readFileSync(file, "utf8");
-  return raw.endsWith("\n") ? raw.slice(0, -1) : raw;
+  const raw = fs.readFileSync(file, 'utf8')
+  return raw.endsWith('\n') ? raw.slice(0, -1) : raw
 }
 
 export function buildEnabledProvidersJson(
   selected: Provider[],
   runtime: Runtime,
 ): string {
-  const parts: string[] = [];
+  const parts: string[] = []
 
-  if (runtime === "opencode") {
-    parts.push('"opencode"');
+  if (runtime === 'opencode') {
+    parts.push('"opencode"')
   }
 
   for (const provider of selected) {
-    if (provider === "free-tier") {
-      continue;
+    if (provider === 'free-tier') {
+      continue
     }
-    parts.push(`"${provider}"`);
+    parts.push(`"${provider}"`)
   }
 
-  return parts.join(", ");
+  return parts.join(', ')
 }
 
 export function buildProviderBlockJson(
@@ -53,110 +50,113 @@ export function buildProviderBlockJson(
   runtime: Runtime,
   sourceDir: string,
 ): string {
-  const fragments: string[] = [];
+  const fragments: string[] = []
 
-  if (runtime === "opencode") {
-    fragments.push(readFragment(sourceDir, "providers/opencode-provider-block.jsonc"));
-  }
-
-  if (selected.includes("openai")) {
-    fragments.push(readFragment(sourceDir, "providers/openai-provider-block.jsonc"));
-  }
-
-  if (selected.includes("github-copilot")) {
+  if (runtime === 'opencode') {
     fragments.push(
-      readFragment(sourceDir, "providers/github-copilot-provider-block.jsonc"),
-    );
+      readFragment(sourceDir, 'providers/opencode-provider-block.jsonc'),
+    )
   }
 
-  if (selected.includes("laberit")) {
-    fragments.push(readFragment(sourceDir, "providers/laberit-provider-block.jsonc"));
-  }
-
-  if (selected.includes("opencode-go")) {
+  if (selected.includes('openai')) {
     fragments.push(
-      readFragment(sourceDir, "providers/opencode-go-provider-block.jsonc"),
-    );
+      readFragment(sourceDir, 'providers/openai-provider-block.jsonc'),
+    )
   }
 
-  return fragments.join(",\n");
+  if (selected.includes('github-copilot')) {
+    fragments.push(
+      readFragment(sourceDir, 'providers/github-copilot-provider-block.jsonc'),
+    )
+  }
+
+  if (selected.includes('laberit')) {
+    fragments.push(
+      readFragment(sourceDir, 'providers/laberit-provider-block.jsonc'),
+    )
+  }
+
+  if (selected.includes('opencode-go')) {
+    fragments.push(
+      readFragment(sourceDir, 'providers/opencode-go-provider-block.jsonc'),
+    )
+  }
+
+  return fragments.join(',\n')
 }
 
 export function buildAgentBlockJson(
   selected: Provider[],
   sourceDir: string,
 ): string {
-  if (
-    selected.includes("openai") &&
-    selected.includes("github-copilot")
-  ) {
+  if (selected.includes('openai') && selected.includes('github-copilot')) {
     return readFragment(
       sourceDir,
-      "agents/balanced-openai-github-copilot-agent-block.jsonc",
-    );
+      'agents/balanced-openai-github-copilot-agent-block.jsonc',
+    )
   }
 
-  if (selected.length === 1 && selected[0] === "github-copilot") {
+  if (selected.length === 1 && selected[0] === 'github-copilot') {
     return readFragment(
       sourceDir,
-      "agents/balanced-github-copilot-only-agent-block.jsonc",
-    );
+      'agents/balanced-github-copilot-only-agent-block.jsonc',
+    )
   }
 
-  if (selected.length === 1 && selected[0] === "laberit") {
+  if (selected.length === 1 && selected[0] === 'laberit') {
     return readFragment(
       sourceDir,
-      "agents/balanced-laberit-only-agent-block.jsonc",
-    );
+      'agents/balanced-laberit-only-agent-block.jsonc',
+    )
   }
 
-  if (selected.length === 1 && selected[0] === "opencode-go") {
+  if (selected.length === 1 && selected[0] === 'opencode-go') {
     return readFragment(
       sourceDir,
-      "agents/balanced-opencode-go-only-agent-block.jsonc",
-    );
+      'agents/balanced-opencode-go-only-agent-block.jsonc',
+    )
   }
 
-  if (selected.every((p) => p === "free-tier")) {
-    return "";
+  if (selected.every((p) => p === 'free-tier')) {
+    return ''
   }
 
   return readFragment(
     sourceDir,
-    "agents/balanced-openai-only-agent-block.jsonc",
-  );
+    'agents/balanced-openai-only-agent-block.jsonc',
+  )
 }
 
 export function generateOpenCodeJsonc(opts: GenerateOptions): string {
-  validateFreeTierRuntime(opts.selected, opts.runtime);
+  validateFreeTierRuntime(opts.selected, opts.runtime)
 
-  const defaults = resolveDefaultModels(opts.selected);
-  let finalModel = defaults.model;
-  let finalSmallModel = defaults.smallModel;
+  const defaults = resolveDefaultModels(opts.selected)
+  let finalModel = defaults.model
+  let finalSmallModel = defaults.smallModel
 
   if (opts.modelOverride) {
-    finalModel = opts.modelOverride;
+    finalModel = opts.modelOverride
   }
   if (opts.smallModelOverride) {
-    finalSmallModel = opts.smallModelOverride;
+    finalSmallModel = opts.smallModelOverride
   }
 
   const schemaUrl =
-    opts.runtime === "opencode"
-      ? "https://opencode.ai/config.json"
-      : "https://app.kilo.ai/config.json";
+    opts.runtime === 'opencode'
+      ? 'https://opencode.ai/config.json'
+      : 'https://app.kilo.ai/config.json'
 
   const enabledProvidersJson = buildEnabledProvidersJson(
     opts.selected,
     opts.runtime,
-  );
+  )
   const providerBlock = buildProviderBlockJson(
     opts.selected,
     opts.runtime,
     opts.sourceDir,
-  );
-  const agentBlock = buildAgentBlockJson(opts.selected, opts.sourceDir);
-  const agentSection = agentBlock ? `${agentBlock},\n  ` : "";
+  )
+  const agentBlock = buildAgentBlockJson(opts.selected, opts.sourceDir)
+  const agentSection = agentBlock ? `${agentBlock},\n  ` : ''
 
   return `${MANAGED_OPENCODE_HEADER}
 {
@@ -176,7 +176,7 @@ ${providerBlock}
     }
   }
 }
-`;
+`
 }
 
 export function syncGeneratedOpenCodeJsonc(
@@ -185,36 +185,34 @@ export function syncGeneratedOpenCodeJsonc(
   opts: GenerateOptions,
   ctx: ManifestContext,
 ): void {
-  const configFile = runtime === "opencode" ? "opencode.jsonc" : "kilo.jsonc";
-  const dst = path.join(repo, configFile);
-  const parent = path.dirname(dst);
+  const configFile = runtime === 'opencode' ? 'opencode.jsonc' : 'kilo.jsonc'
+  const dst = path.join(repo, configFile)
+  const parent = path.dirname(dst)
 
   if (fs.pathExistsSync(dst)) {
-    const lstat = fs.lstatSync(dst);
+    const lstat = fs.lstatSync(dst)
     if (lstat.isSymbolicLink()) {
       if (!ctx.force) {
-        const target = fs.readlinkSync(dst);
+        const target = fs.readlinkSync(dst)
         ctx.log(
           `skip existing symlink (use --force to replace): ${dst} -> ${target}`,
-        );
-        return;
+        )
+        return
       }
-      rm(dst, ctx);
+      rm(dst, ctx)
     } else {
       if (!ctx.force) {
-        ctx.log(
-          `skip existing non-symlink (use --force to regenerate): ${dst}`,
-        );
-        return;
+        ctx.log(`skip existing non-symlink (use --force to regenerate): ${dst}`)
+        return
       }
-      rm(dst, ctx);
+      rm(dst, ctx)
     }
   }
 
-  ensureDir(parent, ctx);
-  const content = generateOpenCodeJsonc(opts);
-  writeFile(dst, content, ctx);
+  ensureDir(parent, ctx)
+  const content = generateOpenCodeJsonc(opts)
+  writeFile(dst, content, ctx)
   if (!ctx.dryRun) {
-    ctx.log(`wrote runtime config: ${dst}`);
+    ctx.log(`wrote runtime config: ${dst}`)
   }
 }

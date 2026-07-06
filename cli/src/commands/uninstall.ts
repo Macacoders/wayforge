@@ -1,56 +1,57 @@
-import path from "path";
-import fs from "fs-extra";
-import { ManifestContext } from "../lib/context.js";
-import { rm } from "../lib/files.js";
-import { readManagedManifest } from "../lib/manifest.js";
-import { removeTrackingEntry } from "../lib/tracking.js";
+import path from 'path'
+import fs from 'fs-extra'
+import { ManifestContext } from '../lib/context.js'
+import { rm } from '../lib/files.js'
+import { readManagedManifest } from '../lib/manifest.js'
+import { removeTrackingEntry } from '../lib/tracking.js'
 
 export interface UninstallOptions {
-  repo: string;
-  dryRun: boolean;
+  repo: string
+  dryRun: boolean
 }
 
-export async function uninstallCommand(options: UninstallOptions): Promise<void> {
-  doUninstall(options);
+// ponytail: resolved rung 6 — removed Promise.resolve() wrapper; Commander accepts void
+export function uninstallCommand(options: UninstallOptions): void {
+  doUninstall(options)
 }
 
 function doUninstall(options: UninstallOptions): void {
-  const ctx = new ManifestContext(options.dryRun, false, false);
-  const repo = options.repo;
+  const ctx = new ManifestContext(options.dryRun, false, false)
+  const repo = options.repo
 
   if (!fs.pathExistsSync(repo)) {
-    ctx.log(`error: repo path does not exist: ${repo}`);
-    process.exit(1);
+    ctx.log(`error: repo path does not exist: ${repo}`)
+    process.exit(1)
   }
 
-  const manifestPaths = readManagedManifest(repo);
+  const manifestPaths = readManagedManifest(repo)
   if (manifestPaths.length === 0) {
-    ctx.log(`error: no .ai-config-managed found in ${repo}`);
-    process.exit(1);
+    ctx.log(`error: no .ai-config-managed found in ${repo}`)
+    process.exit(1)
   }
 
-  let removedFiles = 0;
+  let removedFiles = 0
   for (const relPath of manifestPaths) {
-    const absPath = path.join(repo, relPath);
+    const absPath = path.join(repo, relPath)
     if (fs.pathExistsSync(absPath)) {
-      const lstat = fs.lstatSync(absPath);
+      const lstat = fs.lstatSync(absPath)
       if (lstat.isFile() || lstat.isSymbolicLink()) {
-        removedFiles++;
+        removedFiles++
       }
     }
-    rm(absPath, ctx);
+    rm(absPath, ctx)
   }
 
-  const manifestPath = path.join(repo, ".ai-config-managed");
+  const manifestPath = path.join(repo, '.ai-config-managed')
   if (fs.pathExistsSync(manifestPath)) {
-    rm(manifestPath, ctx);
+    rm(manifestPath, ctx)
   }
 
-  let cleanedDirs = 0;
+  let cleanedDirs = 0
   for (const relPath of manifestPaths) {
-    const absPath = path.join(repo, relPath);
-    let dir = path.dirname(absPath);
-    const resolvedRepo = path.resolve(repo);
+    const absPath = path.join(repo, relPath)
+    let dir = path.dirname(absPath)
+    const resolvedRepo = path.resolve(repo)
 
     while (dir !== resolvedRepo) {
       if (ctx.dryRun) {
@@ -59,37 +60,37 @@ function doUninstall(options: UninstallOptions): void {
           fs.statSync(dir).isDirectory() &&
           fs.readdirSync(dir).length === 0
         ) {
-          cleanedDirs++;
-          ctx.log(`DRY-RUN: would remove empty directory: ${dir}`);
+          cleanedDirs++
+          ctx.log(`DRY-RUN: would remove empty directory: ${dir}`)
         }
       } else {
         try {
-          fs.rmdirSync(dir);
-          cleanedDirs++;
-          ctx.log(`removed empty directory: ${dir}`);
+          fs.rmdirSync(dir)
+          cleanedDirs++
+          ctx.log(`removed empty directory: ${dir}`)
         } catch {
           // Directory not empty or already removed; continue walking up.
         }
       }
 
-      const parent = path.dirname(dir);
+      const parent = path.dirname(dir)
       if (parent === dir) {
-        break;
+        break
       }
-      dir = parent;
+      dir = parent
     }
   }
 
-  const sourceDir = path.resolve(__dirname, "..", "..", "..");
-  removeTrackingEntry(repo, sourceDir, ctx);
+  const sourceDir = path.resolve(__dirname, '..', '..', '..')
+  removeTrackingEntry(repo, sourceDir, ctx)
 
   if (ctx.dryRun) {
     ctx.log(
-      `DRY-RUN: summary: would remove ${removedFiles} managed file(s), would clean ${cleanedDirs} empty directory(ies)`,
-    );
+      `DRY-RUN: summary: would remove ${String(removedFiles)} managed file(s), would clean ${String(cleanedDirs)} empty directory(ies)`,
+    )
   } else {
     ctx.log(
-      `summary: removed ${removedFiles} managed file(s), cleaned ${cleanedDirs} empty directory(ies)`,
-    );
+      `summary: removed ${String(removedFiles)} managed file(s), cleaned ${String(cleanedDirs)} empty directory(ies)`,
+    )
   }
 }

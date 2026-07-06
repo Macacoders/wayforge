@@ -1,7 +1,7 @@
 # Plan: Node.js CLI Installer Migration
 
 **Created**: 2026-06-22
-**Status**: Approved — Phases 1-5 complete, Phase B complete. Phase 6 partially complete; Phase 6C scoped below. (2026-07-06)
+**Status**: Complete — Phases 1-5, B, and 6C complete. (2026-07-06)
 **Approved**: 2026-06-30
 **Related**: ADR-0015 (remove agent presets), Issue #50 (global CLI installation and service registration)
 **Distinction from #27/#84**: Issues #27 and #84 target an OpenCode plugin/tool running *inside* OpenCode's runtime. This plan delivers a standalone CLI that runs *outside* OpenCode — it is the installer that bootstraps OpenCode configuration into target repositories. The two are complementary, not dependent.

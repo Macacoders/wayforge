@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 # Source this file from your ~/.bashrc to expose ai-config helper functions.
+# Note: these aliases delegate to install/bootstrap.sh (thin wrapper) and
+# install/uninstall.sh, which proxy to the TypeScript CLI with full
+# binary auto-download and npx tsx fallback.
 
 _ai_config_root() {
 	if [[ -n "${AI_CONFIG_HOME:-}" && -d "${AI_CONFIG_HOME}" ]]; then
