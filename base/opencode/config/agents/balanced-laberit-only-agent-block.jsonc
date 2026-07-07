@@ -19,5 +19,8 @@
     },
     "taskanalyst": {
       "model": "laberit/laberit-ai"
+    },
+    "architect": {
+      "model": "laberit/laberit-ai-preview"
     }
   }

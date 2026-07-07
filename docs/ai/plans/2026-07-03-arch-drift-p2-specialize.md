@@ -1,7 +1,7 @@
 # Plan: Architectural Drift — P2 Specialize
 
 **Date:** 2026-07-03
-**Status:** planned (scratch). Relocate to `docs/ai/plans/` when plan mode is off.
+**Status:** completed. Implemented 2026-07-07.
 **Depends on:** P1 Unbloat (planner/delivery split + shared invariants must be in place).
 **Source:** `docs/ai/plans/pablo-review-over-audit.md` (WF2, considerations #1/#2/#6/#7)
 

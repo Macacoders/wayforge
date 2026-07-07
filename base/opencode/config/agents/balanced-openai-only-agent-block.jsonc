@@ -26,5 +26,9 @@
     "taskanalyst": {
       "model": "openai/gpt-5.4-mini",
       "steps": 8
+    },
+    "architect": {
+      "model": "openai/gpt-5.5",
+      "steps": 10
     }
   }

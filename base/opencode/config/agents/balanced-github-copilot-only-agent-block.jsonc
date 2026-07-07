@@ -26,5 +26,9 @@
     "taskanalyst": {
       "model": "github-copilot/gpt-5.4",
       "steps": 8
+    },
+    "architect": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 10
     }
   }
