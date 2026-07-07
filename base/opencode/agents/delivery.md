@@ -53,6 +53,7 @@ For tasks approved via `/quick`, prepare a compact Quick Code Handoff Brief and 
 
 After `code` completes a phase:
 
+0. If the phase touches any of the 6 architect-review boundary categories (public contract, persistence format, auth/security, deployment topology, data model, cross-module API), invoke `architect` in `review-only` mode before proceeding. Do NOT invoke `architect` based on "touches ADR files."
 1. Inspect `git status --short`.
 2. Inspect relevant `git diff` output.
 3. Compare changed files and behavior against the approved phase plan.

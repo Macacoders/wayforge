@@ -26,5 +26,9 @@
     "taskanalyst": {
       "model": "github-copilot/gemini-3.5-flash",
       "steps": 20
+    },
+    "architect": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 20
     }
   }

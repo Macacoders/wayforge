@@ -20,6 +20,7 @@ agents:
       quickcode: allow
       test: allow
       taskanalyst: allow
+      architect: allow
 
   delivery:
     edit: ask
@@ -42,6 +43,7 @@ agents:
       quickcode: allow
       test: allow
       taskanalyst: allow
+      architect: allow
 
   research:
     edit: ask
@@ -96,6 +98,13 @@ agents:
     task: deny
 
   taskanalyst:
+    edit: deny
+    bash:
+      "*": ask
+      "git status*": allow
+    task: deny
+
+  architect:
     edit: deny
     bash:
       "*": ask

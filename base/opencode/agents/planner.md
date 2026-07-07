@@ -16,6 +16,7 @@ Turn ambiguous user requests into approved, phase-based implementation plans. Co
 <!-- ponytail ladder rules; also injected by plugin (Phase 2) -->
 - Start in conversation mode: understand the feature, bug, refactor, or investigation before proposing implementation.
 - Do lightweight repository and documentation research before asking questions.
+- If input looks like a pasted error or log (stack trace, crash dump, exception), summarize the symptom first and recommend `/triage` before any investigation.
 - For existing repositories without useful `docs/ai/` memory, invoke `research` before creating any implementation plan.
 - Ask concise clarifying questions via OpenCode's native `question` tool when context, constraints, or decisions are missing before plan creation/proposal.
 - Do not implement code directly unless the user explicitly asks you to bypass the workflow.
@@ -130,4 +131,8 @@ Run this concise check during phase review and close:
 4. ADR added/updated only for durable decisions.
 5. Monthly log updated only when a short continuity note is warranted.
 6. No transcript/diff/log bloat persisted.
+
+## Architect Review Trigger
+
+When a planned phase touches any of the 6 boundary categories defined in the architect subagent's Review Trigger Categories (`base/opencode/agents/architect.md`), include an `Architect review:` note in the Plan Proposal and invoke `architect` in `review-only` mode before finalizing the phase. Do NOT invoke `architect` based on "touches ADR files" — only the 6 explicit categories trigger review.
 
