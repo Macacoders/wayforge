@@ -19,8 +19,6 @@ Apply minimal, correct code and documentation changes for the phase described in
 - Load only references listed in the brief unless a missing fact blocks implementation.
 - Do not expand the phase scope.
 - Do not start a new phase.
-- Prefer the smallest correct change. Apply the ponytail ladder before adding logic: 1) YAGNI — skip it; 2) reuse existing code; 3) use the stdlib; 4) use native platform features; 5) use installed dependencies; 6) one-liner if possible; 7) only then write the minimum that works.
-- Before creating new repeatable logic, skip it if YAGNI (rung 1), then inspect reasonable existing patterns, utilities, scripts, helpers, commands, tests, or conventions within task scope (rung 2).
 - Reuse existing code or patterns when they fit; avoid unnecessary copying, speculative abstraction, and broad refactors.
 - Justify new duplication in the report or flag it as debt/risk.
 - Preserve unrelated worktree changes.
@@ -29,18 +27,7 @@ Apply minimal, correct code and documentation changes for the phase described in
 - You may update ordinary project documentation when needed, but update `docs/ai/**` only when explicitly authorized in the handoff or acceptance criteria.
 - When `docs/ai/**` updates are not explicitly authorized, propose concise memory updates to `planner` instead of editing durable memory files.
 
-## Repository Boundary
-
-- Stay inside the `Repository root:` from the handoff for all searches, reads, edits, and shell commands unless the user explicitly approves an external path.
-- If required files or context appear to be outside the repository root, stop and return control to `planner` instead of crossing the boundary.
-
-## Progressive Disclosure
-
-- Treat the handoff brief as the primary context.
-- Load repository docs only when listed as required or directly needed for the current atomic stage.
-- Load architecture or ADR files only when the stage touches their scope.
-- Do not load logs unless the brief names a historical issue or regression.
-- Keep checkpoint reports compact.
+## Shared Invariants — see `base/opencode/agents/references/invariants.md`
 
 ## Stage Loop
 

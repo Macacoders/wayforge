@@ -1,7 +1,7 @@
 # Plan: Architectural Drift — P1 Unbloat
 
 **Date:** 2026-07-03
-**Status:** planned (scratch). Relocate to `docs/ai/plans/` when plan mode is off.
+**Status:** completed (2026-07-07). All 4 phases implemented. Issue #160 closed.
 **Source:** `docs/ai/plans/pablo-review-over-audit.md` + `ponytail-audit-report.md`
 **Related audit findings:** C1, C2, C3, H1, H2, H4, H3
 

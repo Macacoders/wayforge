@@ -136,14 +136,14 @@ is_temp_path() {
 
 	# Check well-known Unix temp directories
 	case "$path" in
-		/tmp/*|/tmp) return 0 ;;
-		/var/tmp/*|/var/tmp) return 0 ;;
+	/tmp/* | /tmp) return 0 ;;
+	/var/tmp/* | /var/tmp) return 0 ;;
 	esac
 
 	# Check TMPDIR environment variable
 	if [[ -n "${TMPDIR:-}" ]]; then
 		case "$path" in
-			"${TMPDIR}"/*|"${TMPDIR}") return 0 ;;
+		"${TMPDIR}"/* | "${TMPDIR}") return 0 ;;
 		esac
 	fi
 
@@ -155,7 +155,7 @@ is_temp_path() {
 			local win_temp_canonical
 			win_temp_canonical="$(cd "$win_temp" 2>/dev/null && pwd -P || echo "$win_temp")"
 			case "$path" in
-				"${win_temp_canonical}"/*|"${win_temp_canonical}") return 0 ;;
+			"${win_temp_canonical}"/* | "${win_temp_canonical}") return 0 ;;
 			esac
 		fi
 	fi
@@ -549,7 +549,7 @@ install_repo() {
 					continue
 				fi
 				sync_managed_path_from_manifest "$repo" "$mp_path" "$SOURCE_DIR"
-				done
+			done
 
 			# Discover new source files not in old manifest
 			local entry fname rel_path subpath dst_parent
@@ -620,7 +620,7 @@ install_repo() {
 				local tmp_perm="${agent_md}.perm-tmp"
 				render_agent_with_central_permissions "$agent_md" "$tmp_perm" "$agent_name" "$SOURCE_DIR/base/opencode/permissions/agents.yml"
 				mv "$tmp_perm" "$agent_md"
-				done
+			done
 
 			finalize_managed_manifest "$repo"
 			FORCE="$_saved_force"

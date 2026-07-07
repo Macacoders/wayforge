@@ -3,12 +3,10 @@ description: Start a progressive-disclosure planning conversation.
 agent: planner
 ---
 
-Use the staged delivery workflow for this request:
+Present Discovery first, wait for user confirmation, then propose a phased plan.
 
 $ARGUMENTS
 
-First establish the active repository root. Keep searches, reads, reviews, and handoff references inside that root unless the user explicitly approves an external path, and include `Repository root:` in implementation handoffs.
+Present Discovery: establish the active repository root, do lightweight repository/documentation research, report findings compactly, ask clarifying questions, list assumptions. Wait for explicit user confirmation before proceeding.
 
-Start with lightweight repository/documentation research. Use progressive disclosure. Ask clarifying questions with OpenCode's native `question` tool before proposing a compact phased implementation plan with acceptance criteria.
-
-Apply phase economy before proposing phases. Prefer one phase for simple or single-outcome work. Justify plans with more than 3 phases, require explicit user confirmation for 6-8 phases, and if the work appears to require more than 8 phases, do not produce one large plan; explain why it should be split into smaller tasks and ask which task to plan first.
+After confirmation, produce a Plan Proposal with goal, scope classification, phases with acceptance criteria, validation strategy, and decisions to record. Apply phase economy: prefer one phase for simple work, justify >3 phases, require confirmation for 6-8 phases, split into smaller tasks if >8 phases. Include `Repository root:` in implementation handoffs.

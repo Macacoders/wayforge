@@ -3,6 +3,10 @@
       "model": "opencode-go/deepseek-v4-pro",
       "steps": 24
     },
+    "delivery": {
+      "model": "opencode-go/deepseek-v4-pro",
+      "steps": 24
+    },
     "research": {
       "model": "opencode-go/qwen3.7-max",
       "steps": 16
