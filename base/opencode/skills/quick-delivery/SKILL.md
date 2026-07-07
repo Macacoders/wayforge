@@ -4,7 +4,7 @@ description: Classify, hand off, implement, and review small low-risk tasks with
 compatibility: opencode
 metadata:
   workflow: quick-delivery
-  agents: planner-quickcode
+  agents: delivery-quickcode
 ---
 
 # Quick Delivery
@@ -27,13 +27,13 @@ Escalate to staged delivery when quick-delivery scope becomes ambiguous, cross-c
 
 ### Proactive Suggestion
 
-`planner` may proactively suggest quick delivery when all of these are true:
+`delivery` may proactively suggest quick delivery when all of these are true:
 
 - The user has not invoked `/quick` or explicitly asked for quick delivery.
 - The request unambiguously meets all Quick Delivery Classification criteria above.
-- Planner can explain clearly why the task is quick-eligible and what the expected outcome is.
+- Delivery can explain clearly why the task is quick-eligible and what the expected outcome is.
 
-When `planner` suggests quick delivery:
+When `delivery` suggests quick delivery:
 
 1. Propose the quick-delivery path, state the eligibility reasons, and outline the expected scope.
 2. Wait for explicit user confirmation before preparing a Quick Code Handoff Brief or invoking `quickcode`.
@@ -42,10 +42,6 @@ When `planner` suggests quick delivery:
 
 Escalate to staged delivery if the request scope, risk, or validation requirements become unclear during discussion.
 
-## Repository Boundary
-
-- Treat the active repository root as the default boundary for searches, reads, edits, and commands.
-- Do not cross outside that root unless the user explicitly approves the external path.
-- Include `Repository root:` in quick handoffs so `quickcode` inherits the boundary.
+Repository Boundary is defined in the loading agent's shared invariants.
 
 

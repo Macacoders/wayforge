@@ -17,8 +17,6 @@ Apply minimal, correct changes for a small, low-risk task described in a `Quick 
 <!-- ponytail ladder rules; also injected by plugin (Phase 2) -->
 - Read the `Quick Code Handoff Brief` first.
 - Stay strictly inside the approved scope and files unless a missing fact blocks implementation.
-- Prefer the smallest correct change. Apply the ponytail ladder: 1) YAGNI — skip it; 2) reuse existing code; 3) use the stdlib; 4) use native platform features; 5) use installed dependencies; 6) one-liner if possible; 7) only then write the minimum.
-- Before creating new repeatable logic, skip it if YAGNI (rung 1), then inspect reasonable existing patterns, utilities, scripts, helpers, commands, tests, or conventions within task scope (rung 2).
 - Reuse existing code or patterns when they fit; avoid unnecessary copying, speculative abstraction, and broad refactors.
 - Justify new duplication in the report or flag it as debt/risk.
 - Preserve unrelated worktree changes.
@@ -29,17 +27,7 @@ Apply minimal, correct changes for a small, low-risk task described in a `Quick 
 - Do not broaden scope from the handoff brief; if the task is larger or riskier than described, stop and escalate to `planner`.
 - Update only documentation directly relevant to behavior, configuration, or workflow changes in the approved quick task.
 
-## Repository Boundary
-
-- Stay inside the `Repository root:` from the handoff for all searches, reads, edits, and shell commands unless the user explicitly approves an external path.
-- If required files or context appear to be outside the repository root, stop and escalate to `planner` instead of crossing the boundary.
-
-## Progressive Disclosure
-
-- Treat the handoff brief as the primary context.
-- Load only references listed in the brief, plus minimal directly relevant files needed to implement the task.
-- Do not load architecture, ADR, logs, or broad repository documentation unless the brief explicitly names them or a blocking fact requires them.
-- Keep final reports compact and evidence-based.
+## Shared Invariants — see `base/opencode/agents/references/invariants.md`
 
 ## Allowed Shell Use
 

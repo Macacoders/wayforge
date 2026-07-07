@@ -1,6 +1,6 @@
 ---
-description: Route a small, low-risk request through planner for quick delivery.
-agent: planner
+description: Route a small, low-risk request through the delivery pipeline for quick implementation.
+agent: delivery
 ---
 
 Use the quick-delivery workflow for this request:

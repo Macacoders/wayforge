@@ -4,7 +4,7 @@ description: Onboard, plan, implement, test, review, and document software work 
 compatibility: opencode
 metadata:
   workflow: staged-delivery
-  agents: planner-research-code-test
+  agents: planner-delivery-research-code-test
 ---
 
 # Staged Delivery
@@ -20,11 +20,7 @@ Use this skill for repository onboarding, features, bugs, refactors, and workflo
 - Load logs only for continuity or regression history.
 - Handoffs pass compact summaries plus reference paths, not full documents.
 
-## Repository Boundary
-
-- Treat the active repository root as the default boundary for searches, reads, edits, and commands.
-- Do not cross outside that root unless the user explicitly approves the external path.
-- Include `Repository root:` in all handoffs so child agents inherit the boundary.
+Repository Boundary is defined in the loading agent's shared invariants.
 
 ## Planning
 
@@ -52,6 +48,8 @@ Use these phase budget rules:
 - If the work appears to need more than 8 phases, do not present it as one implementation plan. Enter `Scope Too Large` mode and propose a split into smaller tasks.
 
 Phases are reviewable deliverables, not technical microtasks. Do not create separate phases just to create files, add helpers, update imports, run validation, write docs, or perform other steps that belong inside one phase's atomic stages.
+
+Prefer vertical slices (working end-to-end features) over horizontal layers (all models, then all routes, then all views). Horizontal splits are allowed only with explicit justification of why a vertical slice is impractical.
 
 When scope is too large, use this format instead of an implementation plan:
 
@@ -88,7 +86,7 @@ Choose one smaller task to plan first, or approve a revised scope boundary.
 
 ## Review And Testing
 
-- `planner` reviews each completed phase with git status/diff/log evidence.
+- `delivery` reviews each completed phase with git status/diff/log evidence. Policy guardrails and memory duties remain with `planner`.
 - Invoke `test` when risk, behavior change, or missing validation justifies it.
 - `test` must challenge assumptions and prefer observable behavior tests.
 

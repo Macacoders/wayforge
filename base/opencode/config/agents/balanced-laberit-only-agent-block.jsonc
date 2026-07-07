@@ -2,6 +2,9 @@
     "planner": {
       "model": "laberit/laberit-ai-preview"
     },
+    "delivery": {
+      "model": "laberit/laberit-ai-preview"
+    },
     "research": {
       "model": "laberit/laberit-ai-preview"
     },

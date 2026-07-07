@@ -25,7 +25,7 @@ strip_permissions() {
 		/^permission:/ { in_perm = 1; next }
 		/^[a-z]/      { in_perm = 0 }
 		!in_perm
-	' "$file" > "${file}.noperm"
+	' "$file" >"${file}.noperm"
 	mv "${file}.noperm" "$file"
 }
 
@@ -57,7 +57,7 @@ compare_manifests() {
 	common=$(comm -12 <(echo "$a_entries") <(echo "$b_entries") | wc -l)
 
 	# At least 95% of entries must match
-	local threshold=$(( (a_count > b_count ? b_count : a_count) * 95 / 100 ))
+	local threshold=$(((a_count > b_count ? b_count : a_count) * 95 / 100))
 	if [ "$common" -lt "$threshold" ]; then
 		echo "    manifest: only ${common}/${a_count} entries match (threshold: ${threshold})"
 		echo "    TS-only:" && comm -23 <(echo "$a_entries") <(echo "$b_entries") | sed 's/^/      /'

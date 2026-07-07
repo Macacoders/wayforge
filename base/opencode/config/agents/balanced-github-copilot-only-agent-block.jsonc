@@ -3,6 +3,10 @@
       "model": "github-copilot/gpt-5.4",
       "steps": 16
     },
+    "delivery": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 16
+    },
     "research": {
       "model": "github-copilot/gpt-5.4",
       "steps": 10

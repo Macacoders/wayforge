@@ -22,16 +22,7 @@ Turn raw user input into a clear shared-task issue proposal that can be reviewed
 - Prefer concrete, actionable task language over abstract concerns.
 - If essential information is missing, return concise open questions.
 
-## Repository Boundary
-
-- Stay inside the `Repository root:` from the handoff for all reads, searches, and shell commands unless the user explicitly approves an external path.
-- If required context appears outside the repository root, stop and return control to `planner`.
-
-## Progressive Disclosure
-
-- Load only the workflow references and directly relevant files named in the handoff.
-- Do not load implementation plans, ADRs, architecture docs, or logs unless the handoff identifies a reason.
-- Keep analysis compact enough for `planner` to review without re-reading the whole tracker context.
+## Shared Invariants — see `base/opencode/agents/references/invariants.md`
 
 ## Analysis Output
 

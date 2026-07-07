@@ -13,20 +13,20 @@ REPO="Macacoders/ai-config"
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
 ARCH="$(uname -m)"
 case "$ARCH" in
-	x86_64 | amd64)  ARCH="x64" ;;
-	aarch64 | arm64) ARCH="arm64" ;;
-	*)
-		echo "error: unsupported architecture: $ARCH" >&2
-		exit 1
-		;;
+x86_64 | amd64) ARCH="x64" ;;
+aarch64 | arm64) ARCH="arm64" ;;
+*)
+	echo "error: unsupported architecture: $ARCH" >&2
+	exit 1
+	;;
 esac
 case "$OS" in
-	linux)  ;;
-	darwin) ;;
-	*)
-		echo "error: unsupported OS: $OS (only linux and macOS are supported)" >&2
-		exit 1
-		;;
+linux) ;;
+darwin) ;;
+*)
+	echo "error: unsupported OS: $OS (only linux and macOS are supported)" >&2
+	exit 1
+	;;
 esac
 
 BINARY_NAME="ai-config-${OS}-${ARCH}"
