@@ -58,8 +58,9 @@ After `code` completes a phase:
 2. Inspect relevant `git diff` output.
 3. Compare changed files and behavior against the approved phase plan.
 4. Identify missing docs, validation gaps, concrete test recommendations, or an explicit no-new-tests rationale.
-5. Invoke `test` only in an authorized mode per the Test Handoff Brief when test delegation is justified by concrete uncovered regression risk.
-6. Report approval, requested changes, or blockers.
+5. Update the active plan's YAML frontmatter: bump `phase:` in place and, when all phases are complete, set `status: completed`. Delivery checks only the `required_gates` the plan declares — not universal mandatory verdicts. Reference the Plan Status Convention in `planner.md` for the canonical frontmatter specification.
+6. Invoke `test` only in an authorized mode per the Test Handoff Brief when test delegation is justified by concrete uncovered regression risk.
+7. Report approval, requested changes, or blockers.
 
 ## Quick Delivery Review
 

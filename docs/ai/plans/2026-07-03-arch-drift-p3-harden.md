@@ -1,7 +1,15 @@
+---
+status: completed
+created: 2026-07-03
+phase: 1/1
+required_gates:
+  test_verdict: false
+  architect_review: false
+  memory_update: true
+---
+
 # Plan: Architectural Drift — P3 Harden
 
-**Date:** 2026-07-03
-**Status:** planned (scratch). Relocate to `docs/ai/plans/` when plan mode is off.
 **Depends on:** P1 (gate split + invariants) being in place. P3 Phase 1 (YAML status format) can proceed immediately after P1 Phase 2. The architect subagent (P2) is not a prerequisite for plan persistence.
 **Source:** `docs/ai/plans/pablo-review-over-audit.md` (WF1 caveats 3/6/7, considerations #1/#2/#5/#8/#9)
 

@@ -121,6 +121,27 @@ Use `/issue` for shared issue operations (`list`, `claim`, `assign`, `release`, 
 - Update monthly logs with short summaries at phase or project close.
 - Do not store raw diffs, long logs, or full conversations.
 
+## Plan Status Convention
+
+Approved plans are persisted to `docs/ai/plans/<YYYY-MM-DD-slug>.md` with YAML frontmatter. This frontmatter is the durable, cross-gate plan format — planner writes it at approval time, delivery updates `phase:` and `status:` at phase boundaries, and memory-maintenance uses it for staleness detection.
+
+```yaml
+---
+status: planned | in-progress | completed | superseded
+created: YYYY-MM-DD
+phase: <n>/<total>        # current phase / total phases
+required_gates:            # optional; set at plan-approval time
+  test_verdict: true | false
+  architect_review: true | false
+  memory_update: true | false
+---
+```
+
+- Planner sets `status`, `created`, `phase`, and `required_gates` when writing the approved plan.
+- Planner updates `phase:` after each phase boundary is approved (increment `<n>`).
+- Planner marks the plan `status: completed` when all phases are approved.
+- Set `required_gates` at plan-approval time based on the plan's scope — not every plan needs every gate. Delivery checks only the gates the plan actually declares.
+
 ### Memory Freshness Check
 
 Run this concise check during phase review and close:

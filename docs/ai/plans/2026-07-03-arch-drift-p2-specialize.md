@@ -1,7 +1,15 @@
+---
+status: completed
+created: 2026-07-03
+phase: 2/2
+required_gates:
+  test_verdict: false
+  architect_review: true
+  memory_update: true
+---
+
 # Plan: Architectural Drift — P2 Specialize
 
-**Date:** 2026-07-03
-**Status:** completed. Implemented 2026-07-07.
 **Depends on:** P1 Unbloat (planner/delivery split + shared invariants must be in place).
 **Source:** `docs/ai/plans/pablo-review-over-audit.md` (WF2, considerations #1/#2/#6/#7)
 
