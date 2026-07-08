@@ -224,17 +224,17 @@ if (contains_provider $PROVIDERS 'opencode-go') {
     Write-Host '  - OpenCode Go: in OpenCode/Kilo Code, run /connect and complete OpenCode Go auth.'
 }
 
-# Build command arguments
+# Build command arguments (long GNU-style flags for TS CLI)
 $cmd = @(
-    '-Repo', $REPO_PATH,
-    '-Runtime', $RUNTIME,
-    '-Providers', $PROVIDERS
+    '--repo', $REPO_PATH,
+    '--runtime', $RUNTIME,
+    '--providers', $PROVIDERS
 )
-if ($MODEL_OVERRIDE) { $cmd += '-Model'; $cmd += $MODEL_OVERRIDE }
-if ($SMALL_MODEL_OVERRIDE) { $cmd += '-SmallModel'; $cmd += $SMALL_MODEL_OVERRIDE }
-if ($DRY_RUN) { $cmd += '-DryRun' }
-if ($FORCE) { $cmd += '-Force' }
-if ($GH_APP_CLIENT_ID_INPUT) { $cmd += '-GhAppClientId'; $cmd += $GH_APP_CLIENT_ID_INPUT }
+if ($MODEL_OVERRIDE) { $cmd += '--model'; $cmd += $MODEL_OVERRIDE }
+if ($SMALL_MODEL_OVERRIDE) { $cmd += '--small-model'; $cmd += $SMALL_MODEL_OVERRIDE }
+if ($DRY_RUN) { $cmd += '--dry-run' }
+if ($FORCE) { $cmd += '--force' }
+if ($GH_APP_CLIENT_ID_INPUT) { $cmd += '--gh-app-client-id'; $cmd += $GH_APP_CLIENT_ID_INPUT }
 
 # Summary
 Write-Host "`nSummary:"

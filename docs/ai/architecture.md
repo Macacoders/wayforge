@@ -27,8 +27,10 @@ The installer has been migrated from dual-platform shell scripts to a single Typ
 - **Framework**: TypeScript + Commander for argument parsing
 - **Source**: `cli/src/index.ts` (entrypoint), `cli/src/commands/` (install, uninstall, interactive), `cli/src/lib/` (shared libraries)
 - **Binary compilation**: `make cli-binary` produces a standalone executable via `bun build --compile` (~100MB)
-- **Shell entrypoint**: `install/bootstrap.sh` is an 80-line thin wrapper with 4-tier fallback: local binary → cached release → GitHub download → `npx tsx` → clear error
-- **Legacy reference**: `install/bootstrap-legacy.sh` preserves the original 847-line bash installer for comparison and fallback
+- **Bash entrypoint**: `install/bootstrap.sh` is an 80-line thin wrapper with 4-tier fallback: local binary → cached release → GitHub download → `npx tsx` → clear error
+- **PowerShell entrypoint**: `install/bootstrap.ps1` is a 131-line thin wrapper with 5-tier fallback: local binary → cached release → GitHub download → `npx tsx` → Node.js auto-download (winget / direct MSI) → clear error
+- **Legacy reference (Bash)**: `install/legacy/bootstrap-legacy.sh` preserves the original 847-line bash installer under `install/legacy/` for comparison and fallback
+- **Legacy reference (PowerShell)**: `install/legacy/bootstrap-legacy.ps1` preserves the original 936-line PowerShell installer under `install/legacy/`, alongside legacy `bootstrap-legacy.sh`, `lib/managed_sync-legacy.*`, and `uninstall-legacy.*`
 - **Release workflow**: `.github/workflows/release.yml` builds binaries for linux-x64, linux-arm64, darwin-x64, darwin-arm64
 
 Reusable versioned source lives in this repository under `base/opencode/**`.
@@ -74,18 +76,18 @@ Portable workflow helpers used by shared commands should be packaged under `.ope
   - `path`: Canonical absolute path (Windows-native format `C:\DEV\project` on WSL).
   - `description`: Reserved for future use (`null` for now).
   - `lastUpdated`: ISO 8601 timestamp of the install.
-- **Created by**: `install/bootstrap.sh` and `install/bootstrap.ps1` create or append to the file after a successful first install.
+- **Created by**: `install/bootstrap.sh` and the TS CLI delegate (via thin `install/bootstrap.ps1`) create or append to the file after a successful first install.
 - **Duplicate prevention**: Re-running the installer or using `--force` does not add duplicate entries — scripts check for existing path matches.
 - **`--force`/`-Force` behavior**: Force refreshes skip tracking entirely.
 - **`--dry-run`/`-DryRun` behavior**: Dry runs never write to the tracking file.
-- **Cross-platform paths**: On WSL, `bootstrap.sh` converts paths with `wslpath -w` when writing. Git Bash preserves forward slashes natively.
+- **Cross-platform paths**: On WSL, `bootstrap.sh` converts paths with `wslpath -w` when writing. Git Bash preserves forward slashes natively. PowerShell bootstrap delegates to the TS CLI, which handles path normalization.
 
 ### Bootstrap Scripts
 
-`install/bootstrap.sh` and `install/bootstrap.ps1` install the runtime configuration into a target repository. Both source shared helper libraries from `install/lib/`.
+`install/bootstrap.sh` and `install/bootstrap.ps1` install the runtime configuration into a target repository. Both are thin entrypoints that delegate to the TypeScript CLI (`npx tsx cli/src/index.ts`) with full binary auto-download fallback. Legacy implementations are preserved under `install/legacy/`.
 
-- **No Administrator privileges required** (PowerShell): The installer uses `Copy-Item` and file writes — no symbolic link creation. The previous admin check (which auto-enabled dry-run when not elevated) has been removed.
-- **Managed sync**: Agent, command, and skill files are synced via `Sync-ManagedTree` (or `sync_managed_tree` in Bash). Files are tracked with `.ai-config-managed` markers for safe refresh without clobbering local additions.
+- **No Administrator privileges required** (PowerShell): The thin entrypoint uses `Copy-Item` and file writes — no symbolic link creation. The previous admin check (which auto-enabled dry-run when not elevated) has been removed.
+- **Managed sync**: Deployed by the TS CLI — agents, commands, and skill files are synced with `.ai-config-managed` markers for safe refresh without clobbering local additions.
 
 ## Agent Topology
 
