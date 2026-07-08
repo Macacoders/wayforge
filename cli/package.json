@@ -25,13 +25,6 @@
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.0.0"
   },
-  "prettier": {
-    "semi": false,
-    "singleQuote": true,
-    "tabWidth": 2,
-    "trailingComma": "all",
-    "printWidth": 80
-  },
   "engines": {
     "node": ">=18.0.0"
   }
