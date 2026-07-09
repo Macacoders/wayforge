@@ -8,6 +8,16 @@ import {
 } from './context.js'
 import { cp, ensureDir, rm, writeFile } from './files.js'
 
+/** Read a file and split into lines, normalizing CRLF to LF. */
+function readFileLines(filePath: string): string[] {
+	return fs.readFileSync(filePath, 'utf8').replace(/\r/g, '').split('\n')
+}
+
+/** Normalize Windows backslashes to POSIX forward slashes. */
+function posixPath(p: string): string {
+	return p.replace(/\\/g, '/')
+}
+
 export function initManagedManifest(
 	repo: string,
 	version: string,
@@ -46,9 +56,9 @@ export function addManagedPath(
 		return
 	}
 
-	const content = fs.readFileSync(manifestTmp, 'utf8')
-	const line = `  - ${relativePath}`
-	if (content.split('\n').includes(line)) {
+	const lines = readFileLines(manifestTmp)
+	const line = `  - ${posixPath(relativePath)}`
+	if (lines.includes(line)) {
 		return
 	}
 
@@ -76,7 +86,7 @@ export function finalizeManagedManifest(
 		return
 	}
 
-	fs.moveSync(manifestTmp, manifestFinal)
+	fs.moveSync(manifestTmp, manifestFinal, { overwrite: true })
 	ctx.log(`finalized managed manifest: ${manifestFinal}`)
 	ctx.repoRoot = ''
 
@@ -122,9 +132,7 @@ function parseManagedPaths(content: string): string[] {
 	const paths: string[] = []
 	let readingPaths = false
 
-	for (const rawLine of content.split('\n')) {
-		const line = rawLine.replace(/\r$/, '')
-
+	for (const line of content.replace(/\r/g, '').split('\n')) {
 		if (line === 'managed_paths:') {
 			readingPaths = true
 			continue
@@ -151,8 +159,8 @@ export function isManagedPath(repo: string, relativePath: string): boolean {
 
 	const manifest = path.join(repo, '.ai-config-managed')
 	if (fs.pathExistsSync(manifest)) {
-		const content = fs.readFileSync(manifest, 'utf8')
-		return content.split('\n').includes(`  - ${relativePath}`)
+		const lines = readFileLines(manifest)
+		return lines.includes(`  - ${posixPath(relativePath)}`)
 	}
 
 	return false
@@ -170,8 +178,8 @@ export function isManagedFile(absolutePath: string): boolean {
 			if (fs.pathExistsSync(manifest)) {
 				const relPath = absolutePath.slice(dir.length + 1)
 				if (relPath && relPath !== absolutePath) {
-					const content = fs.readFileSync(manifest, 'utf8')
-					if (content.split('\n').includes(`  - ${relPath}`)) {
+					const lines = readFileLines(manifest)
+					if (lines.includes(`  - ${posixPath(relPath)}`)) {
 						return true
 					}
 				}
@@ -200,13 +208,13 @@ export function isManagedDir(absolutePath: string): boolean {
 			if (fs.pathExistsSync(manifest)) {
 				const relPath = absolutePath.slice(dir.length + 1)
 				if (relPath && relPath !== absolutePath) {
-					const content = fs.readFileSync(manifest, 'utf8')
-					const lines = content.split('\n')
-					if (lines.includes(`  - ${relPath}`)) {
+					const lines = readFileLines(manifest)
+					const rp = posixPath(relPath)
+					if (lines.includes(`  - ${rp}`)) {
 						return true
 					}
 					for (const line of lines) {
-						if (line.startsWith(`  - ${relPath}/`)) {
+						if (line.startsWith(`  - ${rp}/`)) {
 							return true
 						}
 					}
@@ -244,7 +252,7 @@ export function managedTrackFile(dstFile: string, ctx: ManifestContext): void {
 		ctx.repoRoot &&
 		fs.pathExistsSync(path.join(ctx.repoRoot, '.ai-config-managed.tmp'))
 	) {
-		const rel = dstFile.slice(ctx.repoRoot.length + 1)
+		const rel = posixPath(dstFile.slice(ctx.repoRoot.length + 1))
 		if (rel && rel !== dstFile) {
 			addManagedPath(ctx.repoRoot, rel, ctx)
 			return
