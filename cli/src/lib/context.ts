@@ -3,12 +3,14 @@ export class ManifestContext {
 	force: boolean
 	repoRoot: string
 	noTrack: boolean
+	projectId: string
 
 	constructor(dryRun: boolean, force: boolean, noTrack: boolean) {
 		this.dryRun = dryRun
 		this.force = force
 		this.repoRoot = ''
 		this.noTrack = noTrack
+		this.projectId = ''
 	}
 
 	log(message: string): void {

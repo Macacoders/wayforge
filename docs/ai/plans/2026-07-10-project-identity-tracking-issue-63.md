@@ -1,10 +1,11 @@
 ---
-status: approved
+status: completed
 created: 2026-07-10
 phase: 1/1
 required_gates:
   test_verdict: true
   memory_update: true
+test_verdict: "10/10 tracking tests pass; 79/82 full suite (3 pre-existing config-gen failures); tsc --noEmit clean; --help loads"
 ---
 
 # Issue #63 — Update installed-project tracking on project rename instead of appending a new entry

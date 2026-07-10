@@ -74,6 +74,7 @@ export function trackInstalledProject(
 	const trackingFile = path.join(rootDir, 'installed-projects.json')
 
 	const entry = {
+		projectId: ctx.projectId,
 		name,
 		path: canonical, // JSON.stringify auto-escapes backslashes; no manual escaping needed
 		lastUpdated: timestamp,
@@ -91,7 +92,7 @@ export function trackInstalledProject(
 		return
 	}
 
-	let obj: { schemaVersion: string; projects: Array<{ path: string }> }
+	let obj: { schemaVersion: string; projects: Array<{ path: string; projectId?: string }> }
 	try {
 		obj = JSON.parse(fs.readFileSync(trackingFile, 'utf8')) as typeof obj
 	} catch {
@@ -100,10 +101,21 @@ export function trackInstalledProject(
 		obj = { schemaVersion: '1.0.0', projects: [] }
 	}
 
+	// 1. projectId match → update in-place
+	if (ctx.projectId) {
+		const existing = obj.projects.findIndex((p) => p.projectId === ctx.projectId)
+		if (existing !== -1) {
+			obj.projects[existing] = entry
+			fs.writeFileSync(trackingFile, `${JSON.stringify(obj, null, 2)}\n`)
+			ctx.log(`updated tracked project: ${canonical} (matched projectId)`)
+			return
+		}
+	}
+	// 2. path fallback → idempotent (no duplicate)
 	if (obj.projects.some((p) => p.path === entry.path)) {
 		return
 	}
-
+	// 3. new entry
 	obj.projects.push(entry)
 	fs.writeFileSync(trackingFile, `${JSON.stringify(obj, null, 2)}\n`)
 	ctx.log(`tracked installed project: ${canonical}`)

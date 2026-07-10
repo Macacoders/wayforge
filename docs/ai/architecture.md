@@ -71,13 +71,19 @@ Portable workflow helpers used by shared commands should be packaged under `.ope
 
 `installed-projects.json` at the repository root tracks which projects have been installed with ai-config. It is excluded from version control via `.gitignore`.
 
-- **Format**: Structured JSON with `version` (schema version) and `projects` array. Each entry contains:
+- **Format**: Structured JSON with `schemaVersion` and `projects` array. Each entry contains:
+  - `projectId`: UUIDv4 identifying the logical project. Stored in `.ai-config-managed` as `project_id: <uuid>` so the installer can recognize the same project after a rename or move.
   - `name`: Project directory basename.
   - `path`: Canonical absolute path (Windows-native format `C:\DEV\project` on WSL).
-  - `description`: Reserved for future use (`null` for now).
   - `lastUpdated`: ISO 8601 timestamp of the install.
+  - `aiConfigVersion`: ai-config version used for the install.
+  - `installRef`: Git ref (branch, tag, or commit) used for the install.
 - **Created by**: `install/bootstrap.sh` and the TS CLI delegate (via thin `install/bootstrap.ps1`) create or append to the file after a successful first install.
-- **Duplicate prevention**: Re-running the installer or using `--force` does not add duplicate entries — scripts check for existing path matches.
+- **Identity matching** (3-tier): On reinstall, the installer matches existing entries in this order:
+  1. **`projectId` match** → update existing entry in-place (name, path, lastUpdated, aiConfigVersion, installRef). This handles project renames and moves.
+  2. **Path match** (fallback) → idempotent no-op. Backward-compatible with pre-projectId entries.
+  3. **No match** → append new entry.
+- **Upgrade path**: Existing projects without `projectId` (installed before this feature) receive a generated UUID on next reinstall, written to `.ai-config-managed` for future matching.
 - **`--force`/`-Force` behavior**: Force refreshes skip tracking entirely.
 - **`--dry-run`/`-DryRun` behavior**: Dry runs never write to the tracking file.
 - **Cross-platform paths**: On WSL, `bootstrap.sh` converts paths with `wslpath -w` when writing. Git Bash preserves forward slashes natively. PowerShell bootstrap delegates to the TS CLI, which handles path normalization.
