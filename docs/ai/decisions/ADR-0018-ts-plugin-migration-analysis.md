@@ -15,7 +15,7 @@ Issue #85: The `ai-config` repository maintains agent configuration across multi
 
 OpenCode supports TypeScript plugins with a `server()` entrypoint that can return tools, event hooks, config overrides, and system prompt transformations. Three plugins already exist (`ponytail`, `token-counter`, `session-tracker`), and a shared utility pattern (`lib/render-table.js`) was established by issue #149.
 
-Issue #131 is simultaneously migrating the installer from Bash+PowerShell to TypeScript, which affects how permissions and plugin registration work.
+Issue #131 migrated the installer from Bash+PowerShell to TypeScript, which affects how permissions and plugin registration work.
 
 ## Assessment Method
 
@@ -54,24 +54,20 @@ Evidence was gathered by inspecting all 6 agent files, all 14 command files, the
 |-----------|-----------|
 | **API viability** | Unknown — `config()` can return configuration values, but whether it can set per-agent `edit`/`bash`/`task` permissions is unproven |
 | **Proof** | No existing plugin sets agent permissions |
-| **Installer impact** | High — `render_agent_with_central_permissions()` in managed_sync would be removed or bypassed |
-| **Effort** | Medium — requires API investigation first |
-| **Risk** | Medium — if `config()` cannot set permissions, alternative approach needed |
-| **Benefit** | High — eliminates installer YAML→frontmatter rendering; permissions could be dynamic |
+| **Installer impact** | Low — TS installer (`cli/src/lib/permissions.ts`) already ports the rendering cleanly; legacy awk/PowerShell is inactive |
+| **Effort** | N/A — not worth pursuing |
+| **Risk** | Low (no change) |
+| **Benefit** | Low — dynamic permissions are not a real need; definitions are stable |
 
-**Verdict: ⚠️ INVESTIGATE FURTHER — potential to move**
+**Verdict: ❌ STAY — low utility (closed as #154)**
 
-This is the most promising migration target. The centralized `agents.yml` is already a single source of truth — a plugin could read it and apply permissions dynamically at startup. This would:
+The centralized `agents.yml` → frontmatter rendering approach works well and is now implemented in clean TypeScript (`cli/src/lib/permissions.ts`). Migrating to a plugin would:
 
-- Eliminate ~200 lines of awk/PowerShell YAML rendering from managed_sync
-- Remove the need for ADR-0014's frontmatter injection approach
-- Make permissions dynamic (could change without re-installing)
+- Add a runtime dependency with an undocumented API surface (`config()` agent permission support is unproven)
+- Make permissions invisible at rest (harder to debug — currently `cat .opencode/agents/planner.md` shows active permissions)
+- Solve a problem that doesn't exist — permission definitions are stable; dynamic updates without reinstalling are not a practical need
 
-**Blocking question**: Can the `@opencode-ai/plugin` `config()` hook (or another hook) set per-agent `edit`, `bash`, and `task` permissions?
-
-**Note**: This supersedes ADR-0014 ("Agent permissions live in markdown frontmatter from centralized agents.yml"), which was written before the TS plugin API was proven in this repository.
-
-**Dependency**: Issue #131 owns the installer TS migration. If permissions migrate to a plugin, the TS installer should never need to implement permission rendering — the plugin handles it at runtime. Best sequenced after #131 or as a follow-up to it.
+**Note**: ADR-0014 remains valid. The TS installer already handles permission rendering deterministically. No plugin migration is warranted for this source type.
 
 ---
 
@@ -159,7 +155,6 @@ Agent prompts are the primary instruction source and behavioral documentation. T
 
 | Capability | Needed For | Priority |
 |------------|-----------|----------|
-| Can `config()` set agent permissions? | Permissions migration | High |
 | Is there a `command.register` hook? | Command migration | Low |
 | Can `config()` return agent metadata? | Metadata migration | Low |
 | Can system transform replace (not just append)? | Prompt migration | Low |
@@ -173,9 +168,9 @@ Agent prompts are the primary instruction source and behavioral documentation. T
 ✅ Create follow-up implementation issues
 
 ### Phase 2 (after #131 installer TS migration)
-1. **Investigate plugin API** for agent permission configuration — single focused spike
-2. If viable: **Create permissions plugin** that reads `agents.yml` and applies permissions dynamically
-3. If not viable: Keep ADR-0014 approach; document finding
+1. **Investigate plugin API** for agent permission configuration — **Closed as #154: low utility.** TS installer already handles permission rendering cleanly; dynamic permissions not a practical need.
+2. **Create permissions plugin** — Not pursued.
+3. **ADR-0014 remains valid** and is the recommended approach.
 
 ### Phase 3 (medium-term)
 4. **Auto-discover plugins** in installer — update `opencode.jsonc` template to scan `base/opencode/plugins/` and generate plugin array
@@ -187,6 +182,7 @@ Agent prompts are the primary instruction source and behavioral documentation. T
 
 ### Not recommended for migration
 - Agent metadata (description, mode) — no plugin hook exists
+- Agent permissions — TS installer handles rendering; plugin adds complexity for no gain
 - Agent prompts — should remain as primary Markdown instruction source
 - Command bodies — documentation-heavy, low benefit
 
@@ -194,31 +190,26 @@ Agent prompts are the primary instruction source and behavioral documentation. T
 
 ## Risks
 
-1. **Plugin API gaps**: The `config()` hook may not support agent permission configuration. If investigation finds it doesn't, permissions stay in YAML+frontmatter.
-2. **#131 sequencing**: If permissions migration is attempted before #131 stabilizes the TS installer, there's risk of duplicated effort or conflicting approaches.
-3. **Plugin registration burden**: Without auto-discovery, each new plugin requires manual installer template edits in two scripts.
-4. **ADR-0014 superseding**: ADR-0014 explicitly decided permissions go in frontmatter. Revisiting this requires updating the ADR.
+1. **Plugin registration burden**: Without auto-discovery, each new plugin requires manual installer template edits in two scripts.
 
 ## Benefits if Implemented
 
-1. **Eliminate YAML→frontmatter rendering** (~200 lines of awk/PowerShell) from managed_sync
-2. **Dynamic permissions** — changes to `agents.yml` take effect without re-installing
-3. **Simpler installer** — no permission injection logic needed
-4. **Plugin auto-discovery** — eliminates manual registration step
+1. **Plugin auto-discovery** — eliminates manual registration step
 
 ## Decisions Recorded
 
 1. Agent metadata stays in Markdown frontmatter — not viable for plugin migration
-2. Agent permissions are the primary migration candidate — requires API investigation first
+2. Agent permissions stay in YAML+frontmatter — TS installer handles rendering; plugin migration not worth pursuing (#154 closed)
 3. Command definitions stay as Markdown (for now) — plugin command registration unproven
 4. Tool plugin pattern is proven — continue for new tools (issues #104, #105)
 5. Agent prompts stay as Markdown — system transform is for augmentation only
 6. Installer should auto-discover plugins — update opencode.jsonc template
-7. ADR-0014 is candidate for superseding if permissions plugin becomes viable
+7. ADR-0014 remains valid — no superseding needed
 
 ## Related ADRs
 
-- **ADR-0014** (superseded if permissions move to plugin): Agent permissions in Markdown frontmatter from centralized agents.yml
+- **ADR-0014** (remains valid): Agent permissions in Markdown frontmatter from centralized agents.yml
 - **ADR-0017** (single TS gh-issue): Proved TS toolchain in this repository
-- **Issue #131**: Installer TS migration — permissions plugin sequenced after this
+- **Issue #131**: Installer TS migration — completed; TS installer handles permission rendering
 - **Issue #149**: Plugin renderTable utility — proved shared plugin library pattern
+- **Issue #154** (closed): Plugin API permission spike — not worth pursuing; low utility

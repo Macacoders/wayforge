@@ -42,4 +42,4 @@ concern). The other five ponytail commands remain on `planner`.
 
 - Issue #160
 - ADR-0021: Centralize shared invariants (ladder moved to invariants.md)
-- ADR-0017: Ponytail reuse-first integration
+- ADR-0028: Ponytail reuse-first integration

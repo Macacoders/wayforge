@@ -65,7 +65,7 @@ Adopt TypeScript as the main language for all operational tooling scripts and sk
 
 ## ADRs Affected
 
-- **ADR-0011**: The "keep both scripts in sync" constraint is superseded (single script per tool).
+- **ADR-0027**: The "keep both scripts in sync" constraint is superseded (single script per tool).
 - **ADR-0016**: Auth helper integration is a direct import rather than subprocess.
 - Earlier separate ADRs for release migration and skill-script policy were absorbed into this broader decision — their numbers are released for future use.
 
