@@ -314,6 +314,14 @@ export function doInstall(options: InstallOptions): void {
 		}
 	}
 
+	// ponytail: temporal — remove this cleanup block once all users have upgraded past July 2026
+	const legacyHosts = path.join(repo, '.gh-config', 'hosts.yml')
+	const legacyConfig = path.join(repo, '.gh-config', '_config.yml')
+	if (!ctx.dryRun) {
+		if (fs.pathExistsSync(legacyHosts)) fs.removeSync(legacyHosts)
+		if (fs.pathExistsSync(legacyConfig)) fs.removeSync(legacyConfig)
+	}
+
 	trackInstalledProject(repo, sourceDir, version, installRef, ctx)
 	finalizeManagedManifest(repo, ctx)
 	ctx.log(`repo bootstrap complete for: ${repo}`)
