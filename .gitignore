@@ -37,6 +37,7 @@ build/
 .tmp/
 tmp/
 temp/
+.test-tracking/
 
 .devcontainer
 .gh-config
