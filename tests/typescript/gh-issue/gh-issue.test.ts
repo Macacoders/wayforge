@@ -16,9 +16,11 @@ vi.mock('child_process', () => ({ execFileSync: mockExecFileSync }));
 
 const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
+const mockUnlinkSync = vi.hoisted(() => vi.fn());
 vi.mock('node:fs', () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
+  unlinkSync: mockUnlinkSync,
 }));
 vi.mock('../../../base/opencode/skills/shared-task/scripts/gh-app-auth.ts', () => ({
   getValidToken: vi.fn().mockRejectedValue(new Error('auth mock')),
@@ -121,6 +123,7 @@ beforeEach(() => {
   mockExecFileSync.mockReset();
   mockExistsSync.mockReset();
   mockReadFileSync.mockReset();
+  mockUnlinkSync.mockReset();
   // Default: no template file exists; readFileSync returns empty
   mockExistsSync.mockReturnValue(false);
   mockReadFileSync.mockReturnValue('');
@@ -1119,6 +1122,18 @@ describe('buildPRBody', () => {
     expect(body).toContain('## Summary');
     expect(body).toContain('## Testing');
     expect(body).toContain('## Breaking changes');
+  });
+
+  it('reads from temp file when it exists', () => {
+    // First existsSync call (temp path) returns true, second (template path) returns false
+    mockExistsSync
+      .mockReturnValueOnce(true)   // temp file exists
+      .mockReturnValueOnce(false); // template path does not exist
+    mockReadFileSync.mockReturnValue('Custom agent-generated content');
+
+    const body = gh.buildPRBody(1);
+    expect(body).toContain('Fixes #1');
+    expect(body).toContain('Custom agent-generated content');
   });
 });
 

@@ -1,10 +1,11 @@
 ---
-status: approved
+status: completed
 created: 2026-07-10
 phase: 1/1
+completed: 2026-07-10
 required_gates:
-  test_verdict: true
-  memory_update: true
+  test_verdict: pass
+  memory_update: pass
 ---
 
 # Issue #168 — Fix `buildPRBody()` to read `temp/pr-body-<issue>.md` before falling back
