@@ -15,4 +15,4 @@ Convert to npm workspaces — eliminate duplicated `node_modules` between root a
 - `cli/tests/unit/permissions.test.ts`: `process.cwd()` → `__dirname`
 
 ## Decisions
-ADR-0018 — Adopt npm workspaces
+ADR-0029 — Adopt npm workspaces

@@ -1,4 +1,4 @@
-# ADR-0017: Integrate Ponytail Reuse-First Discipline
+# ADR-0028: Integrate Ponytail Reuse-First Discipline
 
 Date: 2026-06-25
 Status: Accepted

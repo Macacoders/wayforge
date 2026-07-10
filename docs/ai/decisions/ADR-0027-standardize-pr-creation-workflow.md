@@ -1,4 +1,4 @@
-# ADR-0011: Standardize PR Creation Workflow for Shared Tasks
+# ADR-0027: Standardize PR Creation Workflow for Shared Tasks
 
 Date: 2026-06-16 (amended 2026-06-18, 2026-06-18 rev.2, 2026-06-18 rev.3, 2026-06-18 rev.4, 2026-06-18 rev.5, 2026-06-23)
 Status: Accepted (partially superseded by ADR-0017)

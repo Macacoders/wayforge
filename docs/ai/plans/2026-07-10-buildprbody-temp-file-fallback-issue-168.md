@@ -12,7 +12,7 @@ required_gates:
 
 ## Goal
 
-Fix `buildPRBody()` in `gh-issue.ts` to implement the agent pre-population mode specified in ADR-0011: read `temp/pr-body-<issue>.md` when it exists (prepended with `Fixes #N`) before falling back to `.github/pull_request_template.md` or the hardcoded template. Clean up the temp file after consumption.
+Fix `buildPRBody()` in `gh-issue.ts` to implement the agent pre-population mode specified in ADR-0027: read `temp/pr-body-<issue>.md` when it exists (prepended with `Fixes #N`) before falling back to `.github/pull_request_template.md` or the hardcoded template. Clean up the temp file after consumption.
 
 ## Questions
 
@@ -26,7 +26,7 @@ Fix `buildPRBody()` in `gh-issue.ts` to implement the agent pre-population mode 
 
 - The proposed fix in the issue description is the intended approach (temp-file check inserted before template check).
 - Cleanup happens in `cmdPrclose` after the PR body is consumed (safer — if PR creation fails, the temp file remains for retry).
-- ADR-0011 already documents the two-mode workflow (lines 21–24) — the code needs to match the spec.
+- ADR-0027 already documents the two-mode workflow (lines 21–24) — the code needs to match the spec.
 - ADR-0017's M2 "documentation" of the temp-file fallback is purely documentary; the code change aligns implementation with the documented spec.
 - Existing tests (template exists / no template) must continue to pass.
 
