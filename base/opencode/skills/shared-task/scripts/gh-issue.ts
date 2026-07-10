@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getValidToken } from './gh-app-auth.ts';
@@ -376,6 +376,15 @@ function buildPRBody(issueNumber: number): string {
   // Always prepend the auto-close keyword so the issue closes when the PR merges.
   let body = `Fixes #${issueNumber}\n\n`;
 
+  // Agent pre-population mode: read temp file if it exists
+  // ponytail: path formula duplicated in cmdPrclose — extract helper when 3rd usage appears
+  const tempPath = path.join(repoRoot, 'temp', `pr-body-${issueNumber}.md`);
+  if (existsSync(tempPath)) {
+    body += readFileSync(tempPath, 'utf8');
+    return body;
+  }
+
+  // Template fallback mode
   const templatePath = path.join(repoRoot, '.github', 'pull_request_template.md');
 
   if (existsSync(templatePath)) {
@@ -865,6 +874,12 @@ async function cmdPrclose(ctx: GhContext, args: string[]): Promise<void> {
   await addAssignee(ctx, pr.number, me);
   const prUrl = pr.html_url;
   process.stdout.write(`${prUrl}\n`);
+
+  // Clean up temp file if it was consumed
+  const tempPath = path.join(getRepoRoot(), 'temp', `pr-body-${issueNumber}.md`);
+  try {
+    unlinkSync(tempPath);
+  } catch { /* temp file may not exist — tolerate ENOENT */ }
 
   // Comment on issue
   await addComment(ctx, issueNumber, `${summary}\n\nPull request: ${prUrl}`);

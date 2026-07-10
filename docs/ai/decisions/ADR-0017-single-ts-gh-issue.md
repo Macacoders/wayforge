@@ -34,6 +34,7 @@ Adopt TypeScript as the main language for all operational tooling scripts and sk
 - Direct `import { getValidToken } from './gh-app-auth.ts'` — no subprocess
 - Auth order: `GITHUB_TOKEN` → `GH_TOKEN` → `getValidToken()` (cache → refresh → device flow)
 - 88 vitest tests under `tests/typescript/gh-issue/`
+- **temp-file fallback** (Issue #168): `buildPRBody()` reads `temp/pr-body-<issue>.md` when it exists (agent pre-population mode) before falling back to template or hardcoded body
 - See ponytail simplifications below
 
 **release.ts** (Issue #157):
