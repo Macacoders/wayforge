@@ -314,6 +314,24 @@ export function doInstall(options: InstallOptions): void {
 		}
 	}
 
+	// ponytail: temporal — remove this warning block once all users have upgraded past July 2026
+	const legacyHosts = path.join(repo, '.gh-config', 'hosts.yml')
+	const legacyConfig = path.join(repo, '.gh-config', '_config.yml')
+	if (fs.pathExistsSync(legacyHosts)) {
+		ctx.log(
+			`[WARNING] Legacy PAT file detected: ${legacyHosts}. ` +
+				`Auth is now handled by GitHub App Device Flow (gh-app-auth.ts). ` +
+				`Consider removing this file manually if you no longer need PAT-based auth.`,
+		)
+	}
+	if (fs.pathExistsSync(legacyConfig)) {
+		ctx.log(
+			`[WARNING] Legacy PAT file detected: ${legacyConfig}. ` +
+				`Auth is now handled by GitHub App Device Flow (gh-app-auth.ts). ` +
+				`Consider removing this file manually if you no longer need PAT-based auth.`,
+		)
+	}
+
 	trackInstalledProject(repo, sourceDir, version, installRef, ctx)
 	finalizeManagedManifest(repo, ctx)
 	ctx.log(`repo bootstrap complete for: ${repo}`)
