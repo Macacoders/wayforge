@@ -32,7 +32,7 @@ Inspected all 6 agent files, 14 command files, permissions YAML, 3 existing plug
 | Source Type | Verdict |
 |------------|---------|
 | Agent metadata | ❌ Stay in Markdown — no plugin hook |
-| Agent permissions | ⚠️ Maybe viable — blocked on API investigation (#154) |
+| Agent permissions | ❌ Stay in YAML+frontmatter — TS installer handles rendering; plugin migration not worth pursuing (#154 closed) |
 | Command definitions | ❌ Stay in Markdown (for now) |
 | Tool definitions | ✅ Already migrated (plugin pattern proven) |
 | Agent prompts | ❌ Stay in Markdown (plugins can augment only) |
@@ -40,5 +40,6 @@ Inspected all 6 agent files, 14 command files, permissions YAML, 3 existing plug
 
 ## Decisions Recorded
 
-- ADR-0018: TS Plugin Migration Analysis
-- Issue #131 noted as dependency for permissions migration sequencing
+- ADR-0018: TS Plugin Migration Analysis (updated: permissions stay, ADR-0014 valid)
+- Issue #131 noted as dependency for permissions migration sequencing (now complete)
+- Issue #154 closed: plugin API permission spike not worth pursuing

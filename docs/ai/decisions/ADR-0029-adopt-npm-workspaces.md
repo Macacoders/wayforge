@@ -1,4 +1,4 @@
-# ADR-0018: Adopt npm workspaces
+# ADR-0029: Adopt npm workspaces
 
 ## Status
 Accepted (2026-07-01)
