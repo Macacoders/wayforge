@@ -1,3 +1,12 @@
+---
+status: completed
+created: 2026-06-16
+phase: 1/1
+required_gates:
+  test_verdict: true
+  memory_update: true
+---
+
 # Issue #84 — Rewrite gh-issue as Single TypeScript Script
 
 ## Goal

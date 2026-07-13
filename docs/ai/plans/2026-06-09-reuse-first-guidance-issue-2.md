@@ -1,3 +1,12 @@
+---
+status: completed
+created: 2026-06-09
+phase: 1/1
+required_gates:
+  test_verdict: false
+  memory_update: true
+---
+
 # Reuse-First Workflow Guidance (Issue #2)
 
 Date: 2026-06-09  

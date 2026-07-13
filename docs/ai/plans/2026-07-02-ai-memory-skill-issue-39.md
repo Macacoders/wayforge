@@ -1,3 +1,12 @@
+---
+status: completed
+created: 2026-07-02
+phase: 1/1
+required_gates:
+  test_verdict: true
+  memory_update: true
+---
+
 # Plan: ai-memory Skill — Issue #39
 
 **Date:** 2026-07-02

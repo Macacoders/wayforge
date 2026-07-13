@@ -1,3 +1,12 @@
+---
+status: completed
+created: 2026-06-25
+phase: 1/1
+required_gates:
+  test_verdict: true
+  memory_update: true
+---
+
 # Issue #120 — Address QA Findings M1–M5 + Add `show` Subcommand
 
 ## Goal

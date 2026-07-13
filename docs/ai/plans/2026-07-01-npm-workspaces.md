@@ -1,3 +1,12 @@
+---
+status: completed
+created: 2026-07-01
+phase: 1/1
+required_gates:
+  test_verdict: false
+  memory_update: true
+---
+
 # Plan: Adopt npm workspaces
 
 **Created**: 2026-07-01

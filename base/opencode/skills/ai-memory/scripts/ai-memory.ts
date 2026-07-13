@@ -83,12 +83,30 @@ function workingTreeIsClean(): boolean | null {
 
 /** Read the first 20 lines of a plan file and extract title + status. */
 function parsePlanFile(filePath: string): { title: string; status: string } {
-  const lines = readFirstLines(filePath, 20);
+  const lines = readFirstLines(filePath, 30);
   let title = '';
   let status = '';
+  let inFrontmatter = false;
+
   for (const line of lines) {
+    // YAML frontmatter detection
+    if (line.trim() === '---') {
+      inFrontmatter = !inFrontmatter;
+      continue;
+    }
+
+    // Read status from YAML frontmatter
+    if (inFrontmatter) {
+      const fmStatus = /^status:\s*(.+)/i.exec(line);
+      if (fmStatus && !status) status = fmStatus[1].trim().replace(/["']/g, '');
+      continue;
+    }
+
+    // Read title from markdown heading
     const titleMatch = /^#\s+(.+)/.exec(line);
     if (titleMatch && !title) title = titleMatch[1].trim();
+
+    // Read status from bold text (legacy format)
     const statusMatch = /\*\*Status:\*\*\s*(.+)/.exec(line);
     if (statusMatch && !status) status = statusMatch[1].trim();
   }

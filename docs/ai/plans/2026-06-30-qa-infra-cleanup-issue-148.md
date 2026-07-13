@@ -1,3 +1,12 @@
+---
+status: completed
+created: 2026-06-30
+phase: 2/2
+required_gates:
+  test_verdict: false
+  memory_update: true
+---
+
 # Plan: QA Infrastructure Cleanup (Issue #148)
 
 ## Goal

@@ -1,3 +1,12 @@
+---
+status: completed
+created: 2026-06-15
+phase: 1/1
+required_gates:
+  test_verdict: false
+  memory_update: true
+---
+
 # Token Counter Plugin — Issue #45
 
 **Created**: 2026-06-15

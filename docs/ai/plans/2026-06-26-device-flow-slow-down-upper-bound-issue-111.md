@@ -1,3 +1,12 @@
+---
+status: planned
+created: 2026-06-26
+phase: 0/1
+required_gates:
+  test_verdict: true
+  memory_update: true
+---
+
 # Plan: Add upper bound on device flow slow_down polling interval (Issue #111)
 
 ## Goal

@@ -1,3 +1,13 @@
+---
+status: completed
+created: 2026-06-22
+phase: 8/8
+required_gates:
+  test_verdict: true
+  architect_review: true
+  memory_update: true
+---
+
 # Plan: Node.js CLI Installer Migration
 
 **Created**: 2026-06-22
