@@ -124,7 +124,7 @@ export function buildAgentBlockJson(
 	}
 
 	if (selected.every((p) => p === 'free-tier')) {
-		return ''
+		return readFragment(sourceDir, 'agents/free-tier-agent-block.jsonc')
 	}
 
 	return readFragment(

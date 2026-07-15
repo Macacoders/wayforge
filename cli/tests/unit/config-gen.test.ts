@@ -233,8 +233,10 @@ describe("buildProviderBlockJson", () => {
 });
 
 describe("buildAgentBlockJson", () => {
-  it("returns empty string for free-tier only", () => {
-    expect(buildAgentBlockJson(["free-tier"], sourceDir)).toBe("");
+  it("returns hidden agent entries for free-tier only", () => {
+    const block = buildAgentBlockJson(["free-tier"], sourceDir);
+    expect(block).toContain('"build":');
+    expect(block).toContain('"hidden": true');
   });
 
   it("selects openai-only agent block", () => {
@@ -258,7 +260,7 @@ describe("buildAgentBlockJson", () => {
 });
 
 describe("generateOpenCodeJsonc", () => {
-  it("generates free-tier opencode config with empty models and no agent block", () => {
+  it("generates free-tier opencode config with hidden agent entries", () => {
     const content = generateOpenCodeJsonc(
       makeOpts("opencode", ["free-tier"]),
     );
@@ -266,7 +268,9 @@ describe("generateOpenCodeJsonc", () => {
     expect(content).toContain('"model": ""');
     expect(content).toContain('"small_model": ""');
     expect(content).toContain('"opencode": {');
-    expect(content).not.toContain('"agent":');
+    expect(content).toContain('"agent":');
+    expect(content).toContain('"build":');
+    expect(content).toContain('"hidden": true');
     expect(content).toContain('"$schema": "https://opencode.ai/config.json"');
   });
 

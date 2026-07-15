@@ -1,3 +1,7 @@
+---
+hidden: true
+---
+
 # Test Handoff Brief Template
 
 Use this format when invoking `test`:

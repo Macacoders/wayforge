@@ -1,3 +1,7 @@
+---
+hidden: true
+---
+
 # Code Handoff Brief Template
 
 Use this format when invoking `code`:
