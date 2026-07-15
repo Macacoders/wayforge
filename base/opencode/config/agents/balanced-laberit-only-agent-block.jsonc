@@ -23,6 +23,7 @@
     "architect": {
       "model": "laberit/laberit-ai-preview"
     },
+    // ponytail: deduplicate — consider a shared hidden-agents fragment merged at build time
     "build": {
       "hidden": true
     },
