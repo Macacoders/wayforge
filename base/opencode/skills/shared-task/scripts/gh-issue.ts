@@ -384,6 +384,8 @@ function buildPRBody(issueNumber: number): string {
     return body;
   }
 
+  process.stderr.write(`⚠ PR body not pre-populated for #${issueNumber} — using empty template. Write temp/pr-body-${issueNumber}.md before prclose to customize the PR body.\n`);
+
   // Template fallback mode
   const templatePath = path.join(repoRoot, '.github', 'pull_request_template.md');
 
