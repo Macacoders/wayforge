@@ -15,7 +15,7 @@ function readFileLines(filePath: string): string[] {
 }
 
 /** Normalize Windows backslashes to POSIX forward slashes. */
-function posixPath(p: string): string {
+export function posixPath(p: string): string {
 	return p.replace(/\\/g, '/')
 }
 

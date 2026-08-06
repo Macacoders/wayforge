@@ -22,7 +22,10 @@ export function readFragment(sourceDir: string, subPath: string): string {
 	// Bash $(<file) command substitution strips a single trailing newline,
 	// NOT all whitespace. Preserve fragment indentation.
 	const raw = fs.readFileSync(file, 'utf8')
-	return raw.endsWith('\n') ? raw.slice(0, -1) : raw
+	// Normalize CRLF -> LF so generated output stays LF-only even when the
+	// working tree is checked out with CRLF (Windows). No-op on LF platforms.
+	const normalized = raw.replace(/\r\n/g, '\n')
+	return normalized.endsWith('\n') ? normalized.slice(0, -1) : normalized
 }
 
 export function buildEnabledProvidersJson(

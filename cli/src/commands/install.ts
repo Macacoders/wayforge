@@ -8,6 +8,7 @@ import {
 	readManagedManifest,
 	isManagedFile,
 	managedTrackFile,
+	posixPath,
 	syncManagedFile,
 	syncManagedTree,
 	syncManagedPathFromManifest,
@@ -41,7 +42,7 @@ export function doInstall(options: InstallOptions): void {
 		options.force,
 		options.noTrack,
 	)
-	const repo = options.repo
+	const repo = path.resolve(options.repo)
 
 	if (!fs.pathExistsSync(repo)) {
 		ctx.log(`error: repo path does not exist: ${repo}`)
@@ -130,7 +131,9 @@ export function doInstall(options: InstallOptions): void {
 				'agents',
 			)
 			const agentFiles = fs.pathExistsSync(agentsBase)
-				? walkFiles(agentsBase).map((f) => path.relative(agentsBase, f))
+				? walkFiles(agentsBase).map((f) =>
+						posixPath(path.relative(agentsBase, f)),
+					)
 				: []
 			for (const subpath of agentFiles) {
 				const relPath = `.opencode/agents/${subpath}`
@@ -159,7 +162,7 @@ export function doInstall(options: InstallOptions): void {
 			)
 			const commandFiles = fs.pathExistsSync(commandsBase)
 				? walkFiles(commandsBase).map((f) =>
-						path.relative(commandsBase, f),
+						posixPath(path.relative(commandsBase, f)),
 					)
 				: []
 			for (const subpath of commandFiles) {
@@ -188,7 +191,9 @@ export function doInstall(options: InstallOptions): void {
 				'skills',
 			)
 			const skillFiles = fs.pathExistsSync(skillsBase)
-				? walkFiles(skillsBase).map((f) => path.relative(skillsBase, f))
+				? walkFiles(skillsBase).map((f) =>
+						posixPath(path.relative(skillsBase, f)),
+					)
 				: []
 			for (const subpath of skillFiles) {
 				const relPath = `.opencode/skills/${subpath}`
@@ -217,7 +222,7 @@ export function doInstall(options: InstallOptions): void {
 			)
 			const pluginFiles = fs.pathExistsSync(pluginsBase)
 				? walkFiles(pluginsBase).map((f) =>
-						path.relative(pluginsBase, f),
+						posixPath(path.relative(pluginsBase, f)),
 					)
 				: []
 			for (const subpath of pluginFiles) {
