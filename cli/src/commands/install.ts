@@ -124,6 +124,9 @@ export function doInstall(options: InstallOptions): void {
 				)
 			}
 
+			// ponytail: debt — 4 discovery blocks below duplicate walk/relPath/guard/
+			// ensureDir/syncManagedFile; extract syncNewDiscoveryDir(base, relPrefix,
+			// ctx) — rung 2 — medium
 			const agentsBase = path.join(
 				sourceDir,
 				'base',

@@ -129,6 +129,9 @@ export function renderAgentWithCentralPermissions(
 	let inserted = false
 
 	for (const rawLine of lines) {
+		// ponytail: debt — CR-strip duplicated with renderAgentPermissionBlock and
+		// config-gen readFragment; promote to a shared stripCR helper if a 4th site
+		// appears — rung 2 — low
 		const line = rawLine.replace(/\r$/, '')
 
 		if (line === '---') {
