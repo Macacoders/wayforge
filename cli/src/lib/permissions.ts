@@ -129,7 +129,7 @@ export function renderAgentWithCentralPermissions(
 	let inserted = false
 
 	for (const rawLine of lines) {
-		const line = rawLine // preserve original line endings handled by writeFile
+		const line = rawLine.replace(/\r$/, '')
 
 		if (line === '---') {
 			if (!inFrontmatter) {

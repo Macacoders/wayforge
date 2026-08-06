@@ -87,6 +87,31 @@ describe("renderAgentWithCentralPermissions", () => {
     expect(permIdx).toBeLessThan(endFmIdx);
   });
 
+  it("injects permissions into a CRLF source file", () => {
+    const src = path.join(tmpDir, "testagent.md");
+    const dst = path.join(tmpDir, "testagent-out.md");
+    const agentsYml = path.join(tmpDir, "agents.yml");
+
+    fs.writeFileSync(
+      src,
+      ["---", "name: testagent", "description: A test agent", "---", "# Content"].join(
+        "\r\n",
+      ) + "\r\n",
+    );
+    fs.writeFileSync(
+      agentsYml,
+      ["agents:", "  testagent:", "    edit: ask"].join("\n") + "\n",
+    );
+
+    renderAgentWithCentralPermissions(src, dst, "testagent", agentsYml, makeCtx());
+
+    const content = fs.readFileSync(dst, "utf8");
+    expect(content).toContain("description: A test agent");
+    expect(content).toContain("permission:");
+    expect(content).toContain("  edit: ask");
+    expect(content).not.toContain("\r");
+  });
+
   it("strips existing permission block", () => {
     const src = path.join(tmpDir, "testagent.md");
     const dst = path.join(tmpDir, "testagent-out.md");
