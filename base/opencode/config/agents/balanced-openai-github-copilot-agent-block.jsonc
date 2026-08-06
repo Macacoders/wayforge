@@ -30,5 +30,18 @@
     "architect": {
       "model": "github-copilot/gpt-5.4",
       "steps": 20
+    },
+    // ponytail: deduplicate — consider a shared hidden-agents fragment merged at build time
+    "build": {
+      "hidden": true
+    },
+    "general": {
+      "hidden": true
+    },
+    "explore": {
+      "hidden": true
+    },
+    "plan": {
+      "hidden": true
     }
   }

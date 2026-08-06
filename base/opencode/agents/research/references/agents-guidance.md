@@ -1,3 +1,7 @@
+---
+hidden: true
+---
+
 ## AGENTS.md Guidance
 
 During onboarding, propose or create AGENTS.md as a repo-specific practical entrypoint for AI agents:

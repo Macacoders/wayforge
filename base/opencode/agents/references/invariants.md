@@ -1,3 +1,7 @@
+---
+hidden: true
+---
+
 # Shared Invariants
 
 ## Repository Boundary

@@ -1,3 +1,7 @@
+---
+hidden: true
+---
+
 # Research Handoff Brief Template
 
 Use this format when invoking `research`:

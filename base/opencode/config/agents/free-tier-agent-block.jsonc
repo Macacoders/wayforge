@@ -1,0 +1,15 @@
+"agent": {
+    // ponytail: deduplicate — consider a shared hidden-agents fragment merged at build time
+    "build": {
+      "hidden": true
+    },
+    "general": {
+      "hidden": true
+    },
+    "explore": {
+      "hidden": true
+    },
+    "plan": {
+      "hidden": true
+    }
+  }

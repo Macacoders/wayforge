@@ -1,3 +1,7 @@
+---
+hidden: true
+---
+
 # Architect Review Brief Template
 
 Use this format when invoking `architect`:
