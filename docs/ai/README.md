@@ -10,6 +10,7 @@ Do **not** load all `docs/ai/**` by default.
 - Repo boundaries/contracts: `architecture.md`
 - Durable decisions/tradeoffs: `decisions/*.md` (only related ADRs)
 - Shared task workflow context: `backlog/README.md`
+- Research deliverables/feasibility reports: `reports/<report-name>.md`
 - Historical continuity: `logs/YYYY-MM.md` (only when needed)
 
 ## Low-token Load Rules
