@@ -1,12 +1,12 @@
+#!/usr/bin/env pwsh
+
 # Source this file from your PowerShell profile to expose ai-config helper functions.
 # Add this line to your profile (run `notepad $PROFILE` to edit):
 # . "C:\path\to\ai-config\install\powershell_profile_snippet.ps1"
+# Note: install aliases delegate to install/bootstrap.ps1 (thin wrapper with
+# binary auto-download and npx tsx fallback). Uninstall uses the TS CLI directly.
 
-function Get-AIConfigRoot {
-    <#
-    .SYNOPSIS
-        Returns the root directory of the ai-config repository.
-    #>
+function _ai_config_root {
     if ($env:AI_CONFIG_HOME -and (Test-Path $env:AI_CONFIG_HOME -PathType Container)) {
         return $env:AI_CONFIG_HOME
     }
@@ -15,19 +15,10 @@ function Get-AIConfigRoot {
     return Resolve-Path (Join-Path $scriptDir '..') | Select-Object -ExpandProperty Path
 }
 
-function Invoke-AIConfigScript {
-    <#
-    .SYNOPSIS
-        Private helper: validates RepoPath and invokes an installer script.
-    #>
+function ai-setup-repo {
     param(
-        [Parameter(Mandatory=$true)]
-        [string]$RepoPath,
-
-        [Parameter(Mandatory=$true)]
-        [string]$ScriptName,
-
-        [switch]$DryRun
+        [Parameter(Position=0, Mandatory=$true)]
+        [string]$RepoPath
     )
 
     if (-not (Test-Path $RepoPath -PathType Container)) {
@@ -35,96 +26,51 @@ function Invoke-AIConfigScript {
         return 1
     }
 
-    $root = Get-AIConfigRoot
-    $scriptPath = "$root\install\$ScriptName.ps1"
+    $root = _ai_config_root
+    & "$root\install\bootstrap.ps1" --repo $RepoPath
+}
 
-    if ($DryRun) {
-        & $scriptPath -Repo $RepoPath -DryRun
-    } else {
-        & $scriptPath -Repo $RepoPath
+function ai-setup-repo-dry-run {
+    param(
+        [Parameter(Position=0, Mandatory=$true)]
+        [string]$RepoPath
+    )
+
+    if (-not (Test-Path $RepoPath -PathType Container)) {
+        Write-Error "error: repo path does not exist: $RepoPath"
+        return 1
     }
+
+    $root = _ai_config_root
+    & "$root\install\bootstrap.ps1" --repo $RepoPath --dry-run
 }
 
-function Install-AIConfigRepo {
-    <#
-    .SYNOPSIS
-        Bootstrap ai-config into a target repository.
-    
-    .PARAMETER RepoPath
-        Path to the target repository.
-    
-    .EXAMPLE
-        Install-AIConfigRepo -RepoPath C:\Projects\MyApp
-    #>
+function ai-uninstall-repo {
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Position=0, Mandatory=$true)]
         [string]$RepoPath
     )
 
-    return Invoke-AIConfigScript -RepoPath $RepoPath -ScriptName "bootstrap"
+    if (-not (Test-Path $RepoPath -PathType Container)) {
+        Write-Error "error: repo path does not exist: $RepoPath"
+        return 1
+    }
+
+    $root = _ai_config_root
+    & npx.cmd tsx "$root\cli\src\index.ts" uninstall --repo $RepoPath
 }
 
-Set-Alias -Name ai-setup-repo -Value Install-AIConfigRepo
-
-function Install-AIConfigRepoDryRun {
-    <#
-    .SYNOPSIS
-        Show what would be done when bootstrapping ai-config (dry run).
-    
-    .PARAMETER RepoPath
-        Path to the target repository.
-    
-    .EXAMPLE
-        Install-AIConfigRepoDryRun -RepoPath C:\Projects\MyApp
-    #>
+function ai-uninstall-repo-dry-run {
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Position=0, Mandatory=$true)]
         [string]$RepoPath
     )
 
-    return Invoke-AIConfigScript -RepoPath $RepoPath -ScriptName "bootstrap" -DryRun
+    if (-not (Test-Path $RepoPath -PathType Container)) {
+        Write-Error "error: repo path does not exist: $RepoPath"
+        return 1
+    }
+
+    $root = _ai_config_root
+    & npx.cmd tsx "$root\cli\src\index.ts" uninstall --repo $RepoPath --dry-run
 }
-
-Set-Alias -Name ai-setup-repo-dry-run -Value Install-AIConfigRepoDryRun
-
-function Uninstall-AIConfigRepo {
-    <#
-    .SYNOPSIS
-        Uninstall ai-config managed files from a target repository.
-    
-    .PARAMETER RepoPath
-        Path to the target repository.
-    
-    .EXAMPLE
-        Uninstall-AIConfigRepo -RepoPath C:\Projects\MyApp
-    #>
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$RepoPath
-    )
-
-    return Invoke-AIConfigScript -RepoPath $RepoPath -ScriptName "uninstall"
-}
-
-Set-Alias -Name ai-uninstall-repo -Value Uninstall-AIConfigRepo
-
-function Uninstall-AIConfigRepoDryRun {
-    <#
-    .SYNOPSIS
-        Show what would be done when uninstalling ai-config (dry run).
-    
-    .PARAMETER RepoPath
-        Path to the target repository.
-    
-    .EXAMPLE
-        Uninstall-AIConfigRepoDryRun -RepoPath C:\Projects\MyApp
-    #>
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$RepoPath
-    )
-
-    return Invoke-AIConfigScript -RepoPath $RepoPath -ScriptName "uninstall" -DryRun
-}
-
-Set-Alias -Name ai-uninstall-repo-dry-run -Value Uninstall-AIConfigRepoDryRun

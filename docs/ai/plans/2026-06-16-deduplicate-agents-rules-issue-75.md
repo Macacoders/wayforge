@@ -1,3 +1,12 @@
+---
+status: completed
+created: 2026-06-16
+phase: 1/1
+required_gates:
+  test_verdict: false
+  memory_update: true
+---
+
 # Plan: Deduplicate workflow rules and move research guidance (Issue #75)
 
 ## Goal

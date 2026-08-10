@@ -2,6 +2,9 @@
     "planner": {
       "model": "laberit/laberit-ai-preview"
     },
+    "delivery": {
+      "model": "laberit/laberit-ai-preview"
+    },
     "research": {
       "model": "laberit/laberit-ai-preview"
     },
@@ -16,5 +19,21 @@
     },
     "taskanalyst": {
       "model": "laberit/laberit-ai"
+    },
+    "architect": {
+      "model": "laberit/laberit-ai-preview"
+    },
+    // ponytail: deduplicate — consider a shared hidden-agents fragment merged at build time
+    "build": {
+      "hidden": true
+    },
+    "general": {
+      "hidden": true
+    },
+    "explore": {
+      "hidden": true
+    },
+    "plan": {
+      "hidden": true
     }
   }

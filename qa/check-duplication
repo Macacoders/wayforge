@@ -7,10 +7,12 @@ if ! command -v npx >/dev/null 2>&1; then
 	exit 0
 fi
 
+# Shell/PowerShell duplication deprecated — TypeScript is the canonical implementation
 npx --yes jscpd \
-	--pattern "**/*.{sh,ps1,psm1}" \
+	--pattern "**/*.ts" \
 	--ignore "**/.git/**" \
 	--ignore "**/node_modules/**" \
+	--ignore "**/base/**" \
 	--threshold 8 \
 	--min-lines 8 \
 	--reporters console

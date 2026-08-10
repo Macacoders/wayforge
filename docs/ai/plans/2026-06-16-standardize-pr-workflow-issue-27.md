@@ -1,3 +1,12 @@
+---
+status: completed
+created: 2026-06-16
+phase: 1/1
+required_gates:
+  test_verdict: false
+  memory_update: true
+---
+
 # Standardize PR Creation Workflow (Issue #27)
 
 Date: 2026-06-16

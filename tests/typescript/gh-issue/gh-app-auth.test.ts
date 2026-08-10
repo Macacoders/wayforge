@@ -618,6 +618,7 @@ describe('doDeviceFlow', () => {
       .mockResolvedValueOnce(okResponse({ error: 'slow_down' }))
       .mockResolvedValueOnce(okResponse({ error: 'slow_down' }))
       .mockResolvedValueOnce(okResponse({ error: 'slow_down' }))
+      .mockResolvedValueOnce(okResponse({ error: 'slow_down' }))
       .mockResolvedValueOnce(
         okResponse({
           access_token: 'ghu_capped',

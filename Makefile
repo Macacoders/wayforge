@@ -1,25 +1,76 @@
-.PHONY: install-deps check qa check-bash check-powershell check-tests check-ts check-bats check-pester coverage coverage-bash coverage-powershell check-duplication fix-bash bash-format bash-lint
+.PHONY: install-deps check check-bash check-powershell check-tests check-ts check-node check-integration check-bats check-pester coverage check-duplication fix-bash fix-node cli-binary
 
 install-deps:
 	./qa/install-deps
 
+cli-binary:
+	@mkdir -p dist
+	@OS=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
+	ARCH=$$(uname -m); \
+	case "$$ARCH" in \
+		x86_64|amd64)  ARCH="x64" ;; \
+		aarch64|arm64) ARCH="arm64" ;; \
+		*)             echo "error: unsupported architecture: $$ARCH" >&2; exit 1 ;; \
+	esac; \
+	case "$$OS" in \
+		linux)  ;; \
+		darwin) ;; \
+		*)      echo "error: unsupported OS: $$OS" >&2; exit 1 ;; \
+	esac; \
+	bun build ./cli/src/index.ts --compile --outfile "dist/ai-config-$$OS-$$ARCH" --define "process.env.AI_CONFIG_VERSION:$$(cat VERSION)"
+
+# ponytail: resolved rung 2 — forwarding scripts inlined; qa/check deleted
+# Bash/PowerShell lint checks deprecated (YAGNI) — installer migrated to TypeScript CLI
 check:
-	./qa/check
+	@echo "==> TypeScript tests"
+	npx vitest run
+	@echo "==> Node checks"
+	@$(MAKE) check-node
+	@echo "==> Duplication checks"
+	./qa/check-duplication
+	@echo "==> All checks passed"
 
-qa:
-	./qa/check
-
+# deprecated — installer migrated to TypeScript CLI; still available for shell script maintenance
 check-bash:
 	./qa/check-bash
 
+# deprecated — PowerShell scripts being migrated to TypeScript
 check-powershell:
 	./qa/check-powershell
 
+# ponytail: resolved rung 2 — forwarding script inlined; qa/check-tests deleted
 check-tests:
-	./qa/check-tests
+	@echo "==> Bash tests"
+	./qa/check-bats
+	@echo "==> PowerShell tests"
+	./qa/check-pester
+	@echo "==> TypeScript tests"
+	npx vitest run
+	@echo "==> Integration tests"
+	@$(MAKE) check-integration
+	@echo "Tests passed."
 
 check-ts:
 	npx vitest run
+
+check-node:
+	@echo "==> TypeScript type check"
+	@cd cli && npx tsc --noEmit
+	@echo "==> ESLint"
+	@cd cli && npx eslint src/
+	@echo "==> Prettier"
+	@cd cli && npx prettier --check src/
+	@echo "Node checks passed."
+
+fix-node:
+	@echo "==> Auto-fixing ESLint issues"
+	@cd cli && npx eslint --fix src/
+	@echo "==> Formatting with Prettier"
+	@cd cli && npx prettier --write src/
+	@echo "Node fixes applied."
+
+check-integration:
+	cli/tests/integration/run.sh
 
 check-bats:
 	./qa/check-bats
@@ -27,23 +78,16 @@ check-bats:
 check-pester:
 	./qa/check-pester
 
+# ponytail: resolved rung 2 — forwarding script inlined; qa/coverage deleted
 coverage:
-	./qa/coverage
-
-coverage-bash:
+	@echo "==> Bash coverage"
 	./qa/coverage-bash
-
-coverage-powershell:
+	@echo "==> PowerShell coverage"
 	./qa/coverage-powershell
+	@echo "Coverage checks completed."
 
 check-duplication:
 	./qa/check-duplication
 
 fix-bash:
 	./qa/fix-bash
-
-bash-format:
-	./qa/fix-bash
-
-bash-lint:
-	./qa/check-bash

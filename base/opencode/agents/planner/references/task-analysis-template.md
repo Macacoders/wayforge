@@ -1,3 +1,7 @@
+---
+hidden: true
+---
+
 # Task Analysis Brief Template
 
 Use this format when invoking `taskanalyst`:

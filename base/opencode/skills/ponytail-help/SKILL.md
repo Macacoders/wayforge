@@ -30,3 +30,14 @@ metadata:
 7. Only then: minimum code that works
 
 Modes persist via `~/.config/opencode/.ponytail-active`. Default is `full`.
+
+## Convention
+
+Use `ponytail:` comments when deferring a simpler solution. Harvest them later with `/ponytail-debt`.
+
+## Configuration
+
+- Default mode: `full`
+- Override via `PONYTAIL_DEFAULT_MODE` environment variable
+- Modes persist across sessions via `~/.config/opencode/.ponytail-active`
+- Plugin injects ladder rules into system prompt at configured intensity

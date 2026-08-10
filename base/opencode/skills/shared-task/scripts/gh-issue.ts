@@ -1,20 +1,13 @@
 #!/usr/bin/env node
 
-import { execSync, execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getValidToken } from './gh-app-auth.ts';
 
-// ── Custom error for clean non-zero exit ────────────────────────────────────
-// Avoids process.exit() during pending async handles, which can trigger a
-// Node.js-on-Windows libuv assertion (debug builds only, no functional impact).
-class ExitError extends Error {
-  constructor(public code: number, message?: string) {
-    super(message ?? `exit(${code})`);
-    this.name = 'ExitError';
-  }
-}
+const git = (args: string[], cwd?: string, t?: number) =>
+  execFileSync('git', args, { encoding: 'utf8', cwd, timeout: t }).trim();
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -63,28 +56,12 @@ interface GitHubPR {
   state: string;
 }
 
-// ── Global state ────────────────────────────────────────────────────────────
-
-let jsonMode = false;
-let dryRun = false;
-let repo = '';
-let token = '';
-
-/** Reset all global state to defaults — used in tests. */
-export function resetState(): void {
-  jsonMode = false;
-  dryRun = false;
-  repo = '';
-  token = '';
+interface GhContext {
+  jsonMode: boolean;
+  dryRun: boolean;
+  repo: string;
+  token: string;
 }
-/** @internal Setter for tests */
-export function _setJsonMode(v: boolean): void { jsonMode = v; }
-/** @internal Setter for tests */
-export function _setDryRun(v: boolean): void { dryRun = v; }
-/** @internal Setter for tests */
-export function _setRepo(r: string): void { repo = r; }
-/** @internal Setter for tests */
-export function _setToken(t: string): void { token = t; }
 
 // ── Usage ───────────────────────────────────────────────────────────────────
 
@@ -143,10 +120,7 @@ function resolveRepo(explicitRepo: string): string {
     return process.env.GH_REPO;
   }
   try {
-    const url = execSync('git remote get-url origin', {
-      encoding: 'utf8',
-      timeout: 5000,
-    }).trim();
+    const url = git(['remote', 'get-url', 'origin'], undefined, 5000);
     const parsed = extractRepoFromUrl(url);
     if (parsed) return parsed;
     throw new Error(`unsupported git origin URL format: ${url}`);
@@ -154,13 +128,13 @@ function resolveRepo(explicitRepo: string): string {
     if (err instanceof Error && err.message.startsWith('unsupported')) {
       throw err;
     }
-    throw new ExitError(1, 'GH_REPO is not set and git remote origin is unavailable.');
+    throw new Error('GH_REPO is not set and git remote origin is unavailable.');
   }
 }
 
 // ── GitHub API helper ───────────────────────────────────────────────────────
 
-async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function api<T>(ctx: GhContext, method: string, path: string, body?: unknown): Promise<T> {
   if (method === 'GET' && body !== undefined) {
     throw new Error('GET request must not include a body');
   }
@@ -168,7 +142,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
 
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github+json',
-    Authorization: `Bearer ${token}`,
+    Authorization: `Bearer ${ctx.token}`,
     'X-GitHub-Api-Version': API_VERSION,
   };
   if (body !== undefined && method !== 'GET') {
@@ -226,29 +200,23 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
   return responseBody as unknown as T;
 }
 
-function apiGet<T>(path: string): Promise<T> {
-  return api<T>('GET', path);
+// ponytail: readability — inlining at 6 call sites would be more verbose
+function apiGet<T>(ctx: GhContext, path: string): Promise<T> {
+  return api<T>(ctx, 'GET', path);
 }
 
-function apiPost<T>(path: string, body?: unknown): Promise<T> {
-  return api<T>('POST', path, body);
-}
-
-function apiPatch<T>(path: string, body?: unknown): Promise<T> {
-  return api<T>('PATCH', path, body);
-}
-
-function apiDelete<T>(path: string, body?: unknown): Promise<T> {
-  return api<T>('DELETE', path, body);
+// ponytail: readability — inlining at 5 call sites would be more verbose
+function apiPost<T>(ctx: GhContext, path: string, body?: unknown): Promise<T> {
+  return api<T>(ctx, 'POST', path, body);
 }
 
 // ── Issue / label helper functions ──────────────────────────────────────────
 
-async function getRepoLabels(): Promise<string[]> {
+async function getRepoLabels(ctx: GhContext): Promise<string[]> {
   const allLabels: string[] = [];
   let page = 1;
   while (true) {
-    const labels = await apiGet<GitHubLabel[]>(`/repos/${repo}/labels?per_page=100&page=${page}`);
+    const labels = await apiGet<GitHubLabel[]>(ctx, `/repos/${ctx.repo}/labels?per_page=100&page=${page}`);
     if (labels.length === 0) break;
     allLabels.push(...labels.map((l) => l.name));
     page++;
@@ -256,8 +224,8 @@ async function getRepoLabels(): Promise<string[]> {
   return allLabels;
 }
 
-async function ensureRequiredLabels(): Promise<void> {
-  const existing = await getRepoLabels();
+async function ensureRequiredLabels(ctx: GhContext): Promise<void> {
+  const existing = await getRepoLabels(ctx);
   const existingSet = new Set(existing);
   const missing = REQUIRED_LABELS.filter((l) => !existingSet.has(l));
   if (missing.length > 0) {
@@ -265,8 +233,8 @@ async function ensureRequiredLabels(): Promise<void> {
   }
 }
 
-async function getIssue(issueNumber: number): Promise<GitHubIssue> {
-  return apiGet<GitHubIssue>(`/repos/${repo}/issues/${issueNumber}`);
+async function getIssue(ctx: GhContext, issueNumber: number): Promise<GitHubIssue> {
+  return apiGet<GitHubIssue>(ctx, `/repos/${ctx.repo}/issues/${issueNumber}`);
 }
 
 function getIssueState(issue: GitHubIssue): string {
@@ -285,70 +253,70 @@ function issueHasLabel(issue: GitHubIssue, labelName: string): boolean {
   return issue.labels?.some((l) => l.name === labelName) ?? false;
 }
 
-async function addLabel(issueNumber: number, labelName: string): Promise<void> {
-  if (dryRun) {
+async function addLabel(ctx: GhContext, issueNumber: number, labelName: string): Promise<void> {
+  if (ctx.dryRun) {
     console.error(`[DRY-RUN] add label '${labelName}' to issue #${issueNumber}`);
     return;
   }
-  await apiPost(`/repos/${repo}/issues/${issueNumber}/labels`, { labels: [labelName] });
+  await apiPost(ctx, `/repos/${ctx.repo}/issues/${issueNumber}/labels`, { labels: [labelName] });
 }
 
-async function removeLabel(issueNumber: number, labelName: string): Promise<void> {
-  if (dryRun) {
+async function removeLabel(ctx: GhContext, issueNumber: number, labelName: string): Promise<void> {
+  if (ctx.dryRun) {
     console.error(`[DRY-RUN] remove label '${labelName}' from issue #${issueNumber}`);
     return;
   }
-  await apiDelete(`/repos/${repo}/issues/${issueNumber}/labels/${encodeURIComponent(labelName)}`);
+  await api(ctx, 'DELETE', `/repos/${ctx.repo}/issues/${issueNumber}/labels/${encodeURIComponent(labelName)}`);
 }
 
-async function addAssignee(issueNumber: number, username: string): Promise<void> {
-  if (dryRun) {
+async function addAssignee(ctx: GhContext, issueNumber: number, username: string): Promise<void> {
+  if (ctx.dryRun) {
     console.error(`[DRY-RUN] add assignee @${username} to issue #${issueNumber}`);
     return;
   }
-  await apiPost(`/repos/${repo}/issues/${issueNumber}/assignees`, { assignees: [username] });
+  await apiPost(ctx, `/repos/${ctx.repo}/issues/${issueNumber}/assignees`, { assignees: [username] });
 }
 
-async function removeAssignee(issueNumber: number, username: string): Promise<void> {
-  if (dryRun) {
+async function removeAssignee(ctx: GhContext, issueNumber: number, username: string): Promise<void> {
+  if (ctx.dryRun) {
     console.error(`[DRY-RUN] remove assignee @${username} from issue #${issueNumber}`);
     return;
   }
-  await apiDelete(`/repos/${repo}/issues/${issueNumber}/assignees`, { assignees: [username] });
+  await api(ctx, 'DELETE', `/repos/${ctx.repo}/issues/${issueNumber}/assignees`, { assignees: [username] });
 }
 
-async function addComment(issueNumber: number, body: string): Promise<void> {
-  if (dryRun) {
+async function addComment(ctx: GhContext, issueNumber: number, body: string): Promise<void> {
+  if (ctx.dryRun) {
     console.error(`[DRY-RUN] add comment to issue #${issueNumber}: ${body.slice(0, 80)}`);
     return;
   }
-  await apiPost(`/repos/${repo}/issues/${issueNumber}/comments`, { body });
+  await apiPost(ctx, `/repos/${ctx.repo}/issues/${issueNumber}/comments`, { body });
 }
 
-async function closeIssue(issueNumber: number): Promise<void> {
-  if (dryRun) {
+async function closeIssue(ctx: GhContext, issueNumber: number): Promise<void> {
+  if (ctx.dryRun) {
     console.error(`[DRY-RUN] close issue #${issueNumber}`);
     return;
   }
-  await apiPatch(`/repos/${repo}/issues/${issueNumber}`, { state: 'closed' });
+  await api(ctx, 'PATCH', `/repos/${ctx.repo}/issues/${issueNumber}`, { state: 'closed' });
 }
 
-async function getCurrentUser(): Promise<string> {
-  const user = await apiGet<{ login: string }>('/user');
+async function getCurrentUser(ctx: GhContext): Promise<string> {
+  const user = await apiGet<{ login: string }>(ctx, '/user');
   return user.login;
 }
 
 // ── Guard helpers (with dry-run awareness) ──────────────────────────────────
 
-async function ensureLabelPresent(issue: GitHubIssue, labelName: string): Promise<void> {
+async function ensureLabelPresent(ctx: GhContext, issue: GitHubIssue, labelName: string): Promise<void> {
   if (!issueHasLabel(issue, labelName)) {
-    await addLabel(issue.number, labelName);
+    await addLabel(ctx, issue.number, labelName);
   }
 }
 
-async function ensureLabelAbsent(issue: GitHubIssue, labelName: string): Promise<void> {
+async function ensureLabelAbsent(ctx: GhContext, issue: GitHubIssue, labelName: string): Promise<void> {
   if (issueHasLabel(issue, labelName)) {
-    await removeLabel(issue.number, labelName);
+    await removeLabel(ctx, issue.number, labelName);
   }
 }
 
@@ -361,8 +329,8 @@ async function ensureOpenIssue(issue: GitHubIssue): Promise<void> {
 
 // ── Output helper ───────────────────────────────────────────────────────────
 
-function output(data: unknown): void {
-  if (jsonMode) {
+function output(ctx: GhContext, data: unknown): void {
+  if (ctx.jsonMode) {
     process.stdout.write(JSON.stringify(data, null, 2) + '\n');
   } else {
     process.stdout.write(String(data) + '\n');
@@ -375,21 +343,21 @@ function outputJson(data: unknown): void {
 
 // ── Additional helpers for prclose / create ────────────────────────────────
 
-async function getDefaultBranch(): Promise<string> {
-  const repoData = await apiGet<{ default_branch: string }>(`/repos/${repo}`);
+async function getDefaultBranch(ctx: GhContext): Promise<string> {
+  const repoData = await apiGet<{ default_branch: string }>(ctx, `/repos/${ctx.repo}`);
   return repoData.default_branch;
 }
 
 function getRepoRoot(): string {
-  return execSync('git rev-parse --show-toplevel', { encoding: 'utf8', timeout: 5000 }).trim();
+  return git(['rev-parse', '--show-toplevel'], undefined, 5000);
 }
 
 function getCurrentBranch(): string {
-  return execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8', timeout: 5000 }).trim();
+  return git(['rev-parse', '--abbrev-ref', 'HEAD'], undefined, 5000);
 }
 
 function workingTreeIsClean(): boolean {
-  const status = execSync('git status --porcelain', { encoding: 'utf8', timeout: 5000 }).trim();
+  const status = git(['status', '--porcelain'], undefined, 5000);
   return status.length === 0;
 }
 
@@ -399,26 +367,26 @@ function slugify(text: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
-  return slug.replace(/-+$/, '').slice(0, 60).replace(/-+$/, '');
+  return slug.slice(0, 60).replace(/-+$/, '');
 }
 
 function buildPRBody(issueNumber: number): string {
   const repoRoot = getRepoRoot();
-  const tempPath = path.join(repoRoot, 'temp', `pr-body-${issueNumber}.md`);
-  const tempDir = path.dirname(tempPath);
-  if (!existsSync(tempDir)) {
-    mkdirSync(tempDir, { recursive: true });
-  }
 
   // Always prepend the auto-close keyword so the issue closes when the PR merges.
-  // This applies to both custom temp files and template fallback bodies.
   let body = `Fixes #${issueNumber}\n\n`;
 
+  // Agent pre-population mode: read temp file if it exists
+  // ponytail: path formula duplicated in cmdPrclose — extract helper when 3rd usage appears
+  const tempPath = path.join(repoRoot, 'temp', `pr-body-${issueNumber}.md`);
   if (existsSync(tempPath)) {
     body += readFileSync(tempPath, 'utf8');
     return body;
   }
 
+  process.stderr.write(`⚠ PR body not pre-populated for #${issueNumber} — using empty template. Write temp/pr-body-${issueNumber}.md before prclose to customize the PR body.\n`);
+
+  // Template fallback mode
   const templatePath = path.join(repoRoot, '.github', 'pull_request_template.md');
 
   if (existsSync(templatePath)) {
@@ -442,49 +410,50 @@ function buildPRBody(issueNumber: number): string {
   return body;
 }
 
-// ── Command handlers (Stage 1: check + labels-check implemented; others stubbed) ──
+// ── Command handlers ──
 
-async function cmdCheck(): Promise<void> {
-  await apiGet(`/repos/${repo}`);
-  if (jsonMode) {
-    outputJson({ status: 'ok', repo });
+async function cmdCheck(ctx: GhContext): Promise<void> {
+  await apiGet(ctx, `/repos/${ctx.repo}`);
+  if (ctx.jsonMode) {
+    outputJson({ status: 'ok', repo: ctx.repo });
   } else {
-    output(`OK: GitHub access verified for ${repo}`);
+    output(ctx, `OK: GitHub access verified for ${ctx.repo}`);
   }
 }
 
-async function cmdLabelsCheck(): Promise<void> {
-  const existing = await getRepoLabels();
+async function cmdLabelsCheck(ctx: GhContext): Promise<void> {
+  const existing = await getRepoLabels(ctx);
   const existingSet = new Set(existing);
   const missing = REQUIRED_LABELS.filter((l) => !existingSet.has(l));
   if (missing.length > 0) {
-    if (jsonMode) {
-      outputJson({ status: 'error', repo, missing });
+    if (ctx.jsonMode) {
+      outputJson({ status: 'error', repo: ctx.repo, missing });
     } else {
-      console.error(`Missing required labels in ${repo}:`);
+      console.error(`Missing required labels in ${ctx.repo}:`);
       for (const label of missing) {
         console.error(`  - ${label}`);
       }
     }
-    throw new ExitError(1);
+    throw new Error();
   }
-  if (jsonMode) {
-    outputJson({ status: 'ok', repo });
+  if (ctx.jsonMode) {
+    outputJson({ status: 'ok', repo: ctx.repo });
   } else {
-    output(`OK: all required labels are present in ${repo}`);
+    output(ctx, `OK: all required labels are present in ${ctx.repo}`);
   }
 }
 
-async function cmdList(): Promise<void> {
-  await ensureRequiredLabels();
+async function cmdList(ctx: GhContext): Promise<void> {
+  await ensureRequiredLabels(ctx);
   const issues = await apiGet<Array<GitHubIssue & { pull_request?: unknown }>>(
-    `/repos/${repo}/issues?state=open&per_page=100&sort=created&direction=desc`,
+    ctx,
+    `/repos/${ctx.repo}/issues?state=open&per_page=100&sort=created&direction=desc`,
   );
 
   // Filter out pull requests (GitHub issues endpoint returns both)
   const realIssues = issues.filter((i) => !i.pull_request);
 
-  if (jsonMode) {
+  if (ctx.jsonMode) {
     outputJson(
       realIssues.map((i) => ({
         number: i.number,
@@ -513,10 +482,10 @@ async function cmdList(): Promise<void> {
   }
 }
 
-async function cmdCreate(args: string[]): Promise<void> {
+async function cmdCreate(ctx: GhContext, args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: create requires <title>.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const title = args[0];
@@ -529,7 +498,7 @@ async function cmdCreate(args: string[]): Promise<void> {
       i++;
       if (i >= args.length) {
         console.error('Error: --body-file requires a path.');
-        throw new ExitError(1);
+        throw new Error();
       }
       bodyFile = args[i];
     } else if (arg.startsWith('--body-file=')) {
@@ -538,18 +507,18 @@ async function cmdCreate(args: string[]): Promise<void> {
       i++;
       if (i >= args.length) {
         console.error('Error: --label requires a value.');
-        throw new ExitError(1);
+        throw new Error();
       }
       labels.push(args[i]);
     } else if (arg.startsWith('--label=')) {
       labels.push(arg.slice('--label='.length));
     } else {
       console.error(`Error: unknown create option: ${arg}`);
-      throw new ExitError(1);
+      throw new Error();
     }
   }
 
-  if (dryRun) {
+  if (ctx.dryRun) {
     const msg = `[DRY-RUN] would create issue with title='${title}'`;
     const parts = [msg];
     if (bodyFile) parts.push(`body-file='${bodyFile}'`);
@@ -574,36 +543,36 @@ async function cmdCreate(args: string[]): Promise<void> {
     bodyPayload.labels = labels;
   }
 
-  await ensureRequiredLabels();
+  await ensureRequiredLabels(ctx);
 
-  const created = await apiPost<GitHubIssue>(`/repos/${repo}/issues`, bodyPayload);
+  const created = await apiPost<GitHubIssue>(ctx, `/repos/${ctx.repo}/issues`, bodyPayload);
 
-  if (jsonMode) {
+  if (ctx.jsonMode) {
     outputJson({ number: created.number, url: created.html_url, title: created.title });
   } else {
     process.stdout.write(`${created.html_url}\n`);
   }
 }
 
-async function cmdClaim(args: string[]): Promise<void> {
+async function cmdClaim(ctx: GhContext, args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: claim requires <issue-number>.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const issueNumber = Number(args[0]);
   if (!Number.isInteger(issueNumber) || issueNumber < 1) {
     console.error('Error: invalid issue number.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
-  if (dryRun) {
+  if (ctx.dryRun) {
     console.error(`[DRY-RUN] would claim issue #${issueNumber}`);
     return;
   }
 
-  await ensureRequiredLabels();
-  const issue = await getIssue(issueNumber);
+  await ensureRequiredLabels(ctx);
+  const issue = await getIssue(ctx, issueNumber);
   await ensureOpenIssue(issue);
 
   if (getIssueAssigneeCount(issue) !== 0) {
@@ -615,38 +584,38 @@ async function cmdClaim(args: string[]): Promise<void> {
     throw new Error(`issue #${issueNumber} already has status:doing.`);
   }
 
-  const me = await getCurrentUser();
-  await addAssignee(issueNumber, me);
-  await ensureLabelPresent(issue, 'status:doing');
-  await ensureLabelAbsent(issue, 'status:to-do');
-  await addComment(issueNumber, `Claimed by @${me} and starting work.`);
+  const me = await getCurrentUser(ctx);
+  await addAssignee(ctx, issueNumber, me);
+  await ensureLabelPresent(ctx, issue, 'status:doing');
+  await ensureLabelAbsent(ctx, issue, 'status:to-do');
+  await addComment(ctx, issueNumber, `Claimed by @${me} and starting work.`);
 
-  if (jsonMode) {
+  if (ctx.jsonMode) {
     outputJson({ number: issueNumber, assignee: me, status: 'doing' });
   }
 }
 
-async function cmdAssign(args: string[]): Promise<void> {
+async function cmdAssign(ctx: GhContext, args: string[]): Promise<void> {
   if (args.length < 2) {
     console.error('Error: assign requires <issue-number> <collaborator>.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const issueNumber = Number(args[0]);
   if (!Number.isInteger(issueNumber) || issueNumber < 1) {
     console.error('Error: invalid issue number.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const collaborator = args[1];
 
-  if (dryRun) {
+  if (ctx.dryRun) {
     console.error(`[DRY-RUN] would assign @${collaborator} to issue #${issueNumber}`);
     return;
   }
 
-  await ensureRequiredLabels();
-  const issue = await getIssue(issueNumber);
+  await ensureRequiredLabels(ctx);
+  const issue = await getIssue(ctx, issueNumber);
   await ensureOpenIssue(issue);
 
   if (getIssueAssigneeCount(issue) !== 0) {
@@ -658,26 +627,26 @@ async function cmdAssign(args: string[]): Promise<void> {
     throw new Error(`issue #${issueNumber} already has status:doing.`);
   }
 
-  await addAssignee(issueNumber, collaborator);
-  await ensureLabelPresent(issue, 'status:doing');
-  await ensureLabelAbsent(issue, 'status:to-do');
-  await addComment(issueNumber, `Assigned to @${collaborator} and marked status:doing.`);
+  await addAssignee(ctx, issueNumber, collaborator);
+  await ensureLabelPresent(ctx, issue, 'status:doing');
+  await ensureLabelAbsent(ctx, issue, 'status:to-do');
+  await addComment(ctx, issueNumber, `Assigned to @${collaborator} and marked status:doing.`);
 
-  if (jsonMode) {
+  if (ctx.jsonMode) {
     outputJson({ number: issueNumber, assignee: collaborator, status: 'doing' });
   }
 }
 
-async function cmdRelease(args: string[]): Promise<void> {
+async function cmdRelease(ctx: GhContext, args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: release requires <issue-number>.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const issueNumber = Number(args[0]);
   if (!Number.isInteger(issueNumber) || issueNumber < 1) {
     console.error('Error: invalid issue number.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   let blockedReason: string | undefined;
@@ -687,25 +656,25 @@ async function cmdRelease(args: string[]): Promise<void> {
       i++;
       if (i >= args.length) {
         console.error('Error: --blocked requires a reason.');
-        throw new ExitError(1);
+        throw new Error();
       }
       blockedReason = args[i];
     } else {
       console.error(`Error: unknown release option: ${arg}`);
-      throw new ExitError(1);
+      throw new Error();
     }
   }
 
-  if (dryRun) {
+  if (ctx.dryRun) {
     console.error(`[DRY-RUN] would release issue #${issueNumber}${blockedReason ? ` (blocked: ${blockedReason})` : ''}`);
     return;
   }
 
-  await ensureRequiredLabels();
-  const issue = await getIssue(issueNumber);
+  await ensureRequiredLabels(ctx);
+  const issue = await getIssue(ctx, issueNumber);
   await ensureOpenIssue(issue);
 
-  const me = await getCurrentUser();
+  const me = await getCurrentUser(ctx);
   const assignee = getIssueFirstAssignee(issue);
 
   if (assignee && assignee !== me) {
@@ -713,79 +682,79 @@ async function cmdRelease(args: string[]): Promise<void> {
   }
 
   if (assignee === me) {
-    await removeAssignee(issueNumber, me);
+    await removeAssignee(ctx, issueNumber, me);
   }
 
-  await ensureLabelAbsent(issue, 'status:doing');
+  await ensureLabelAbsent(ctx, issue, 'status:doing');
 
   if (blockedReason) {
-    await ensureLabelAbsent(issue, 'status:to-do');
-    await ensureLabelPresent(issue, 'status:blocked');
-    await addComment(issueNumber, `Released by @${me}. Blocked: ${blockedReason}`);
-    if (jsonMode) {
+    await ensureLabelAbsent(ctx, issue, 'status:to-do');
+    await ensureLabelPresent(ctx, issue, 'status:blocked');
+    await addComment(ctx, issueNumber, `Released by @${me}. Blocked: ${blockedReason}`);
+    if (ctx.jsonMode) {
       outputJson({ number: issueNumber, status: 'blocked', blocked_reason: blockedReason });
     }
   } else {
-    await ensureLabelAbsent(issue, 'status:blocked');
-    await ensureLabelAbsent(issue, 'status:in-review');
-    await ensureLabelPresent(issue, 'status:to-do');
-    await addComment(issueNumber, `Released by @${me} and returned to status:to-do.`);
-    if (jsonMode) {
+    await ensureLabelAbsent(ctx, issue, 'status:blocked');
+    await ensureLabelAbsent(ctx, issue, 'status:in-review');
+    await ensureLabelPresent(ctx, issue, 'status:to-do');
+    await addComment(ctx, issueNumber, `Released by @${me} and returned to status:to-do.`);
+    if (ctx.jsonMode) {
       outputJson({ number: issueNumber, status: 'to-do' });
     }
   }
 }
 
-async function cmdClose(args: string[]): Promise<void> {
+async function cmdClose(ctx: GhContext, args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: close requires <issue-number>.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const issueNumber = Number(args[0]);
   if (!Number.isInteger(issueNumber) || issueNumber < 1) {
     console.error('Error: invalid issue number.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const summary = args.slice(1).join(' ') || 'Completed and validated.';
 
-  if (dryRun) {
+  if (ctx.dryRun) {
     console.error(`[DRY-RUN] would close issue #${issueNumber}`);
     return;
   }
 
-  await ensureRequiredLabels();
-  const issue = await getIssue(issueNumber);
+  await ensureRequiredLabels(ctx);
+  const issue = await getIssue(ctx, issueNumber);
   await ensureOpenIssue(issue);
 
-  await addComment(issueNumber, summary);
-  await ensureLabelAbsent(issue, 'status:doing');
-  await ensureLabelAbsent(issue, 'status:to-do');
-  await ensureLabelAbsent(issue, 'status:in-review');
-  await ensureLabelAbsent(issue, 'status:blocked');
-  await closeIssue(issueNumber);
+  await addComment(ctx, issueNumber, summary);
+  await ensureLabelAbsent(ctx, issue, 'status:doing');
+  await ensureLabelAbsent(ctx, issue, 'status:to-do');
+  await ensureLabelAbsent(ctx, issue, 'status:in-review');
+  await ensureLabelAbsent(ctx, issue, 'status:blocked');
+  await closeIssue(ctx, issueNumber);
 
-  if (jsonMode) {
+  if (ctx.jsonMode) {
     outputJson({ number: issueNumber, state: 'closed' });
   }
 }
 
-async function cmdShow(args: string[]): Promise<void> {
+async function cmdShow(ctx: GhContext, args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: show requires <issue-number>.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const issueNumber = Number(args[0]);
   if (!Number.isInteger(issueNumber) || issueNumber < 1) {
     console.error('Error: invalid issue number.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
-  const issue = await getIssue(issueNumber);
+  const issue = await getIssue(ctx, issueNumber);
 
-  if (jsonMode) {
+  if (ctx.jsonMode) {
     outputJson({
       number: issue.number,
       title: issue.title,
@@ -812,22 +781,22 @@ async function cmdShow(args: string[]): Promise<void> {
   );
 }
 
-async function cmdPrclose(args: string[]): Promise<void> {
+async function cmdPrclose(ctx: GhContext, args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: prclose requires <issue-number>.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const issueNumber = Number(args[0]);
   if (!Number.isInteger(issueNumber) || issueNumber < 1) {
     console.error('Error: invalid issue number.');
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const summary = args.slice(1).join(' ') || 'Ready for review via PR.';
 
   // Early dry-run guard — skip all local git checks and API calls
-  if (dryRun) {
+  if (ctx.dryRun) {
     console.error(`[DRY-RUN] would create PR for issue #${issueNumber}`);
     console.error(`[DRY-RUN] would update labels to status:in-review`);
     return;
@@ -864,8 +833,8 @@ async function cmdPrclose(args: string[]): Promise<void> {
   }
 
   // ── Validate before dry-run guard ───────────────────────────────────────
-  await ensureRequiredLabels();
-  const issue = await getIssue(issueNumber);
+  await ensureRequiredLabels(ctx);
+  const issue = await getIssue(ctx, issueNumber);
   await ensureOpenIssue(issue);
 
   // ── API calls ───────────────────────────────────────────────────────────
@@ -879,13 +848,10 @@ async function cmdPrclose(args: string[]): Promise<void> {
     const slug = slugify(issueTitle);
     const featureBranch = `feature/issue-${issueNumber}-${slug}`;
     process.stdout.write(`On protected branch '${currentBranch}'. Creating feature branch '${featureBranch}'...\n`);
-    execFileSync('git', ['checkout', '-b', featureBranch], { encoding: 'utf8', timeout: 15000 });
-    execFileSync('git', ['add', '-u'], { encoding: 'utf8', timeout: 15000 });  // stage only tracked files (exclude untracked)
-    execFileSync('git', ['commit', '-m', `[Issue #${issueNumber}] ${issueTitle}`], {
-      encoding: 'utf8',
-      timeout: 15000,
-    });
-    execFileSync('git', ['push', '-u', 'origin', featureBranch], { encoding: 'utf8', timeout: 30000 });
+    git(['checkout', '-b', featureBranch], undefined, 15000);
+    git(['add', '-u'], undefined, 15000);  // stage only tracked files (exclude untracked)
+    git(['commit', '-m', `[Issue #${issueNumber}] ${issueTitle}`], undefined, 15000);
+    git(['push', '-u', 'origin', featureBranch], undefined, 30000);
     currentBranch = featureBranch;
     branchWasCreated = true;
   }
@@ -894,55 +860,65 @@ async function cmdPrclose(args: string[]): Promise<void> {
   const prBody = buildPRBody(issueNumber);
 
   // Get default branch for PR base
-  const defaultBranch = await getDefaultBranch();
+  const defaultBranch = await getDefaultBranch(ctx);
 
   // Get current user for PR assignee
-  const me = await getCurrentUser();
+  const me = await getCurrentUser(ctx);
 
   // Create PR
-  const pr = await apiPost<GitHubPR>(`/repos/${repo}/pulls`, {
+  const pr = await apiPost<GitHubPR>(ctx, `/repos/${ctx.repo}/pulls`, {
     title: `[Issue #${issueNumber}] '${issueTitle}'`,
     head: currentBranch,
     base: defaultBranch,
     body: prBody,
     maintainer_can_modify: true,
   });
-  await addAssignee(pr.number, me);
+  await addAssignee(ctx, pr.number, me);
   const prUrl = pr.html_url;
   process.stdout.write(`${prUrl}\n`);
 
+  // Clean up temp file if it was consumed
+  const tempPath = path.join(getRepoRoot(), 'temp', `pr-body-${issueNumber}.md`);
+  try {
+    unlinkSync(tempPath);
+  } catch { /* temp file may not exist — tolerate ENOENT */ }
+
   // Comment on issue
-  await addComment(issueNumber, `${summary}\n\nPull request: ${prUrl}`);
+  await addComment(ctx, issueNumber, `${summary}\n\nPull request: ${prUrl}`);
 
   // Update labels
-  await ensureLabelAbsent(issue, 'status:doing');
-  await ensureLabelAbsent(issue, 'status:to-do');
-  await ensureLabelAbsent(issue, 'status:blocked');
-  await ensureLabelPresent(issue, 'status:in-review');
+  await ensureLabelAbsent(ctx, issue, 'status:doing');
+  await ensureLabelAbsent(ctx, issue, 'status:to-do');
+  await ensureLabelAbsent(ctx, issue, 'status:blocked');
+  await ensureLabelPresent(ctx, issue, 'status:in-review');
 
-  if (jsonMode) {
+  if (ctx.jsonMode) {
     outputJson({ number: issueNumber, pr_url: prUrl, status: 'in-review' });
   }
 }
 
 // ── Main entry point ────────────────────────────────────────────────────────
 
-async function main(): Promise<void> {
+export async function main(
+  argv: string[] = process.argv.slice(2),
+  opts?: { repo?: string; token?: string; jsonMode?: boolean; dryRun?: boolean },
+): Promise<void> {
   // Parse global-level arguments
-  const allArgs = process.argv.slice(2);
   let explicitRepo = '';
+  let jsonMode = false;
+  let dryRun = false;
   const remainingArgs: string[] = [];
 
-  for (let i = 0; i < allArgs.length; i++) {
-    const arg = allArgs[i];
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
 
     if (arg === '--repo' || arg === '-R') {
       i++;
-      if (i >= allArgs.length) {
+      if (i >= argv.length) {
         console.error('Error: --repo/-R requires OWNER/REPO value.');
-        throw new ExitError(1);
+        throw new Error();
       }
-      explicitRepo = allArgs[i];
+      explicitRepo = argv[i];
     } else if (arg.startsWith('--repo=') || arg.startsWith('-R=')) {
       const eqIdx = arg.indexOf('=');
       explicitRepo = arg.slice(eqIdx + 1);
@@ -957,68 +933,73 @@ async function main(): Promise<void> {
 
   if (remainingArgs.length === 0) {
     printUsage();
-    throw new ExitError(1);
+    throw new Error();
   }
 
   const command = remainingArgs[0];
   const cmdArgs = remainingArgs.slice(1);
 
   // Resolve auth token (may throw if no token available and device flow fails)
-  if (!dryRun) {
-    token = await resolveToken();
-  }
+  const token = opts?.token ?? (dryRun ? '' : await resolveToken());
 
   // Resolve repository owner/name
-  repo = resolveRepo(explicitRepo);
+  const repo = opts?.repo ?? resolveRepo(explicitRepo);
+
+  const ctx: GhContext = {
+    jsonMode: opts?.jsonMode ?? jsonMode,
+    dryRun: opts?.dryRun ?? dryRun,
+    repo,
+    token,
+  };
 
   // Dispatch
   switch (command) {
     case 'check':
-      await cmdCheck();
+      await cmdCheck(ctx);
       break;
     case 'labels-check':
-      await cmdLabelsCheck();
+      await cmdLabelsCheck(ctx);
       break;
     case 'list':
-      await cmdList();
+      await cmdList(ctx);
       break;
     case 'create':
-      await cmdCreate(cmdArgs);
+      await cmdCreate(ctx, cmdArgs);
       break;
     case 'claim':
-      await cmdClaim(cmdArgs);
+      await cmdClaim(ctx, cmdArgs);
       break;
     case 'assign':
-      await cmdAssign(cmdArgs);
+      await cmdAssign(ctx, cmdArgs);
       break;
     case 'release':
-      await cmdRelease(cmdArgs);
+      await cmdRelease(ctx, cmdArgs);
       break;
     case 'close':
-      await cmdClose(cmdArgs);
+      await cmdClose(ctx, cmdArgs);
       break;
     case 'prclose':
-      await cmdPrclose(cmdArgs);
+      await cmdPrclose(ctx, cmdArgs);
       break;
     case 'show':
-      await cmdShow(cmdArgs);
+      await cmdShow(ctx, cmdArgs);
       break;
     case 'raw':
       console.error('Error: raw subcommand is not available in the TypeScript implementation.');
-      throw new ExitError(1);
+      throw new Error();
     default:
       console.error(`Error: unknown command: ${command}`);
       printUsage();
-      throw new ExitError(1);
+      throw new Error();
   }
 }
 
 // ── Exports for testing ─────────────────────────────────────────────────────
 
 export {
-  addAssignee, addComment, addLabel, api, apiDelete, apiGet, apiPatch, apiPost, buildPRBody, closeIssue, cmdAssign, cmdCheck, cmdClaim, cmdClose, cmdCreate, cmdLabelsCheck,
-  cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureOpenIssue, ensureRequiredLabels, ExitError, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
-  getIssueFirstAssignee, getIssueState, getRepoLabels, issueHasLabel, main, output,
+  addAssignee, addComment, addLabel, api, apiGet, apiPost, buildPRBody, closeIssue, cmdAssign, cmdCheck, cmdClaim, cmdClose, cmdCreate, cmdLabelsCheck,
+  cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureOpenIssue, ensureRequiredLabels, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
+  getIssueFirstAssignee, getIssueState, getRepoLabels, issueHasLabel, output,
   outputJson, printUsage, removeAssignee, removeLabel, REQUIRED_LABELS, resolveRepo, resolveToken, slugify
 };
 
@@ -1027,25 +1008,13 @@ export {
 // When imported as a module (e.g., in tests), main() is not called automatically.
 
 const __filename = fileURLToPath(import.meta.url);
-if (
-  __filename === process.argv[1] ||
-  process.argv.slice(1).some((arg) => arg === __filename || arg.endsWith(path.basename(__filename)))
-) {
-  // Use .then/.catch instead of top-level await so we can set exitCode without
-  // calling process.exit() during pending async handles (avoids Node-on-Windows
-  // libuv assertion in debug builds).
+if (process.argv[1] === __filename) {
   main().then(
-    () => {
-      process.exitCode = 0;
-    },
+    () => { process.exitCode = 0; },
     (err: unknown) => {
-      if (err instanceof ExitError) {
-        process.exitCode = err.code;
-      } else {
-        const message = err instanceof Error ? err.message : String(err);
-        if (message) console.error(message);
-        process.exitCode = 1;
-      }
+      const message = err instanceof Error ? err.message : String(err);
+      if (message) console.error(message);
+      process.exitCode = 1;
     },
   );
 }

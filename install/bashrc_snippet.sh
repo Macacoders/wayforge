@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 # Source this file from your ~/.bashrc to expose ai-config helper functions.
+# Note: install aliases delegate to install/bootstrap.sh (thin wrapper with
+# binary auto-download and npx tsx fallback). Uninstall uses the TS CLI directly.
 
 _ai_config_root() {
 	if [[ -n "${AI_CONFIG_HOME:-}" && -d "${AI_CONFIG_HOME}" ]]; then
@@ -59,7 +61,7 @@ ai-uninstall-repo() {
 
 	local root
 	root="$(_ai_config_root)"
-	"$root/install/uninstall.sh" --repo "$repo_path"
+	npx tsx "$root/cli/src/index.ts" uninstall --repo "$repo_path"
 }
 
 ai-uninstall-repo-dry-run() {
@@ -72,5 +74,5 @@ ai-uninstall-repo-dry-run() {
 
 	local root
 	root="$(_ai_config_root)"
-	"$root/install/uninstall.sh" --repo "$repo_path" --dry-run
+	npx tsx "$root/cli/src/index.ts" uninstall --repo "$repo_path" --dry-run
 }

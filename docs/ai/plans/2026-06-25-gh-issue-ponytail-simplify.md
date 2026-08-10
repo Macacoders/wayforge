@@ -1,3 +1,12 @@
+---
+status: completed
+created: 2026-06-25
+phase: 1/1
+required_gates:
+  test_verdict: true
+  memory_update: true
+---
+
 # Plan: Ponytail Audit — Simplify gh-issue.ts
 
 **Date:** 2026-06-25

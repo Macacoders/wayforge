@@ -1,6 +1,6 @@
 ---
-description: Prepare and invoke code for the next approved phase.
-agent: planner
+description: Prepare and invoke code for the next approved phase via the delivery pipeline.
+agent: delivery
 ---
 
 Prepare the next approved phase for implementation.

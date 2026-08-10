@@ -1,3 +1,12 @@
+---
+status: completed
+created: 2026-06-16
+phase: 1/1
+required_gates:
+  test_verdict: false
+  memory_update: true
+---
+
 # Plan: Move planner handoff templates to reference files
 
 - **Issue**: [#71](https://github.com/Macacoders/ai-config/issues/71)

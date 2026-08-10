@@ -2,7 +2,7 @@
 // Tests require vitest 4.x. Run: npx vitest run
 //
 // Strategy:
-//   - Mock child_process.execSync globally (git commands)
+//   - Mock child_process.execFileSync globally (git commands)
 //   - Mock global fetch (GitHub API)
 //   - Set GITHUB_TOKEN env to bypass auth module
 //   - Use exported functions from gh-issue.ts directly
@@ -11,16 +11,16 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 // ── Module-level mocks (hoisted by vitest) ──────────────────────────────────
 
-const mockExecSync = vi.hoisted(() => vi.fn());
-vi.mock('child_process', () => ({ execSync: mockExecSync }));
+const mockExecFileSync = vi.hoisted(() => vi.fn());
+vi.mock('child_process', () => ({ execFileSync: mockExecFileSync }));
 
 const mockExistsSync = vi.hoisted(() => vi.fn());
-const mockMkdirSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
+const mockUnlinkSync = vi.hoisted(() => vi.fn());
 vi.mock('node:fs', () => ({
   existsSync: mockExistsSync,
-  mkdirSync: mockMkdirSync,
   readFileSync: mockReadFileSync,
+  unlinkSync: mockUnlinkSync,
 }));
 vi.mock('../../../base/opencode/skills/shared-task/scripts/gh-app-auth.ts', () => ({
   getValidToken: vi.fn().mockRejectedValue(new Error('auth mock')),
@@ -113,31 +113,32 @@ function mockWithLabels(
 
 // ── Setup / teardown ────────────────────────────────────────────────────────
 
+const baseCtx = { jsonMode: false, dryRun: false, repo: 'test/repo', token: 't' };
+
 beforeEach(() => {
-  gh.resetState();
   process.env.GITHUB_TOKEN = 'test-token-value';
   delete process.env.GH_TOKEN;
   delete process.env.GH_REPO;
   mockFetch.mockReset();
-  mockExecSync.mockReset();
+  mockExecFileSync.mockReset();
   mockExistsSync.mockReset();
-  mockMkdirSync.mockReset();
   mockReadFileSync.mockReset();
-  // Default: no temp/template files exist; readFileSync returns empty
+  mockUnlinkSync.mockReset();
+  // Default: no template file exists; readFileSync returns empty
   mockExistsSync.mockReturnValue(false);
   mockReadFileSync.mockReturnValue('');
 
-  // Default execSync: git origin, repo root, current branch, clean tree
-  mockExecSync.mockImplementation((cmd: string) => {
+  // Default execFileSync: git origin, repo root, current branch, clean tree
+  mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+    const key = [cmd, ...args].join(' ');
     const map: Record<string, string> = {
       'git remote get-url origin': 'git@github.com:owner/repo.git',
       'git rev-parse --show-toplevel': '/tmp/repo',
       'git rev-parse --abbrev-ref HEAD': 'feature/test',
       'git status --porcelain': '',
     };
-    const trimmed = cmd.trim();
-    if (map[trimmed] !== undefined) return map[trimmed];
-    throw new Error(`Unexpected execSync: ${cmd}`);
+    if (map[key] !== undefined) return map[key];
+    throw new Error(`Unexpected execFileSync: ${cmd} ${args.join(' ')}`);
   });
 });
 
@@ -207,8 +208,6 @@ describe('slugify', () => {
 
 describe('getRepoLabels', () => {
   it('collects all labels across multiple pages', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
     const page1 = [{ name: 'status:to-do' }, { name: 'status:doing' }];
     const page2 = [{ name: 'type:task' }, { name: 'type:bug' }];
     let page = 0;
@@ -221,7 +220,7 @@ describe('getRepoLabels', () => {
       }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`));
     });
-    const labels = await gh.getRepoLabels();
+    const labels = await gh.getRepoLabels(baseCtx);
     expect(labels).toEqual(['status:to-do', 'status:doing', 'type:task', 'type:bug']);
   });
 });
@@ -231,11 +230,6 @@ describe('getRepoLabels', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('api retry behavior', () => {
-  beforeEach(() => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
-  });
-
   it('retries on 502 and succeeds', async () => {
     let callCount = 0;
     mockFetch.mockImplementation(() => {
@@ -243,7 +237,7 @@ describe('api retry behavior', () => {
       if (callCount === 1) return Promise.resolve(errorResponse(502, 'Server Error'));
       return Promise.resolve(okResponse({ status: 'ok' }));
     });
-    const result = await gh.api('GET', '/repos/test/repo');
+    const result = await gh.api(baseCtx, 'GET', '/repos/test/repo');
     expect(result).toEqual({ status: 'ok' });
     expect(callCount).toBe(2);
   });
@@ -254,7 +248,7 @@ describe('api retry behavior', () => {
       callCount++;
       return Promise.resolve(errorResponse(502, 'Bad Gateway'));
     });
-    await expect(gh.api('GET', '/repos/test/repo')).rejects.toThrow(
+    await expect(gh.api(baseCtx, 'GET', '/repos/test/repo')).rejects.toThrow(
       'GitHub API error (502): Bad Gateway',
     );
     expect(callCount).toBe(2); // 1 initial + 1 retry
@@ -266,7 +260,7 @@ describe('api retry behavior', () => {
       callCount++;
       return Promise.reject(new Error('Network failure'));
     });
-    await expect(gh.api('GET', '/repos/test/repo')).rejects.toThrow('Network failure');
+    await expect(gh.api(baseCtx, 'GET', '/repos/test/repo')).rejects.toThrow('Network failure');
     expect(callCount).toBe(1);
   });
 
@@ -274,7 +268,7 @@ describe('api retry behavior', () => {
     mockFetch.mockImplementation(() =>
       Promise.resolve(errorResponse(404, 'Not Found')),
     );
-    await expect(gh.api('GET', '/repos/test/repo')).rejects.toThrow(
+    await expect(gh.api(baseCtx, 'GET', '/repos/test/repo')).rejects.toThrow(
       'GitHub API error (404): Not Found',
     );
   });
@@ -334,7 +328,7 @@ describe('resolveRepo', () => {
   });
 
   it('throws when git origin is unavailable', () => {
-    mockExecSync.mockImplementation(() => { throw new Error('not a git repo'); });
+    mockExecFileSync.mockImplementation(() => { throw new Error('not a git repo'); });
     expect(() => gh.resolveRepo('')).toThrow('GH_REPO is not set');
   });
 });
@@ -345,8 +339,6 @@ describe('resolveRepo', () => {
 
 describe('cmdCheck', () => {
   it('succeeds with human-readable output', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
     mockFetch.mockResolvedValue(okResponse({ full_name: 'test/repo' }));
 
     const stdout: string[] = [];
@@ -355,14 +347,11 @@ describe('cmdCheck', () => {
       return true;
     });
 
-    await gh.cmdCheck();
+    await gh.cmdCheck(baseCtx);
     expect(stdout.join('')).toContain('OK: GitHub access verified for test/repo');
   });
 
   it('succeeds with JSON output', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
-    gh._setJsonMode(true);
     mockFetch.mockResolvedValue(okResponse({ full_name: 'test/repo' }));
 
     const stdout: string[] = [];
@@ -371,17 +360,15 @@ describe('cmdCheck', () => {
       return true;
     });
 
-    await gh.cmdCheck();
+    await gh.cmdCheck({ ...baseCtx, jsonMode: true });
     const json = JSON.parse(stdout.join(''));
     expect(json).toEqual({ status: 'ok', repo: 'test/repo' });
   });
 
   it('throws on 404', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
     mockFetch.mockResolvedValue(errorResponse(404, 'Not Found'));
 
-    await expect(gh.cmdCheck()).rejects.toThrow('GitHub API error (404)');
+    await expect(gh.cmdCheck(baseCtx)).rejects.toThrow('GitHub API error (404)');
   });
 });
 
@@ -391,8 +378,6 @@ describe('cmdCheck', () => {
 
 describe('cmdLabelsCheck', () => {
   it('succeeds when all required labels exist', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
     let labelsCallCount = 0;
     mockFetch.mockImplementation(() => {
       labelsCallCount++;
@@ -407,13 +392,11 @@ describe('cmdLabelsCheck', () => {
       return true;
     });
 
-    await gh.cmdLabelsCheck();
+    await gh.cmdLabelsCheck(baseCtx);
     expect(stdout.join('')).toContain('OK: all required labels are present');
   });
 
   it('fails with numeric exit code when labels are missing', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
     let labelsCallCount = 0;
     mockFetch.mockImplementation(() => {
       labelsCallCount++;
@@ -423,13 +406,10 @@ describe('cmdLabelsCheck', () => {
       return Promise.resolve(data);
     });
 
-    await expect(gh.cmdLabelsCheck()).rejects.toThrow(gh.ExitError);
+    await expect(gh.cmdLabelsCheck(baseCtx)).rejects.toThrow(Error);
   });
 
   it('returns JSON error when labels are missing in JSON mode', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
-    gh._setJsonMode(true);
     let labelsCallCount = 0;
     mockFetch.mockImplementation(() => {
       labelsCallCount++;
@@ -445,7 +425,7 @@ describe('cmdLabelsCheck', () => {
       return true;
     });
 
-    await expect(gh.cmdLabelsCheck()).rejects.toThrow(gh.ExitError);
+    await expect(gh.cmdLabelsCheck({ ...baseCtx, jsonMode: true })).rejects.toThrow(Error);
     const json = JSON.parse(stdout.join(''));
     expect(json).toMatchObject({ status: 'error', repo: 'test/repo' });
     expect(json.missing.length).toBeGreaterThan(0);
@@ -477,8 +457,6 @@ describe('cmdList', () => {
   ];
 
   it('outputs tab-separated lines for each issue', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
     mockWithLabels('/issues?state=open', fakeIssues);
 
     const stdout: string[] = [];
@@ -487,15 +465,13 @@ describe('cmdList', () => {
       return true;
     });
 
-    await gh.cmdList();
+    await gh.cmdList(baseCtx);
     const output = stdout.join('');
     expect(output).toContain('#1\tIssue One\tassignee:user1\tstatus:doing');
     expect(output).toContain('#2\tIssue Two\tassignee:-\tstatus:to-do');
   });
 
   it('filters out pull requests', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
     const issuesWithPr = [
       ...fakeIssues,
       { number: 3, title: 'PR', state: 'open', assignees: [], labels: [], html_url: '', pull_request: {} },
@@ -508,16 +484,13 @@ describe('cmdList', () => {
       return true;
     });
 
-    await gh.cmdList();
+    await gh.cmdList(baseCtx);
     const output = stdout.join('');
     expect(output).not.toContain('#3');
     expect(output).toContain('#1');
   });
 
   it('returns JSON array in --json mode', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
-    gh._setJsonMode(true);
     mockWithLabels('/issues?state=open', fakeIssues);
 
     const stdout: string[] = [];
@@ -526,7 +499,7 @@ describe('cmdList', () => {
       return true;
     });
 
-    await gh.cmdList();
+    await gh.cmdList({ ...baseCtx, jsonMode: true });
     const json = JSON.parse(stdout.join(''));
     expect(json).toHaveLength(2);
     expect(json[0]).toMatchObject({ number: 1, title: 'Issue One' });
@@ -534,8 +507,6 @@ describe('cmdList', () => {
   });
 
   it('outputs full status label names with status: prefix for multiple status labels', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
     const multiStatusIssues = [
       {
         number: 5,
@@ -554,7 +525,7 @@ describe('cmdList', () => {
       return true;
     });
 
-    await gh.cmdList();
+    await gh.cmdList(baseCtx);
     const output = stdout.join('');
     // Single status label with prefix preserved
     expect(output).toContain('#5\tMulti Status\tassignee:-\tstatus:doing,status:in-review');
@@ -576,8 +547,6 @@ describe('cmdCreate', () => {
   };
 
   it('creates an issue with title only', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
     mockWithLabels('/issues', CREATED_ISSUE, 'POST');
 
     const stdout: string[] = [];
@@ -586,13 +555,11 @@ describe('cmdCreate', () => {
       return true;
     });
 
-    await gh.cmdCreate(['My Issue']);
+    await gh.cmdCreate(baseCtx, ['My Issue']);
     expect(stdout.join('')).toContain(CREATED_ISSUE.html_url);
   });
 
   it('creates an issue with labels', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
     mockWithLabels('/issues', CREATED_ISSUE, 'POST');
 
     const stdout: string[] = [];
@@ -601,23 +568,17 @@ describe('cmdCreate', () => {
       return true;
     });
 
-    await gh.cmdCreate(['Test', '--label', 'status:doing', '--label', 'type:bug']);
+    await gh.cmdCreate(baseCtx, ['Test', '--label', 'status:doing', '--label', 'type:bug']);
     expect(stdout.join('')).toContain(CREATED_ISSUE.html_url);
   });
 
   it('uses --dry-run and does not call API', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
-    gh._setDryRun(true);
 
-    await gh.cmdCreate(['Dry Run Title']);
+    await gh.cmdCreate({ ...baseCtx, dryRun: true }, ['Dry Run Title']);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('returns JSON in --json mode', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
-    gh._setJsonMode(true);
     mockWithLabels('/issues', CREATED_ISSUE, 'POST');
 
     const stdout: string[] = [];
@@ -626,33 +587,30 @@ describe('cmdCreate', () => {
       return true;
     });
 
-    await gh.cmdCreate(['My Issue']);
+    await gh.cmdCreate({ ...baseCtx, jsonMode: true }, ['My Issue']);
     const json = JSON.parse(stdout.join(''));
     expect(json).toMatchObject({ number: 42, url: CREATED_ISSUE.html_url, title: 'New Issue' });
   });
 
   it('throws when title is missing', async () => {
-    await expect(gh.cmdCreate([])).rejects.toThrow(gh.ExitError);
+    await expect(gh.cmdCreate(baseCtx, [])).rejects.toThrow(Error);
   });
 
   it('throws on unknown option', async () => {
-    await expect(gh.cmdCreate(['Title', '--bogus'])).rejects.toThrow(gh.ExitError);
+    await expect(gh.cmdCreate(baseCtx, ['Title', '--bogus'])).rejects.toThrow(Error);
   });
 
   it('throws when --body-file has no path', async () => {
-    await expect(gh.cmdCreate(['Title', '--body-file'])).rejects.toThrow(gh.ExitError);
+    await expect(gh.cmdCreate(baseCtx, ['Title', '--body-file'])).rejects.toThrow(Error);
   });
 
   it('throws when --label has no value', async () => {
-    await expect(gh.cmdCreate(['Title', '--label'])).rejects.toThrow(gh.ExitError);
+    await expect(gh.cmdCreate(baseCtx, ['Title', '--label'])).rejects.toThrow(Error);
   });
 
   it('parses --body-file=path syntax with equals sign', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
-    gh._setDryRun(true);
     // The --body-file=path format (with =) should be parsed correctly without error
-    await expect(gh.cmdCreate(['Title', '--body-file=some/path.md']))
+    await expect(gh.cmdCreate({ ...baseCtx, dryRun: true }, ['Title', '--body-file=some/path.md']))
       .resolves.toBeUndefined();
   });
 });
@@ -662,11 +620,6 @@ describe('cmdCreate', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('cmdClaim', () => {
-  beforeEach(() => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
-  });
-
   it('claims an open unassigned issue', async () => {
     // Labels → Issue view → Issue view (assignee count) → Issue view (labels) → User → Assignee POST
     let labelsCallCount = 0;
@@ -692,7 +645,7 @@ describe('cmdClaim', () => {
       return Promise.reject(new Error(`Unexpected fetch: ${url}`));
     });
 
-    await gh.cmdClaim(['1']);
+    await gh.cmdClaim(baseCtx, ['1']);
     // Should not throw — means flow completed
   });
 
@@ -710,7 +663,7 @@ describe('cmdClaim', () => {
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
 
-    await expect(gh.cmdClaim(['1'])).rejects.toThrow('already assigned');
+    await expect(gh.cmdClaim(baseCtx, ['1'])).rejects.toThrow('already assigned');
   });
 
   it('throws when issue already has status:doing', async () => {
@@ -727,7 +680,7 @@ describe('cmdClaim', () => {
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
 
-    await expect(gh.cmdClaim(['1'])).rejects.toThrow('already has status:doing');
+    await expect(gh.cmdClaim(baseCtx, ['1'])).rejects.toThrow('already has status:doing');
   });
 
   it('throws when issue is closed', async () => {
@@ -744,18 +697,16 @@ describe('cmdClaim', () => {
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
 
-    await expect(gh.cmdClaim(['1'])).rejects.toThrow('not open');
+    await expect(gh.cmdClaim(baseCtx, ['1'])).rejects.toThrow('not open');
   });
 
   it('does not mutate in --dry-run', async () => {
-    gh._setDryRun(true);
     // No fetch mocks needed — dry-run should return before any API call
-    await gh.cmdClaim(['1']);
+    await gh.cmdClaim({ ...baseCtx, dryRun: true }, ['1']);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('outputs JSON in --json mode', async () => {
-    gh._setJsonMode(true);
 
     let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
@@ -779,13 +730,13 @@ describe('cmdClaim', () => {
       return true;
     });
 
-    await gh.cmdClaim(['1']);
+    await gh.cmdClaim({ ...baseCtx, jsonMode: true }, ['1']);
     const json = JSON.parse(stdout.join(''));
     expect(json).toMatchObject({ number: 1, assignee: 'testuser', status: 'doing' });
   });
 
   it('throws when issue number is missing', async () => {
-    await expect(gh.cmdClaim([])).rejects.toThrow(gh.ExitError);
+    await expect(gh.cmdClaim(baseCtx, [])).rejects.toThrow(Error);
   });
 });
 
@@ -794,11 +745,6 @@ describe('cmdClaim', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('cmdAssign', () => {
-  beforeEach(() => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
-  });
-
   it('assigns a collaborator to an open unassigned issue', async () => {
     let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
@@ -815,11 +761,11 @@ describe('cmdAssign', () => {
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
 
-    await gh.cmdAssign(['1', 'collabuser']);
+    await gh.cmdAssign(baseCtx, ['1', 'collabuser']);
   });
 
   it('throws when collaborator is missing', async () => {
-    await expect(gh.cmdAssign(['1'])).rejects.toThrow(gh.ExitError);
+    await expect(gh.cmdAssign(baseCtx, ['1'])).rejects.toThrow(Error);
   });
 
   it('throws when issue is already assigned', async () => {
@@ -836,7 +782,7 @@ describe('cmdAssign', () => {
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
 
-    await expect(gh.cmdAssign(['1', 'user'])).rejects.toThrow('already assigned');
+    await expect(gh.cmdAssign(baseCtx, ['1', 'user'])).rejects.toThrow('already assigned');
   });
 });
 
@@ -845,11 +791,6 @@ describe('cmdAssign', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('cmdRelease', () => {
-  beforeEach(() => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
-  });
-
   it('releases issue back to status:to-do', async () => {
     const assignedToMe = { ...DEFAULT_ISSUE, assignees: [{ login: 'testuser' }] };
     let labelsCallCount = 0;
@@ -868,7 +809,7 @@ describe('cmdRelease', () => {
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
 
-    await gh.cmdRelease(['1']);
+    await gh.cmdRelease(baseCtx, ['1']);
   });
 
   it('handles --blocked reason', async () => {
@@ -889,7 +830,7 @@ describe('cmdRelease', () => {
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
 
-    await gh.cmdRelease(['1', '--blocked', 'Waiting for review']);
+    await gh.cmdRelease(baseCtx, ['1', '--blocked', 'Waiting for review']);
   });
 
   it('throws when assigned to another user', async () => {
@@ -907,16 +848,14 @@ describe('cmdRelease', () => {
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
 
-    await expect(gh.cmdRelease(['1'])).rejects.toThrow('assigned to');
+    await expect(gh.cmdRelease(baseCtx, ['1'])).rejects.toThrow('assigned to');
   });
 
   it('throws when --blocked has no reason', async () => {
-    await expect(gh.cmdRelease(['1', '--blocked'])).rejects.toThrow(gh.ExitError);
+    await expect(gh.cmdRelease(baseCtx, ['1', '--blocked'])).rejects.toThrow(Error);
   });
 
   it('mutates labels correctly on release to status:to-do', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
     // Issue has all deletable status labels but NOT status:to-do
     const assignedToMe = {
       number: 1,
@@ -965,7 +904,7 @@ describe('cmdRelease', () => {
       return Promise.reject(new Error(`Unexpected: ${method} ${url}`));
     });
 
-    await gh.cmdRelease(['1']);
+    await gh.cmdRelease(baseCtx, ['1']);
 
     // Must delete status:doing, status:blocked, status:in-review
     // (Colon is URL-encoded as %3A in the API path)
@@ -984,11 +923,6 @@ describe('cmdRelease', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('cmdClose', () => {
-  beforeEach(() => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
-  });
-
   it('closes an open issue with custom summary', async () => {
     let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string) => {
@@ -1004,7 +938,7 @@ describe('cmdClose', () => {
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
 
-    await gh.cmdClose(['1', 'Fixed', 'the', 'bug']);
+    await gh.cmdClose(baseCtx, ['1', 'Fixed', 'the', 'bug']);
   });
 
   it('uses default summary when none provided', async () => {
@@ -1022,13 +956,10 @@ describe('cmdClose', () => {
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
 
-    await gh.cmdClose(['1']);
+    await gh.cmdClose(baseCtx, ['1']);
   });
 
   it('calls PATCH with state closed to close the issue', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
-
     let labelsCallCount = 0;
     mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
       const method = opts?.method ?? 'GET';
@@ -1048,7 +979,7 @@ describe('cmdClose', () => {
       return Promise.reject(new Error(`Unexpected: ${method} ${url}`));
     });
 
-    await gh.cmdClose(['1']);
+    await gh.cmdClose(baseCtx, ['1']);
 
     // Find the PATCH call and verify the request body
     const patchCalls = mockFetch.mock.calls.filter(
@@ -1074,7 +1005,7 @@ describe('cmdClose', () => {
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
 
-    await expect(gh.cmdClose(['1'])).rejects.toThrow('not open');
+    await expect(gh.cmdClose(baseCtx, ['1'])).rejects.toThrow('not open');
   });
 });
 
@@ -1083,59 +1014,42 @@ describe('cmdClose', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('cmdPrclose', () => {
-  beforeEach(() => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
-    mockExecSync.mockImplementation((cmd: string) => {
-      const map: Record<string, string> = {
-        'git rev-parse --show-toplevel': '/tmp/repo',
-        'git rev-parse --abbrev-ref HEAD': 'feature/test',
-        'git status --porcelain': '',
-      };
-      const trimmed = cmd.trim();
-      if (map[trimmed] !== undefined) return map[trimmed];
-      throw new Error(`Unexpected execSync: ${cmd}`);
-    });
-  });
-
   it('works with --dry-run on feature branch', async () => {
-    gh._setDryRun(true);
 
-    await gh.cmdPrclose(['1', 'Ready for review']);
+    await gh.cmdPrclose({ ...baseCtx, dryRun: true }, ['1', 'Ready for review']);
     // Dry-run returns early; no API calls at all
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('works with --dry-run on protected branch', async () => {
-    gh._setDryRun(true);
 
-    await gh.cmdPrclose(['1']);
+    await gh.cmdPrclose({ ...baseCtx, dryRun: true }, ['1']);
     // Dry-run returns early; no API calls at all
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('throws when on non-protected branch with dirty tree', async () => {
-    mockExecSync.mockImplementation((cmd: string) => {
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      const key = [cmd, ...args].join(' ');
       const map: Record<string, string> = {
         'git rev-parse --show-toplevel': '/tmp/repo',
         'git rev-parse --abbrev-ref HEAD': 'feature/test',
         'git status --porcelain': 'M some-file.ts',
       };
-      const trimmed = cmd.trim();
-      if (map[trimmed] !== undefined) return map[trimmed];
-      throw new Error(`Unexpected execSync: ${cmd}`);
+      if (map[key] !== undefined) return map[key];
+      throw new Error(`Unexpected execFileSync: ${cmd} ${args.join(' ')}`);
     });
 
-    await expect(gh.cmdPrclose(['1'])).rejects.toThrow('clean working tree');
+    await expect(gh.cmdPrclose(baseCtx, ['1'])).rejects.toThrow('clean working tree');
   });
 
   it('throws when no active branch', async () => {
-    mockExecSync.mockImplementation((cmd: string) => {
-      if (cmd.trim() === 'git rev-parse --abbrev-ref HEAD') return 'HEAD';
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'rev-parse' && args[1] === '--abbrev-ref' && args[2] === 'HEAD') return 'HEAD';
       return '';
     });
 
-    await expect(gh.cmdPrclose(['1'])).rejects.toThrow('active local branch');
+    await expect(gh.cmdPrclose(baseCtx, ['1'])).rejects.toThrow('active local branch');
   });
 
   it('performs full API flow on a feature branch and outputs PR URL', async () => {
@@ -1177,12 +1091,12 @@ describe('cmdPrclose', () => {
       return true;
     });
 
-    await gh.cmdPrclose(['1', 'Ready for review']);
+    await gh.cmdPrclose(baseCtx, ['1', 'Ready for review']);
     expect(stdout.join('')).toContain(PR_RESPONSE.html_url);
   });
 
   it('throws when issue number is missing', async () => {
-    await expect(gh.cmdPrclose([])).rejects.toThrow(gh.ExitError);
+    await expect(gh.cmdPrclose(baseCtx, [])).rejects.toThrow(Error);
   });
 });
 
@@ -1191,22 +1105,8 @@ describe('cmdPrclose', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('buildPRBody', () => {
-  it('reads from temp file when it exists', () => {
-    mockExistsSync.mockReturnValue(true);
-    mockReadFileSync.mockReturnValue('Custom body from temp/pr-body-1.md');
-
-    const body = gh.buildPRBody(1);
-    expect(body).toBe('Fixes #1\n\nCustom body from temp/pr-body-1.md');
-  });
-
-  it('falls back to PR template when temp file is missing', () => {
-    // Call 1: existsSync(tempDir) → false → mkdirSync
-    // Call 2: existsSync(tempPath) → false
-    // Call 3: existsSync(templatePath) → true → readFileSync
-    mockExistsSync
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(true);
+  it('reads from PR template when it exists', () => {
+    mockExistsSync.mockReturnValueOnce(true);
     mockReadFileSync.mockReturnValue('Template content\n# PR Title');
 
     const body = gh.buildPRBody(1);
@@ -1214,7 +1114,7 @@ describe('buildPRBody', () => {
     expect(body).toContain('Template content');
   });
 
-  it('generates default body when no files exist', () => {
+  it('generates default body when no template file exists', () => {
     mockExistsSync.mockReturnValue(false);
 
     const body = gh.buildPRBody(1);
@@ -1222,6 +1122,18 @@ describe('buildPRBody', () => {
     expect(body).toContain('## Summary');
     expect(body).toContain('## Testing');
     expect(body).toContain('## Breaking changes');
+  });
+
+  it('reads from temp file when it exists', () => {
+    // First existsSync call (temp path) returns true, second (template path) returns false
+    mockExistsSync
+      .mockReturnValueOnce(true)   // temp file exists
+      .mockReturnValueOnce(false); // template path does not exist
+    mockReadFileSync.mockReturnValue('Custom agent-generated content');
+
+    const body = gh.buildPRBody(1);
+    expect(body).toContain('Fixes #1');
+    expect(body).toContain('Custom agent-generated content');
   });
 });
 
@@ -1231,8 +1143,6 @@ describe('buildPRBody', () => {
 
 describe('main() dispatch', () => {
   it('runs cmdCheck when command is "check"', async () => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
     mockFetch.mockResolvedValue(okResponse({ full_name: 'test/repo' }));
 
     // Stub process.argv
@@ -1256,7 +1166,7 @@ describe('main() dispatch', () => {
     const origArgv = process.argv;
     process.argv = ['node', 'gh-issue.ts', '--repo', 'test/repo', 'bogus'];
 
-    await expect(gh.main()).rejects.toThrow(gh.ExitError);
+    await expect(gh.main()).rejects.toThrow(Error);
 
     process.argv = origArgv;
   });
@@ -1314,11 +1224,11 @@ describe('main() dispatch', () => {
     process.argv = origArgv;
   });
 
-  it('throws ExitError when no command is provided', async () => {
+  it('throws Error when no command is provided', async () => {
     const origArgv = process.argv;
     process.argv = ['node', 'gh-issue.ts'];
 
-    await expect(gh.main()).rejects.toThrow(gh.ExitError);
+    await expect(gh.main()).rejects.toThrow(Error);
 
     process.argv = origArgv;
   });
@@ -1359,8 +1269,6 @@ describe('main() dispatch', () => {
 
 describe('cmdShow', () => {
   beforeEach(() => {
-    gh._setRepo('test/repo');
-    gh._setToken('t');
     mockFetch.mockReset();
   });
 
@@ -1382,7 +1290,7 @@ describe('cmdShow', () => {
       return true;
     });
 
-    await gh.cmdShow(['123']);
+    await gh.cmdShow(baseCtx, ['123']);
     const output = stdout.join('');
     expect(output).toContain('Issue #123: Test Issue Title');
     expect(output).toContain('State: open');
@@ -1409,7 +1317,7 @@ describe('cmdShow', () => {
       return true;
     });
 
-    await gh.cmdShow(['456']);
+    await gh.cmdShow(baseCtx, ['456']);
     const output = stdout.join('');
     expect(output).toContain('(unassigned)');
     expect(output).toContain('(none)');
@@ -1417,7 +1325,6 @@ describe('cmdShow', () => {
   });
 
   it('outputs JSON in --json mode', async () => {
-    gh._setJsonMode(true);
     const issue = {
       number: 789,
       title: 'JSON Issue',
@@ -1435,7 +1342,7 @@ describe('cmdShow', () => {
       return true;
     });
 
-    await gh.cmdShow(['789']);
+    await gh.cmdShow({ ...baseCtx, jsonMode: true }, ['789']);
     const json = JSON.parse(stdout.join(''));
     expect(json).toEqual({
       number: 789,
@@ -1450,16 +1357,16 @@ describe('cmdShow', () => {
 
   it('throws on non-existent issue', async () => {
     mockFetch.mockResolvedValue(errorResponse(404, 'Not Found'));
-    await expect(gh.cmdShow(['999'])).rejects.toThrow('GitHub API error (404): Not Found');
+    await expect(gh.cmdShow(baseCtx, ['999'])).rejects.toThrow('GitHub API error (404): Not Found');
   });
 
   it('throws when issue number is missing', async () => {
-    await expect(gh.cmdShow([])).rejects.toThrow(gh.ExitError);
+    await expect(gh.cmdShow(baseCtx, [])).rejects.toThrow(Error);
   });
 
   it('throws on invalid issue number', async () => {
-    await expect(gh.cmdShow(['0'])).rejects.toThrow(gh.ExitError);
-    await expect(gh.cmdShow(['-1'])).rejects.toThrow(gh.ExitError);
-    await expect(gh.cmdShow(['abc'])).rejects.toThrow(gh.ExitError);
+    await expect(gh.cmdShow(baseCtx, ['0'])).rejects.toThrow(Error);
+    await expect(gh.cmdShow(baseCtx, ['-1'])).rejects.toThrow(Error);
+    await expect(gh.cmdShow(baseCtx, ['abc'])).rejects.toThrow(Error);
   });
 });

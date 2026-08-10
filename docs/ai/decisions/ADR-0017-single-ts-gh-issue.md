@@ -1,46 +1,78 @@
-# ADR-0017: Replace Bash/PowerShell gh-issue with Single TypeScript Script
+# ADR-0017: TypeScript as the Main Language for Tooling and Skill Scripts
 
-Date: 2026-06-23
-Status: Accepted
+**Originally:** 2026-06-23 (Replace Bash/PowerShell gh-issue with Single TypeScript Script)
+**Broadened:** 2026-07-02 (Generalized to all tooling and skill scripts)
+**Status:** Accepted
 
 ## Context
 
-Issue #84: The `gh-issue` workflow was previously implemented as two parallel scripts — a Bash script (`gh-issue`) and a PowerShell script (`gh-issue.ps1`) — that both called the `gh` CLI for GitHub API operations. This required maintaining duplicate logic in two languages, keeping them in sync for every change (per ADR-0011), and depending on the `gh` CLI being installed.
+The repository historically maintained parallel Bash and PowerShell implementations for operational scripts — a dual-maintenance burden that created platform-specific edge cases, testing complexity, and synchronization overhead. Three migrations demonstrated the pattern and confirmed its viability:
 
-Both scripts delegated token resolution to `gh-app-auth.ts` (via `npx tsx` subprocess), but all API calls went through `gh` rather than using native HTTP.
+1. **gh-issue** (Issue #84, 2026-06-23): The shared-task workflow had a Bash script (`gh-issue`) and a PowerShell script (`gh-issue.ps1`) that both called the `gh` CLI. Both delegated token resolution to `gh-app-auth.ts` via subprocess.
+
+2. **Release helpers** (Issue #157, 2026-07-01): Release preparation logic lived in `scripts/release.sh` and `scripts/release.ps1` implementing the same algorithm in different languages.
+
+3. **Skill scripts** (Issue #39, 2026-07-02): Skills needing deterministic helper scripts faced the same question — maintain Bash/PowerShell pairs or standardize on TypeScript.
+
+TypeScript offers: single codebase, cross-platform via `npx tsx`, strong typing, team familiarity, and zero-install execution for consumers with Node.js (already a requirement for OpenCode itself).
 
 ## Decision
 
-Replace both legacy scripts with a single TypeScript implementation (`gh-issue.ts`):
+Adopt TypeScript as the main language for all operational tooling scripts and skill scripts in this repository:
 
-- **Runtime**: `npx tsx` — no build step, no `package.json`, no `tsconfig.json`
-- **API**: Native `fetch` (Node 18+) against the GitHub REST API — no `gh` CLI dependency
-- **Auth**: Direct `import { getValidToken } from './gh-app-auth.ts'` — no subprocess
-- **Auth order**: `GITHUB_TOKEN` → `GH_TOKEN` → `getValidToken()` (cache → refresh → device flow)
-- **Output**: Preserves existing human-readable format by default; `--json` emits structured JSON
-- **Operations**: `check`, `labels-check`, `list`, `create`, `claim`, `assign`, `release`, `close`, `prclose`
-- **Dropped**: `raw` subcommand (was a passthrough to `gh` CLI) — no longer applicable
-- **No compatibility wrappers**: TypeScript is the sole implementation from the start
-- **Tests**: `tests/typescript/gh-issue/` (vitest, 88 tests, mocked API)
+- **Tooling scripts**: All new operational scripts (release, CI, maintenance) should be TypeScript unless explicitly justified otherwise.
+- **Skill scripts**: All new skill helper scripts use `.ts` files executed via `npx tsx <script>.ts`.
+- **Bash/PowerShell exceptions**: Only when the operation must work without Node.js, or as thin platform-specific wrappers.
+- **Existing scripts**: Bash/PowerShell scripts in the repo (installer, QA) remain unchanged — this ADR covers tooling and skill scripts only.
+- **Runtime**: `npx tsx` — no build step, no `tsconfig.json` required for standalone scripts.
+
+### Concrete outcomes from each migration
+
+**gh-issue.ts** (Issue #84):
+- Single TypeScript script replacing two legacy scripts
+- Native `fetch` (Node 18+) against the GitHub REST API — no `gh` CLI dependency
+- Direct `import { getValidToken } from './gh-app-auth.ts'` — no subprocess
+- Auth order: `GITHUB_TOKEN` → `GH_TOKEN` → `getValidToken()` (cache → refresh → device flow)
+- 88 vitest tests under `tests/typescript/gh-issue/`
+- **temp-file fallback** (Issue #168): `buildPRBody()` reads `temp/pr-body-<issue>.md` when it exists (agent pre-population mode) before falling back to template or hardcoded body
+- See ponytail simplifications below
+
+**release.ts** (Issue #157):
+- Standalone TypeScript script using only Node.js built-ins (`fs`, `child_process`, `path`, `process`)
+- Replaced and deleted `scripts/release.sh` and `scripts/release.ps1`
+- 42 vitest tests under `tests/typescript/release/`
+- Shared `scripts/lib/git.ts` helper extracted, eliminating duplicated `execFileSync('git', ...)` options across `release.ts` and `gh-issue.ts`
+
+**ai-memory.ts** (Issue #39):
+- First skill helper script in TypeScript (under `base/opencode/skills/`)
+- 5 subcommands (`status`, `list-plans`, `list-adrs`, `close-check`, `init`)
+- Stdlib-only — no external npm packages
+- Embedded templates for `docs/ai/` scaffolding with `--dry-run` support
 
 ## Consequences
 
-- Single script to maintain instead of two parallel implementations.
-- No `gh` CLI dependency — the script works wherever `npx tsx` runs.
-- `gh-app-auth.ts` integration is a direct import, not a subprocess call.
-- Token resolution is more robust (env vars checked in-process before falling back to device flow).
-- The `raw` subcommand (passthrough to `gh issue`) is no longer needed or available.
-- Vitest replaces bats/Bash-only tests for gh-issue functionality.
-- `buildPRBody()` gracefully falls through to template/default body when `temp/pr-body-<N>.md` doesn't exist (unlike the legacy scripts that required `temp/` to pre-exist).
+**Positive:**
+- Single codebase per script — no dual maintenance
+- TypeScript type checking catches errors at compile time
+- Shared utilities emerging organically (e.g., `scripts/lib/git.ts`)
+- **2026-07-03 update**: Both `gh-issue.ts` and `ai-memory.ts` establish a convention of an inline one-liner `git` wrapper (`const git = (args, cwd?, t?) => execFileSync('git', args, {encoding:'utf8', cwd, timeout: t}).trim()`) rather than importing from `scripts/lib/git.ts`. A shared skill-script utility library is deferred via `ponytail:` comments for future extraction when more than two skill scripts share a pattern.
+- Vitest provides consistent test framework across all TypeScript scripts
+- No `gh` CLI dependency for gh-issue — works wherever `npx tsx` runs
+- Consuming repositories need Node.js (already required for OpenCode)
+
+**Negative:**
+- Requires Node.js and `npx tsx` to run (Bash is available on any Unix system)
+- Bash/PowerShell-only environments without Node.js cannot run TypeScript scripts — acceptable since such environments cannot run OpenCode either
 
 ## ADRs Affected
 
-- **ADR-0011**: The "keep both scripts in sync" constraint is superseded (single script).
-- **ADR-0016**: The auth helper integration is now a direct import rather than subprocess; script references updated from `gh-issue`/`gh-issue.ps1` to `gh-issue.ts`.
+- **ADR-0027**: The "keep both scripts in sync" constraint is superseded (single script per tool).
+- **ADR-0016**: Auth helper integration is a direct import rather than subprocess.
+- Earlier separate ADRs for release migration and skill-script policy were absorbed into this broader decision — their numbers are released for future use.
 
 ## Simplification (2026-06-25)
 
-Ponytail audit of completed rewrite found four over-engineering items, all addressed in a single phase:
+Ponytail audit of the completed gh-issue rewrite found four over-engineering items, all addressed in a single phase:
 
 - **N+1 issue fetching**: `getIssueState`/`getIssueAssigneeCount`/`getIssueFirstAssignee`/`issueHasLabel` now accept a `GitHubIssue` object instead of `issueNumber`. Each command handler calls `getIssue()` once instead of 2–4 times. Eliminates redundant GitHub API calls.
 - **Retry simplification**: `api()` retries 5xx once (500ms fixed delay); network errors propagate immediately. Removed exponential backoff, `Retry-After` parsing, and `maxRetries` loop (~28 lines saved).

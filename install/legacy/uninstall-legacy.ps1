@@ -3,6 +3,9 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# DEPRECATED — use the TypeScript CLI instead:
+#   npx tsx cli/src/index.ts uninstall --repo <path>
+
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ROOT_DIR = Resolve-Path (Join-Path $SCRIPT_DIR '..') | Select-Object -ExpandProperty Path
 . (Join-Path $SCRIPT_DIR 'lib/managed_sync.ps1')

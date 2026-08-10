@@ -3,7 +3,8 @@
 Thumbs.db
 
 # Editor / IDE
-.vscode/
+.vscode/*
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
@@ -36,6 +37,7 @@ build/
 .tmp/
 tmp/
 temp/
+.test-tracking/
 
 .devcontainer
 .gh-config

@@ -1,3 +1,12 @@
+---
+status: completed
+created: 2026-06-25
+phase: 1/1
+required_gates:
+  test_verdict: true
+  memory_update: true
+---
+
 # Plan: Address six low-severity QA findings in gh-issue.ts rewrite (Issue #121)
 
 **Date:** 2026-06-25

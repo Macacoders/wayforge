@@ -1,7 +1,18 @@
+---
+status: completed
+created: 2026-06-22
+phase: 8/8
+required_gates:
+  test_verdict: true
+  architect_review: true
+  memory_update: true
+---
+
 # Plan: Node.js CLI Installer Migration
 
 **Created**: 2026-06-22
-**Status**: Superseded by `2026-06-26-ts-cli-zero-dep-migration-issue-131.md` — the new plan adds the zero-dependency end-user constraint (standalone binary via `deno compile`) that this plan did not address.
+**Status**: Complete — Phases 1-5, B, and 6C complete. PowerShell thin entrypoint and legacy folder added 2026-07-08. Superseded by `2026-06-26-ts-cli-zero-dep-migration-issue-131.md` for zero-dependency binary distribution (deno compile).
+**Approved**: 2026-06-30
 **Related**: ADR-0015 (remove agent presets), Issue #50 (global CLI installation and service registration)
 **Distinction from #27/#84**: Issues #27 and #84 target an OpenCode plugin/tool running *inside* OpenCode's runtime. This plan delivers a standalone CLI that runs *outside* OpenCode — it is the installer that bootstraps OpenCode configuration into target repositories. The two are complementary, not dependent.
 
@@ -314,3 +325,138 @@ Note: `--agent-preset` is intentionally excluded — already removed per ADR-001
 - **Service/daemon registration (Issue #50)**: The "service" question in #50 — whether ai-config needs a background daemon (systemd, Windows Service) — is separate from the CLI migration. This plan answers the first half of #50 (global CLI). The daemon half remains an open question for a future task.
 - **`installed-projects.json` UI**: A `list` subcommand showing all installed projects with versions and drift status.
 - **Config diff/drift detection**: Compare installed config against source templates.
+
+## Phase B: Zero-Dependency Delivery (Completed 2026-07-06)
+
+Phase B addressed the delivery architecture from Issue #131 — making the CLI usable without Node.js via a compiled standalone binary and auto-download shell entrypoint.
+
+### Delivered
+
+| Component | Details |
+|---|---|
+| `make cli-binary` | Reproducible `bun build --compile` target producing `dist/ai-config-<os>-<arch>`. Version embedded via `--define process.env.AI_CONFIG_VERSION`. |
+| `install/bootstrap.sh` | Replaced 847-line bash installer with 80-line thin wrapper: local binary → cached release → GitHub download → `npx tsx` fallback → clear error. |
+| `install/bootstrap-legacy.sh` | Original 847-line installer preserved as fallback reference. |
+| `cli/src/index.ts` | Version now reads from `process.env.AI_CONFIG_VERSION` (falls back to `"0.1.0"`). |
+| `.github/workflows/release.yml` | Extended with 4-platform matrix build (linux-x64, linux-arm64, darwin-x64, darwin-arm64). Binaries attached to GitHub Releases for download by shell entrypoint. |
+| Binary size | ~100MB (`bun build --compile` embeds bun runtime). Accepted per user decision (Option A). |
+
+---
+
+## Phase 6C: Integration, Linting, Docs, and Deprecation (Scoped 2026-07-06)
+
+Phase 6 was partially complete — the CLI commands (install, uninstall, interactive) work and `make check` runs TypeScript tests. What remains:
+
+### Phase 6C-1: CLI Linting & Formatting
+
+**Scope**: Add ESLint + Prettier configuration for the `cli/` TypeScript source.
+
+| File | Action |
+|---|---|
+| `cli/.eslintrc.json` (or `eslint.config.mjs`) | Create — TypeScript-ESLint with strict preset, aligned with `tsconfig.json:strict` |
+| `cli/.prettierrc` | Create — 2-space, single quotes, trailing commas, no semicolons (match repo style) |
+| `Makefile` | Add `check-node` target: `tsc --noEmit`, `npx eslint cli/src/`, `npx prettier --check cli/src/` |
+| `Makefile` | Add `fix-node` target: `npx eslint --fix cli/src/`, `npx prettier --write cli/src/` |
+
+**Acceptance criteria**:
+- `make check-node` passes with 0 errors
+- Existing code auto-fixed by `make fix-node` without manual edits
+- `check-node` wired into `make check` pipeline
+
+**Risks**: Low. Existing code is relatively clean; max a few lint violations.
+
+---
+
+### Phase 6C-2: Integration Test Suite
+
+**Scope**: Shell script that validates the TypeScript CLI produces byte-identical output to the legacy bash installer for key provider × runtime combinations.
+
+**File created**: `cli/tests/integration/run.sh`
+
+Test matrix (smoke — not exhaustive):
+| Providers | Runtime |
+|---|---|
+| `free-tier` | `opencode` |
+| `openai` | `opencode` |
+| `openai,github-copilot` | `opencode` |
+| `openai` | `kilocode` |
+
+For each combination:
+1. Run `npx tsx cli/src/index.ts install --repo /tmp/test --providers X --runtime Y --dry-run`
+2. Run legacy `install/bootstrap-legacy.sh --repo /tmp/test --providers X --runtime Y --dry-run`
+3. `diff -r` the two target directories — expect identical `opencode.jsonc`/`kilo.jsonc`, AGENTS.md, managed manifest
+
+**Acceptance criteria**:
+- `cli/tests/integration/run.sh` exits 0 for all 4 combinations
+- Wired into `make check-tests` (or separate `make check-integration`)
+- Fails clearly with diff output if CLI output diverges
+
+**Risks**: Medium. The legacy installer and TS CLI share model resolution logic now (`providers.ts`), but config generation paths may diverge on edge cases. The integration suite catches these.
+
+---
+
+### Phase 6C-3: Documentation Updates
+
+**Scope**: Document the Node CLI as the primary install method.
+
+| File | Change |
+|---|---|
+| `README.md` | Add "CLI Installer" section above the shell installer section. Show `npx tsx cli/src/index.ts install --repo /path --providers openai` as the recommended command. Mention binary download via `install/bootstrap.sh`. |
+| `docs/ai/architecture.md` | Add "Installer (CLI)" component: TypeScript + Commander, `cli/src/`, binary compilation via `make cli-binary`. |
+| `AGENTS.md` — Build/Test Commands | Add `make check-node` (lint), `npx vitest run` (unit tests), `cli/tests/integration/run.sh` (integration). |
+
+**Acceptance criteria**:
+- README shows the TS CLI first, shell installer second
+- Architecture doc reflects the current component boundaries
+- AGENTS.md build/test section is accurate
+
+**Risks**: Low. Documentation-only.
+
+---
+
+### Phase 6C-4: Deprecation Notices
+
+**Scope**: Mark legacy installers as deprecated.
+
+| File | Action |
+|---|---|
+| `install/bootstrap.ps1` | Add comment header: `# DEPRECATED — use the TypeScript CLI: npx tsx cli/src/index.ts install …` |
+| `install/uninstall.sh` | Add comment header: `# DEPRECATED — use the TypeScript CLI: npx tsx cli/src/index.ts uninstall …` |
+| `install/uninstall.ps1` | Add comment header: `# DEPRECATED — use the TypeScript CLI: npx tsx cli/src/index.ts uninstall …` |
+| `install/bashrc_snippet.sh` | Update alias to point at `npx tsx cli/src/index.ts` instead of legacy `bootstrap.sh` |
+| `install/powershell_profile_snippet.ps1` | Same — update alias to TS CLI |
+
+Note: `install/bootstrap.sh` is already replaced by the 80-line thin entrypoint. `install/bootstrap-legacy.sh` is the preserved reference — needs no deprecation notice (it's explicitly legacy).
+
+**Acceptance criteria**:
+- Every legacy installer script has a deprecation comment as its first non-shebang line
+- Shell profile snippets delegate to the TS CLI
+- `install/bootstrap.sh` thin entrypoint is the canonical entrypoint (no change needed)
+
+**Risks**: Low. Comment-only changes.
+
+---
+
+### Phase Budget & Sequencing
+
+| Phase | Lines | Risk | Depends on |
+|---|---|---|---|
+| 6C-1 (lint) | ~80 | Low | — |
+| 6C-2 (integration) | ~60 | Medium | 6C-1 (lint-fixed code) |
+| 6C-3 (docs) | ~40 | Low | — |
+| 6C-4 (deprecation) | ~20 | Low | — |
+
+**Total**: ~200 lines across 10 files. All phases independent except 6C-2 depends on 6C-1 for lint-clean comparison baseline.
+
+### Validation Strategy
+
+| Phase | Validation |
+|---|---|
+| 6C-1 | `make check-node` exits 0 |
+| 6C-2 | `cli/tests/integration/run.sh` exits 0 for all 4 combos |
+| 6C-3 | Manual review of README, architecture.md, AGENTS.md |
+| 6C-4 | `grep DEPRECATED install/*.sh install/*.ps1` finds all files |
+
+### Decisions To Record
+
+None — this is a completion phase. All architectural decisions (TypeScript, Commander, binary compilation) were locked in during Phases 1-5 and B.
