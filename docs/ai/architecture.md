@@ -16,7 +16,7 @@ This repository provides reusable OpenCode source configuration and installs gen
 - The default OpenAI model policy uses documented general GPT models (`openai/gpt-5.5` plus lightweight `openai/gpt-5.4-mini`) instead of Codex or undocumented fast-model IDs so ChatGPT Plus/Pro installs avoid known account-availability failures.
 - Generated `opencode.jsonc` (or `kilo.jsonc` for Kilo Code) is the provider/model brain for each target repository and centralizes per-agent model assignments under `agent`.
 - Generated runtime config includes `enabled_providers` based on installer provider selection and supports agent presets (`balanced`, `fast`, `thorough`) through `--agent-preset` / `-AgentPreset`.
-- Users can switch providers interactively: `/model openai/gpt-5.5`, `/model github-copilot/gpt-5.4`, `/model laberit/laberit-ai`, or `/model opencode-go/minimax-m2.7`.
+- Users can switch providers interactively: `/model openai/gpt-5.5`, `/model github-copilot/gpt-5.4`, `/model laberit/laberit-ai`, or `/model opencode-go/deepseek-v4-pro`.
 
 ## Installed Surface
 

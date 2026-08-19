@@ -152,7 +152,7 @@ case "$MODEL_PRESET_CHOICE" in
 	elif contains_provider "$PROVIDERS" "github-copilot"; then
 		MODEL_OVERRIDE="github-copilot/gpt-5.3-codex"
 	elif contains_provider "$PROVIDERS" "opencode-go"; then
-		MODEL_OVERRIDE="opencode-go/kimi-k2.7-code"
+		MODEL_OVERRIDE="opencode-go/deepseek-v4-flash"
 	elif contains_provider "$PROVIDERS" "laberit"; then
 		MODEL_OVERRIDE="laberit/laberit-ai"
 	fi
@@ -162,7 +162,7 @@ case "$MODEL_PRESET_CHOICE" in
 	elif contains_provider "$PROVIDERS" "openai"; then
 		SMALL_MODEL_OVERRIDE="openai/gpt-5.4-mini"
 	elif contains_provider "$PROVIDERS" "opencode-go"; then
-		SMALL_MODEL_OVERRIDE="opencode-go/kimi-k2.7-code"
+		SMALL_MODEL_OVERRIDE="opencode-go/deepseek-v4-flash"
 	elif contains_provider "$PROVIDERS" "laberit"; then
 		SMALL_MODEL_OVERRIDE="laberit/laberit-ai"
 	fi

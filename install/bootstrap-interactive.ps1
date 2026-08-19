@@ -160,7 +160,7 @@ switch ($MODEL_PRESET_CHOICE) {
         } elseif (contains_provider $PROVIDERS 'github-copilot') {
             $MODEL_OVERRIDE = 'github-copilot/gpt-5.3-codex'
         } elseif (contains_provider $PROVIDERS 'opencode-go') {
-            $MODEL_OVERRIDE = 'opencode-go/kimi-k2.7-code'
+            $MODEL_OVERRIDE = 'opencode-go/deepseek-v4-flash'
         } elseif (contains_provider $PROVIDERS 'laberit') {
             $MODEL_OVERRIDE = 'laberit/laberit-ai'
         }
@@ -170,7 +170,7 @@ switch ($MODEL_PRESET_CHOICE) {
         } elseif (contains_provider $PROVIDERS 'openai') {
             $SMALL_MODEL_OVERRIDE = 'openai/gpt-5.4-mini'
         } elseif (contains_provider $PROVIDERS 'opencode-go') {
-            $SMALL_MODEL_OVERRIDE = 'opencode-go/kimi-k2.7-code'
+            $SMALL_MODEL_OVERRIDE = 'opencode-go/deepseek-v4-flash'
         } elseif (contains_provider $PROVIDERS 'laberit') {
             $SMALL_MODEL_OVERRIDE = 'laberit/laberit-ai'
         }
