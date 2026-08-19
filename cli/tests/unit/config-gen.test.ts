@@ -132,8 +132,8 @@ describe("resolveDefaultModels", () => {
 
   it("returns opencode-go only defaults", () => {
     expect(resolveDefaultModels(["opencode-go"])).toEqual({
-      model: "opencode-go/deepseek-v4-pro",
-      smallModel: "opencode-go/deepseek-v4-flash",
+      model: "opencode-go/minimax-m2.7",
+      smallModel: "opencode-go/kimi-k2.7-code",
     });
   });
 
@@ -360,7 +360,7 @@ describe("generateOpenCodeJsonc", () => {
     expect(content).toContain(
       '"enabled_providers": ["opencode", "opencode-go"]',
     );
-    expect(content).toContain('"model": "opencode-go/deepseek-v4-pro"');
+    expect(content).toContain('"model": "opencode-go/minimax-m2.7"');
   });
 
   it("uses kilocode schema for kilocode runtime", () => {

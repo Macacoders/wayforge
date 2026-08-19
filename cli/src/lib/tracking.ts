@@ -92,7 +92,10 @@ export function trackInstalledProject(
 		return
 	}
 
-	let obj: { schemaVersion: string; projects: Array<{ path: string; projectId?: string }> }
+	let obj: {
+		schemaVersion: string
+		projects: Array<{ path: string; projectId?: string }>
+	}
 	try {
 		obj = JSON.parse(fs.readFileSync(trackingFile, 'utf8')) as typeof obj
 	} catch {
@@ -103,7 +106,9 @@ export function trackInstalledProject(
 
 	// 1. projectId match → update in-place
 	if (ctx.projectId) {
-		const existing = obj.projects.findIndex((p) => p.projectId === ctx.projectId)
+		const existing = obj.projects.findIndex(
+			(p) => p.projectId === ctx.projectId,
+		)
 		if (existing !== -1) {
 			obj.projects[existing] = entry
 			fs.writeFileSync(trackingFile, `${JSON.stringify(obj, null, 2)}\n`)

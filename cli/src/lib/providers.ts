@@ -101,8 +101,8 @@ export function resolveDefaultModels(selected: Provider[]): {
 
 	if (selected.length === 1 && selected[0] === 'opencode-go') {
 		return {
-			model: 'opencode-go/deepseek-v4-pro',
-			smallModel: 'opencode-go/deepseek-v4-flash',
+			model: 'opencode-go/minimax-m2.7',
+			smallModel: 'opencode-go/kimi-k2.7-code',
 		}
 	}
 
@@ -128,8 +128,8 @@ export const FAST_MODELS: Record<
 		smallModel: 'github-copilot/gemini-3.5-flash',
 	},
 	'opencode-go': {
-		model: 'opencode-go/deepseek-v4-flash',
-		smallModel: 'opencode-go/deepseek-v4-flash',
+		model: 'opencode-go/kimi-k2.7-code',
+		smallModel: 'opencode-go/kimi-k2.7-code',
 	},
 	laberit: {
 		model: 'laberit/laberit-ai',

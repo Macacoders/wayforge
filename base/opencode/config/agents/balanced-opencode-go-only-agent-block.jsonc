@@ -1,10 +1,10 @@
 "agent": {
     "planner": {
-      "model": "opencode-go/deepseek-v4-pro",
+      "model": "opencode-go/minimax-m2.7",
       "steps": 24
     },
     "delivery": {
-      "model": "opencode-go/deepseek-v4-pro",
+      "model": "opencode-go/minimax-m2.7",
       "steps": 24
     },
     "research": {
@@ -16,7 +16,7 @@
       "steps": 12
     },
     "quickcode": {
-      "model": "opencode-go/deepseek-v4-flash",
+      "model": "opencode-go/kimi-k2.7-code",
       "steps": 8
     },
     "test": {

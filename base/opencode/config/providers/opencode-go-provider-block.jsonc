@@ -1,17 +1,5 @@
     "opencode-go": {
       "models": {
-        "deepseek-v4-pro": {
-          "options": {
-            "reasoningEffort": "medium",
-            "textVerbosity": "medium"
-          }
-        },
-        "deepseek-v4-flash": {
-          "options": {
-            "reasoningEffort": "low",
-            "textVerbosity": "low"
-          }
-        },
         "kimi-k2.7-code": {
           "options": {
             "reasoningEffort": "medium",
@@ -40,7 +28,12 @@
         },
         "mimo-v2.5-pro": {},
         "minimax-m3": {},
-        "minimax-m2.7": {},
+        "minimax-m2.7": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "medium"
+          }
+        },
         "glm-5.1": {},
         "glm-5": {}
       }

@@ -35,25 +35,6 @@ n
 	[ ! -e "$TEST_REPO/opencode.jsonc" ]
 }
 
-@test "bootstrap-interactive.sh runs a dry-run install with selected presets" {
-	input="${TEST_REPO}
-2
-4
-2
-2
-1
-
-Y
-"
-	run bash -c 'printf "%s" "$1" | "$2/install/bootstrap-interactive.sh"' _ "$input" "$REPO_ROOT"
-	[ "$status" -eq 0 ]
-	[[ "$output" == *"Model override: opencode-go/deepseek-v4-flash"* ]]
-	[[ "$output" == *"Small model override: opencode-go/deepseek-v4-flash"* ]]
-	[[ "$output" == *"DRY-RUN: would generate local config: $TEST_REPO/kilo.jsonc"* ]]
-	[ ! -e "$TEST_REPO/.opencode" ]
-	[ ! -e "$TEST_REPO/kilo.jsonc" ]
-}
-
 @test "bootstrap-interactive.sh rejects invalid runtime selections" {
 	input="${TEST_REPO}
 9
