@@ -282,13 +282,13 @@ describe("buildProviderBlockJson", () => {
 
 describe("buildAgentBlockJson", () => {
   it("returns hidden agent entries for free-tier only", () => {
-    const block = buildAgentBlockJson(["free-tier"], sourceDir);
+    const block = buildAgentBlockJson(["free-tier"], sourceDir, "opencode");
     expect(block).toContain('"build":');
     expect(block).toContain('"hidden": true');
   });
 
   it("selects openai-only agent block", () => {
-    const block = buildAgentBlockJson(["openai"], sourceDir);
+    const block = buildAgentBlockJson(["openai"], sourceDir, "opencode");
     expect(block).toContain('"planner":');
     expect(block).toContain('"model": "openai/gpt-5.5"');
   });
@@ -297,13 +297,36 @@ describe("buildAgentBlockJson", () => {
     const block = buildAgentBlockJson(
       ["openai", "github-copilot"],
       sourceDir,
+      "opencode",
     );
     expect(block).toContain('"planner":');
   });
 
   it("selects github-copilot-only agent block", () => {
-    const block = buildAgentBlockJson(["github-copilot"], sourceDir);
+    const block = buildAgentBlockJson(["github-copilot"], sourceDir, "opencode");
     expect(block).toContain('"planner":');
+  });
+
+  it("returns kilocode hidden agents for kilocode runtime", () => {
+    const block = buildAgentBlockJson(["openai"], sourceDir, "kilocode");
+    expect(block).toContain('"plan":');
+    expect(block).toContain('"general":');
+    expect(block).toContain('"explore":');
+    expect(block).toContain('"debug":');
+    expect(block).toContain('"orchestrator":');
+    expect(block).toContain('"ask":');
+    expect(block).toContain('"hidden": true');
+    expect(block).not.toContain('"build":');
+  });
+
+  it("returns opencode hidden agents for opencode runtime", () => {
+    const block = buildAgentBlockJson(["openai"], sourceDir, "opencode");
+    expect(block).toContain('"build":');
+    expect(block).toContain('"general":');
+    expect(block).toContain('"explore":');
+    expect(block).toContain('"plan":');
+    expect(block).toContain('"hidden": true');
+    expect(block).not.toContain('"ask":');
   });
 });
 
@@ -367,6 +390,18 @@ describe("generateOpenCodeJsonc", () => {
     const content = generateOpenCodeJsonc(makeOpts("kilocode", ["openai"]));
     expect(content).toContain('"$schema": "https://app.kilo.ai/config.json"');
     expect(content).toContain('"enabled_providers": ["openai"]');
+  });
+
+  it("generates kilocode config with kilocode hidden agents", () => {
+    const content = generateOpenCodeJsonc(makeOpts("kilocode", ["openai"]));
+    expect(content).toContain('"plan":');
+    expect(content).toContain('"general":');
+    expect(content).toContain('"explore":');
+    expect(content).toContain('"debug":');
+    expect(content).toContain('"orchestrator":');
+    expect(content).toContain('"ask":');
+    expect(content).toContain('"hidden": true');
+    expect(content).not.toContain('"build":');
   });
 
   it("applies model overrides", () => {

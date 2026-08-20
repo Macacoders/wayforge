@@ -94,45 +94,70 @@ export function buildProviderBlockJson(
 	return fragments.join(',\n')
 }
 
+const OPENCODE_HIDDEN = ['build', 'general', 'explore', 'plan']
+const KILOCODE_HIDDEN = [
+	'plan',
+	'general',
+	'explore',
+	'debug',
+	'orchestrator',
+	'ask',
+]
+
 export function buildAgentBlockJson(
 	selected: Provider[],
 	sourceDir: string,
+	runtime: Runtime,
 ): string {
+	let fragment: string
+
 	if (selected.includes('openai') && selected.includes('github-copilot')) {
-		return readFragment(
+		fragment = readFragment(
 			sourceDir,
 			'agents/balanced-openai-github-copilot-agent-block.jsonc',
 		)
-	}
-
-	if (selected.length === 1 && selected[0] === 'github-copilot') {
-		return readFragment(
+	} else if (selected.length === 1 && selected[0] === 'github-copilot') {
+		fragment = readFragment(
 			sourceDir,
 			'agents/balanced-github-copilot-only-agent-block.jsonc',
 		)
-	}
-
-	if (selected.length === 1 && selected[0] === 'laberit') {
-		return readFragment(
+	} else if (selected.length === 1 && selected[0] === 'laberit') {
+		fragment = readFragment(
 			sourceDir,
 			'agents/balanced-laberit-only-agent-block.jsonc',
 		)
-	}
-
-	if (selected.length === 1 && selected[0] === 'opencode-go') {
-		return readFragment(
+	} else if (selected.length === 1 && selected[0] === 'opencode-go') {
+		fragment = readFragment(
 			sourceDir,
 			'agents/balanced-opencode-go-only-agent-block.jsonc',
 		)
+	} else if (selected.every((p) => p === 'free-tier')) {
+		fragment = readFragment(sourceDir, 'agents/free-tier-agent-block.jsonc')
+	} else {
+		fragment = readFragment(
+			sourceDir,
+			'agents/balanced-openai-only-agent-block.jsonc',
+		)
 	}
 
-	if (selected.every((p) => p === 'free-tier')) {
-		return readFragment(sourceDir, 'agents/free-tier-agent-block.jsonc')
-	}
+	// Append runtime-specific hidden entries before the closing }
+	const hiddenAgents =
+		runtime === 'kilocode' ? KILOCODE_HIDDEN : OPENCODE_HIDDEN
+	const hiddenEntries = hiddenAgents
+		.map((name) => `    "${name}": {\n      "hidden": true\n    }`)
+		.join(',\n')
 
-	return readFragment(
-		sourceDir,
-		'agents/balanced-openai-only-agent-block.jsonc',
+	const lastBrace = fragment.lastIndexOf('}')
+	const beforeBrace = fragment.slice(0, lastBrace).trimEnd()
+	const hasEntries = beforeBrace.endsWith('}')
+	const separator = hasEntries ? ',\n' : '\n'
+
+	return (
+		beforeBrace +
+		separator +
+		hiddenEntries +
+		'\n  ' +
+		fragment.slice(lastBrace)
 	)
 }
 
@@ -164,7 +189,11 @@ export function generateOpenCodeJsonc(opts: GenerateOptions): string {
 		opts.runtime,
 		opts.sourceDir,
 	)
-	const agentBlock = buildAgentBlockJson(opts.selected, opts.sourceDir)
+	const agentBlock = buildAgentBlockJson(
+		opts.selected,
+		opts.sourceDir,
+		opts.runtime,
+	)
 	const agentSection = agentBlock ? `${agentBlock},\n  ` : ''
 
 	return `${MANAGED_OPENCODE_HEADER}

@@ -30,18 +30,5 @@
     "architect": {
       "model": "openai/gpt-5.5",
       "steps": 10
-    },
-    // ponytail: deduplicate — consider a shared hidden-agents fragment merged at build time
-    "build": {
-      "hidden": true
-    },
-    "general": {
-      "hidden": true
-    },
-    "explore": {
-      "hidden": true
-    },
-    "plan": {
-      "hidden": true
     }
   }
