@@ -11,7 +11,7 @@ agents:
       "git branch*": allow
       "git show*": allow
       "git ls-files*": allow
-      "npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts": allow
+      "npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts*": allow
       "npx tsx .opencode/skills/shared-task/scripts/gh-app-auth.ts*": allow
     task:
       "*": deny
@@ -34,7 +34,7 @@ agents:
       "git branch*": allow
       "git show*": allow
       "git ls-files*": allow
-      "npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts": allow
+      "npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts*": allow
       "npx tsx .opencode/skills/shared-task/scripts/gh-app-auth.ts*": allow
     task:
       "*": deny
