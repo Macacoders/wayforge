@@ -309,9 +309,12 @@ describe("buildAgentBlockJson", () => {
 
   it("returns kilocode hidden agents for kilocode runtime", () => {
     const block = buildAgentBlockJson(["openai"], sourceDir, "kilocode");
-    expect(block).toContain('"ask":');
+    expect(block).toContain('"plan":');
+    expect(block).toContain('"general":');
+    expect(block).toContain('"explore":');
     expect(block).toContain('"debug":');
     expect(block).toContain('"orchestrator":');
+    expect(block).toContain('"ask":');
     expect(block).toContain('"hidden": true');
     expect(block).not.toContain('"build":');
   });
@@ -391,9 +394,12 @@ describe("generateOpenCodeJsonc", () => {
 
   it("generates kilocode config with kilocode hidden agents", () => {
     const content = generateOpenCodeJsonc(makeOpts("kilocode", ["openai"]));
-    expect(content).toContain('"ask":');
+    expect(content).toContain('"plan":');
+    expect(content).toContain('"general":');
+    expect(content).toContain('"explore":');
     expect(content).toContain('"debug":');
     expect(content).toContain('"orchestrator":');
+    expect(content).toContain('"ask":');
     expect(content).toContain('"hidden": true');
     expect(content).not.toContain('"build":');
   });

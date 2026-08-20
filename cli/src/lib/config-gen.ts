@@ -95,7 +95,14 @@ export function buildProviderBlockJson(
 }
 
 const OPENCODE_HIDDEN = ['build', 'general', 'explore', 'plan']
-const KILOCODE_HIDDEN = ['ask', 'debug', 'orchestrator']
+const KILOCODE_HIDDEN = [
+	'plan',
+	'general',
+	'explore',
+	'debug',
+	'orchestrator',
+	'ask',
+]
 
 export function buildAgentBlockJson(
 	selected: Provider[],

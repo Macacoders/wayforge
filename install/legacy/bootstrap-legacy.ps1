@@ -432,27 +432,34 @@ function Read-AgentBlockFragment {
 }
 
 function Build-AgentBlockJson {
+    $fragment = ''
     if ((Contains-Provider 'openai') -and (Contains-Provider 'github-copilot')) {
-        return Read-AgentBlockFragment 'balanced-openai-github-copilot-agent-block.jsonc'
+        $fragment = Read-AgentBlockFragment 'balanced-openai-github-copilot-agent-block.jsonc'
+    } elseif ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'github-copilot') {
+        $fragment = Read-AgentBlockFragment 'balanced-github-copilot-only-agent-block.jsonc'
+    } elseif ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'laberit') {
+        $fragment = Read-AgentBlockFragment 'balanced-laberit-only-agent-block.jsonc'
+    } elseif ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'opencode-go') {
+        $fragment = Read-AgentBlockFragment 'balanced-opencode-go-only-agent-block.jsonc'
+    } elseif (-not (Has-RealProvider)) {
+        $fragment = Read-AgentBlockFragment 'free-tier-agent-block.jsonc'
+    } else {
+        $fragment = Read-AgentBlockFragment 'balanced-openai-only-agent-block.jsonc'
     }
 
-    if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'github-copilot') {
-        return Read-AgentBlockFragment 'balanced-github-copilot-only-agent-block.jsonc'
+    $hiddenAgents = if ($RUNTIME -eq 'kilocode') { @('plan','general','explore','debug','orchestrator','ask') } else { @('build','general','explore','plan') }
+    $entries = @()
+    foreach ($name in $hiddenAgents) {
+        $entries += ("    `"{0}`": {{`n      `"hidden`": true`n    }}" -f $name)
     }
+    $hiddenEntries = [string]::Join(",`n", $entries)
 
-    if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'laberit') {
-        return Read-AgentBlockFragment 'balanced-laberit-only-agent-block.jsonc'
-    }
+    $lastBrace = $fragment.LastIndexOf('}')
+    $beforeBrace = $fragment.Substring(0, $lastBrace).TrimEnd()
+    $hasEntries = $beforeBrace.EndsWith('}')
+    $separator = if ($hasEntries) { ",`n" } else { "`n" }
 
-    if ($SELECTED_PROVIDERS.Count -eq 1 -and $SELECTED_PROVIDERS[0] -eq 'opencode-go') {
-        return Read-AgentBlockFragment 'balanced-opencode-go-only-agent-block.jsonc'
-    }
-
-    if (-not (Has-RealProvider)) {
-        return ''
-    }
-
-    return Read-AgentBlockFragment 'balanced-openai-only-agent-block.jsonc'
+    return ($beforeBrace + $separator + $hiddenEntries + "`n  " + $fragment.Substring($lastBrace))
 }
 
 function Generate-OpenCodeJsoncContent {

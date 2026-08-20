@@ -383,7 +383,7 @@ build_agent_block_json() {
 	# Append runtime-specific hidden entries before the closing }
 	local -a hidden_agents
 	if [[ "$runtime" == "kilocode" ]]; then
-		hidden_agents=("ask" "debug" "orchestrator")
+		hidden_agents=("plan" "general" "explore" "debug" "orchestrator" "ask")
 	else
 		hidden_agents=("build" "general" "explore" "plan")
 	fi
@@ -396,15 +396,15 @@ build_agent_block_json() {
 		else
 			hidden_entries+=","
 		fi
-		hidden_entries+=$'\n    "'"$agent"'"': {'$'\n'"      \"hidden\": true"$'\n'"    }'
+		hidden_entries+="$(printf '\n    "%s": {\n      "hidden": true\n    }' "$agent")"
 	done
 
 	# Remove the last } (closing of agent block), trim trailing whitespace
 	local before_brace="${fragment%\}}"
-	local check="${before_brace%"${before_brace##*[![:space:]]}"}"
+	before_brace="${before_brace%"${before_brace##*[![:space:]]}"}"
 
 	local separator=""
-	if [[ "$check" == *"}" ]]; then
+	if [[ "$before_brace" == *"}" ]]; then
 		separator=","
 	fi
 
