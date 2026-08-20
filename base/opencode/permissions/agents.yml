@@ -11,7 +11,7 @@ agents:
       "git branch*": allow
       "git show*": allow
       "git ls-files*": allow
-      "npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts": allow
+      "npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts*": allow
       "npx tsx .opencode/skills/shared-task/scripts/gh-app-auth.ts*": allow
     task:
       "*": deny
@@ -36,6 +36,10 @@ agents:
       "git remote get-url*": allow
       "npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts*": allow
       "npx tsx .opencode/skills/shared-task/scripts/gh-app-auth.ts*": allow
+      # ponytail: resolved — validation allow rules intentionally duplicated from
+      # quickcode's bash block. Anchor/merge-key DRY is rejected: this file is parsed
+      # by three dependency-free line-scanners (TS cli/src/lib/permissions.ts plus the
+      # legacy bash/ps1 managed_sync renderers) that do not resolve anchors (ADR-0009, ADR-0014).
       "npm test*": allow
       "npm run test*": allow
       "npm run lint*": allow
