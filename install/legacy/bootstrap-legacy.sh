@@ -363,31 +363,52 @@ read_agent_fragment() {
 }
 
 build_agent_block_json() {
+	local runtime="${1:-opencode}"
+	local fragment=""
+
 	if contains_provider "openai" && contains_provider "github-copilot"; then
-		read_agent_fragment 'balanced-openai-github-copilot-agent-block.jsonc'
-		return
+		fragment="$(read_agent_fragment 'balanced-openai-github-copilot-agent-block.jsonc')"
+	elif [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "github-copilot" ]]; then
+		fragment="$(read_agent_fragment 'balanced-github-copilot-only-agent-block.jsonc')"
+	elif [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "laberit" ]]; then
+		fragment="$(read_agent_fragment 'balanced-laberit-only-agent-block.jsonc')"
+	elif [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "opencode-go" ]]; then
+		fragment="$(read_agent_fragment 'balanced-opencode-go-only-agent-block.jsonc')"
+	elif has_real_provider; then
+		fragment="$(read_agent_fragment 'balanced-openai-only-agent-block.jsonc')"
+	else
+		fragment="$(read_agent_fragment 'free-tier-agent-block.jsonc')"
 	fi
 
-	if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "github-copilot" ]]; then
-		read_agent_fragment 'balanced-github-copilot-only-agent-block.jsonc'
-		return
+	# Append runtime-specific hidden entries before the closing }
+	local -a hidden_agents
+	if [[ "$runtime" == "kilocode" ]]; then
+		hidden_agents=("ask" "debug" "orchestrator")
+	else
+		hidden_agents=("build" "general" "explore" "plan")
 	fi
 
-	if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "laberit" ]]; then
-		read_agent_fragment 'balanced-laberit-only-agent-block.jsonc'
-		return
+	local hidden_entries=""
+	local first=true
+	for agent in "${hidden_agents[@]}"; do
+		if [[ "$first" == "true" ]]; then
+			first=false
+		else
+			hidden_entries+=","
+		fi
+		hidden_entries+=$'\n    "'"$agent"'"': {'$'\n'"      \"hidden\": true"$'\n'"    }'
+	done
+
+	# Remove the last } (closing of agent block), trim trailing whitespace
+	local before_brace="${fragment%\}}"
+	local check="${before_brace%"${before_brace##*[![:space:]]}"}"
+
+	local separator=""
+	if [[ "$check" == *"}" ]]; then
+		separator=","
 	fi
 
-	if [[ "${#SELECTED_PROVIDERS[@]}" -eq 1 && "${SELECTED_PROVIDERS[0]}" == "opencode-go" ]]; then
-		read_agent_fragment 'balanced-opencode-go-only-agent-block.jsonc'
-		return
-	fi
-
-	if ! has_real_provider; then
-		return
-	fi
-
-	read_agent_fragment 'balanced-openai-only-agent-block.jsonc'
+	printf '%s%s%s\n  }' "$before_brace" "$separator" "$hidden_entries"
 }
 
 generate_opencode_jsonc_content() {
@@ -439,7 +460,7 @@ generate_opencode_jsonc_content() {
 	local provider_block
 	provider_block="$(build_provider_block_json)"
 	local agent_block
-	agent_block="$(build_agent_block_json)"
+	agent_block="$(build_agent_block_json "$runtime")"
 	local agent_section=""
 	if [[ -n "$agent_block" ]]; then
 		agent_section="${agent_block},
