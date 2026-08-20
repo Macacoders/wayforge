@@ -23,19 +23,44 @@ agents:
       architect: allow
 
   delivery:
-    edit: ask
+    edit: allow
     bash:
       "*": ask
       "git status*": allow
       "git diff*": allow
       "git log*": allow
+      "git show*": allow
+      "git branch*": allow
+      "git ls-files*": allow
       "git rev-parse*": allow
       "git remote get-url*": allow
-      "git branch*": allow
-      "git show*": allow
-      "git ls-files*": allow
-      "npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts": allow
+      "npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts*": allow
       "npx tsx .opencode/skills/shared-task/scripts/gh-app-auth.ts*": allow
+      "npm test*": allow
+      "npm run test*": allow
+      "npm run lint*": allow
+      "npm run typecheck*": allow
+      "npm run build*": allow
+      "pnpm test*": allow
+      "pnpm run test*": allow
+      "pnpm run lint*": allow
+      "pnpm run typecheck*": allow
+      "pnpm run build*": allow
+      "yarn test*": allow
+      "yarn lint*": allow
+      "yarn typecheck*": allow
+      "yarn build*": allow
+      "yarn run test*": allow
+      "yarn run lint*": allow
+      "yarn run typecheck*": allow
+      "yarn run build*": allow
+      "pytest*": allow
+      "python -m pytest*": allow
+      "ruff check*": allow
+      "mypy*": allow
+      "cargo test*": allow
+      "go test*": allow
+      "make test*": allow
     task:
       "*": deny
       research: allow
