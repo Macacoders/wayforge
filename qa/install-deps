@@ -5,7 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_helpers.sh"
 
-# Install shellcheck, shfmt, bats, nodejs, npm, git for your platform.
+# Install shellcheck, shfmt, bats, nodejs, npm, git, bun for your platform.
+# bun is verified and auto-installed if missing.
 # See https://github.com/laberit/ai-config/issues/131 for a future portable installer.
 
 echo "==> Checking PowerShell"
@@ -51,6 +52,33 @@ foreach ($module in $modules) {
 }
 POWERSHELL
 
+echo "==> Checking bun"
+
+if command -v bun >/dev/null 2>&1; then
+	echo "bun already installed."
+else
+	echo "bun is not installed. Installing via official installer..."
+
+	case "$(uname -s)" in
+	MINGW* | MSYS* | CYGWIN*)
+		powershell -c "irm bun.sh/install.ps1|iex"
+		;;
+	*)
+		curl -fsSL https://bun.com/install | bash
+		;;
+	esac
+fi
+
+if command -v bun >/dev/null 2>&1 || [ -x "${HOME}/.bun/bin/bun" ]; then
+	if ! command -v bun >/dev/null 2>&1; then
+		echo "bun installed at ${HOME}/.bun/bin/bun but is not on PATH."
+		echo "Restart your shell (or re-source your profile) so 'bun' is available."
+	fi
+else
+	echo "bun installation failed."
+	exit 1
+fi
+
 echo "==> Verifying installed tools"
 
 command -v shellcheck >/dev/null
@@ -59,6 +87,7 @@ command -v bats >/dev/null
 command -v node >/dev/null
 command -v npm >/dev/null
 command -v pwsh >/dev/null
+command -v bun >/dev/null || [ -x "${HOME}/.bun/bin/bun" ]
 
 run_pwsh_heredoc <<'POWERSHELL'
 $ErrorActionPreference = "Stop"
