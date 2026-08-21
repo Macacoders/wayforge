@@ -3,6 +3,7 @@ import fs from 'fs-extra'
 import { ManifestContext } from '../lib/context.js'
 import { rm } from '../lib/files.js'
 import { readManagedManifest } from '../lib/manifest.js'
+import { resolveSourceDir } from '../lib/source-dir.js'
 import { removeTrackingEntry } from '../lib/tracking.js'
 
 export interface UninstallOptions {
@@ -81,8 +82,14 @@ function doUninstall(options: UninstallOptions): void {
 		}
 	}
 
-	const sourceDir = path.resolve(__dirname, '..', '..', '..')
-	removeTrackingEntry(repo, sourceDir, ctx)
+	const sourceDir = resolveSourceDir()
+	if (!fs.pathExistsSync(path.join(sourceDir, 'base'))) {
+		ctx.log(
+			`warning: ai-config source tree not found at ${sourceDir}; skipping tracking-entry removal`,
+		)
+	} else {
+		removeTrackingEntry(repo, sourceDir, ctx)
+	}
 
 	if (ctx.dryRun) {
 		ctx.log(

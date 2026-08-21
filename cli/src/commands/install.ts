@@ -29,6 +29,7 @@ import {
 } from '../lib/config-gen.js'
 import { trackInstalledProject } from '../lib/tracking.js'
 import { cloneRef } from '../lib/git.js'
+import { resolveSourceDir } from '../lib/source-dir.js'
 import type { InstallOptions } from '../types.js'
 
 // ponytail: resolved rung 6 — removed Promise.resolve() wrapper; Commander accepts void
@@ -51,7 +52,7 @@ export function doInstall(options: InstallOptions): void {
 
 	ensureDir(path.join(repo, '.opencode'), ctx)
 
-	let sourceDir = path.resolve(__dirname, '..', '..', '..')
+	let sourceDir = resolveSourceDir()
 	let version = readFileOrDefault(sourceDir, 'VERSION', '0.0.0')
 	let cleanupFn: (() => void) | undefined
 
@@ -62,6 +63,12 @@ export function doInstall(options: InstallOptions): void {
 		sourceDir = cloned.sourceDir
 		version = cloned.version
 		cleanupFn = cloned.cleanup
+	} else if (!fs.pathExistsSync(path.join(sourceDir, 'base'))) {
+		ctx.log(`error: ai-config source tree not found at ${sourceDir}`)
+		ctx.log(
+			'  Set AI_CONFIG_HOME to the directory containing the base/ source tree.',
+		)
+		process.exit(1)
 	}
 
 	const installRef = options.ref || 'develop'

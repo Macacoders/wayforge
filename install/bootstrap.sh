@@ -8,6 +8,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 VERSION="$(cat "$ROOT_DIR/VERSION" 2>/dev/null || echo "0.0.0")"
+export AI_CONFIG_HOME="${AI_CONFIG_HOME:=$ROOT_DIR}"
 REPO="Macacoders/ai-config"
 
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
