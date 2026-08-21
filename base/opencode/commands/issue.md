@@ -29,6 +29,8 @@ For `/issue create <description>`:
 
 For non-create operations, call the helper command directly. The script handles all guardrails, labels, and formatting automatically.
 
+Mutating commands are silent on success by design: exit 0 = success, failures print to stderr with exit 1. Check the exit code if captured output looks incomplete.
+
 Helper command:
 - TypeScript: `.opencode/skills/shared-task/scripts/gh-issue.ts <operation> ...`
 
