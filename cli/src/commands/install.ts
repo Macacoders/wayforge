@@ -269,7 +269,7 @@ export function doInstall(options: InstallOptions): void {
 
 			ctx.force = savedForce
 			finalizeManagedManifest(repo, ctx)
-			trackInstalledProject(repo, sourceDir, version, installRef, ctx)
+			trackInstalledProject(repo, version, installRef, ctx)
 			ctx.log(`repo bootstrap complete for: ${repo}`)
 			if (cleanupFn) cleanupFn()
 			return
@@ -347,7 +347,7 @@ export function doInstall(options: InstallOptions): void {
 		)
 	}
 
-	trackInstalledProject(repo, sourceDir, version, installRef, ctx)
+	trackInstalledProject(repo, version, installRef, ctx)
 	finalizeManagedManifest(repo, ctx)
 	ctx.log(`repo bootstrap complete for: ${repo}`)
 	if (cleanupFn) cleanupFn()
