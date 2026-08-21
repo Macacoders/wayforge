@@ -3,6 +3,7 @@ import fs from 'fs-extra'
 import { ManifestContext } from '../lib/context.js'
 import { rm } from '../lib/files.js'
 import { readManagedManifest } from '../lib/manifest.js'
+import { resolveSourceDir } from '../lib/source-dir.js'
 import { removeTrackingEntry } from '../lib/tracking.js'
 
 export interface UninstallOptions {
@@ -81,7 +82,7 @@ function doUninstall(options: UninstallOptions): void {
 		}
 	}
 
-	const sourceDir = path.resolve(__dirname, '..', '..', '..')
+	const sourceDir = resolveSourceDir()
 	removeTrackingEntry(repo, sourceDir, ctx)
 
 	if (ctx.dryRun) {

@@ -20,6 +20,7 @@ function _refresh_path {
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ROOT_DIR = Resolve-Path (Join-Path $SCRIPT_DIR '..') | Select-Object -ExpandProperty Path
 $VERSION = if (Test-Path (Join-Path $ROOT_DIR 'VERSION')) { (Get-Content (Join-Path $ROOT_DIR 'VERSION') -Raw).Trim() } else { '0.0.0' }
+$env:AI_CONFIG_HOME = $ROOT_DIR
 $REPO = 'Macacoders/ai-config'
 
 # Architecture detection
