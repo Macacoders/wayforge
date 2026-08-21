@@ -19,6 +19,17 @@ export function posixPath(p: string): string {
 	return p.replace(/\\/g, '/')
 }
 
+/** Returns the path portion of a manifest list entry (`- path` or `  - path`), or null. */
+function parseListEntry(line: string): string | null {
+	if (line.startsWith('- ')) {
+		return line.slice(2)
+	}
+	if (line.startsWith('  - ')) {
+		return line.slice(4)
+	}
+	return null
+}
+
 /** Read the project_id field from an existing .ai-config-managed file. */
 export function readManagedProjectId(repo: string): string | null {
 	const manifest = path.join(repo, '.ai-config-managed')
@@ -85,8 +96,7 @@ export function addManagedPath(
 
 	const lines = readFileLines(manifestTmp)
 	const entry = posixPath(relativePath)
-	// Dedupe against both new-format (`- path`) and legacy (`  - path`) entries.
-	if (lines.includes(`- ${entry}`) || lines.includes(`  - ${entry}`)) {
+	if (lines.includes(`- ${entry}`)) {
 		return
 	}
 
@@ -167,12 +177,10 @@ function parseManagedPaths(content: string): string[] {
 		}
 
 		if (readingPaths) {
-			if (line.startsWith('- ')) {
-				paths.push(line.slice(2))
-			} else if (line.startsWith('  - ')) {
-				paths.push(line.slice(4))
+			const entry = parseListEntry(line)
+			if (entry !== null) {
+				paths.push(entry)
 			} else if (line === '') {
-				// Skip blank lines inside the list (new format has blank line after managed_paths:)
 				continue
 			} else if (!line.startsWith(' ')) {
 				readingPaths = false
@@ -194,7 +202,7 @@ export function isManagedPath(repo: string, relativePath: string): boolean {
 	if (fs.pathExistsSync(manifest)) {
 		const lines = readFileLines(manifest)
 		const pp = posixPath(relativePath)
-		return lines.includes(`- ${pp}`) || lines.includes(`  - ${pp}`)
+		return lines.some((line) => parseListEntry(line) === pp)
 	}
 
 	return false
@@ -214,10 +222,7 @@ export function isManagedFile(absolutePath: string): boolean {
 				if (relPath && relPath !== absolutePath) {
 					const lines = readFileLines(manifest)
 					const pp = posixPath(relPath)
-					if (
-						lines.includes(`- ${pp}`) ||
-						lines.includes(`  - ${pp}`)
-					) {
+					if (lines.some((line) => parseListEntry(line) === pp)) {
 						return true
 					}
 				}
@@ -248,17 +253,12 @@ export function isManagedDir(absolutePath: string): boolean {
 				if (relPath && relPath !== absolutePath) {
 					const lines = readFileLines(manifest)
 					const rp = posixPath(relPath)
-					if (
-						lines.includes(`- ${rp}`) ||
-						lines.includes(`  - ${rp}`)
-					) {
+					if (lines.some((line) => parseListEntry(line) === rp)) {
 						return true
 					}
 					for (const line of lines) {
-						if (
-							line.startsWith(`- ${rp}/`) ||
-							line.startsWith(`  - ${rp}/`)
-						) {
+						const entry = parseListEntry(line)
+						if (entry !== null && entry.startsWith(`${rp}/`)) {
 							return true
 						}
 					}
