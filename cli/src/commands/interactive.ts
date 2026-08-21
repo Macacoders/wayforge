@@ -1,19 +1,20 @@
 import fs from 'fs-extra'
 import readline from 'node:readline/promises'
 import { doInstall } from './install.js'
-import type { InstallOptions } from '../types.js'
+import type { InstallOptions, Provider } from '../types.js'
 import { parseProviders, resolveFastModels } from '../lib/providers.js'
 
 // ponytail: rung 2 — data-driven menu helper; eliminates 7× repeated prompt+switch pattern
 async function promptMenu<T>(
 	rl: readline.Interface,
 	title: string,
-	choices: { label: string; value: T }[],
+	choices: { label: string; value: T; hint?: string }[],
 	defaultIdx: number,
 ): Promise<T> {
 	console.log(`\n${title}:`)
 	choices.forEach((c, i) => {
 		console.log(`  ${String(i + 1)}) ${c.label}`)
+		if (c.hint) console.log(`       ${c.hint}`)
 	})
 	for (;;) {
 		const input = (
@@ -26,6 +27,21 @@ async function promptMenu<T>(
 		console.log('please enter a valid number')
 	}
 }
+
+// Requirement hints rendered under each provider option BEFORE selection, so
+// users know what each choice needs (verified against README + provider blocks).
+const PROVIDER_HINTS: Record<Provider, string> = {
+	'free-tier': 'nothing required — no external provider',
+	openai: 'requires /connect OpenAI auth in OpenCode/Kilo Code',
+	'github-copilot': 'requires /connect device login in OpenCode/Kilo Code',
+	laberit: 'requires OPENAI_BASE_URL and OPENAI_API_KEY env vars',
+	'opencode-go': 'requires /connect OpenCode Go auth in OpenCode/Kilo Code',
+}
+const providerHint = (value: string): string =>
+	value
+		.split(',')
+		.map((p) => PROVIDER_HINTS[p as Provider])
+		.join('; ')
 
 export async function interactiveCommand(): Promise<void> {
 	const rl = readline.createInterface({
@@ -109,9 +125,18 @@ export async function interactiveCommand(): Promise<void> {
 		const providers = await promptMenu(
 			rl,
 			'Provider set',
-			providerChoices,
+			// ponytail: hints derived from one map; combo sets join per-provider requirements
+			providerChoices.map((c) => ({ ...c, hint: providerHint(c.value) })),
 			0,
 		)
+
+		// ponytail: rung 2 — resolveFastModels lives in providers.ts; resolved up front so the
+		// preset menu hint can show exactly which models the fast preset selects.
+		const fast = resolveFastModels(parseProviders(providers))
+		const fastHint =
+			fast.model && fast.smallModel
+				? `overrides models for speed — main: ${fast.model}, small: ${fast.smallModel}`
+				: 'no faster models available for this provider set'
 
 		const modelPreset = await promptMenu(
 			rl,
@@ -120,17 +145,20 @@ export async function interactiveCommand(): Promise<void> {
 				{
 					label: 'installer defaults (recommended)',
 					value: 'default' as const,
+					hint: 'keeps the models the installer assigns by default',
 				},
-				{ label: 'faster responses', value: 'fast' as const },
+				{
+					label: 'faster responses',
+					value: 'fast' as const,
+					hint: fastHint,
+				},
 			],
 			0,
 		)
 
 		let modelOverride: string | undefined
 		let smallModelOverride: string | undefined
-		// ponytail: rung 2 — resolveFastModels extracted to providers.ts; eliminates 56-line duplicate
 		if (modelPreset === 'fast') {
-			const fast = resolveFastModels(parseProviders(providers))
 			modelOverride = fast.model
 			smallModelOverride = fast.smallModel
 		}
@@ -189,12 +217,18 @@ export async function interactiveCommand(): Promise<void> {
 		console.log(`  Repo: ${repoPath}`)
 		console.log(`  Runtime: ${runtime}`)
 		console.log(`  Providers: ${providers}`)
-		console.log(
-			`  Model override: ${modelOverride ?? 'none (installer default)'}`,
-		)
-		console.log(
-			`  Small model override: ${smallModelOverride ?? 'none (installer default)'}`,
-		)
+		if (modelPreset === 'fast') {
+			console.log('  Model preset: faster responses')
+			console.log(
+				`    Main model override: ${modelOverride ?? '(none resolved for this provider set)'}`,
+			)
+			console.log(
+				`    Small model override: ${smallModelOverride ?? '(none resolved for this provider set)'}`,
+			)
+		} else {
+			console.log('  Model preset: installer defaults')
+			console.log('    Model overrides: none (installer defaults)')
+		}
 		console.log(`  Dry run: ${String(dryRun)}`)
 		console.log(`  Force: ${String(force)}`)
 		console.log(

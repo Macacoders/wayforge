@@ -7,7 +7,7 @@ This repository provides reusable OpenCode source configuration and installs gen
 ## Runtime Boundary
 
 - OpenCode (default) and Kilo Code are supported AI runtimes, selectable at install time via the `--runtime` / `-Runtime` parameter.
-- Both Bash and PowerShell support guided interactive installs (`install/bootstrap-interactive.sh`, `install/bootstrap-interactive.ps1`) and non-interactive installs (`install/bootstrap.sh`, `install/bootstrap.ps1`).
+- Guided interactive installs are handled by the TypeScript CLI only (`ai-config interactive`, i.e. `npx tsx cli/src/index.ts interactive`); non-interactive installs use the thin entrypoints (`install/bootstrap.sh`, `install/bootstrap.ps1`).
 - Supported provider sets during installation include `free-tier` (default for opencode), `openai`, `github-copilot`, `laberit`, `opencode-go`, and comma-separated combinations of those providers. `free-tier` is only available for the opencode runtime and installs the default OpenCode structure without configuring an external provider.
 - OpenAI authentication is handled in OpenCode with `/connect` (ChatGPT Plus/Pro or Azure credentials).
 - GitHub Copilot authentication is handled in OpenCode with `/connect` (device login flow).

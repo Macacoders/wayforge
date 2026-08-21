@@ -145,12 +145,13 @@ Use `--dry-run` to preview, `--force` to regenerate all managed files. Without `
 
 ### Interactive install
 
+For a guided walkthrough, use the interactive installer:
+
 ```bash
-./install/bootstrap-interactive.sh     # Bash
-.\install\bootstrap-interactive.ps1    # PowerShell
+npx tsx cli/src/index.ts interactive   # or: ai-config interactive with the built CLI
 ```
 
-Prompts for target repo, runtime, providers, model preset, and agent preset (`balanced`, `fast`, `thorough`).
+Prompts for target repo, runtime, providers (showing each option's auth requirements before selection), model preset (installer defaults vs faster responses), dry-run/force options, and an optional GitHub App Client ID — then shows a summary before installing.
 
 ### Non-interactive install examples
 
