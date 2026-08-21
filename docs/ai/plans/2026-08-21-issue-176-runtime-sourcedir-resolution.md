@@ -12,56 +12,59 @@ required_gates:
 
 ## Goal
 
-Resolve the ai-config source tree (`sourceDir`) at runtime — primarily via `AI_CONFIG_HOME` (set at install time) with a runtime-relative fallback and a clear error when absent — so a relocated/CI-built `bun build --compile` binary never reads a baked-in build-machine path. `--ref` behavior is unchanged.
+Make the compiled CLI resolve its template `sourceDir` at runtime instead of baking `__dirname` in at compile time — with an honest, minimal precedence: `AI_CONFIG_HOME` override → dev `__dirname` fallback. The `e71616d` attempt is corrected by dropping the dead `process.versions.bun`/`process.execPath` branch, restoring install/uninstall symmetry with warn-and-continue, and stopping bootstrap from clobbering an explicit `AI_CONFIG_HOME`. `--ref` behavior is unchanged.
 
 ## Scope Classification
 
 - **Size**: Small
 - **Phase budget**: 1
-- **Phase budget rationale**: Two identical call sites + one small shared helper + one env override + one bootstrap export; tightly coupled, reviewable as a single deliverable.
-- **Quick delivery eligible**: No (compiled-binary correctness cannot be validated locally — `bun` not installed).
+- **Phase budget rationale**: Four tiny production edits + one test trim + one doc amendment, all touching the same concept; a single reviewable deliverable.
+- **Quick delivery eligible**: No (staged path elected; compiled-binary correctness still not locally verifiable — `bun` absent).
 - **Split required**: No
+- **Architect review**: Not required (no architecture-boundary change; ADR amended, not a new boundary).
 
 ## Confirmed decisions
 
-- Runtime API is `process.execPath` (NOT `import.meta.dir`, which resolves to `/$bunfs/root` in compiled binaries; NOT `process.argv0`, which is argv[0] and may be relative).
-- Resolution precedence: `AI_CONFIG_HOME` → compiled binary (`path.dirname(process.execPath)` via `process.versions.bun`) → dev (`path.resolve(__dirname, '..', '..', '..')`).
-- Missing source tree → clear error + exit(1) (no silent no-op).
-- Tracking-file location coupling (`installed-projects.json` written into `sourceDir`) is out of scope; install and uninstall stay consistent by sharing the resolver.
-- `--source` CLI flag deferred (AI_CONFIG_HOME chosen).
+- Drop the `process.versions.bun` / `path.dirname(process.execPath)` branch. It is a wrong discriminator (`bun run` also sets `process.versions.bun`) and, even when it fires, `dirname(process.execPath)` (e.g. `dist/`) does not contain `base/` — so it never resolves templates for the real build layout.
+- Final precedence: `AI_CONFIG_HOME` (non-empty) → `path.resolve(__dirname, '..', '..', '..')` (dev/`npx tsx`).
+- Runtime-relative fallback for the compiled binary is **deferred to the standard build-flow issue**, which owns the installed-location contract. This issue only removes the compile-time-path dependency.
+- Missing source tree: `install` → clear error + exit(1); `uninstall` → warn-and-continue (skip tracking-entry removal, still remove managed files).
+- Bootstrap sets `AI_CONFIG_HOME` as a **default**, not an overwrite.
+- `--source` CLI flag remains deferred (env var is sufficient).
 
-## Phase 1: Runtime `sourceDir` resolution via `AI_CONFIG_HOME`
+## Phase 1: Simplify `resolveSourceDir` to two honest rungs; restore uninstall symmetry
 
 **Scope**:
 
-1. Add `resolveSourceDir()` helper (new `cli/src/lib/source-dir.ts`).
-2. Replace `cli/src/commands/install.ts:54` and `cli/src/commands/uninstall.ts:84` with the helper.
-3. In `install.ts`, when not overridden by `--ref`, validate `base/` exists; on missing, clear error + `process.exit(1)`.
-4. `install/bootstrap.sh` + `install/bootstrap.ps1`: set `AI_CONFIG_HOME` to `ROOT_DIR` before invoking the binary (all tiers) and the `npx tsx` fallback.
-5. `--ref` clone path unchanged.
+1. `cli/src/lib/source-dir.ts` — remove the `process.versions.bun` / `path.dirname(process.execPath)` branch; final precedence `AI_CONFIG_HOME` → dev `__dirname`.
+2. `cli/src/commands/install.ts` — no functional change (existing `base/` guard stays); confirm `--ref` path untouched.
+3. `cli/src/commands/uninstall.ts` — warn-and-continue when resolved `sourceDir` has no `base/`: log warning, skip `removeTrackingEntry`, still remove managed files.
+4. `install/bootstrap.sh` — `export AI_CONFIG_HOME="${AI_CONFIG_HOME:=$ROOT_DIR}"`; `install/bootstrap.ps1` — set `$env:AI_CONFIG_HOME` only when unset.
+5. `cli/tests/unit/source-dir.test.ts` — trim to the final-precedence cases (env set / empty-string env / dev fallback); delete `bun`/execPath cases.
+6. Docs — amend `ADR-0032` (precedence + retract the `process.execPath`-as-API claim + note runtime-relative fallback deferred); update plan frontmatter/phase and monthly log.
 
 **Acceptance criteria**:
 
-- [ ] `install.ts` and `uninstall.ts` no longer derive `sourceDir` from `__dirname`; both use `resolveSourceDir()`.
-- [ ] `AI_CONFIG_HOME` is honored as the primary source location.
-- [ ] Missing source tree → clear error + exit(1).
-- [ ] `--ref` still overrides `sourceDir`.
-- [ ] `make check` passes.
+- [ ] `resolveSourceDir()` has exactly two branches; no `process.versions.bun` or `process.execPath` reference remains.
+- [ ] `install.ts` still errors clearly when the source tree is missing (non-`--ref`).
+- [ ] `uninstall.ts` warns and continues (does not exit) when the source tree is missing; managed files are still removed.
+- [ ] `--ref` path unchanged end-to-end.
+- [ ] `bootstrap.sh`/`.ps1` no longer overwrite an explicit user `AI_CONFIG_HOME`.
+- [ ] `make check` passes (vitest + `tsc --noEmit` + ESLint + Prettier + jscpd).
 
 **Risks**:
 
-- `bun` absent locally → compiled-binary acceptance criteria cannot be verified here; deferred to author/CI.
-- `process.versions.bun` is also true under `bun run` (non-documented dev flow) → would take the execPath branch; negligible.
-- Raw-binary-without-`AI_CONFIG_HOME` users get the new error (intended guardrail).
+- Dropping the execPath branch removes a (non-functional) compiled-binary fallback; a raw binary without `AI_CONFIG_HOME` now relies on the clear error. This is the intended guardrail and matches the issue's stated scope.
+- `bun` absent locally → compiled-binary acceptance still deferred to author/CI.
 
 ## Validation Strategy
 
-- **Gate**: `make check` (vitest + `tsc --noEmit` + ESLint + Prettier + jscpd).
-- **Unit test** (approved): `resolveSourceDir()` precedence — AI_CONFIG_HOME wins / compiled fallback / dev fallback — via `vi.stubEnv` + stubbed `process.execPath`/`process.versions.bun` (~4 cases).
-- **Manual (needs `bun`)**: `make cli-binary`, copy binary to temp dir, run `install --repo <tmp> --dry-run` with no `AI_CONFIG_HOME` → clear error; with `AI_CONFIG_HOME=<checkout>` → templates found.
+- **Gate**: `make check`.
+- **Unit** (approved): `resolveSourceDir()` precedence — `AI_CONFIG_HOME` wins / empty-string treated as unset / dev fallback (~3 cases via `vi.stubEnv`).
+- **Manual dry-run**: `npx tsx cli/src/index.ts install --repo <tmp> --dry-run` with `AI_CONFIG_HOME` unset → clear error; with `AI_CONFIG_HOME=<checkout>` → succeeds; `uninstall` with stale `AI_CONFIG_HOME` → warning, files still removed.
+- **Deferred**: compiled-binary relocation test (needs `bun`).
 
 ## Decisions To Record
 
-- ADR: runtime `sourceDir` resolution precedence; `process.execPath` is the correct runtime API for `bun build --compile` binaries.
-- Note: `--source` flag deferred (AI_CONFIG_HOME chosen).
-- Note: tracking-file location coupling explicitly out of scope.
+- `ADR-0032` amended: precedence `AI_CONFIG_HOME` → dev `__dirname`; `process.execPath`/`process.versions.bun` rejected as the compiled-binary discriminator; runtime-relative fallback deferred to the build-flow issue.
+- Tracking-file coupling: uninstall adopts warn-and-continue (not hard-error).
