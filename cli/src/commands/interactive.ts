@@ -31,7 +31,7 @@ async function promptMenu<T>(
 // Requirement hints rendered under each provider option BEFORE selection, so
 // users know what each choice needs (verified against README + provider blocks).
 const PROVIDER_HINTS: Record<Provider, string> = {
-	'free-tier': 'nothing required — no external provider',
+	'free-tier': 'nothing required',
 	openai: 'requires /connect OpenAI auth in OpenCode/Kilo Code',
 	'github-copilot': 'requires /connect device login in OpenCode/Kilo Code',
 	laberit: 'requires OPENAI_BASE_URL and OPENAI_API_KEY env vars',
@@ -177,10 +177,25 @@ export async function interactiveCommand(): Promise<void> {
 			ghAppClientIdInput === '' ? undefined : ghAppClientIdInput
 
 		console.log('\nProvider connection instructions (not automated):')
-		// ponytail: rung 2 — derived from PROVIDER_HINTS; single source of truth
-		for (const p of parseProviders(providers)) {
-			if (p === 'free-tier') continue
-			console.log(`  - ${p}: ${PROVIDER_HINTS[p]}`)
+		if (providers.includes('openai')) {
+			console.log(
+				'  - OpenAI: in OpenCode/Kilo Code, run /connect and complete OpenAI auth.',
+			)
+		}
+		if (providers.includes('github-copilot')) {
+			console.log(
+				'  - GitHub Copilot: in OpenCode/Kilo Code, run /connect and complete device login.',
+			)
+		}
+		if (providers.includes('laberit')) {
+			console.log(
+				'  - laberit: set OPENAI_BASE_URL and OPENAI_API_KEY in your local environment before use.',
+			)
+		}
+		if (providers.includes('opencode-go')) {
+			console.log(
+				'  - OpenCode Go: in OpenCode/Kilo Code, run /connect and complete OpenCode Go auth.',
+			)
 		}
 
 		console.log('\nSummary:')

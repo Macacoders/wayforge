@@ -58,7 +58,7 @@ Make the TypeScript CLI's `ai-config interactive` command the single guided inst
 **Scope**:
 
 1. Delete `install/bootstrap-interactive.sh` and `install/bootstrap-interactive.ps1`.
-2. Delete `tests/bash/bootstrap_interactive.bats` (all 5 tests exercise only the deleted Bash wrapper; `qa/check-bats` discovers by glob — no Makefile change).
+2. Delete `tests/bash/bootstrap_interactive.bats` (all 4 tests exercise only the deleted Bash wrapper; `qa/check-bats` discovers by glob — no Makefile change).
 3. Rewrite README "Interactive install" section → `ai-config interactive` as primary path; remove stale agent-preset text.
 4. Update `docs/ai/architecture.md` line 10 → interactive installs are TS CLI only.
 5. Comment on issue #178 recording the direct-elimination decision (via repo gh-issue helper, `npx tsx`).
