@@ -83,7 +83,13 @@ function doUninstall(options: UninstallOptions): void {
 	}
 
 	const sourceDir = resolveSourceDir()
-	removeTrackingEntry(repo, sourceDir, ctx)
+	if (!fs.pathExistsSync(path.join(sourceDir, 'base'))) {
+		ctx.log(
+			`warning: ai-config source tree not found at ${sourceDir}; skipping tracking-entry removal`,
+		)
+	} else {
+		removeTrackingEntry(repo, sourceDir, ctx)
+	}
 
 	if (ctx.dryRun) {
 		ctx.log(
