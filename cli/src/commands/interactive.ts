@@ -78,50 +78,30 @@ export async function interactiveCommand(): Promise<void> {
 		)
 
 		// Provider selection: opencode includes free-tier, kilocode does not
+		const fullProviderChoices = [
+			{
+				label: 'free-tier (default, no external provider)',
+				value: 'free-tier',
+			},
+			{ label: 'openai', value: 'openai' },
+			{ label: 'github-copilot', value: 'github-copilot' },
+			{ label: 'laberit', value: 'laberit' },
+			{ label: 'opencode-go', value: 'opencode-go' },
+			{ label: 'openai,github-copilot', value: 'openai,github-copilot' },
+			{ label: 'openai,laberit', value: 'openai,laberit' },
+			{
+				label: 'github-copilot,laberit',
+				value: 'github-copilot,laberit',
+			},
+			{
+				label: 'openai,github-copilot,laberit',
+				value: 'openai,github-copilot,laberit',
+			},
+		]
 		const providerChoices =
 			runtime === 'opencode'
-				? [
-						{
-							label: 'free-tier (default, no external provider)',
-							value: 'free-tier',
-						},
-						{ label: 'openai', value: 'openai' },
-						{ label: 'github-copilot', value: 'github-copilot' },
-						{ label: 'laberit', value: 'laberit' },
-						{ label: 'opencode-go', value: 'opencode-go' },
-						{
-							label: 'openai,github-copilot',
-							value: 'openai,github-copilot',
-						},
-						{ label: 'openai,laberit', value: 'openai,laberit' },
-						{
-							label: 'github-copilot,laberit',
-							value: 'github-copilot,laberit',
-						},
-						{
-							label: 'openai,github-copilot,laberit',
-							value: 'openai,github-copilot,laberit',
-						},
-					]
-				: [
-						{ label: 'openai (default)', value: 'openai' },
-						{ label: 'github-copilot', value: 'github-copilot' },
-						{ label: 'laberit', value: 'laberit' },
-						{ label: 'opencode-go', value: 'opencode-go' },
-						{
-							label: 'openai,github-copilot',
-							value: 'openai,github-copilot',
-						},
-						{ label: 'openai,laberit', value: 'openai,laberit' },
-						{
-							label: 'github-copilot,laberit',
-							value: 'github-copilot,laberit',
-						},
-						{
-							label: 'openai,github-copilot,laberit',
-							value: 'openai,github-copilot,laberit',
-						},
-					]
+				? fullProviderChoices
+				: fullProviderChoices.filter((c) => c.value !== 'free-tier')
 		const providers = await promptMenu(
 			rl,
 			'Provider set',
@@ -197,20 +177,10 @@ export async function interactiveCommand(): Promise<void> {
 			ghAppClientIdInput === '' ? undefined : ghAppClientIdInput
 
 		console.log('\nProvider connection instructions (not automated):')
-		if (providers.includes('openai')) {
-			console.log(
-				'  - OpenAI: in OpenCode/Kilo Code, run /connect and complete OpenAI auth.',
-			)
-		}
-		if (providers.includes('github-copilot')) {
-			console.log(
-				'  - GitHub Copilot: in OpenCode/Kilo Code, run /connect and complete device login.',
-			)
-		}
-		if (providers.includes('laberit')) {
-			console.log(
-				'  - laberit: set OPENAI_BASE_URL and OPENAI_API_KEY in your local environment before use.',
-			)
+		// ponytail: rung 2 — derived from PROVIDER_HINTS; single source of truth
+		for (const p of parseProviders(providers)) {
+			if (p === 'free-tier') continue
+			console.log(`  - ${p}: ${PROVIDER_HINTS[p]}`)
 		}
 
 		console.log('\nSummary:')
