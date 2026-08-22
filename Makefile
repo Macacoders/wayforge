@@ -19,7 +19,6 @@ cli-binary:
 	esac; \
 	bun build ./cli/src/index.ts --compile --outfile "dist/ai-config-$$OS-$$ARCH" --define "process.env.AI_CONFIG_VERSION:$$(cat VERSION)"
 
-# ponytail: resolved rung 2 — forwarding scripts inlined; qa/check deleted
 # Bash/PowerShell lint checks deprecated (YAGNI) — installer migrated to TypeScript CLI
 check:
 	@echo "==> TypeScript tests"
@@ -38,7 +37,6 @@ check-bash:
 check-powershell:
 	./qa/check-powershell
 
-# ponytail: resolved rung 2 — forwarding script inlined; qa/check-tests deleted
 check-tests:
 	@echo "==> Bash tests"
 	./qa/check-bats
