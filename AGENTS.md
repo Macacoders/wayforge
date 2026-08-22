@@ -28,12 +28,14 @@ The sections below contain repository-specific guidance. `/onboard-repo` and `re
 - **Node CLI unit tests**: `npx vitest run` (CLI and shared TypeScript tool tests)
 - **Integration tests**: `cli/tests/integration/run.sh` — compares TS CLI output to legacy bash installer
 - **Coverage**: `make coverage` (Bash + PowerShell)
-- **Duplication**: `make check-duplication` (jscpd, 8% threshold on `.sh`/`.ps1` files)
+- **Duplication**: `make check-duplication` (jscpd, 8% threshold on `.ts` files)
 - **Fix Bash formatting**: `make fix-bash`
 - **Install QA deps**: `make install-deps`
 - **Installer dry-run**: `./install/bootstrap.sh --repo /path/to/repo --dry-run`
 - **Installer install**: `./install/bootstrap.sh --repo /path/to/repo --providers free-tier`
 - See [Makefile](./Makefile) for all targets.
+
+Windows prerequisite: GNU Make is not preinstalled — install it with `choco install make` (verified working with 4.4.1).
 
 ### Key Conventions & Constraints
 

@@ -129,6 +129,8 @@ The `install/bootstrap.sh` wrapper downloads a pre-built binary or falls back to
 
 Run `make cli-binary` to compile a standalone binary (no Node.js required).
 
+On Windows, GNU Make is not preinstalled — install it with `choco install make`.
+
 ## Installation Model
 
 Sources under `base/opencode/**` are the templates. The installer generates runtime files in each consuming project:

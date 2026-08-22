@@ -9,9 +9,13 @@ const AUTH_SCRIPT = path.join(REPO_ROOT, 'base/opencode/skills/shared-task/scrip
 const ISSUE_SCRIPT = path.join(REPO_ROOT, 'base/opencode/skills/shared-task/scripts/gh-issue.ts');
 
 function run(args: string[], opts?: { env?: Record<string, string> }): { stdout: string; stderr: string; status: number } {
-  const result = spawnSync('npx', ['tsx', ...args], {
+  // Windows cannot execute npx's .cmd shim without spawning through a shell;
+  // under a shell, args are concatenated unescaped, so quote any containing spaces.
+  const quoted = ['tsx', ...args].map((a) => (/\s/.test(a) ? `"${a}"` : a));
+  const result = spawnSync('npx', quoted, {
     encoding: 'utf8',
     env: { ...process.env, ...opts?.env },
+    shell: true,
     timeout: 15000,
   });
   return {

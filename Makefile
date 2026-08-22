@@ -27,7 +27,7 @@ check:
 	@echo "==> Node checks"
 	@$(MAKE) check-node
 	@echo "==> Duplication checks"
-	./qa/check-duplication
+	@$(MAKE) check-duplication
 	@echo "==> All checks passed"
 
 # deprecated — installer migrated to TypeScript CLI; still available for shell script maintenance
@@ -78,7 +78,6 @@ check-bats:
 check-pester:
 	./qa/check-pester
 
-# ponytail: resolved rung 2 — forwarding script inlined; qa/coverage deleted
 coverage:
 	@echo "==> Bash coverage"
 	./qa/coverage-bash
@@ -87,7 +86,7 @@ coverage:
 	@echo "Coverage checks completed."
 
 check-duplication:
-	./qa/check-duplication
+	npx --yes jscpd --pattern "**/*.ts" --ignore "**/.git/**" --ignore "**/node_modules/**" --ignore "**/base/**" --threshold 8 --min-lines 8 --reporters console
 
 fix-bash:
 	./qa/fix-bash
