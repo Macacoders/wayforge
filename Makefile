@@ -22,7 +22,7 @@ cli-binary:
 # Bash/PowerShell lint checks deprecated (YAGNI) — installer migrated to TypeScript CLI
 check:
 	@echo "==> TypeScript tests"
-	npx vitest run
+	@$(MAKE) check-ts
 	@echo "==> Node checks"
 	@$(MAKE) check-node
 	@echo "==> Duplication checks"

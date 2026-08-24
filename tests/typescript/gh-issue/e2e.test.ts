@@ -2,20 +2,20 @@ import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const AUTH_SCRIPT = path.join(REPO_ROOT, 'base/opencode/skills/shared-task/scripts/gh-app-auth.ts');
 const ISSUE_SCRIPT = path.join(REPO_ROOT, 'base/opencode/skills/shared-task/scripts/gh-issue.ts');
 
+const require = createRequire(import.meta.url);
+const TSX_CLI = require.resolve('tsx/cli');
+
 function run(args: string[], opts?: { env?: Record<string, string> }): { stdout: string; stderr: string; status: number } {
-  // Windows cannot execute npx's .cmd shim without spawning through a shell;
-  // under a shell, args are concatenated unescaped, so quote any containing spaces.
-  const quoted = ['tsx', ...args].map((a) => (/\s/.test(a) ? `"${a}"` : a));
-  const result = spawnSync('npx', quoted, {
+  const result = spawnSync(process.execPath, [TSX_CLI, ...args], {
     encoding: 'utf8',
     env: { ...process.env, ...opts?.env },
-    shell: true,
     timeout: 15000,
   });
   return {
