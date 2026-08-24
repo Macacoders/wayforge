@@ -17,6 +17,20 @@ const permissionsFile = path.resolve(
   "agents.yml",
 );
 
+const agentsDir = path.resolve(
+  __dirname,
+  "../../..",
+  "base",
+  "opencode",
+  "agents",
+);
+
+const allAgents = fs
+  .readdirSync(agentsDir)
+  .filter((entry) => entry.endsWith(".md"))
+  .map((entry) => entry.replace(/\.md$/, ""))
+  .sort();
+
 function makeCtx(dryRun = false): ManifestContext {
   return new ManifestContext(dryRun, false, false);
 }
@@ -36,7 +50,7 @@ describe("renderAgentPermissionBlock", () => {
     const block = renderAgentPermissionBlock("quickcode", permissionsFile);
 
     expect(block.startsWith("permission:")).toBe(true);
-    expect(block).toContain("edit: allow");
+    expect(block).toContain("edit: ask");
     expect(block).toContain('"npm test*": allow');
   });
 
@@ -44,6 +58,65 @@ describe("renderAgentPermissionBlock", () => {
     expect(() =>
       renderAgentPermissionBlock("nonexistent-agent", permissionsFile),
     ).toThrow();
+  });
+});
+
+describe("four-tier category guards (issue #186)", () => {
+  it("renders a non-empty permission block for every agent", () => {
+    for (const agent of allAgents) {
+      const block = renderAgentPermissionBlock(agent, permissionsFile);
+      expect(block.startsWith("permission:")).toBe(true);
+      const nonEmpty = block.split("\n").filter((line) => line.trim() !== "");
+      expect(nonEmpty.length).toBeGreaterThan(1);
+    }
+  });
+
+  it('starts every bash map with the "*": ask catch-all', () => {
+    for (const agent of allAgents) {
+      const lines = renderAgentPermissionBlock(agent, permissionsFile).split(
+        "\n",
+      );
+      const bashIdx = lines.findIndex((line) => line.trim() === "bash:");
+      expect(bashIdx).toBeGreaterThan(-1);
+      expect(lines[bashIdx + 1].trim()).toBe('"*": ask');
+    }
+  });
+
+  it("renders no comments into any agent block", () => {
+    for (const agent of allAgents) {
+      const block = renderAgentPermissionBlock(agent, permissionsFile);
+      expect(block.includes("#")).toBe(false);
+    }
+  });
+
+  it("keeps tier representatives in their agents", () => {
+    expect(renderAgentPermissionBlock("research", permissionsFile)).toContain(
+      '"git log*": allow',
+    );
+    expect(renderAgentPermissionBlock("architect", permissionsFile)).toContain(
+      '"pytest*": allow',
+    );
+    expect(
+      renderAgentPermissionBlock("taskanalyst", permissionsFile),
+    ).toContain('"ls*": allow');
+  });
+
+  it("keeps shared-task helpers exclusive to planner and delivery", () => {
+    const ghIssue =
+      '"npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts*": allow';
+    expect(renderAgentPermissionBlock("planner", permissionsFile)).toContain(
+      ghIssue,
+    );
+    expect(renderAgentPermissionBlock("delivery", permissionsFile)).toContain(
+      ghIssue,
+    );
+    for (const agent of allAgents.filter(
+      (a) => a !== "planner" && a !== "delivery",
+    )) {
+      expect(renderAgentPermissionBlock(agent, permissionsFile)).not.toContain(
+        ghIssue,
+      );
+    }
   });
 });
 
