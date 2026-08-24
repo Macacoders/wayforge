@@ -98,6 +98,11 @@ beforeEach(() => {
 
   // Default: setTimeout resolves immediately (no real delay)
   mockSetTimeout.mockResolvedValue(undefined);
+
+  // Silence the module's own stderr logging (noisy error/device-flow paths).
+  // Tests that assert on stderr re-spy inside the test body; vi.spyOn returns
+  // the existing mock in that case, so their assertions still observe calls.
+  vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
