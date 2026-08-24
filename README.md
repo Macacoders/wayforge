@@ -107,29 +107,82 @@ Store only durable information: approved plans, architecture decisions, and shor
 
 Use `/issue` (backed by `gh-issue.ts`) for shared GitHub Issue operations: create, list, claim, assign, release, close, and prclose.
 
-## CLI Installer (TypeScript)
+## Install the ai-config CLI
 
-Install ai-config into your project:
+The one-shot installer downloads the compiled CLI and the `base/` snapshot, places them in a dedicated prefix, and registers the `bin` directory on your PATH.
+
+**Linux / macOS:**
 
 ```bash
-npx tsx cli/src/index.ts install --repo /path/to/your-project --providers openai
+curl -fsSL https://github.com/Macacoders/ai-config/releases/latest/download/install.sh | sh
 ```
 
-The `install/bootstrap.sh` wrapper downloads a pre-built binary or falls back to `npx tsx`:
+**Windows** (run from PowerShell; use `-ExecutionPolicy Bypass` if execution policy blocks remote scripts):
+
+```powershell
+powershell -c "irm https://github.com/Macacoders/ai-config/releases/latest/download/install.ps1 | iex"
+```
+
+Default prefix:
+
+- Linux / macOS: `~/.ai-config`
+- Windows: `%LOCALAPPDATA%\ai-config`
+
+Installed layout:
+
+```text
+<prefix>/bin/ai-config
+<prefix>/share/ai-config/base/**
+<prefix>/share/ai-config/VERSION
+<prefix>/installed-projects.json
+```
+
+### Install config into a repo
+
+Once `ai-config` is on your PATH, install the runtime configuration into a target repository:
 
 ```bash
-./install/bootstrap.sh --repo /path/to/your-project --providers openai
+ai-config install --repo /path/to/your-project --providers openai
 ```
 
 | Command | Purpose |
 |---|---|
-| `npx tsx cli/src/index.ts install` | Install ai-config into a target repository |
-| `npx tsx cli/src/index.ts uninstall` | Remove ai-config managed files |
-| `npx tsx cli/src/index.ts interactive` | Guided interactive installer |
+| `ai-config install --repo <path>` | Install ai-config runtime into a target repository |
+| `ai-config uninstall --repo <path>` | Remove ai-config managed files from a target repository |
+| `ai-config interactive` | Guided interactive installer |
 
-Run `make cli-binary` to compile a standalone binary (no Node.js required).
+Use `--dry-run` to preview, `--force` to regenerate all managed files. Without `--force`, `AGENTS.md` and runtime config are preserved; only managed `.opencode/` files are refreshed.
 
-On Windows, GNU Make is not preinstalled — install it with `choco install make`.
+### Self-uninstall (remove the CLI)
+
+```bash
+# Preview
+install.sh --uninstall --dry-run
+
+# Remove
+install.sh --uninstall
+```
+
+```powershell
+# Preview
+install.ps1 -Uninstall -DryRun
+
+# Remove
+install.ps1 -Uninstall
+```
+
+This removes the whole `<prefix>` directory and the exact PATH entry the installer added. Re-running is a no-op.
+
+### Local development
+
+When working from a clone of this repository, use the TypeScript source directly:
+
+```bash
+npx tsx cli/src/index.ts install --repo /path/to/your-project --providers openai
+npx tsx cli/src/index.ts uninstall --repo /path/to/your-project
+```
+
+Run `make cli-binary` to compile a standalone binary (no Node.js required). On Windows, GNU Make is not preinstalled — install it with `choco install make`.
 
 ## Installation Model
 
@@ -143,14 +196,12 @@ Sources under `base/opencode/**` are the templates. The installer generates runt
 <target-repo>/AGENTS.md            # repository-specific agent guidance
 ```
 
-Use `--dry-run` to preview, `--force` to regenerate all managed files. Without `--force`, `AGENTS.md` and runtime config are preserved; only managed `.opencode/` files are refreshed.
-
 ### Interactive install
 
-For a guided walkthrough, use the interactive installer:
+For a guided walkthrough:
 
 ```bash
-npx tsx cli/src/index.ts interactive   # or: ai-config interactive with the built CLI
+ai-config interactive
 ```
 
 Prompts for target repo, runtime, providers (showing each option's auth requirements before selection), model preset (installer defaults vs faster responses), dry-run/force options, and an optional GitHub App Client ID — then shows a summary before installing.
@@ -159,44 +210,38 @@ Prompts for target repo, runtime, providers (showing each option's auth requirem
 
 ```bash
 # Free tier (default)
-./install/bootstrap.sh --repo /path/to/repo
+ai-config install --repo /path/to/repo
 
 # Specific provider
-./install/bootstrap.sh --repo /path/to/repo --providers openai
+ai-config install --repo /path/to/repo --providers openai
 
 # Multiple providers
-./install/bootstrap.sh --repo /path/to/repo --providers openai,github-copilot
+ai-config install --repo /path/to/repo --providers openai,github-copilot
 
 # Kilo Code
-./install/bootstrap.sh --repo /path/to/repo --runtime kilocode --providers openai
-```
+ai-config install --repo /path/to/repo --runtime kilocode --providers openai
 
-```powershell
-.\install\bootstrap.ps1 -Repo /path/to/repo -Providers openai,github-copilot
+# Pin to a release tag
+ai-config install --repo /path/to/repo --ref v0.1.0 --providers openai
 ```
 
 Optional `--model`, `--small-model`, and `--agent-preset` flags override generated defaults.
 
 **Auth**: OpenAI and GitHub Copilot authenticate via `/connect` in OpenCode. laberit uses `OPENAI_BASE_URL` and `OPENAI_API_KEY` environment variables. Free tier requires no auth.
 
-## Uninstall
+## Uninstall from a repo
 
 Remove managed files from a target project:
 
 ```bash
 # Preview
-./install/uninstall.sh --repo /path/to/repo --dry-run
+ai-config uninstall --repo /path/to/repo --dry-run
 
 # Uninstall
-./install/uninstall.sh --repo /path/to/repo
+ai-config uninstall --repo /path/to/repo
 ```
 
-```powershell
-.\install\uninstall.ps1 -Repo C:\path\to\repo -DryRun
-.\install\uninstall.ps1 -Repo C:\path\to\repo
-```
-
-Only files tracked in `.ai-config-manifest` are removed. User-created files, shell profile snippets, and the target repository itself are never touched.
+Only files tracked in `.ai-config-managed` are removed. User-created files, shell profile snippets, and the target repository itself are never touched.
 
 ## Releases & Versioning
 
@@ -205,7 +250,7 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 `main` is the stable branch; `develop` is active development. To install from a specific release tag:
 
 ```bash
-./install/bootstrap.sh --repo /path/to/repo --ref v0.1.0 --providers openai
+ai-config install --repo /path/to/repo --ref v0.1.0 --providers openai
 ```
 
 See [`RELEASE.md`](./RELEASE.md) for the full release process and [`CHANGELOG.md`](./CHANGELOG.md) for version history.

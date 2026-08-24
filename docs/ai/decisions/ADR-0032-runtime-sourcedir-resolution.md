@@ -2,6 +2,7 @@
 
 **Date**: 2026-08-21
 **Status**: Accepted
+**Amended**: 2026-08-24 — `resolveSourceDir()` gains a location-based `../share/ai-config` rung relative to `path.dirname(process.execPath)`, guarded by `base/` existence. This supersedes the earlier note that the compiled-binary runtime-relative fallback was deferred.
 
 ## Context
 

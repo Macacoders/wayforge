@@ -2,10 +2,11 @@
 
 **Date**: 2026-08-21
 **Status**: Accepted
+**Amended**: 2026-08-24 — the frozen legacy set now also includes the retired thin entrypoints `bootstrap-thin.{sh,ps1}` (moved from `install/bootstrap.{sh,ps1}`). They are retained as reference only and are not the canonical install surface.
 
 ## Context
 
-The TypeScript CLI (`cli/src`) is the canonical installer; `install/bootstrap.sh` and `install/bootstrap.ps1` delegate to it. The legacy Bash and PowerShell installers under `install/legacy/` (`bootstrap-legacy.{sh,ps1}`, `lib/managed_sync-legacy.{sh,ps1}`, `uninstall-legacy.{sh,ps1}`) remain in the repository as reference and fallback during the migration.
+The TypeScript CLI (`cli/src`) is the canonical installer. The legacy Bash and PowerShell installers under `install/legacy/` (`bootstrap-legacy.{sh,ps1}`, `lib/managed_sync-legacy.{sh,ps1}`, `uninstall-legacy.{sh,ps1}`), together with the retired thin wrappers `bootstrap-thin.{sh,ps1}`, remain in the repository as frozen reference and fallback during the migration.
 
 ADR-0009 (amended 2026-08-21) changed the `.ai-config-managed` format to use a blank line after `managed_paths:` and column-0 `- ` list items. The legacy parsers were intentionally not updated: they treat a blank line as the list terminator and match only the `  - ` prefix, so they read a TS-CLI-written manifest as containing zero managed paths.
 
