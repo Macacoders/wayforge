@@ -17,15 +17,27 @@ jobs:
           - os: linux
             arch: x64
             runner: ubuntu-latest
+            ext: ''
           - os: linux
             arch: arm64
             runner: ubuntu-24.04-arm
+            ext: ''
           - os: darwin
             arch: x64
             runner: macos-13
+            ext: ''
           - os: darwin
             arch: arm64
             runner: macos-latest
+            ext: ''
+          - os: win32
+            arch: x64
+            runner: windows-latest
+            ext: .exe
+          - os: win32
+            arch: arm64
+            runner: windows-latest
+            ext: .exe
 
     steps:
       - uses: actions/checkout@v4
@@ -34,19 +46,21 @@ jobs:
 
       - name: Read version
         id: version
+        shell: bash
         run: |
           VERSION=$(cat VERSION)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build standalone binary
+        shell: bash
         run: |
           mkdir -p dist
-          bun build ./cli/src/index.ts --compile --outfile "dist/ai-config-${{ matrix.os }}-${{ matrix.arch }}" --define "process.env.AI_CONFIG_VERSION:$(cat VERSION)"
+          bun build ./cli/src/index.ts --compile --outfile "dist/ai-config-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}" --define "process.env.AI_CONFIG_VERSION:$(cat VERSION)"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ai-config-${{ matrix.os }}-${{ matrix.arch }}
-          path: dist/ai-config-${{ matrix.os }}-${{ matrix.arch }}
+          name: ai-config-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
+          path: dist/ai-config-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
 
   release:
     runs-on: ubuntu-latest
@@ -73,6 +87,12 @@ jobs:
           path: dist/
           merge-multiple: true
 
+      - name: Create share archive
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          tar -czf "ai-config-share-${VERSION}.tar.gz" base VERSION
+          python3 -m zipfile -c "ai-config-share-${VERSION}.zip" base VERSION
+
       - name: Create Release
         run: |
           TAG="${{ steps.version.outputs.tag }}"
@@ -85,6 +105,6 @@ jobs:
             --title "$TAG" \
             --notes-file "${{ steps.changelog.outputs.body_file }}" \
             --repo ${{ github.repository }}
-          gh release upload "$TAG" dist/ai-config-* --repo ${{ github.repository }}
+          gh release upload "$TAG" dist/ai-config-* ai-config-share-${{ steps.version.outputs.version }}.tar.gz ai-config-share-${{ steps.version.outputs.version }}.zip install/install.sh install/install.ps1 --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ github.token }}
