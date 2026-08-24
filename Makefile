@@ -19,15 +19,14 @@ cli-binary:
 	esac; \
 	bun build ./cli/src/index.ts --compile --outfile "dist/ai-config-$$OS-$$ARCH" --define "process.env.AI_CONFIG_VERSION:$$(cat VERSION)"
 
-# ponytail: resolved rung 2 — forwarding scripts inlined; qa/check deleted
 # Bash/PowerShell lint checks deprecated (YAGNI) — installer migrated to TypeScript CLI
 check:
 	@echo "==> TypeScript tests"
-	npx vitest run
+	@$(MAKE) check-ts
 	@echo "==> Node checks"
 	@$(MAKE) check-node
 	@echo "==> Duplication checks"
-	./qa/check-duplication
+	@$(MAKE) check-duplication
 	@echo "==> All checks passed"
 
 # deprecated — installer migrated to TypeScript CLI; still available for shell script maintenance
@@ -38,7 +37,6 @@ check-bash:
 check-powershell:
 	./qa/check-powershell
 
-# ponytail: resolved rung 2 — forwarding script inlined; qa/check-tests deleted
 check-tests:
 	@echo "==> Bash tests"
 	./qa/check-bats
@@ -78,7 +76,6 @@ check-bats:
 check-pester:
 	./qa/check-pester
 
-# ponytail: resolved rung 2 — forwarding script inlined; qa/coverage deleted
 coverage:
 	@echo "==> Bash coverage"
 	./qa/coverage-bash
@@ -87,7 +84,7 @@ coverage:
 	@echo "Coverage checks completed."
 
 check-duplication:
-	./qa/check-duplication
+	npx --yes jscpd --pattern "**/*.ts" --ignore "**/.git/**" --ignore "**/node_modules/**" --ignore "**/base/**" --threshold 8 --min-lines 8 --reporters console
 
 fix-bash:
 	./qa/fix-bash
