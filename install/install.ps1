@@ -61,18 +61,20 @@ if ($Version) {
 # ---------------------------------------------------------------------------
 # Platform detection
 # ---------------------------------------------------------------------------
-$archEnv = $env:PROCESSOR_ARCHITECTURE
-if (-not $archEnv) {
-    # PROCESSOR_ARCHITECTURE is absent on non-Windows hosts (e.g. CI smoke
-    # tests); fall back to the runtime's bitness so -DryRun stays testable.
-    $archEnv = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "x86" }
+# Is64BitOperatingSystem tells us whether the OS is 64-bit; on non-Windows
+# hosts (e.g. CI smoke tests) it is usually $true so -DryRun stays testable.
+# PROCESSOR_ARCHITECTURE reports the current process bitness, so 32-bit
+# PowerShell on 64-bit Windows returns x86; we therefore reject based on OS
+# bitness, not process architecture.
+if (-not [Environment]::Is64BitOperatingSystem) {
+    Write-Error "error: ai-config requires a 64-bit operating system" -ErrorAction Stop
 }
-switch ($archEnv.ToLower()) {
-    "amd64" { $Arch = "x64" }
-    "arm64" { $Arch = "arm64" }
-    default {
-        Write-Error "error: unsupported architecture: $archEnv (only AMD64 and ARM64 are supported)" -ErrorAction Stop
-    }
+$archEnv = $env:PROCESSOR_ARCHITECTURE
+if ($archEnv -and $archEnv -eq "ARM64") {
+    $Arch = "arm64"
+}
+else {
+    $Arch = "x64"
 }
 
 $BinaryName = "ai-config-win32-${Arch}.exe"
@@ -83,15 +85,12 @@ $BinaryName = "ai-config-win32-${Arch}.exe"
 function Resolve-LatestVersion {
     $uri = "https://github.com/${Repo}/releases/latest"
     try {
-        $request = [System.Net.WebRequest]::Create($uri)
-        $request.AllowAutoRedirect = $false
-        $request.Method = "HEAD"
-        $response = $request.GetResponse()
+        $response = Invoke-WebRequest -Uri $uri -MaximumRedirection 0 -UseBasicParsing
         $location = $response.Headers["Location"]
-        $response.Close()
     }
     catch {
-        # Some responses still expose headers on exception.
+        # With -MaximumRedirection 0 the redirect throws; headers are still
+        # exposed on the exception response.
         if ($_.Exception.Response -and $_.Exception.Response.Headers) {
             $location = $_.Exception.Response.Headers["Location"]
         }
@@ -179,10 +178,11 @@ function Install-AiConfig {
     $shareUrl = "${baseUrl}/${shareName}"
 
     $binDir = Join-Path $Prefix "bin"
-    $shareDir = Join-Path $Prefix "share\ai-config"
+    $shareDir = Join-Path $Prefix (Join-Path "share" "ai-config")
     $binaryPath = Join-Path $binDir "ai-config.exe"
 
     if ($DryRun) {
+        $baseCheck = Join-Path $shareDir "base"
         Write-Host "[dry-run] ARCH: ${Arch}"
         Write-Host "[dry-run] prefix: ${Prefix}"
         Write-Host "[dry-run] version: ${resolvedVersion}"
@@ -192,7 +192,7 @@ function Install-AiConfig {
         Write-Host "[dry-run] would create directory: ${shareDir}"
         Write-Host "[dry-run] would download: ${binaryUrl} -> ${binaryPath}"
         Write-Host "[dry-run] would download and extract: ${shareUrl} -> ${shareDir}"
-        Write-Host "[dry-run] would verify directory exists: ${shareDir}\base"
+        Write-Host "[dry-run] would verify directory exists: ${baseCheck}"
         Write-Host "[dry-run] would add to User PATH: ${binDir}"
         return
     }
@@ -230,7 +230,7 @@ function Install-AiConfig {
 # ---------------------------------------------------------------------------
 function Uninstall-AiConfig {
     $binDir = Join-Path $Prefix "bin"
-    $shareDir = Join-Path $Prefix "share\ai-config"
+    $shareDir = Join-Path $Prefix (Join-Path "share" "ai-config")
     $binaryPath = Join-Path $binDir "ai-config.exe"
     $trackingFile = Join-Path $Prefix "installed-projects.json"
 
