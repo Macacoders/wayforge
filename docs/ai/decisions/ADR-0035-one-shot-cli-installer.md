@@ -2,6 +2,7 @@
 
 **Date**: 2026-08-24
 **Status**: Accepted
+**Amended**: 2026-08-25 — tracking relocation and WSL storage semantics made explicit (Decision 9–10).
 
 ## Context
 
@@ -36,12 +37,15 @@ Two distribution shapes were considered:
 6. **Self-uninstall** removes the entire owned prefix directory and the exact PATH marker it added. `--dry-run` / `-DryRun` previews actions. No file manifest is required because everything lives under the one owned directory.
 7. Snapshot granularity is the full `base/` + `VERSION` directory; the archive is small and avoids subset fragility.
 8. Windows execution-policy friction with `irm | iex` is addressed by documentation (`-ExecutionPolicy Bypass`) rather than by a code workaround.
+9. **Per-user tracking relocation**: `installed-projects.json` is read/written under `resolveStateDir()` (`~/.ai-config` / `%LOCALAPPDATA%\ai-config`); the `rootDir` parameter was dropped from `trackInstalledProject`/`removeTrackingEntry`. Tracking is independent of the (possibly read-only) install location.
+10. **WSL path semantics**: on WSL, `toTrackedPath()` converts the canonical install path to a Windows-native path (via `wslpath -w`) before storing; uninstall matches symmetrically. `isTempPath()` gates `%TEMP%` handling on `process.platform === 'win32'` (see the ADR-0031 amendment).
 
 ## Consequences
 
 - End users get a familiar Bun-style install experience with no build step and no repository clone required.
 - The CLI binary is relocatable because `resolveSourceDir()` (see ADR-0032 second amendment) resolves the snapshot relative to the executable location when `AI_CONFIG_HOME` is unset.
 - `installed-projects.json` moves out of the (possibly read-only) source/share directory and into the per-user prefix, removing a regression risk for read-only installed layouts.
+- Tracking survives a relocated or read-only install location because it is written to the per-user prefix, not the source/share directory (Decision 9); on WSL the stored path is Windows-native (Decision 10).
 - The Makefile keeps `cli-binary` for contributors/CI but does not gain `configure`, `make install`, or `make uninstall` targets.
 - A future post-1.0 release can migrate to Option B (embedded single binary) without changing the user-facing install command, because the installer script is fetched fresh for each install.
 
