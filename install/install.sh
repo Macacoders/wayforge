@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 # One-shot installer for ai-config.
 # Fetches the prebuilt binary and share archive for this platform and places
@@ -10,9 +10,24 @@ DEFAULT_PREFIX="${HOME}/.ai-config"
 
 PREFIX="${AI_CONFIG_INSTALL_DIR:-$DEFAULT_PREFIX}"
 VERSION=""
+TAG=""
 UNINSTALL=0
 DRY_RUN=0
 URL_BASE=""
+
+# ---------------------------------------------------------------------------
+# Temporary-file cleanup
+# ---------------------------------------------------------------------------
+TMP_BINARY=""
+TMP_SHARE=""
+TMP_PATH_BLOCK=""
+
+cleanup() {
+	if [ -n "${TMP_BINARY:-}" ]; then rm -f "$TMP_BINARY"; fi
+	if [ -n "${TMP_SHARE:-}" ]; then rm -f "$TMP_SHARE"; fi
+	if [ -n "${TMP_PATH_BLOCK:-}" ]; then rm -f "$TMP_PATH_BLOCK"; fi
+}
+trap cleanup EXIT INT TERM
 
 usage() {
 	cat <<EOF
@@ -79,11 +94,6 @@ while [ $# -gt 0 ]; do
 	esac
 done
 
-# Normalize version: strip leading 'v' if present.
-if [ -n "$VERSION" ]; then
-	VERSION="${VERSION#v}"
-fi
-
 # ---------------------------------------------------------------------------
 # Platform detection
 # ---------------------------------------------------------------------------
@@ -142,22 +152,27 @@ remove_path_block() {
 	if ! grep -qF "$MARKER_START" "$file"; then
 		return 0
 	fi
-	local tmp_file
-	tmp_file="${file}.tmp.$$"
+	TMP_PATH_BLOCK="${file}.tmp.$$"
 	awk -v start="$MARKER_START" -v end="$MARKER_END" \
 		'$0 == start {inside=1; next} $0 == end {inside=0; next} !inside' \
-		"$file" > "$tmp_file"
-	mv "$tmp_file" "$file"
+		"$file" > "$TMP_PATH_BLOCK"
+	mv "$TMP_PATH_BLOCK" "$file"
+	TMP_PATH_BLOCK=""
 }
 
 # ---------------------------------------------------------------------------
 # Download helpers
 # ---------------------------------------------------------------------------
-require_downloader() {
+DOWNLOADER=""
+
+detect_downloader() {
+	if [ -n "$DOWNLOADER" ]; then
+		return 0
+	fi
 	if command -v curl >/dev/null 2>&1; then
-		return 0
+		DOWNLOADER="curl"
 	elif command -v wget >/dev/null 2>&1; then
-		return 0
+		DOWNLOADER="wget"
 	else
 		echo "error: curl or wget is required to download ai-config" >&2
 		exit 1
@@ -165,46 +180,54 @@ require_downloader() {
 }
 
 download() {
-	url="$1"
-	dest="$2"
-	if command -v curl >/dev/null 2>&1; then
+	local url="$1"
+	local dest="$2"
+	detect_downloader
+	case "$DOWNLOADER" in
+	curl)
 		curl -fsSL --connect-timeout 30 --max-time 300 -o "$dest" "$url"
-	else
+		;;
+	wget)
 		wget -q --timeout=300 -O "$dest" "$url"
-	fi
+		;;
+	esac
 }
 
 # ---------------------------------------------------------------------------
 # Version resolution
 # ---------------------------------------------------------------------------
 resolve_latest_version() {
-	require_downloader
-	local location
-	if command -v curl >/dev/null 2>&1; then
-		if ! location=$(curl -fsSL --connect-timeout 30 --max-time 60 -o /dev/null -w '%{url_effective}' "https://github.com/${REPO}/releases/latest"); then
-			echo "error: unable to resolve latest release" >&2
-			exit 1
-		fi
-	else
-		if ! location=$(
-			wget --max-redirect=0 -q -S -O - --timeout=60 "https://github.com/${REPO}/releases/latest" 2>&1 |
-				awk -F': ' '/^[[:space:]]*[Ll]ocation:/ { gsub(/\r$/, "", $2); print $2; exit }'
-		); then
-			echo "error: unable to resolve latest release" >&2
-			exit 1
-		fi
-	fi
-	if [ -z "$location" ] || [[ "$location" != */tag/* ]]; then
-		echo "error: unable to resolve latest release (got ${location})" >&2
+	detect_downloader
+	local location=""
+	case "$DOWNLOADER" in
+	curl)
+		location=$(curl -fsSL --connect-timeout 30 --max-time 60 -o /dev/null -w '%{url_effective}' "https://github.com/${REPO}/releases/latest") || true
+		;;
+	wget)
+		location=$(
+			wget --max-redirect=0 -q -S -O - --timeout=60 "https://github.com/${REPO}/releases/latest" 2>&1 || true
+		)
+		location=$(printf '%s\n' "$location" | awk -F': ' '/^[[:space:]]*[Ll]ocation:/ { gsub(/\r$/, "", $2); print $2; exit }')
+		;;
+	esac
+	if [ -z "$location" ]; then
+		echo "error: unable to resolve latest release" >&2
 		exit 1
 	fi
+	case "$location" in
+	*/tag/*) ;;
+	*)
+		echo "error: unable to resolve latest release (got ${location})" >&2
+		exit 1
+		;;
+	esac
 	local tag
 	tag="${location##*/}"
 	if [ -z "$tag" ]; then
 		echo "error: unable to parse latest release tag from ${location}" >&2
 		exit 1
 	fi
-	printf '%s\n' "${tag#v}"
+	printf '%s\n' "$tag"
 }
 
 # ---------------------------------------------------------------------------
@@ -216,24 +239,24 @@ build_url_base() {
 		return
 	fi
 
-	local ref
-	if [ -n "$VERSION" ]; then
-		ref="v${VERSION}"
-	else
-		ref="latest"
-	fi
-	printf 'https://github.com/%s/releases/%s/download\n' "$REPO" "$ref"
+	printf 'https://github.com/%s/releases/%s/download\n' "$REPO" "$TAG"
 }
 
 # ---------------------------------------------------------------------------
 # Install path
 # ---------------------------------------------------------------------------
 run_install() {
-	require_downloader
+	detect_downloader
 
-	local resolved_version
-	resolved_version="${VERSION:-$(resolve_latest_version)}"
-	if [ -z "$resolved_version" ]; then
+	if [ -n "$VERSION" ]; then
+		case "$VERSION" in
+		v*) TAG="$VERSION" ;;
+		*) TAG="v${VERSION}" ;;
+		esac
+	else
+		TAG="$(resolve_latest_version)"
+	fi
+	if [ -z "$TAG" ]; then
 		echo "error: version could not be determined" >&2
 		exit 1
 	fi
@@ -241,7 +264,7 @@ run_install() {
 	local base_url
 	base_url="$(build_url_base)"
 
-	local share_name="ai-config-share-${resolved_version}.tar.gz"
+	local share_name="ai-config-share-${TAG#v}.tar.gz"
 	local binary_url="${base_url}/${BINARY_NAME}"
 	local share_url="${base_url}/${share_name}"
 
@@ -252,7 +275,7 @@ run_install() {
 	if [ "$DRY_RUN" -eq 1 ]; then
 		echo "[dry-run] OS: ${OS}, ARCH: ${ARCH}"
 		echo "[dry-run] prefix: ${PREFIX}"
-		echo "[dry-run] version: ${resolved_version}"
+		echo "[dry-run] version: ${TAG#v}"
 		echo "[dry-run] binary URL: ${binary_url}"
 		echo "[dry-run] share URL: ${share_url}"
 		echo "[dry-run] would create directory: ${bin_dir}"
@@ -270,29 +293,27 @@ run_install() {
 	mkdir -p "$bin_dir"
 	mkdir -p "$share_dir"
 
-	local tmp_binary
-	tmp_binary="${binary_path}.tmp.$$"
-	download "$binary_url" "$tmp_binary"
-	chmod +x "$tmp_binary"
-	mv "$tmp_binary" "$binary_path"
+	TMP_BINARY="${binary_path}.tmp.$$"
+	download "$binary_url" "$TMP_BINARY"
+	chmod +x "$TMP_BINARY"
+	mv "$TMP_BINARY" "$binary_path"
+	TMP_BINARY=""
 
-	local tmp_share
-	tmp_share="$(mktemp)"
-	trap 'rm -f "$tmp_share"' EXIT
-	download "$share_url" "$tmp_share"
+	TMP_SHARE="$(mktemp)"
+	download "$share_url" "$TMP_SHARE"
 
 	rm -rf "$share_dir"
 	mkdir -p "$share_dir"
-	tar -xzf "$tmp_share" -C "$share_dir"
-	rm -f "$tmp_share"
-	trap - EXIT
+	tar -xzf "$TMP_SHARE" -C "$share_dir"
+	rm -f "$TMP_SHARE"
+	TMP_SHARE=""
 
 	if [ ! -d "${share_dir}/base" ]; then
 		echo "error: share archive did not create ${share_dir}/base" >&2
 		exit 1
 	fi
 
-	echo "ai-config ${resolved_version} installed to ${binary_path}"
+	echo "ai-config ${TAG#v} installed to ${binary_path}"
 	echo "Add to your PATH:"
 	echo "  export PATH=\"${bin_dir}:\$PATH\""
 
