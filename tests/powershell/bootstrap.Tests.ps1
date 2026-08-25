@@ -2,11 +2,11 @@
 
 BeforeAll {
     $script:repoRoot = Resolve-Path "$PSScriptRoot/../.." | Select-Object -ExpandProperty Path
-    $script:bootstrapScript = Join-Path $script:repoRoot 'install/bootstrap.ps1'
+    $script:bootstrapScript = Join-Path $script:repoRoot 'install/legacy/bootstrap-thin.ps1'
     $script:scriptContent = Get-Content -Path $script:bootstrapScript -Raw
 }
 
-Describe 'bootstrap.ps1 file structure' {
+Describe 'bootstrap-thin.ps1 file structure' {
     It 'exists at the expected path' {
         Test-Path $script:bootstrapScript | Should -Be $true
     }
@@ -90,7 +90,7 @@ Describe 'Argument passthrough' {
     }
 }
 
-Describe 'bootstrap.ps1 exit behavior' {
+Describe 'bootstrap-thin.ps1 exit behavior' {
     It 'exits 0 when run with --help (falls through to TS CLI npx tsx)' {
         $output = & $script:bootstrapScript '--help' 2>&1
         $LASTEXITCODE | Should -Be 0

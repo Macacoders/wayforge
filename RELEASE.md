@@ -112,32 +112,34 @@ The dry-run mode will:
 
 ## Consuming-Repo Guidance
 
-Consumers install `ai-config` into their own repositories. To install from a specific release tag:
+Consumers install the `ai-config` CLI once per user, then install configuration into each target repository.
 
-**Bash**:
+### Install the CLI
 
-```bash
-./install/bootstrap.sh --repo /path/to/repo --ref v0.1.0 --providers openai
-```
-
-**PowerShell**:
-
-```powershell
-.\install\bootstrap.ps1 -Repo /path/to/repo -Ref v0.1.0 -Providers openai
-```
-
-If `--ref` is omitted, the installer uses the local ai-config source tree (from the current working copy). Use `--ref` to install from a pinned GitHub release tag instead:
-
-**Bash**:
+**Linux / macOS:**
 
 ```bash
-./install/bootstrap.sh --repo /path/to/repo --ref v0.1.0 --providers openai
+curl -fsSL https://github.com/Macacoders/ai-config/releases/latest/download/install.sh | sh
 ```
 
-**PowerShell**:
+**Windows** (PowerShell; use `-ExecutionPolicy Bypass` if execution policy blocks remote scripts):
 
 ```powershell
-.\install\bootstrap.ps1 -Repo /path/to/repo -Ref v0.1.0 -Providers openai
+powershell -c "irm https://github.com/Macacoders/ai-config/releases/latest/download/install.ps1 | iex"
+```
+
+### Install config into a repo
+
+Once `ai-config` is on your PATH:
+
+```bash
+ai-config install --repo /path/to/repo --providers openai
+```
+
+Pin to a specific release tag for reproducible production installs:
+
+```bash
+ai-config install --repo /path/to/repo --ref v0.1.0 --providers openai
 ```
 
 When `--ref` is specified, the installer:
@@ -148,6 +150,25 @@ When `--ref` is specified, the installer:
 Always pin to a specific tag for production consuming repositories to ensure reproducible installs.
 
 **Note**: When a consuming repo re-installs with a newer `--ref`, the installer detects the version change via the `.ai-config-managed` file (see ADR-0009) and applies the appropriate upgrade logic.
+
+### Install / uninstall contract
+
+The one-shot installer is self-contained and does not require administrator privileges:
+
+- **Dedicated prefix**:
+  - Linux / macOS: `~/.ai-config`
+  - Windows: `%LOCALAPPDATA%\ai-config`
+- **Layout**:
+  - `<prefix>/bin/ai-config` (or `ai-config.exe` on Windows)
+  - `<prefix>/share/ai-config/base/**` (source snapshot)
+  - `<prefix>/share/ai-config/VERSION`
+  - `<prefix>/installed-projects.json` (per-user tracking)
+- **PATH registration**:
+  - Linux / macOS: prints the export line and best-effort appends a `# >>> ai-config >>>` marker block to `~/.bashrc` / `~/.zshrc`.
+  - Windows: silently appends the `bin` directory to the **User** PATH via `[Environment]::SetEnvironmentVariable('Path', ..., 'User')`.
+- **Self-uninstall**:
+  - `install.sh --uninstall` / `install.ps1 -Uninstall` removes the prefix directory and the exact PATH marker it added.
+  - `--dry-run` / `-DryRun` previews actions. Re-running uninstall is a no-op.
 
 ### Installing and Refreshing
 
@@ -232,4 +253,20 @@ The GitHub Actions workflow will detect the push to `main` and create the releas
 
 ### Release artifact generation and attachment
 
-Release artifact generation is not yet automated and remains a manual step.
+The `.github/workflows/release.yml` workflow builds and attaches the following artifacts automatically when a release is created:
+
+- **Platform binaries** produced by `bun build --compile`:
+  - `ai-config-linux-x64`
+  - `ai-config-linux-arm64`
+  - `ai-config-darwin-x64`
+  - `ai-config-darwin-arm64`
+  - `ai-config-win32-x64.exe`
+  - `ai-config-win32-arm64.exe`
+- **Share archives** containing `base/` + `VERSION` at archive root:
+  - `ai-config-share-<version>.tar.gz` (POSIX installer)
+  - `ai-config-share-<version>.zip` (Windows installer)
+- **One-shot installer scripts** uploaded as release assets so the `releases/latest/download/` URLs resolve:
+  - `install.sh`
+  - `install.ps1`
+
+The release workflow runs only at release time; source changes to `install/install.sh` or `install/install.ps1` are validated locally via `bash -n` and smoke tests against `--url-base` fixtures.

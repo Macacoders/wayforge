@@ -3,8 +3,8 @@
 # Source this file from your PowerShell profile to expose ai-config helper functions.
 # Add this line to your profile (run `notepad $PROFILE` to edit):
 # . "C:\path\to\ai-config\install\powershell_profile_snippet.ps1"
-# Note: install aliases delegate to install/bootstrap.ps1 (thin wrapper with
-# binary auto-download and npx tsx fallback). Uninstall uses the TS CLI directly.
+# Note: install aliases delegate to the TypeScript CLI directly (npx tsx).
+# Uninstall already uses the TS CLI directly.
 
 function _ai_config_root {
     if ($env:AI_CONFIG_HOME -and (Test-Path $env:AI_CONFIG_HOME -PathType Container)) {
@@ -27,7 +27,7 @@ function ai-setup-repo {
     }
 
     $root = _ai_config_root
-    & "$root\install\bootstrap.ps1" --repo $RepoPath
+    & npx.cmd tsx "$root\cli\src\index.ts" install --repo $RepoPath
 }
 
 function ai-setup-repo-dry-run {
@@ -42,7 +42,7 @@ function ai-setup-repo-dry-run {
     }
 
     $root = _ai_config_root
-    & "$root\install\bootstrap.ps1" --repo $RepoPath --dry-run
+    & npx.cmd tsx "$root\cli\src\index.ts" install --repo $RepoPath --dry-run
 }
 
 function ai-uninstall-repo {

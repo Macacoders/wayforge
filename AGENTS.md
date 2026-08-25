@@ -31,8 +31,10 @@ The sections below contain repository-specific guidance. `/onboard-repo` and `re
 - **Duplication**: `make check-duplication` (jscpd, 8% threshold on `.ts` files)
 - **Fix Bash formatting**: `make fix-bash`
 - **Install QA deps**: `make install-deps`
-- **Installer dry-run**: `./install/bootstrap.sh --repo /path/to/repo --dry-run`
-- **Installer install**: `./install/bootstrap.sh --repo /path/to/repo --providers free-tier`
+- **One-shot CLI install**: `curl -fsSL https://github.com/Macacoders/ai-config/releases/latest/download/install.sh | sh` (Linux/macOS) or `powershell -c "irm https://github.com/Macacoders/ai-config/releases/latest/download/install.ps1 | iex"` (Windows; use `-ExecutionPolicy Bypass` if policy blocks scripts).
+- **Install config into a repo (dry-run)**: `ai-config install --repo /path/to/repo --dry-run`
+- **Install config into a repo**: `ai-config install --repo /path/to/repo --providers free-tier`
+- **Local dev fallback**: `npx tsx cli/src/index.ts install --repo /path/to/repo --providers free-tier`
 - See [Makefile](./Makefile) for all targets.
 
 Windows prerequisite: GNU Make is not preinstalled — install it with `choco install make` (verified working with 4.4.1).

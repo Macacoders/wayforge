@@ -7,7 +7,7 @@ This repository provides reusable OpenCode source configuration and installs gen
 ## Runtime Boundary
 
 - OpenCode (default) and Kilo Code are supported AI runtimes, selectable at install time via the `--runtime` / `-Runtime` parameter.
-- Guided interactive installs are handled by the TypeScript CLI only (`ai-config interactive`, i.e. `npx tsx cli/src/index.ts interactive`); non-interactive installs use the thin entrypoints (`install/bootstrap.sh`, `install/bootstrap.ps1`).
+- Guided interactive installs are handled by the TypeScript CLI only (`ai-config interactive`); non-interactive installs use `ai-config install --repo <path>`. Users first install the CLI via the one-shot installer (`curl | sh` / `irm | iex`), then install configuration into each target repository.
 - Supported provider sets during installation include `free-tier` (default for opencode), `openai`, `github-copilot`, `laberit`, `opencode-go`, and comma-separated combinations of those providers. `free-tier` is only available for the opencode runtime and installs the default OpenCode structure without configuring an external provider.
 - OpenAI authentication is handled in OpenCode with `/connect` (ChatGPT Plus/Pro or Azure credentials).
 - GitHub Copilot authentication is handled in OpenCode with `/connect` (device login flow).
@@ -22,16 +22,18 @@ This repository provides reusable OpenCode source configuration and installs gen
 
 ### Installer (CLI)
 
-The installer has been migrated from dual-platform shell scripts to a single TypeScript CLI under `cli/src/`.
+The installer surface is a TypeScript CLI under `cli/src/`, distributed as a prebuilt binary plus a static source snapshot.
 
 - **Framework**: TypeScript + Commander for argument parsing
 - **Source**: `cli/src/index.ts` (entrypoint), `cli/src/commands/` (install, uninstall, interactive), `cli/src/lib/` (shared libraries)
 - **Binary compilation**: `make cli-binary` produces a standalone executable via `bun build --compile` (~100MB)
-- **Bash entrypoint**: `install/bootstrap.sh` is an 80-line thin wrapper with 4-tier fallback: local binary → cached release → GitHub download → `npx tsx` → clear error
-- **PowerShell entrypoint**: `install/bootstrap.ps1` is a 131-line thin wrapper with 5-tier fallback: local binary → cached release → GitHub download → `npx tsx` → Node.js auto-download (winget / direct MSI) → clear error
-- **Legacy reference (Bash)**: `install/legacy/bootstrap-legacy.sh` preserves the original 847-line bash installer under `install/legacy/` for comparison and fallback
-- **Legacy reference (PowerShell)**: `install/legacy/bootstrap-legacy.ps1` preserves the original 936-line PowerShell installer under `install/legacy/`, alongside legacy `bootstrap-legacy.sh`, `lib/managed_sync-legacy.*`, and `uninstall-legacy.*`
-- **Release workflow**: `.github/workflows/release.yml` builds binaries for linux-x64, linux-arm64, darwin-x64, darwin-arm64
+- **One-shot installer**: `install/install.sh` (POSIX) and `install/install.ps1` (PowerShell 5.1+) download the compiled binary and share archive into a dedicated prefix and register `bin` on the user PATH. No administrator privileges are required.
+- **Dedicated prefix / layout**:
+  - Linux / macOS: `~/.ai-config`
+  - Windows: `%LOCALAPPDATA%\ai-config`
+  - Layout: `bin/ai-config` (`ai-config.exe` on Windows), `share/ai-config/base/**`, `share/ai-config/VERSION`, and `installed-projects.json`
+- **Release workflow**: `.github/workflows/release.yml` builds binaries for linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64, produces share archives (`ai-config-share-<version>.tar.gz` / `.zip`), and uploads `install.sh` / `install.ps1` as release assets
+- **Legacy references**: `install/legacy/bootstrap-legacy.sh` and `install/legacy/bootstrap-legacy.ps1` preserve the original full installers; `install/legacy/bootstrap-thin.sh` and `install/legacy/bootstrap-thin.ps1` preserve the retired thin entrypoints. All legacy scripts are frozen.
 
 Reusable versioned source lives in this repository under `base/opencode/**`.
 
@@ -69,7 +71,7 @@ Portable workflow helpers used by shared commands should be packaged under `.ope
 
 ### Installed Projects Tracking
 
-`installed-projects.json` at the repository root tracks which projects have been installed with ai-config. It is excluded from version control via `.gitignore`.
+`installed-projects.json` lives in the per-user ai-config prefix (`~/.ai-config/installed-projects.json` on Linux/macOS, `%LOCALAPPDATA%\ai-config\installed-projects.json` on Windows). It is excluded from version control via `.gitignore`.
 
 - **Format**: Structured JSON with `schemaVersion` and `projects` array. Each entry contains:
   - `projectId`: UUIDv4 identifying the logical project. Stored in `.ai-config-managed` as `project_id: <uuid>` so the installer can recognize the same project after a rename or move.
@@ -78,7 +80,7 @@ Portable workflow helpers used by shared commands should be packaged under `.ope
   - `lastUpdated`: ISO 8601 timestamp of the install.
   - `aiConfigVersion`: ai-config version used for the install.
   - `installRef`: Git ref (branch, tag, or commit) used for the install.
-- **Created by**: `install/bootstrap.sh` and the TS CLI delegate (via thin `install/bootstrap.ps1`) create or append to the file after a successful first install.
+- **Created by**: `ai-config install --repo` appends to the tracking file after a successful first install.
 - **Identity matching** (3-tier): On reinstall, the installer matches existing entries in this order:
   1. **`projectId` match** → update existing entry in-place (name, path, lastUpdated, aiConfigVersion, installRef). This handles project renames and moves.
   2. **Path match** (fallback) → idempotent no-op. Backward-compatible with pre-projectId entries.
@@ -86,14 +88,24 @@ Portable workflow helpers used by shared commands should be packaged under `.ope
 - **Upgrade path**: Existing projects without `projectId` (installed before this feature) receive a generated UUID on next reinstall, written to `.ai-config-managed` for future matching.
 - **`--force`/`-Force` behavior**: Force refreshes skip tracking entirely.
 - **`--dry-run`/`-DryRun` behavior**: Dry runs never write to the tracking file.
-- **Cross-platform paths**: On WSL, `bootstrap.sh` converts paths with `wslpath -w` when writing. Git Bash preserves forward slashes natively. PowerShell bootstrap delegates to the TS CLI, which handles path normalization.
+- **Cross-platform paths**: The TS CLI normalizes paths internally; on WSL it writes Windows-native paths for consistency.
 
 ### Bootstrap Scripts
 
-`install/bootstrap.sh` and `install/bootstrap.ps1` install the runtime configuration into a target repository. Both are thin entrypoints that delegate to the TypeScript CLI (`npx tsx cli/src/index.ts`) with full binary auto-download fallback. Legacy implementations are preserved under `install/legacy/`.
+The canonical install surface is the one-shot installer (`install/install.sh` / `install/install.ps1`) plus the `ai-config install --repo <path>` command. The retired thin entrypoints `install/bootstrap.sh` and `install/bootstrap.ps1` have been moved to `install/legacy/bootstrap-thin.{sh,ps1}` as frozen reference.
 
-- **No Administrator privileges required** (PowerShell): The thin entrypoint uses `Copy-Item` and file writes — no symbolic link creation. The previous admin check (which auto-enabled dry-run when not elevated) has been removed.
+- **No Administrator privileges required** (PowerShell): The one-shot installer uses file writes and updates the User PATH — no symbolic link creation and no elevation.
 - **Managed sync**: Deployed by the TS CLI — agents, commands, and skill files are synced with `.ai-config-managed` markers for safe refresh without clobbering local additions.
+
+### Runtime source-directory resolution
+
+`resolveSourceDir()` (`cli/src/lib/source-dir.ts`) resolves the reusable `base/opencode/**` source tree at runtime using this precedence:
+
+1. `AI_CONFIG_HOME` if non-empty.
+2. A location-based fallback: `path.join(path.dirname(process.execPath), '..', 'share', 'ai-config')`, but only when `base/` exists there. This lets a compiled binary at `<prefix>/bin/ai-config` find `<prefix>/share/ai-config/base` without an env var.
+3. Dev fallback: `path.resolve(__dirname, '..', '..', '..')` (checkout via `npx tsx`).
+
+If no source tree is found, `install` raises a clear error rather than silently installing nothing. `--ref` continues to override `sourceDir` with a cloned checkout.
 
 ## Agent Topology
 
