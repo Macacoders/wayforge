@@ -1,7 +1,16 @@
 import { execFileSync } from 'child_process'
 import fs from 'fs-extra'
+import os from 'os'
 import path from 'path'
 import type { ManifestContext } from './context.js'
+
+export function resolveStateDir(): string {
+	const localAppData = process.env.LOCALAPPDATA
+	if (localAppData) {
+		return path.join(localAppData, 'ai-config')
+	}
+	return path.join(os.homedir(), '.ai-config')
+}
 
 export function isTempPath(absolutePath: string): boolean {
 	if (absolutePath === '/tmp' || absolutePath.startsWith('/tmp/')) {
@@ -41,7 +50,6 @@ export function isTempPath(absolutePath: string): boolean {
 
 export function trackInstalledProject(
 	repoPath: string,
-	rootDir: string,
 	version: string,
 	installRef: string,
 	ctx: ManifestContext,
@@ -50,18 +58,7 @@ export function trackInstalledProject(
 		return
 	}
 
-	let canonical = fs.realpathSync(repoPath)
-
-	if (isWsl()) {
-		try {
-			canonical = execFileSync('wslpath', ['-w', canonical], {
-				encoding: 'utf8',
-				stdio: ['pipe', 'pipe', 'ignore'],
-			}).trim()
-		} catch {
-			// keep canonical as-is
-		}
-	}
+	const canonical = fs.realpathSync(repoPath)
 
 	if (isTempPath(canonical)) {
 		ctx.log(`skip tracking temporary/debug path: ${canonical}`)
@@ -71,12 +68,14 @@ export function trackInstalledProject(
 	const name = path.basename(canonical)
 	const timestamp = formatBerlinTimestamp(new Date())
 	const installRef_ = installRef || 'develop'
-	const trackingFile = path.join(rootDir, 'installed-projects.json')
+	const stateDir = resolveStateDir()
+	fs.mkdirpSync(stateDir)
+	const trackingFile = path.join(stateDir, 'installed-projects.json')
 
 	const entry = {
 		projectId: ctx.projectId,
 		name,
-		path: canonical, // JSON.stringify auto-escapes backslashes; no manual escaping needed
+		path: toTrackedPath(canonical), // JSON.stringify auto-escapes backslashes; no manual escaping needed
 		lastUpdated: timestamp,
 		aiConfigVersion: version,
 		installRef: installRef_,
@@ -128,21 +127,20 @@ export function trackInstalledProject(
 
 export function removeTrackingEntry(
 	repoPath: string,
-	rootDir: string,
 	ctx: ManifestContext,
 ): void {
-	const trackingFile = path.join(rootDir, 'installed-projects.json')
+	const trackingFile = path.join(resolveStateDir(), 'installed-projects.json')
 	if (!fs.pathExistsSync(trackingFile)) {
 		return
 	}
 
-	const canonical = fs.realpathSync(repoPath)
+	const lookupPath = toTrackedPath(fs.realpathSync(repoPath))
 
 	const obj = JSON.parse(fs.readFileSync(trackingFile, 'utf8')) as {
 		projects: Array<{ path: string }>
 	}
 
-	const matchIndex = obj.projects.findIndex((p) => p.path === canonical)
+	const matchIndex = obj.projects.findIndex((p) => p.path === lookupPath)
 	if (matchIndex === -1) {
 		return
 	}
@@ -162,19 +160,34 @@ export function removeTrackingEntry(
 	}
 
 	if (ctx.dryRun) {
-		ctx.log(`DRY-RUN: would remove tracking entry: ${canonical}`)
+		ctx.log(`DRY-RUN: would remove tracking entry: ${lookupPath}`)
 		return
 	}
 
 	obj.projects.splice(matchIndex, 1)
 	fs.writeFileSync(trackingFile, `${JSON.stringify(obj, null, 2)}\n`)
-	ctx.log(`removed tracking entry: ${canonical}`)
+	ctx.log(`removed tracking entry: ${lookupPath}`)
 }
 
 function isWsl(): boolean {
 	// ponytail: resolved rung 6 — /proc fallback never needed in practice; WSL_DISTRO_NAME alone suffices
 	return !!process.env.WSL_DISTRO_NAME
 }
+
+function toTrackedPath(canonical: string): string {
+	if (isWsl()) {
+		try {
+			return execFileSync('wslpath', ['-w', canonical], {
+				encoding: 'utf8',
+				stdio: ['pipe', 'pipe', 'ignore'],
+			}).trim()
+		} catch {
+			// keep canonical as-is
+		}
+	}
+	return canonical
+}
+
 function formatBerlinTimestamp(date: Date): string {
 	// ponytail: resolved rung 3 — Intl.DateTimeFormat replaces manual TZ offset arithmetic
 	const fmt = new Intl.DateTimeFormat('sv-SE', {

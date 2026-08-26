@@ -2,6 +2,7 @@
 
 **Date**: 2026-08-06
 **Status**: Accepted
+**Amended**: 2026-08-25 — noted one accepted exception to Decision 5: `cli/src/lib/tracking.ts` `isTempPath()` gates `%TEMP%` handling on `process.platform === 'win32'` (pre-existing). This is the single `win32` platform check in the codebase; it is documented here rather than churned.
 
 ## Context
 
@@ -25,3 +26,4 @@ The repo is developed on Linux CI and Windows workstations. On Windows, `core.au
 - Windows refresh is quiet and manifest-stable; no phantom discovery or redundant copies.
 - Symlink code paths are covered on Linux/macOS CI and Windows+Developer Mode, documented-skipped elsewhere.
 - Formatting gates are platform-agnostic; genuine formatting regressions (quote/semicolon/width) are still caught on both platforms.
+- One accepted exception to "no `win32` hardcoding": `tracking.ts` `isTempPath()` uses `process.platform === 'win32'` to gate `%TEMP%` handling. Platform variance elsewhere continues to use runtime detection (`path.sep`, symlink probe).
