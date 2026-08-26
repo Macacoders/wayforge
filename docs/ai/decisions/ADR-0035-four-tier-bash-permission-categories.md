@@ -1,7 +1,8 @@
 # ADR-0035: Four-Tier Bash Permission Categories
 
 **Date**: 2026-08-24
-**Status**: Accepted
+**Status**: Superseded by ADR-0036
+**Superseded**: 2026-08-26 — superseded in full by ADR-0036 ("Simplify agent permissions to coarse allow + deny-list model"). Retained as historical record; superseded in place (not renumbered) because "ADR-0035" collides with ADR-0035 (one-shot CLI installer).
 
 ## Context
 

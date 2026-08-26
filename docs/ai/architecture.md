@@ -112,7 +112,7 @@ If no source tree is found, `install` raises a clear error rather than silently 
 - `planner` is the default primary agent. It uses a non-native id to avoid colliding with OpenCode's built-in `plan` agent.
 - `research` is a subagent used for onboarding existing repositories before implementation planning.
 - `code` is a conservative implementation subagent used once per approved implementation phase, with medium reasoning effort and low temperature.
-- `quickcode` is an implementation subagent invoked by `planner` for one approved quick-delivery task, with low reasoning effort for small low-risk changes. It may edit autonomously within narrow low-risk scope, run allowlisted validation/git inspection commands, and must not invoke subagents.
+- `quickcode` is an implementation subagent invoked by `planner` for one approved quick-delivery task, with low reasoning effort for small low-risk changes. It may edit autonomously within narrow low-risk scope, run `bash` commands under the coarse allow + deny-list model (ADR-0036), and must not invoke subagents.
 - `test` is an independent review subagent used when review identifies meaningful testing or regression risk, keeping critical review independent from implementation output.
 - `taskanalyst` is a lightweight analysis subagent used by `/issue create` to interpret problem reports and propose structured GitHub Issue content without editing files.
 
