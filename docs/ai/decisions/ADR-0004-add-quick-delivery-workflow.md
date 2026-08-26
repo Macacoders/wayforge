@@ -13,7 +13,7 @@ Add an opt-in quick-delivery workflow started with `/quick`.
 
 `planner` remains the user-facing orchestrator. It classifies eligibility, writes a compact `Quick Code Handoff Brief`, invokes one `quickcode` subagent, then reviews the result with git evidence before responding.
 
-`quickcode` implements one approved quick task without staged pauses. It may edit autonomously within the approved scope and may run allowlisted validation/git inspection commands. It must not invoke subagents.
+`quickcode` implements one approved quick task without staged pauses. It may edit autonomously within the approved scope and may run `bash` commands gated by the coarse allow + deny-list permission model (ADR-0036). It must not invoke subagents.
 
 Staged delivery remains the default conservative workflow and is required whenever quick-delivery eligibility is not clear.
 
@@ -21,7 +21,7 @@ Staged delivery remains the default conservative workflow and is required whenev
 
 - Quick delivery is only for clear, small, low-risk tasks with obvious acceptance criteria.
 - Escalate to staged delivery for ambiguous scope, architecture decisions, broad refactors, migrations, dependency installation, deployments, releases, secret handling, or meaningful security, data, operational, or regression risk.
-- `quickcode` uses Option A permissions: autonomous edits, allowlisted validation/git inspection commands, and no subagents.
+- `quickcode` uses Option A permissions: autonomous edits, `bash: allow` with a short deny-list (ADR-0036), and no subagents.
 - `quickcode` must not commit, amend, push, rebase, reset, clean, checkout, switch branches, install dependencies, edit secrets, or broaden scope.
 - `planner` must review every quick-delivery result with git status/diff/log evidence.
 

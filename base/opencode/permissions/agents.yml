@@ -1,18 +1,24 @@
+# Parse contract: flat YAML, no anchors/merge keys, full-line comments only.
+# Parsed by the TypeScript CLI (cli/src/lib/permissions.ts) and the legacy bash/ps1
+# managed_sync renderers — see ADR-0009 and ADR-0014.
+#
+# Permission model: coarse last-match-wins bash rules. "*": allow is the catch-all
+# (prompting on every benign command such as rg/ls/cat would be too slow); a short
+# deny-list below it blocks known high-risk prefixes. Destructive commands are also
+# gated by the user's shell/profile permissions.
 agents:
   planner:
+    read: allow
     edit: ask
     bash:
-      "*": ask
-      "git status*": allow
-      "git diff*": allow
-      "git log*": allow
-      "git rev-parse*": allow
-      "git remote get-url*": allow
-      "git branch*": allow
-      "git show*": allow
-      "git ls-files*": allow
-      "npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts*": allow
-      "npx tsx .opencode/skills/shared-task/scripts/gh-app-auth.ts*": allow
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task:
       "*": deny
       research: allow
@@ -23,48 +29,17 @@ agents:
       architect: allow
 
   delivery:
-    edit: allow
+    read: allow
+    edit: ask
     bash:
-      "*": ask
-      "git status*": allow
-      "git diff*": allow
-      "git log*": allow
-      "git show*": allow
-      "git branch*": allow
-      "git ls-files*": allow
-      "git rev-parse*": allow
-      "git remote get-url*": allow
-      "npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts*": allow
-      "npx tsx .opencode/skills/shared-task/scripts/gh-app-auth.ts*": allow
-      # ponytail: resolved — validation allow rules intentionally duplicated from
-      # quickcode's bash block. Anchor/merge-key DRY is rejected: this file is parsed
-      # by three dependency-free line-scanners (TS cli/src/lib/permissions.ts plus the
-      # legacy bash/ps1 managed_sync renderers) that do not resolve anchors (ADR-0009, ADR-0014).
-      "npm test*": allow
-      "npm run test*": allow
-      "npm run lint*": allow
-      "npm run typecheck*": allow
-      "npm run build*": allow
-      "pnpm test*": allow
-      "pnpm run test*": allow
-      "pnpm run lint*": allow
-      "pnpm run typecheck*": allow
-      "pnpm run build*": allow
-      "yarn test*": allow
-      "yarn lint*": allow
-      "yarn typecheck*": allow
-      "yarn build*": allow
-      "yarn run test*": allow
-      "yarn run lint*": allow
-      "yarn run typecheck*": allow
-      "yarn run build*": allow
-      "pytest*": allow
-      "python -m pytest*": allow
-      "ruff check*": allow
-      "mypy*": allow
-      "cargo test*": allow
-      "go test*": allow
-      "make test*": allow
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task:
       "*": deny
       research: allow
@@ -75,67 +50,85 @@ agents:
       architect: allow
 
   research:
+    read: allow
     edit: ask
-    bash: ask
+    bash:
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task: deny
 
   code:
-    edit: ask
-    bash: ask
+    read: allow
+    edit: allow
+    bash:
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task: deny
 
   quickcode:
+    read: allow
     edit: allow
     bash:
-      "*": ask
-      "git status*": allow
-      "git diff*": allow
-      "git log*": allow
-      "git show*": allow
-      "git branch*": allow
-      "git ls-files*": allow
-      "npm test*": allow
-      "npm run test*": allow
-      "npm run lint*": allow
-      "npm run typecheck*": allow
-      "npm run build*": allow
-      "pnpm test*": allow
-      "pnpm run test*": allow
-      "pnpm run lint*": allow
-      "pnpm run typecheck*": allow
-      "pnpm run build*": allow
-      "yarn test*": allow
-      "yarn lint*": allow
-      "yarn typecheck*": allow
-      "yarn build*": allow
-      "yarn run test*": allow
-      "yarn run lint*": allow
-      "yarn run typecheck*": allow
-      "yarn run build*": allow
-      "pytest*": allow
-      "python -m pytest*": allow
-      "ruff check*": allow
-      "mypy*": allow
-      "cargo test*": allow
-      "go test*": allow
-      "make test*": allow
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task: deny
 
   test:
+    read: allow
     edit: ask
-    bash: ask
+    bash:
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task: deny
 
   taskanalyst:
+    read: allow
     edit: deny
     bash:
-      "*": ask
-      "git status*": allow
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task: deny
 
   architect:
+    read: allow
     edit: deny
     bash:
-      "*": ask
-      "git status*": allow
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task: deny

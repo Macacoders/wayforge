@@ -2,6 +2,7 @@
 
 **Date**: 2026-06-16
 **Status**: Accepted
+**Amended**: 2026-08-26 — the permission model in `agents.yml` is now the coarse allow + deny-list model described in ADR-0036 (superseding the four-tier ADR-0035).
 
 ## Context
 

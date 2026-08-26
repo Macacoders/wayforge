@@ -17,6 +17,20 @@ const permissionsFile = path.resolve(
   "agents.yml",
 );
 
+const agentsDir = path.resolve(
+  __dirname,
+  "../../..",
+  "base",
+  "opencode",
+  "agents",
+);
+
+const allAgents = fs
+  .readdirSync(agentsDir)
+  .filter((entry) => entry.endsWith(".md"))
+  .map((entry) => entry.replace(/\.md$/, ""))
+  .sort();
+
 function makeCtx(dryRun = false): ManifestContext {
   return new ManifestContext(dryRun, false, false);
 }
@@ -26,24 +40,144 @@ describe("renderAgentPermissionBlock", () => {
     const block = renderAgentPermissionBlock("planner", permissionsFile);
 
     expect(block.startsWith("permission:")).toBe(true);
+    expect(block).toContain("read: allow");
     expect(block).toContain("edit: ask");
-    expect(block).toContain('bash:');
-    expect(block).toContain('"*": ask');
+    expect(block).toContain("bash:");
+    expect(block).toContain('"*": allow');
     expect(block).not.toContain("agents:");
+    expect(block.indexOf('"*": allow')).toBeLessThan(
+      block.indexOf('"sudo*": deny'),
+    );
+    expect(block).toContain('"sudo*": deny');
+    expect(block).toContain('"rm -rf*": deny');
+    expect(block).toContain('"git push --force*": deny');
+    expect(block).toContain('"git push -f*": deny');
+    expect(block).toContain("external_directory:");
+    expect(block).toContain('"*": deny');
+    expect(block).toContain('"/tmp/**": allow');
   });
 
   it("extracts quickcode permissions", () => {
     const block = renderAgentPermissionBlock("quickcode", permissionsFile);
 
     expect(block.startsWith("permission:")).toBe(true);
+    expect(block).toContain("read: allow");
     expect(block).toContain("edit: allow");
-    expect(block).toContain('"npm test*": allow');
+    expect(block).toContain("bash:");
+    expect(block).toContain('"*": allow');
+    expect(block.indexOf('"*": allow')).toBeLessThan(
+      block.indexOf('"sudo*": deny'),
+    );
+    expect(block).toContain('"sudo*": deny');
+    expect(block).toContain('"rm -rf*": deny');
+    expect(block).toContain('"git push --force*": deny');
+    expect(block).toContain('"git push -f*": deny');
+    expect(block).toContain("external_directory:");
+    expect(block).toContain('"*": deny');
+    expect(block).toContain('"/tmp/**": allow');
+  });
+
+  it("renders the correct edit permission for each agent", () => {
+    expect(renderAgentPermissionBlock("code", permissionsFile)).toContain(
+      "edit: allow",
+    );
+    expect(renderAgentPermissionBlock("quickcode", permissionsFile)).toContain(
+      "edit: allow",
+    );
+    expect(renderAgentPermissionBlock("planner", permissionsFile)).toContain(
+      "edit: ask",
+    );
+    expect(renderAgentPermissionBlock("delivery", permissionsFile)).toContain(
+      "edit: ask",
+    );
+    expect(renderAgentPermissionBlock("research", permissionsFile)).toContain(
+      "edit: ask",
+    );
+    expect(renderAgentPermissionBlock("test", permissionsFile)).toContain(
+      "edit: ask",
+    );
+    expect(renderAgentPermissionBlock("architect", permissionsFile)).toContain(
+      "edit: deny",
+    );
+    expect(
+      renderAgentPermissionBlock("taskanalyst", permissionsFile),
+    ).toContain("edit: deny");
   });
 
   it("throws for unknown agent", () => {
     expect(() =>
       renderAgentPermissionBlock("nonexistent-agent", permissionsFile),
     ).toThrow();
+  });
+});
+
+describe("coarse permission guards", () => {
+  it("renders a non-empty permission block for every agent", () => {
+    for (const agent of allAgents) {
+      const block = renderAgentPermissionBlock(agent, permissionsFile);
+      expect(block.startsWith("permission:")).toBe(true);
+      const nonEmpty = block.split("\n").filter((line) => line.trim() !== "");
+      expect(nonEmpty.length).toBeGreaterThan(1);
+    }
+  });
+
+  it("renders read: allow for every agent", () => {
+    for (const agent of allAgents) {
+      expect(renderAgentPermissionBlock(agent, permissionsFile)).toContain(
+        "read: allow",
+      );
+    }
+  });
+
+  it('starts every bash map with the "*": allow catch-all', () => {
+    for (const agent of allAgents) {
+      const lines = renderAgentPermissionBlock(agent, permissionsFile).split(
+        "\n",
+      );
+      const bashIdx = lines.findIndex((line) => line.trim() === "bash:");
+      expect(bashIdx).toBeGreaterThan(-1);
+      expect(lines[bashIdx + 1].trim()).toBe('"*": allow');
+    }
+  });
+
+  it("renders the bash deny-list in every agent", () => {
+    for (const agent of allAgents) {
+      const block = renderAgentPermissionBlock(agent, permissionsFile);
+      expect(block).toContain('"sudo*": deny');
+      expect(block).toContain('"rm -rf*": deny');
+      expect(block).toContain('"git push --force*": deny');
+      expect(block).toContain('"git push -f*": deny');
+    }
+  });
+
+  it("places the bash catch-all before the deny-list entries", () => {
+    for (const agent of allAgents) {
+      const block = renderAgentPermissionBlock(agent, permissionsFile);
+      const catchAllIdx = block.indexOf('"*": allow');
+      expect(catchAllIdx).toBeGreaterThan(-1);
+      expect(catchAllIdx).toBeLessThan(block.indexOf('"sudo*": deny'));
+      expect(catchAllIdx).toBeLessThan(block.indexOf('"rm -rf*": deny'));
+      expect(catchAllIdx).toBeLessThan(
+        block.indexOf('"git push --force*": deny'),
+      );
+      expect(catchAllIdx).toBeLessThan(block.indexOf('"git push -f*": deny'));
+    }
+  });
+
+  it("renders no comments into any agent block", () => {
+    for (const agent of allAgents) {
+      const block = renderAgentPermissionBlock(agent, permissionsFile);
+      expect(block.includes("#")).toBe(false);
+    }
+  });
+
+  it("renders the external_directory boundary for every agent", () => {
+    for (const agent of allAgents) {
+      const block = renderAgentPermissionBlock(agent, permissionsFile);
+      expect(block).toContain("external_directory:");
+      expect(block).toContain('"*": deny');
+      expect(block).toContain('"/tmp/**": allow');
+    }
   });
 });
 
