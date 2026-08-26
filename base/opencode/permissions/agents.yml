@@ -1,76 +1,24 @@
-# Central bash permission model for all agents — four-tier category convention
-# (ADR-0035: docs/ai/decisions/ADR-0035-four-tier-bash-permission-categories.md).
+# Parse contract: flat YAML, no anchors/merge keys, full-line comments only.
+# Parsed by the TypeScript CLI (cli/src/lib/permissions.ts) and the legacy bash/ps1
+# managed_sync renderers — see ADR-0009 and ADR-0014.
 #
-# Tiers — every agent's bash map contains them in this physical order:
-#   1. Modification catch-all: "*": ask. MUST remain the FIRST bash key in every
-#      block. OpenCode resolves permissions last-match-wins, so any later
-#      matching allow rule overrides it and everything else falls through to ask.
-#   2. Safe-read-only: allow for ALL agents — read-only git inspection plus
-#      cat/head/tail/ls. Every glob ends with "*" (prefix match only).
-#   3. Validation: allow for ALL agents — test/lint/typecheck/build commands,
-#      duplicated verbatim in every block. The duplication is deliberate:
-#      anchors and merge keys are rejected because this plain flat YAML is
-#      parsed by three dependency-free line-scanners (cli/src/lib/permissions.ts
-#      plus install/legacy/lib/managed_sync-legacy.sh/.ps1) that do not resolve
-#      them (ADR-0009).
-#   4. Destructive: deliberately NOT pattern-matched. There is no deny list —
-#      the catch-all ask above already covers destructive commands.
-#
-# Agent-specific extras (planner/delivery shared-task script helpers) follow the
-# tiers at the end of their bash map.
-#
-# Format constraints (parsing contract shared by all three scanners):
-# - Plain flat block mappings only: no anchors, no merge keys, no flow style.
-# - Comments inside agent blocks must be full-line "#" lines indented inside
-#   the block; the scanners strip them.
-# - NEVER a comment at column 0 below the agents: line — any line whose indent
-#   is <= the agents: indent terminates the section in all three scanners.
-# - NEVER a trailing comment on a key/value line — the legacy scanners do not
-#   strip it, so it would corrupt the parsed value.
+# Permission model: coarse last-match-wins bash rules. "*": allow is the catch-all
+# (prompting on every benign command such as rg/ls/cat would be too slow); a short
+# deny-list below it blocks known high-risk prefixes. Destructive commands are also
+# gated by the user's shell/profile permissions.
 agents:
   planner:
+    read: allow
     edit: ask
     bash:
-      "*": ask
-      "git status*": allow
-      "git diff*": allow
-      "git log*": allow
-      "git show*": allow
-      "git branch*": allow
-      "git ls-files*": allow
-      "git rev-parse*": allow
-      "git remote get-url*": allow
-      "cat*": allow
-      "head*": allow
-      "tail*": allow
-      "ls*": allow
-      "npm test*": allow
-      "npm run test*": allow
-      "npm run lint*": allow
-      "npm run typecheck*": allow
-      "npm run build*": allow
-      "pnpm test*": allow
-      "pnpm run test*": allow
-      "pnpm run lint*": allow
-      "pnpm run typecheck*": allow
-      "pnpm run build*": allow
-      "yarn test*": allow
-      "yarn lint*": allow
-      "yarn typecheck*": allow
-      "yarn build*": allow
-      "yarn run test*": allow
-      "yarn run lint*": allow
-      "yarn run typecheck*": allow
-      "yarn run build*": allow
-      "pytest*": allow
-      "python -m pytest*": allow
-      "ruff check*": allow
-      "mypy*": allow
-      "cargo test*": allow
-      "go test*": allow
-      "make test*": allow
-      "npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts*": allow
-      "npx tsx .opencode/skills/shared-task/scripts/gh-app-auth.ts*": allow
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task:
       "*": deny
       research: allow
@@ -81,49 +29,17 @@ agents:
       architect: allow
 
   delivery:
+    read: allow
     edit: ask
     bash:
-      "*": ask
-      "git status*": allow
-      "git diff*": allow
-      "git log*": allow
-      "git show*": allow
-      "git branch*": allow
-      "git ls-files*": allow
-      "git rev-parse*": allow
-      "git remote get-url*": allow
-      "cat*": allow
-      "head*": allow
-      "tail*": allow
-      "ls*": allow
-      # Validation tier duplicated verbatim across all agents — see header (ADR-0009).
-      "npm test*": allow
-      "npm run test*": allow
-      "npm run lint*": allow
-      "npm run typecheck*": allow
-      "npm run build*": allow
-      "pnpm test*": allow
-      "pnpm run test*": allow
-      "pnpm run lint*": allow
-      "pnpm run typecheck*": allow
-      "pnpm run build*": allow
-      "yarn test*": allow
-      "yarn lint*": allow
-      "yarn typecheck*": allow
-      "yarn build*": allow
-      "yarn run test*": allow
-      "yarn run lint*": allow
-      "yarn run typecheck*": allow
-      "yarn run build*": allow
-      "pytest*": allow
-      "python -m pytest*": allow
-      "ruff check*": allow
-      "mypy*": allow
-      "cargo test*": allow
-      "go test*": allow
-      "make test*": allow
-      "npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts*": allow
-      "npx tsx .opencode/skills/shared-task/scripts/gh-app-auth.ts*": allow
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task:
       "*": deny
       research: allow
@@ -134,259 +50,85 @@ agents:
       architect: allow
 
   research:
+    read: allow
     edit: ask
     bash:
-      "*": ask
-      "git status*": allow
-      "git diff*": allow
-      "git log*": allow
-      "git show*": allow
-      "git branch*": allow
-      "git ls-files*": allow
-      "git rev-parse*": allow
-      "git remote get-url*": allow
-      "cat*": allow
-      "head*": allow
-      "tail*": allow
-      "ls*": allow
-      "npm test*": allow
-      "npm run test*": allow
-      "npm run lint*": allow
-      "npm run typecheck*": allow
-      "npm run build*": allow
-      "pnpm test*": allow
-      "pnpm run test*": allow
-      "pnpm run lint*": allow
-      "pnpm run typecheck*": allow
-      "pnpm run build*": allow
-      "yarn test*": allow
-      "yarn lint*": allow
-      "yarn typecheck*": allow
-      "yarn build*": allow
-      "yarn run test*": allow
-      "yarn run lint*": allow
-      "yarn run typecheck*": allow
-      "yarn run build*": allow
-      "pytest*": allow
-      "python -m pytest*": allow
-      "ruff check*": allow
-      "mypy*": allow
-      "cargo test*": allow
-      "go test*": allow
-      "make test*": allow
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task: deny
 
   code:
-    edit: ask
+    read: allow
+    edit: allow
     bash:
-      "*": ask
-      "git status*": allow
-      "git diff*": allow
-      "git log*": allow
-      "git show*": allow
-      "git branch*": allow
-      "git ls-files*": allow
-      "git rev-parse*": allow
-      "git remote get-url*": allow
-      "cat*": allow
-      "head*": allow
-      "tail*": allow
-      "ls*": allow
-      "npm test*": allow
-      "npm run test*": allow
-      "npm run lint*": allow
-      "npm run typecheck*": allow
-      "npm run build*": allow
-      "pnpm test*": allow
-      "pnpm run test*": allow
-      "pnpm run lint*": allow
-      "pnpm run typecheck*": allow
-      "pnpm run build*": allow
-      "yarn test*": allow
-      "yarn lint*": allow
-      "yarn typecheck*": allow
-      "yarn build*": allow
-      "yarn run test*": allow
-      "yarn run lint*": allow
-      "yarn run typecheck*": allow
-      "yarn run build*": allow
-      "pytest*": allow
-      "python -m pytest*": allow
-      "ruff check*": allow
-      "mypy*": allow
-      "cargo test*": allow
-      "go test*": allow
-      "make test*": allow
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task: deny
 
   quickcode:
-    edit: ask
+    read: allow
+    edit: allow
     bash:
-      "*": ask
-      "git status*": allow
-      "git diff*": allow
-      "git log*": allow
-      "git show*": allow
-      "git branch*": allow
-      "git ls-files*": allow
-      "git rev-parse*": allow
-      "git remote get-url*": allow
-      "cat*": allow
-      "head*": allow
-      "tail*": allow
-      "ls*": allow
-      "npm test*": allow
-      "npm run test*": allow
-      "npm run lint*": allow
-      "npm run typecheck*": allow
-      "npm run build*": allow
-      "pnpm test*": allow
-      "pnpm run test*": allow
-      "pnpm run lint*": allow
-      "pnpm run typecheck*": allow
-      "pnpm run build*": allow
-      "yarn test*": allow
-      "yarn lint*": allow
-      "yarn typecheck*": allow
-      "yarn build*": allow
-      "yarn run test*": allow
-      "yarn run lint*": allow
-      "yarn run typecheck*": allow
-      "yarn run build*": allow
-      "pytest*": allow
-      "python -m pytest*": allow
-      "ruff check*": allow
-      "mypy*": allow
-      "cargo test*": allow
-      "go test*": allow
-      "make test*": allow
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task: deny
 
   test:
+    read: allow
     edit: ask
     bash:
-      "*": ask
-      "git status*": allow
-      "git diff*": allow
-      "git log*": allow
-      "git show*": allow
-      "git branch*": allow
-      "git ls-files*": allow
-      "git rev-parse*": allow
-      "git remote get-url*": allow
-      "cat*": allow
-      "head*": allow
-      "tail*": allow
-      "ls*": allow
-      "npm test*": allow
-      "npm run test*": allow
-      "npm run lint*": allow
-      "npm run typecheck*": allow
-      "npm run build*": allow
-      "pnpm test*": allow
-      "pnpm run test*": allow
-      "pnpm run lint*": allow
-      "pnpm run typecheck*": allow
-      "pnpm run build*": allow
-      "yarn test*": allow
-      "yarn lint*": allow
-      "yarn typecheck*": allow
-      "yarn build*": allow
-      "yarn run test*": allow
-      "yarn run lint*": allow
-      "yarn run typecheck*": allow
-      "yarn run build*": allow
-      "pytest*": allow
-      "python -m pytest*": allow
-      "ruff check*": allow
-      "mypy*": allow
-      "cargo test*": allow
-      "go test*": allow
-      "make test*": allow
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task: deny
 
   taskanalyst:
+    read: allow
     edit: deny
     bash:
-      "*": ask
-      "git status*": allow
-      "git diff*": allow
-      "git log*": allow
-      "git show*": allow
-      "git branch*": allow
-      "git ls-files*": allow
-      "git rev-parse*": allow
-      "git remote get-url*": allow
-      "cat*": allow
-      "head*": allow
-      "tail*": allow
-      "ls*": allow
-      "npm test*": allow
-      "npm run test*": allow
-      "npm run lint*": allow
-      "npm run typecheck*": allow
-      "npm run build*": allow
-      "pnpm test*": allow
-      "pnpm run test*": allow
-      "pnpm run lint*": allow
-      "pnpm run typecheck*": allow
-      "pnpm run build*": allow
-      "yarn test*": allow
-      "yarn lint*": allow
-      "yarn typecheck*": allow
-      "yarn build*": allow
-      "yarn run test*": allow
-      "yarn run lint*": allow
-      "yarn run typecheck*": allow
-      "yarn run build*": allow
-      "pytest*": allow
-      "python -m pytest*": allow
-      "ruff check*": allow
-      "mypy*": allow
-      "cargo test*": allow
-      "go test*": allow
-      "make test*": allow
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task: deny
 
   architect:
+    read: allow
     edit: deny
     bash:
-      "*": ask
-      "git status*": allow
-      "git diff*": allow
-      "git log*": allow
-      "git show*": allow
-      "git branch*": allow
-      "git ls-files*": allow
-      "git rev-parse*": allow
-      "git remote get-url*": allow
-      "cat*": allow
-      "head*": allow
-      "tail*": allow
-      "ls*": allow
-      "npm test*": allow
-      "npm run test*": allow
-      "npm run lint*": allow
-      "npm run typecheck*": allow
-      "npm run build*": allow
-      "pnpm test*": allow
-      "pnpm run test*": allow
-      "pnpm run lint*": allow
-      "pnpm run typecheck*": allow
-      "pnpm run build*": allow
-      "yarn test*": allow
-      "yarn lint*": allow
-      "yarn typecheck*": allow
-      "yarn build*": allow
-      "yarn run test*": allow
-      "yarn run lint*": allow
-      "yarn run typecheck*": allow
-      "yarn run build*": allow
-      "pytest*": allow
-      "python -m pytest*": allow
-      "ruff check*": allow
-      "mypy*": allow
-      "cargo test*": allow
-      "go test*": allow
-      "make test*": allow
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
     task: deny
