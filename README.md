@@ -1,6 +1,6 @@
 # ai-config
 
-`ai-config` provides a repeatable AI-assisted development workflow for OpenCode. It installs two primary agents (`planner` for discovery and planning, `delivery` for implementation), seven specialized subagents, a reuse-first discipline, and a persistent project memory convention.
+`ai-config` provides a repeatable AI-assisted development workflow for OpenCode. It installs three primary agents (`planner` for discovery and planning, `delivery` for implementation, `troubleshooter` for command-first diagnostics), six specialized subagents, a reuse-first discipline, and a persistent project memory convention.
 
 - **Runtime**: OpenCode (default) or Kilo Code, selectable at install time.
 - **Providers**: Free tier (default), OpenAI, GitHub Copilot, laberit, and OpenCode Go — pick one or combine them.
@@ -60,12 +60,13 @@ Set `PONYTAIL_DEFAULT_MODE` to override the default, or `/ponytail off` to disab
 
 ## Agents
 
-The installed setup includes two primary agents and seven subagents.
+The installed setup includes three primary agents and six subagents.
 
 | Agent | Mode | Purpose |
 | :--- | :--- | :--- |
 | `planner` | Primary | Discovery, phased planning, clarifying questions, memory maintenance, shared task (issue) management. |
 | `delivery` | Primary | Reads approved plans from disk, hands phases to `code`/`quickcode`, reviews completed work with git evidence, runs the close workflow. |
+| `troubleshooter` | Primary | Provides command-first, safe, non-destructive diagnostic troubleshooting guidance via `/troubleshooter`. |
 | `research` | Subagent | Onboards unfamiliar repositories and creates initial `docs/ai/` memory. |
 | `code` | Subagent | Implements one phase across atomic stages, pausing after each for manual validation. |
 | `quickcode` | Subagent | Implements one quick-delivery task autonomously within approved scope. |
@@ -74,7 +75,7 @@ The installed setup includes two primary agents and seven subagents.
 | `architect` | Subagent | Reviews changes against architectural decisions (ADRs) when a phase touches boundaries, contracts, or data models. |
 | `triage` | Skill | Classifies error/bug pastes and recommends the right next gate (`/plan` or `/quick`). |
 
-Model assignments (OpenAI, GitHub Copilot, laberit, OpenCode Go) are configured at install time and written into `opencode.jsonc`. Switch providers interactively with `/model <provider>/<model>`.
+Model assignments (OpenAI, GitHub Copilot, laberit, OpenCode Go) are configured at install time and written into `opencode.jsonc` (or `kilo.jsonc` for Kilo Code). Switch providers interactively with `/model <provider>/<model>`.
 
 ## Progressive Disclosure
 
@@ -225,9 +226,9 @@ ai-config install --repo /path/to/repo --runtime kilocode --providers openai
 ai-config install --repo /path/to/repo --ref v0.1.0 --providers openai
 ```
 
-Optional `--model`, `--small-model`, and `--agent-preset` flags override generated defaults.
+Optional `--model` and `--small-model` flags override generated defaults.
 
-**Auth**: OpenAI and GitHub Copilot authenticate via `/connect` in OpenCode. laberit uses `OPENAI_BASE_URL` and `OPENAI_API_KEY` environment variables. Free tier requires no auth.
+**Auth**: OpenAI and GitHub Copilot authenticate via `/connect` in OpenCode/Kilo Code. Laberit uses `OPENAI_BASE_URL` and `OPENAI_API_KEY` environment variables. Free tier requires no auth.
 
 ## Uninstall from a repo
 

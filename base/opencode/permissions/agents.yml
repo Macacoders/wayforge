@@ -105,6 +105,20 @@ agents:
       "/tmp/**": allow
     task: deny
 
+  troubleshooter:
+    read: allow
+    edit: ask
+    bash:
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
+    task: deny
+
   taskanalyst:
     read: allow
     edit: deny
