@@ -37,6 +37,7 @@ describe("trackInstalledProject", () => {
 
   beforeEach(() => {
     vi.stubEnv("WSL_DISTRO_NAME", "");
+    vi.stubEnv("LOCALAPPDATA", "");
     testDir = fs.mkdtempSync(path.join(BASE, "test-"));
     stateDir = path.join(testDir, "home");
     rootDir = path.join(testDir, "root");
