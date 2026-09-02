@@ -1,5 +1,5 @@
 ---
-status: completed
+status: in-progress
 created: 2026-08-27
 phase: 1/1
 required_gates:
@@ -32,10 +32,6 @@ Make `cli/tests/unit/tracking.test.ts` pass on native Windows (and all platforms
 - **Quick delivery eligible**: Yes — confirmed by user.
 - **Split required**: No.
 - **Architect review**: Not required (no architecture-boundary change; test-only).
-
-## Repository root
-
-`C:/DEV/ai-config`
 
 ## Phase 1: Isolate `LOCALAPPDATA` in tracking unit test
 
