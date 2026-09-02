@@ -1,7 +1,7 @@
 # ADR-0037: Add `troubleshooter` Chat Agent for Command-First Diagnostics
 
 **Date**: 2026-08-31
-**Status**: Accepted
+**Status**: Proposed
 
 ## Context
 

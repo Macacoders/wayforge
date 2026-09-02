@@ -1,5 +1,5 @@
 ---
-description: Provides command-first, safe diagnostic troubleshooting guidance for diagnosing and resolving issues.
+description: Provides command-first, safe, non-destructive troubleshooting guidance for diagnosing and resolving issues.
 mode: primary
 ---
 
