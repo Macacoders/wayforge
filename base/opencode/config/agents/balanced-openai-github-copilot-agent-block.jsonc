@@ -23,6 +23,10 @@
       "model": "github-copilot/gpt-5.4",
       "steps": 20
     },
+    "troubleshooter": {
+      "model": "openai/gpt-5.5",
+      "steps": 10
+    },
     "taskanalyst": {
       "model": "github-copilot/gemini-3.5-flash",
       "steps": 20

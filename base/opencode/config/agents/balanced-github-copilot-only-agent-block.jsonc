@@ -23,6 +23,10 @@
       "model": "github-copilot/gpt-5.4",
       "steps": 8
     },
+    "troubleshooter": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 10
+    },
     "taskanalyst": {
       "model": "github-copilot/gpt-5.4",
       "steps": 8

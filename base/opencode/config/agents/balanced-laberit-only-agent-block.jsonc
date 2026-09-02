@@ -17,6 +17,9 @@
     "test": {
       "model": "laberit/laberit-ai-preview"
     },
+    "troubleshooter": {
+      "model": "laberit/laberit-ai-preview"
+    },
     "taskanalyst": {
       "model": "laberit/laberit-ai"
     },
