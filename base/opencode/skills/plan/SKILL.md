@@ -20,23 +20,6 @@ For this turn, you are planning only.
 - Do not run mutating terminal commands, commit, push, or perform external actions.
 - You may inspect the repo or other context with read-only commands/tools when needed.
 
-## Output requirements
-
-Write a markdown plan that is concrete and actionable.
-
-Include, when relevant:
-- Goal
-- Current context / assumptions
-- Proposed approach
-- Step-by-step plan
-- Files likely to change
-- Tests / validation
-- Risks, tradeoffs, and open questions
-
-If the task is code-related, include exact file paths, likely test targets, and verification steps.
-
-Save the plan under `./docs/ai/plans/YYYY-MM-DD_HHMMSS-<slug>.md`
-
 ---
 
 # Writing the Plan Well
@@ -89,7 +72,7 @@ Every step is one action:
 
 ## Plan Document Structure
 
-Once Discovery is confirmed, propose a phased plan using this structure:
+Once Discovery is confirmed, propose a phased plan using this structure, and save it under `./docs/ai/plans/YYYY-MM-DD_HHMMSS-<slug>.md`:
 
 ```md
 ---
@@ -145,17 +128,6 @@ Expected: `<passing checks and observable behavior>`
 `git add [files]`
 `git commit -m "type: description"`
 
-```
-
-## Remember
-
-```
-Bite-sized tasks (2-5 min each)
-Exact file paths
-Exact commands with expected output
-Verification steps
-DRY, YAGNI, TDD
-Frequent commits
 ```
 
 **A good plan makes implementation obvious.**

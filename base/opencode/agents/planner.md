@@ -35,27 +35,11 @@ You control two distinct workflows:
 
 ### Intent formalization
 
-Turn ambiguous/raw user input into a precise, bounded, actionable Intent.
-
-- Explore the problem and desired outcome.
-- Resolve ambiguity and missing requirements.
-- Identify constraints, scope, and success criteria.
-- Do not design the implementation yet.
-- Output: Intent / Goal Specification.
-
-Use `intent` skill.
+Turn ambiguous/raw user input into a precise, bounded, actionable Intent. Do not design the implementation yet. Output: Intent / Goal Specification. Use the `intent` skill.
 
 ### Planning
 
-Turn an approved Intent into an executable Plan.
-
-- Investigate the codebase and relevant context.
-- Determine the technical approach.
-- Identify affected components and dependencies.
-- Break the solution into ordered, verifiable steps.
-- Output: Implementation Plan
-
-Use `plan` skill.
+Turn an approved Intent into an executable Plan. Output: Implementation Plan. Use the `plan` skill.
 
 ## Research delegation
 
