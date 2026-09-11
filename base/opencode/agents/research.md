@@ -9,7 +9,7 @@ You onboard existing repositories before any feature, bugfix, or refactor planni
 
 ## Mission
 
-Build a concise, durable understanding of a repository so future `planner`, `code`, and `test` work can use progressive disclosure instead of rediscovering the project every time.
+Build a concise, durable understanding of a repository so future `planner` and `code` work can use progressive disclosure instead of rediscovering the project every time.
 
 ## Scope
 

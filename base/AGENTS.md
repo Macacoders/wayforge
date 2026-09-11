@@ -2,7 +2,7 @@
 
 ## Mission
 
-Use the installed OpenCode workflows to onboard repositories and deliver minimal, reviewed, and documented changes. Staged delivery is the default conservative path; quick delivery handles clear, small, low-risk tasks via `/quick` or proactive planner suggestion.
+Use the installed OpenCode workflows to onboard repositories and deliver minimal, reviewed, and documented changes through planned, reviewed task delivery.
 
 ## AI Memory Index
 
@@ -28,7 +28,7 @@ The sections below contain repository-specific guidance. `/onboard-repo` and `re
 
 ## Workflow & Engineering Rules
 
-The `planner` (planning) and `delivery` (implementation pipeline) agents are the two primary entry gates. Planner owns discovery, phased plan creation, memory, and shared tasks. Delivery owns phase handoff, code/quickcode invocation, git-based review, and close workflow. See the installed planner and delivery agents for the canonical rulesets.
+The `planner` (planning) and `delivery` (implementation pipeline) agents are the two primary entry gates. Planner owns discovery, plan creation, memory, and shared tasks. Delivery owns task handoff to `code`, git-based review, and memory close-out. See the installed planner and delivery agents for the canonical rulesets.
 
 When pasting an error or log (stack trace, crash dump, exception), prefix with `/triage` so the triage skill loads before any investigation.
 

@@ -19,7 +19,7 @@ Use this skill to keep `docs/ai/**` useful, compact, and current without loading
 
 ## Freshness Rules
 
-Run a concise freshness check at review/close:
+Run a concise freshness check at review:
 
 1. Is the active plan status current? Treat `status: in-progress` with no recent `phase:` bump in the YAML frontmatter as a stale signal.
 2. Did boundaries/invariants change? If yes, update `architecture.md`.
@@ -45,5 +45,5 @@ Run a concise freshness check at review/close:
 ## Ownership And Reporting
 
 - `planner` is final memory owner and decides persistence.
-- `code`, `research`, and `test` may propose updates, but keep proposals short.
+- `code` and `research` may propose updates, but keep proposals short.
 - Report memory actions as: files touched, why, and any freshness gaps deferred.

@@ -1,7 +1,7 @@
 # ADR-0006: Make New Tests Opt-In
 
 Date: 2026-05-13
-Status: Accepted
+Status: Superseded by ADR-0039
 
 ## Context
 

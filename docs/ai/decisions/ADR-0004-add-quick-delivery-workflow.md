@@ -1,7 +1,7 @@
 # ADR-0004: Add Quick Delivery Workflow
 
 Date: 2026-05-06
-Status: Accepted
+Status: Superseded by ADR-0038
 
 ## Context
 

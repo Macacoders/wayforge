@@ -1,6 +1,6 @@
 ---
 name: triage
-description: Classify pasted errors and logs with context-hygiene questions, then recommend /quick, /plan, or backlog.
+description: Classify pasted errors and logs with context-hygiene questions, then recommend /plan or backlog.
 compatibility: opencode
 metadata:
   workflow: error-triage
@@ -25,7 +25,7 @@ This protects the rest of the conversation from raw stack-trace noise.
 Answer these four questions explicitly:
 
 1. **Is this blocking work right now?** — urgency assessment
-2. **Does this need a plan, or is it quick-delivery eligible?** — complexity assessment
+2. **Is this a single-task fix or a larger planned change?** — complexity assessment
 3. **Would a fix need a regression test?** — risk/quality assessment
 4. **Is this worth fixing now, or should it be backlogged?** — priority/ROI assessment
 
@@ -33,8 +33,7 @@ Answer these four questions explicitly:
 
 End with exactly one of:
 
-- `/quick` — for small, safe, quick-delivery-eligible fixes
-- `/plan` — for work that needs phased discovery, planning, or review
+- `/plan` — for work that needs discovery, planning, or review
 - **Backlog / not worth fixing now** — with a one-sentence rationale
 
 ## Progressive disclosure

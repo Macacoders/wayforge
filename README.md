@@ -1,6 +1,6 @@
 # ai-config
 
-`ai-config` provides a repeatable AI-assisted development workflow for OpenCode. It installs three primary agents (`planner` for discovery and planning, `delivery` for implementation, `troubleshooter` for command-first diagnostics), six specialized subagents, a reuse-first discipline, and a persistent project memory convention.
+`ai-config` provides a repeatable AI-assisted development workflow for OpenCode. It installs three primary agents (`planner` for discovery and planning, `delivery` for implementation, `troubleshooter` for command-first diagnostics), three specialized subagents, a reuse-first discipline, and a persistent project memory convention.
 
 - **Runtime**: OpenCode (default) or Kilo Code, selectable at install time.
 - **Providers**: Free tier (default), OpenAI, GitHub Copilot, laberit, and OpenCode Go — pick one or combine them.
@@ -9,9 +9,9 @@
 
 ## Workflows
 
-Two delivery paths: **staged delivery** (default, for anything with ambiguity or risk) and **quick delivery** (for small, clear, low-risk tasks).
+**Staged delivery** is the single delivery path — all work is planned as one or more tasks and reviewed task-by-task.
 
-Use `/plan` when the work needs planning, multiple files or phases, architecture review, migrations, dependency changes, or has meaningful regression risk. Use `/quick` for narrow tasks with obvious acceptance criteria and safe local validation. If a quick task turns out to be broader than expected, it escalates back to staged delivery.
+Use `/plan` when the work needs planning, multiple files or tasks, architecture review, migrations, dependency changes, or has meaningful regression risk. Narrow tasks with obvious acceptance criteria are planned as a single task in the same workflow.
 
 Agents follow a reuse-first contract: before writing new code, they check existing patterns, utilities, and conventions in the codebase. New duplication must be justified.
 
@@ -21,17 +21,11 @@ Use `/issue` to capture problems or ideas as GitHub Issues instead of implementi
 
 1. Start with `planner` (or `/plan`).
 2. For unfamiliar repos, run `/onboard-repo` first to create project memory.
-3. Describe the feature, bug, or refactor. `planner` reviews the codebase, asks clarifying questions, and proposes a phased plan with acceptance criteria.
-4. Once approved, `delivery` takes over: it reads the plan from disk, hands each phase to the `code` subagent, and reviews the results with git evidence.
-5. `code` implements one phase at a time in atomic stages, pausing after each for your approval.
-6. `delivery` reviews each completed phase, runs validation, and optionally invokes `test` for high-risk changes.
-7. At the end, `planner` handles final memory updates and close-out.
-
-### Quick delivery
-
-1. Start with `/quick`, or let `planner` suggest it when a task is clearly quick-eligible.
-2. `delivery` hands the task to the `quickcode` subagent, which completes it autonomously in one pass.
-3. `delivery` reviews the result with git evidence and reports back.
+3. Describe the feature, bug, or refactor. `planner` reviews the codebase, asks clarifying questions, and proposes a task-based plan with acceptance criteria.
+4. Once approved, `delivery` takes over: it reads the plan from disk, hands each task to the `code` subagent, and reviews the results with git evidence.
+5. `code` implements one task at a time in atomic stages, pausing after each for your approval.
+6. `delivery` reviews each completed task and runs validation.
+7. At the end, run `/memory` to update durable memory (plans, ADRs, logs).
 
 ## Ponytail Reuse-First Discipline
 
@@ -60,19 +54,17 @@ Set `PONYTAIL_DEFAULT_MODE` to override the default, or `/ponytail off` to disab
 
 ## Agents
 
-The installed setup includes three primary agents and five subagents.
+The installed setup includes three primary agents and three subagents.
 
 | Agent | Mode | Purpose |
 | :--- | :--- | :--- |
 | `planner` | Primary | Discovery, phased planning, clarifying questions, memory maintenance, shared task (issue) management. |
-| `delivery` | Primary | Reads approved plans from disk, hands phases to `code`/`quickcode`, reviews completed work with git evidence, runs the close workflow. |
+| `delivery` | Primary | Reads approved plans from disk, hands tasks to `code`, and reviews completed work with git evidence. |
 | `troubleshooter` | Primary | Provides command-first, safe, non-destructive diagnostic troubleshooting guidance via `/troubleshooter`. |
 | `research` | Subagent | Onboards unfamiliar repositories and creates initial `docs/ai/` memory. |
-| `code` | Subagent | Implements one phase across atomic stages, pausing after each for manual validation. |
-| `quickcode` | Subagent | Implements one quick-delivery task autonomously within approved scope. |
-| `test` | Subagent | Reviews implementation for regression risk; recommends or writes tests only when authorized. |
-| `architect` | Subagent | Reviews changes against architectural decisions (ADRs) when a phase touches boundaries, contracts, or data models. |
-| `triage` | Skill | Classifies error/bug pastes and recommends the right next gate (`/plan` or `/quick`). |
+| `code` | Subagent | Implements one task across atomic stages, pausing after each for manual validation. |
+| `architect` | Subagent | Reviews changes against architectural decisions (ADRs) when a task touches boundaries, contracts, or data models. |
+| `triage` | Skill | Classifies error/bug pastes and recommends the right next gate (`/plan` or backlog). |
 
 Model assignments (OpenAI, GitHub Copilot, laberit, OpenCode Go) are configured at install time and written into `opencode.jsonc` (or `kilo.jsonc` for Kilo Code). Switch providers interactively with `/model <provider>/<model>`.
 
@@ -272,6 +264,6 @@ Edit source templates under `base/opencode/**` — never the generated `.opencod
 
 - Keep installed configuration small and predictable.
 - Separate planning from implementation — `planner` plans, `delivery` executes.
-- Prefer explicit phase gates for staged delivery; reserve autonomy for quick delivery.
+- Prefer explicit review gates for staged delivery.
 - Persist decisions and architecture notes, not chat history.
 - Use git evidence for review, not agent memory.

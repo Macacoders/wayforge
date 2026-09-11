@@ -32,7 +32,7 @@ Assume the implementer is a skilled developer but knows almost nothing about the
 
 ## Task Economy
 
-Classify scope as `quick-sized`, `single-task`, `multi-task`, `too-large`.
+Classify scope as `single-task`, `multi-task`, `too-large`.
 
 - Prefer 1 task for simple or single-outcome work; 2–3 tasks for meaningfully separable deliverables.
 - Tasks are reviewable deliverables, not technical steps. Keep related files, helpers, validation, and docs within their owning task.
@@ -80,7 +80,6 @@ status: planned | in-progress | completed | superseded
 created: YYYY-MM-DD
 task: <n>/<total>        # current task / total tasks
 required_gates:            # optional; set at plan-approval time
-  test_verdict: true | false
   architect_review: true | false
   memory_update: true | false
 ---
@@ -93,7 +92,7 @@ required_gates:            # optional; set at plan-approval time
 
 **Tech Stack:** [Key technologies/libraries]
 
-**Scope classification:** [`quick-sized` | `single-task` | `multi-task` | `too-large`]
+**Scope classification:** [`single-task` | `multi-task` | `too-large`]
 
 ## Tasks
 

@@ -23,8 +23,6 @@ agents:
       "*": deny
       research: allow
       code: allow
-      quickcode: allow
-      test: allow
       architect: allow
 
   delivery:
@@ -43,8 +41,6 @@ agents:
       "*": deny
       research: allow
       code: allow
-      quickcode: allow
-      test: allow
       architect: allow
 
   research:
@@ -64,34 +60,6 @@ agents:
   code:
     read: allow
     edit: allow
-    bash:
-      "*": allow
-      "sudo*": deny
-      "rm -rf*": deny
-      "git push --force*": deny
-      "git push -f*": deny
-    external_directory:
-      "*": deny
-      "/tmp/**": allow
-    task: deny
-
-  quickcode:
-    read: allow
-    edit: allow
-    bash:
-      "*": allow
-      "sudo*": deny
-      "rm -rf*": deny
-      "git push --force*": deny
-      "git push -f*": deny
-    external_directory:
-      "*": deny
-      "/tmp/**": allow
-    task: deny
-
-  test:
-    read: allow
-    edit: ask
     bash:
       "*": allow
       "sudo*": deny

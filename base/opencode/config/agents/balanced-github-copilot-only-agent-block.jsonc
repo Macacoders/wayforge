@@ -15,14 +15,6 @@
       "model": "github-copilot/gpt-5.3-codex",
       "steps": 5
     },
-    "quickcode": {
-      "model": "github-copilot/gpt-5.3-codex",
-      "steps": 4
-    },
-    "test": {
-      "model": "github-copilot/gpt-5.4",
-      "steps": 8
-    },
     "troubleshooter": {
       "model": "github-copilot/gpt-5.4",
       "steps": 10
