@@ -25,7 +25,6 @@ agents:
       code: allow
       quickcode: allow
       test: allow
-      taskanalyst: allow
       architect: allow
 
   delivery:
@@ -46,7 +45,6 @@ agents:
       code: allow
       quickcode: allow
       test: allow
-      taskanalyst: allow
       architect: allow
 
   research:
@@ -108,20 +106,6 @@ agents:
   troubleshooter:
     read: allow
     edit: ask
-    bash:
-      "*": allow
-      "sudo*": deny
-      "rm -rf*": deny
-      "git push --force*": deny
-      "git push -f*": deny
-    external_directory:
-      "*": deny
-      "/tmp/**": allow
-    task: deny
-
-  taskanalyst:
-    read: allow
-    edit: deny
     bash:
       "*": allow
       "sudo*": deny

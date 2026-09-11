@@ -27,10 +27,6 @@
       "model": "opencode-go/deepseek-v4-pro",
       "steps": 10
     },
-    "taskanalyst": {
-      "model": "opencode-go/mimo-v2.5",
-      "steps": 8
-    },
     "architect": {
       "model": "opencode-go/qwen3.7-max",
       "steps": 16

@@ -60,7 +60,7 @@ Set `PONYTAIL_DEFAULT_MODE` to override the default, or `/ponytail off` to disab
 
 ## Agents
 
-The installed setup includes three primary agents and six subagents.
+The installed setup includes three primary agents and five subagents.
 
 | Agent | Mode | Purpose |
 | :--- | :--- | :--- |
@@ -71,7 +71,6 @@ The installed setup includes three primary agents and six subagents.
 | `code` | Subagent | Implements one phase across atomic stages, pausing after each for manual validation. |
 | `quickcode` | Subagent | Implements one quick-delivery task autonomously within approved scope. |
 | `test` | Subagent | Reviews implementation for regression risk; recommends or writes tests only when authorized. |
-| `taskanalyst` | Subagent | Interprets problem reports before shared GitHub Issue creation. |
 | `architect` | Subagent | Reviews changes against architectural decisions (ADRs) when a phase touches boundaries, contracts, or data models. |
 | `triage` | Skill | Classifies error/bug pastes and recommends the right next gate (`/plan` or `/quick`). |
 

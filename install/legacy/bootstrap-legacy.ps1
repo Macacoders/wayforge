@@ -348,22 +348,6 @@ function Pick-CodeModel {
     return 'laberit/laberit-ai'
 }
 
-function Pick-TaskanalystModel {
-    if (-not (Has-RealProvider)) {
-        return Pick-FreeTierModel
-    }
-    if (Contains-Provider 'github-copilot') {
-        return 'github-copilot/gemini-3.5-flash'
-    }
-    if (Contains-Provider 'openai') {
-        return 'openai/gpt-5.4-mini'
-    }
-    if (Contains-Provider 'opencode-go') {
-        return 'opencode-go/mimo-v2.5'
-    }
-    return 'laberit/laberit-ai'
-}
-
 function Build-EnabledProvidersJson {
     $quoted = @()
     if ($RUNTIME -eq 'opencode') {

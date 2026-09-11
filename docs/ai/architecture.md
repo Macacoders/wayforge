@@ -114,7 +114,6 @@ If no source tree is found, `install` raises a clear error rather than silently 
 - `code` is a conservative implementation subagent used once per approved implementation phase, with medium reasoning effort and low temperature.
 - `quickcode` is an implementation subagent invoked by `planner` for one approved quick-delivery task, with low reasoning effort for small low-risk changes. It may edit autonomously within narrow low-risk scope, run `bash` commands under the coarse allow + deny-list model (ADR-0036), and must not invoke subagents.
 - `test` is an independent review subagent used when review identifies meaningful testing or regression risk, keeping critical review independent from implementation output.
-- `taskanalyst` is a lightweight analysis subagent used by `/issue create` to interpret problem reports and propose structured GitHub Issue content without editing files.
 - `troubleshooter` is a `mode: primary` chat agent reachable via `/troubleshooter` that provides command-first, safe, non-destructive diagnostic troubleshooting guidance. It is opt-in (not the default agent; default stays `planner`) and is distinct from `planner` and `code` — it diagnoses problems but does not plan features or implement changes.
 
 ## Context Strategy
@@ -163,11 +162,9 @@ Quick delivery escalates back to staged delivery when scope, risk, validation, o
 The shared issue creation workflow is:
 
 1. Start with `/issue create` and a problem, idea, or repository improvement request.
-2. `planner` uses `gh-issue check` and `gh-issue labels-check` for GitHub access and label readiness.
-3. `planner` invokes `taskanalyst` to interpret the request and draft a concise issue body.
-4. `planner` iterates only when the extracted issue description is ambiguous, duplicate-prone, vague, missing acceptance criteria, or missing required labels.
-5. `planner` creates a GitHub Issue with type/priority/status labels (initial status `status:to-do`) through `gh-issue`.
-6. `planner` reports the created issue number and URL.
+2. `planner` formalizes the request into an intent (via the `intent` skill) and translates that intent directly into the issue body.
+3. `planner` creates a GitHub Issue with type/priority/status labels (initial status `status:to-do`) through `gh-issue`.
+4. `planner` reports the created issue number and URL.
 
 ## Invariants
 
@@ -185,5 +182,4 @@ The shared issue creation workflow is:
 - Keep durable memory under `docs/ai/`.
 - Keep GitHub Issues as the operational shared source of truth for team tasks.
 - Keep shared tasks in GitHub Issues rather than a local JSONL backlog.
-- Keep shared task analysis separated from issue operations.
 - Keep reuse-first guidance explicit: avoid unnecessary copying and speculative abstraction, and justify or flag new duplication.

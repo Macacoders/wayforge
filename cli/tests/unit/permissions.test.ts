@@ -99,9 +99,6 @@ describe("renderAgentPermissionBlock", () => {
     expect(renderAgentPermissionBlock("architect", permissionsFile)).toContain(
       "edit: deny",
     );
-    expect(
-      renderAgentPermissionBlock("taskanalyst", permissionsFile),
-    ).toContain("edit: deny");
   });
 
   it("throws for unknown agent", () => {
