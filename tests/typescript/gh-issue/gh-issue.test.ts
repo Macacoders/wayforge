@@ -8,6 +8,7 @@
 //   - Use exported functions from gh-issue.ts directly
 
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import * as path from 'node:path';
 
 // ── Module-level mocks (hoisted by vitest) ──────────────────────────────────
 
@@ -1101,8 +1102,16 @@ describe('cmdPrclose', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// buildPRBody
+// prBodyScratchPath + buildPRBody
 // ─────────────────────────────────────────────────────────────────────────────
+
+describe('prBodyScratchPath', () => {
+  it('returns the canonical temp scratch path for the PR body', () => {
+    expect(gh.prBodyScratchPath('/repo/root', 7)).toBe(
+      path.join('/repo/root', 'temp', 'pr-body-7.md'),
+    );
+  });
+});
 
 describe('buildPRBody', () => {
   it('reads from PR template when it exists', () => {
@@ -1134,6 +1143,18 @@ describe('buildPRBody', () => {
     const body = gh.buildPRBody(1);
     expect(body).toContain('Fixes #1');
     expect(body).toContain('Custom agent-generated content');
+  });
+
+  it('reads the scratch file from the canonical prBodyScratchPath (drift guard)', () => {
+    mockExistsSync.mockReturnValueOnce(true).mockReturnValueOnce(false);
+    mockReadFileSync.mockReturnValue('Scratch content');
+
+    gh.buildPRBody(1);
+
+    const scratchPath = gh.prBodyScratchPath('/tmp/repo', 1);
+    expect(mockExistsSync.mock.calls[0][0]).toBe(scratchPath);
+    expect(mockReadFileSync).toHaveBeenCalledWith(scratchPath, 'utf8');
+    expect(mockUnlinkSync).not.toHaveBeenCalled();
   });
 });
 
