@@ -370,6 +370,11 @@ function slugify(text: string): string {
   return slug.slice(0, 60).replace(/-+$/, '');
 }
 
+/** Canonical scratch path for the agent-pre-populated PR body (ADR-0027). */
+function prBodyScratchPath(repoRoot: string, issueNumber: number): string {
+  return path.join(repoRoot, 'temp', `pr-body-${issueNumber}.md`);
+}
+
 function buildPRBody(issueNumber: number): string {
   const repoRoot = getRepoRoot();
 
@@ -377,14 +382,13 @@ function buildPRBody(issueNumber: number): string {
   let body = `Fixes #${issueNumber}\n\n`;
 
   // Agent pre-population mode: read temp file if it exists
-  // ponytail: path formula duplicated in cmdPrclose — extract helper when 3rd usage appears
-  const tempPath = path.join(repoRoot, 'temp', `pr-body-${issueNumber}.md`);
+  const tempPath = prBodyScratchPath(repoRoot, issueNumber);
   if (existsSync(tempPath)) {
     body += readFileSync(tempPath, 'utf8');
     return body;
   }
 
-  process.stderr.write(`⚠ PR body not pre-populated for #${issueNumber} — using empty template. Write temp/pr-body-${issueNumber}.md before prclose to customize the PR body.\n`);
+  process.stderr.write(`⚠ PR body not pre-populated for #${issueNumber} — using empty template. Write ${prBodyScratchPath(repoRoot, issueNumber)} before prclose to customize the PR body.\n`);
 
   // Template fallback mode
   const templatePath = path.join(repoRoot, '.github', 'pull_request_template.md');
@@ -878,7 +882,7 @@ async function cmdPrclose(ctx: GhContext, args: string[]): Promise<void> {
   process.stdout.write(`${prUrl}\n`);
 
   // Clean up temp file if it was consumed
-  const tempPath = path.join(getRepoRoot(), 'temp', `pr-body-${issueNumber}.md`);
+  const tempPath = prBodyScratchPath(getRepoRoot(), issueNumber);
   try {
     unlinkSync(tempPath);
   } catch { /* temp file may not exist — tolerate ENOENT */ }
@@ -1013,7 +1017,7 @@ export {
   addAssignee, addComment, addLabel, api, apiGet, apiPost, buildPRBody, closeIssue, cmdAssign, cmdCheck, cmdClaim, cmdClose, cmdCreate, cmdLabelsCheck,
   cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureOpenIssue, ensureRequiredLabels, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
   getIssueFirstAssignee, getIssueState, getRepoLabels, issueHasLabel, output,
-  outputJson, printUsage, removeAssignee, removeLabel, REQUIRED_LABELS, resolveRepo, resolveToken, slugify
+  outputJson, prBodyScratchPath, printUsage, removeAssignee, removeLabel, REQUIRED_LABELS, resolveRepo, resolveToken, slugify
 };
 
 // ── Main entry guard ─────────────────────────────────────────────────────────
