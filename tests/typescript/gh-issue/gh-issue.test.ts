@@ -1171,6 +1171,50 @@ describe('main() dispatch', () => {
     process.argv = origArgv;
   });
 
+  it('prints usage and exits 0 for --help without auth', async () => {
+    // Prove no auth is needed: --help returns before token resolution
+    delete process.env.GITHUB_TOKEN;
+
+    const origArgv = process.argv;
+    process.argv = ['node', 'gh-issue.ts', '--help'];
+
+    const stdout: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      stdout.push(String(chunk));
+      return true;
+    });
+
+    await expect(gh.main()).resolves.toBeUndefined();
+    const output = stdout.join('');
+    expect(output).toContain('Usage:');
+    expect(output).toContain('check');
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    process.argv = origArgv;
+  });
+
+  it('prints usage and exits 0 for help command without auth', async () => {
+    // Prove no auth is needed: help returns before token resolution
+    delete process.env.GITHUB_TOKEN;
+
+    const origArgv = process.argv;
+    process.argv = ['node', 'gh-issue.ts', 'help'];
+
+    const stdout: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      stdout.push(String(chunk));
+      return true;
+    });
+
+    await expect(gh.main()).resolves.toBeUndefined();
+    const output = stdout.join('');
+    expect(output).toContain('Usage:');
+    expect(output).toContain('check');
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    process.argv = origArgv;
+  });
+
   it('parses --dry-run flag and skips all API calls for dry-run-aware command', async () => {
     const origArgv = process.argv;
     process.argv = ['node', 'gh-issue.ts', '--dry-run', '--repo', 'test/repo', 'prclose', '1'];

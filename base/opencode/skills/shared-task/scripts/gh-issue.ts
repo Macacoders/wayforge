@@ -903,6 +903,13 @@ export async function main(
   argv: string[] = process.argv.slice(2),
   opts?: { repo?: string; token?: string; jsonMode?: boolean; dryRun?: boolean },
 ): Promise<void> {
+  // --help anywhere in argv — early return before parsing, token resolution, and
+  // any network work (mirrors gh-app-auth.ts main()). No auth required.
+  if (argv.includes('--help')) {
+    printUsage();
+    return;
+  }
+
   // Parse global-level arguments
   let explicitRepo = '';
   let jsonMode = false;
@@ -938,6 +945,12 @@ export async function main(
 
   const command = remainingArgs[0];
   const cmdArgs = remainingArgs.slice(1);
+
+  // `help` command — early return before token/repo resolution (no auth needed).
+  if (command === 'help') {
+    printUsage();
+    return;
+  }
 
   // Resolve auth token (may throw if no token available and device flow fails)
   const token = opts?.token ?? (dryRun ? '' : await resolveToken());

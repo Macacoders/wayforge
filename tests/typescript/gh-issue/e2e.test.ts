@@ -39,6 +39,29 @@ describe('gh-app-auth.ts E2E', () => {
   });
 });
 
+describe('gh-issue.ts help', () => {
+  // Credential-hostile env: if --help/help reached token resolution, the
+  // device flow would fail (missing client id / no cache) with exit != 0.
+  const hostileEnv = {
+    GITHUB_TOKEN: '',
+    GH_TOKEN: '',
+    GH_APP_CLIENT_ID: '',
+    GH_CONFIG_DIR: '/tmp/nonexistent-gh-config',
+  };
+
+  it('--help prints usage and exits 0 without credentials', () => {
+    const r = run([ISSUE_SCRIPT, '--help'], { env: hostileEnv });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('Usage:');
+  });
+
+  it('help prints usage and exits 0 without credentials', () => {
+    const r = run([ISSUE_SCRIPT, 'help'], { env: hostileEnv });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('Usage:');
+  });
+});
+
 describe('gh-issue.ts dry-run lifecycle', () => {
   const base = [ISSUE_SCRIPT, '--repo', 'test/repo', '--dry-run'];
 
