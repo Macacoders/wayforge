@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: completed
 created: 2026-09-13
 phase: 1/1
 required_gates:
@@ -182,6 +182,19 @@ Acceptance offers two acceptable outcomes; choosing the stronger one:
 
 ## Acceptance criteria mapping
 
-- [ ] Single canonical scratch path, consistent script + docs → `prBodyScratchPath()` helper + regression test; docs verified already on `temp/`.
-- [ ] Auto-commit includes untracked files → `git add -A`; excludes unrelated changes → documented limitation + porcelain listing + gitignore protection.
-- [ ] `--token` works as documented **or removed** → removed (flag + usage text + SKILL.md ref + e2e test retargeted).
+- [x] Single canonical scratch path, consistent script + docs → `prBodyScratchPath()` helper + regression test; docs verified already on `temp/`.
+- [x] Auto-commit includes untracked files → `git add -A`; excludes unrelated changes → documented limitation + porcelain listing + gitignore protection.
+- [x] `--token` works as documented **or removed** → removed (flag + usage text + SKILL.md ref + e2e test retargeted).
+
+## Delivery record
+
+Phase 1/1 complete. Delivered via three isolated git worktrees with parallel
+implementers (commits `5f80e09`, `27f54ec`, `31d9a16`), merged into `develop`
+(`3e42567`, `cced7ff`, `5995a1a`; one SKILL.md conflict resolved with both
+sides kept). Full suite 277/277 (274 baseline + 3 new tests: helper-drift
+unit + protected-branch git-sequence unit + e2e retarget), `npx tsc --noEmit`
+clean. Three independent reviewer agents (one per bug) returned OK verdicts
+with no P0/P1 findings. P2 notes recorded: ADR-0027:23 fallback-mode wording
+pre-existing inaccuracy (future docs pass); porcelain print↔stage race accepted
+and documented. Memory/log entry in `docs/ai/logs/2026-09.md`; issue #198
+closed via gh-issue.ts.
