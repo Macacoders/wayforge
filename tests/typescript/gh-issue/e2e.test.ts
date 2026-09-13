@@ -32,8 +32,8 @@ describe('gh-app-auth.ts E2E', () => {
     expect(r.stdout).toContain('Usage:');
   });
 
-  it('--token without credentials exits 1', () => {
-    const r = run([AUTH_SCRIPT, '--token'], { env: { GH_APP_CLIENT_ID: '', GH_CONFIG_DIR: '/tmp/nonexistent-gh-config' } });
+  it('without credentials exits 1', () => {
+    const r = run([AUTH_SCRIPT], { env: { GH_APP_CLIENT_ID: '', GH_CONFIG_DIR: '/tmp/nonexistent-gh-config' } });
     expect(r.status).toBe(1);
     expect(r.stderr).toContain('No GitHub App Client ID');
   });

@@ -27,7 +27,7 @@ Helper command:
 
 ## Notes
 - For `/issue prclose <issue-number>` Write `temp/pr-body-<issue-number>.md` before calling `prclose` to populate the PR body with custom content. Without this file, the PR uses an empty template.
-- `gh-issue.ts` has a `show <issue-number>` subcommand to view issue details (title, body, assignee, labels). For comments or full raw details, use `gh issue view <number>` (set `GITHUB_TOKEN` from `gh-app-auth.ts --token` if needed).
+- `gh-issue.ts` has a `show <issue-number>` subcommand to view issue details (title, body, assignee, labels). For comments or full raw details, use `gh issue view <number>` (set `GITHUB_TOKEN` from `gh-app-auth.ts` if needed).
 - Mutating commands (`claim`, `assign`, `release`, `close`, `prclose`) are silent on success by design (token economy): exit 0 = success; failures print to stderr with exit 1. If captured output looks incomplete, check `$LASTEXITCODE` before re-running.
 
 
