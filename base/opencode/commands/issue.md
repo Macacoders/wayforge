@@ -36,6 +36,8 @@ Helper command:
 
 For `prclose`: before calling the script, optionally create `temp/pr-body-<issue>.md` with populated Summary, Testing, and Breaking changes sections. If the file exists, the script uses it verbatim. If absent, the script generates defaults from `.github/pull_request_template.md`.
 
+On protected branches (`main`, `master`, `develop`), `prclose` auto-commits ALL working-tree changes (tracked + untracked; gitignored files excluded) into a new feature branch — commit or stash unrelated work before running.
+
 ## Safety minimums
 
 - Authentication uses the GitHub App Device Flow via `.opencode/skills/shared-task/scripts/gh-app-auth.ts`. On first use, the agent will prompt for browser authorization. Subsequent runs use the cached token. Run the helper via `npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts`.

@@ -848,8 +848,12 @@ async function cmdPrclose(ctx: GhContext, args: string[]): Promise<void> {
     const slug = slugify(issueTitle);
     const featureBranch = `feature/issue-${issueNumber}-${slug}`;
     process.stdout.write(`On protected branch '${currentBranch}'. Creating feature branch '${featureBranch}'...\n`);
+    // Transparency: print exactly what the auto-commit will include (tracked +
+    // untracked, minus gitignored) before anything is staged.
+    const pendingChanges = git(['status', '--porcelain'], undefined, 15000);
+    process.stdout.write(`Staging all working-tree changes (tracked + untracked, gitignored excluded) on '${featureBranch}':\n${pendingChanges}\n`);
     git(['checkout', '-b', featureBranch], undefined, 15000);
-    git(['add', '-u'], undefined, 15000);  // stage only tracked files (exclude untracked)
+    git(['add', '-A'], undefined, 15000);  // stage all changes incl. untracked files (gitignored excluded)
     git(['commit', '-m', `[Issue #${issueNumber}] ${issueTitle}`], undefined, 15000);
     git(['push', '-u', 'origin', featureBranch], undefined, 30000);
     currentBranch = featureBranch;
