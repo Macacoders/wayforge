@@ -73,4 +73,3 @@ When invoked by `/init`, research has explicit write approval to complete full o
 If write approval is not explicit, do not edit `docs/ai/**`; return a concise proposed memory update list (`path`, `why`, `router route`).
 
 Keep memory concise. Record unknowns instead of guessing.
-
