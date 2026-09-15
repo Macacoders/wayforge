@@ -1,35 +1,37 @@
 # AGENTS.md
 
-## Mission
+## Project overview
 
-Use the installed OpenCode workflows to onboard repositories and deliver minimal, reviewed, and documented changes through planned, reviewed task delivery.
+[FILL IN: One short paragraph. What does this repository do, who uses it, and which parts an agent will touch most. Link deeper docs instead of repeating them.]
 
-## AI Memory Index
+## Project structure
 
-This file is the practical entrypoint for AI agents working in this repository. For durable memory (architecture, decisions, approved plans, and logs), see `docs/ai/README.md`.
+[FILL IN: Key directories and what lives in each — e.g. `src/` core code, `tests/` mirrors `src/`, `docs/` contributor docs.]
 
-Treat `docs/ai/README.md` as a tiny router. Do not load all memory files by default; use `/memory` (planner) or `memory-maintenance` for low-token lookup/freshness/update routing.
+## Setup & build
 
-## Repository Guidance
+[FILL IN: Install and build commands, e.g. `npm install`, `npm run build`.]
 
-The sections below contain repository-specific guidance. `/onboard-repo` and `research` fill these values during onboarding.
+## Testing
 
-### Project Overview
+[FILL IN: Full test suite, a single-test command, and lint/typecheck commands.]
 
-[FILL IN: One sentence. What does this repository do? Who are the users? Link to README.md.]
+## Code style
 
-### Build/Test Commands
+[FILL IN: Formatter and linter; follow patterns already in neighboring files.]
 
-[FILL IN: Build, test, lint, and run commands. Link to README.md or Makefile for details.]
+## Git workflow
 
-### Key Conventions & Constraints
+[FILL IN: Branch from / PR target, commit format, and merge requirements.]
 
-[FILL IN: 2-4 rules that directly affect agent behavior — e.g., never commit .env, always dry-run first, use conventional commits, required PR approvals. Skip anything already in README.md.]
+## Boundaries
 
-## Workflow & Engineering Rules
+[FILL IN: 2–4 explicit don'ts — e.g. never commit `.env*`, don't widen scope beyond the request, don't add dependencies without asking.]
 
-The `planner` (planning) and `delivery` (implementation pipeline) agents are the two primary entry gates. Planner owns discovery, plan creation, memory, and shared tasks. Delivery owns task handoff to `code`, git-based review, and memory close-out. See the installed planner and delivery agents for the canonical rulesets.
+## Repository boundary
 
-When pasting an error or log (stack trace, crash dump, exception), prefix with `/triage` so the triage skill loads before any investigation.
+Stay inside the repository root (`git rev-parse --show-toplevel` when in a git repo, otherwise the working directory). Don't read or write outside it unless the user approves.
 
-Planner enforces a ponytail reuse-first discipline. Use `/ponytail-help` in an installed repo to see available commands and the 7-rung ladder. To disable: `/ponytail off`.
+## Working with ai-config
+
+This repository uses the ai-config workflow. Formalize and plan work with `/intent` then `/plan` (the `planner` agent). Track shared tasks with `/issue`. Implement approved plans with the `delivery` agent (`/load-plan`, `/implement-task`, `/review-task`). Load context progressively: start from this file and `README.md`, then route through `docs/ai/README.md` and load only what the task needs.

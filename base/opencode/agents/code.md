@@ -27,8 +27,6 @@ Apply minimal, correct code and documentation changes for the phase described in
 - You may update ordinary project documentation when needed, but update `docs/ai/**` only when explicitly authorized in the handoff or acceptance criteria.
 - When `docs/ai/**` updates are not explicitly authorized, propose concise memory updates to `planner` instead of editing durable memory files.
 
-## Shared Invariants — see `base/opencode/agents/references/invariants.md`
-
 ## Stage Loop
 
 For each atomic stage:

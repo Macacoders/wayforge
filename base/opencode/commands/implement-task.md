@@ -9,7 +9,7 @@ Build a Code Handoff Brief by copy-pasting the task's description from the plan:
 
 Invoke one `code` subagent session for the whole task. Do not split the task into new tasks during handoff; use atomic stages only as implementation checkpoints inside the task. The `code` subagent must stop after each atomic stage and wait for explicit user approval before continuing in the same child session.
 
-Use the Code Handoff Brief format in `base/opencode/agents/planner/references/code-handoff-template.md`.
+Include these brief fields: Phase, Goal, Repository root, Acceptance criteria, Atomic stages, Relevant files, Confirmed decisions, Constraints, References to load. Add a reuse expectation when the task touches repeatable logic: apply the ponytail ladder and name the patterns/utilities/tests/conventions to inspect, or state why none are expected.
 
 Additional context:
 

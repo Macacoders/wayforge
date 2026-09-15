@@ -20,7 +20,7 @@ Use `/issue` to capture problems or ideas as GitHub Issues instead of implementi
 ### Staged delivery
 
 1. Start with `planner` (or `/plan`).
-2. For unfamiliar repos, run `/onboard-repo` first to create project memory.
+2. For unfamiliar repos, run `/init` first to create project memory.
 3. Describe the feature, bug, or refactor. `planner` reviews the codebase, asks clarifying questions, and proposes a task-based plan with acceptance criteria.
 4. Once approved, `delivery` takes over: it reads the plan from disk, hands each task to the `code` subagent, and reviews the results with git evidence.
 5. `code` implements one task at a time in atomic stages, pausing after each for your approval.

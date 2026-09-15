@@ -61,8 +61,8 @@ The `.opencode/` directory in consuming repositories is local/generated runtime 
 
 - In the `ai-config` repository itself, durable workflow changes should normally be made in `base/opencode/**`, `base/AGENTS.md`, and the installer scripts.
 - Root `.opencode/` and root `opencode.jsonc` are local/generated artifacts and are gitignored in this repository.
-- `base/AGENTS.md` is the generic placeholder template (`[FILL IN]` values preserved) used for onboarding target repositories.
-- `/onboard-repo` + `research` are responsible for filling repo-specific guidance into each target repository root `AGENTS.md`.
+- `base/AGENTS.md` is now a general Coldtea-shaped template (project sections + `[FILL IN]` placeholders + a fixed `## Working with ai-config` section) used for onboarding target repositories.
+- `/init` (overriding the built-in command) + `research` are responsible for full onboarding: scaffolding/populating `docs/ai/` and filling each target repository root `AGENTS.md`.
 - Root `AGENTS.md` in this `ai-config` repository is curated repo-specific guidance and may be tracked/updated directly when repository guidance changes.
 
 The installer must not overwrite unmanaged existing files by default and supports dry-run preview. With force enabled, it refreshes generated OpenCode runtime trees (`.opencode/agents`, `.opencode/commands`, `.opencode/skills`) plus managed output and legacy symlink targets when encountered.

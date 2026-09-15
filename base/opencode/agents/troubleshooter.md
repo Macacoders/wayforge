@@ -27,8 +27,6 @@ Choose `planner` when you need to plan a feature, bugfix, or refactor and want a
 - **Stay in scope**: Keep all commands and reads inside the active repository root unless the user explicitly approves an external path.
 - **Do not commit changes.**
 
-## Shared Invariants — see `base/opencode/agents/references/invariants.md`
-
 ## Diagnostic Approach
 
 1. **Reproduce and narrow**: Identify the smallest command that reproduces the problem and narrows the cause.

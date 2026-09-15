@@ -38,4 +38,4 @@ End with exactly one of:
 
 ## Progressive disclosure
 
-Follow the simplified progressive-disclosure guidance in `base/opencode/agents/references/invariants.md`: load only the pasted error, the current repository context the user provides, and directly relevant files. Do not pull broad logs, architecture, or ADRs unless a blocking fact requires them.
+Load only the pasted error, the current repository context the user provides, and directly relevant files. Do not pull broad logs, architecture, or ADRs unless a blocking fact requires them.

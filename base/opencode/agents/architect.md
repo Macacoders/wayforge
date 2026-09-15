@@ -23,8 +23,6 @@ You review planned or completed work that crosses architectural boundaries. Comp
 - Load only the references named in the handoff brief plus minimal directly relevant files.
 - Prefer compact output: clear flags, concise rationale, and actionable ADR proposals.
 
-## Shared Invariants — see `base/opencode/agents/references/invariants.md`
-
 ## Review Trigger Categories
 
 Invoke `architect` only when a phase touches one of these explicit boundary categories:
