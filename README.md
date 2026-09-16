@@ -9,7 +9,7 @@
 
 ## Workflows
 
-**Staged delivery** is the single delivery path — all work is planned as one or more tasks and reviewed task-by-task.
+**Task-based delivery** is the single delivery path — all work is planned as one or more tasks and reviewed task-by-task.
 
 Use `/plan` when the work needs planning, multiple files or tasks, architecture review, migrations, dependency changes, or has meaningful regression risk. Narrow tasks with obvious acceptance criteria are planned as a single task in the same workflow.
 
@@ -17,13 +17,13 @@ Agents follow a reuse-first contract: before writing new code, they check existi
 
 Use `/issue` to capture problems or ideas as GitHub Issues instead of implementing them immediately.
 
-### Staged delivery
+### Task-based delivery
 
 1. Start with `planner` (or `/plan`).
 2. For unfamiliar repos, run `/init` first to create project memory.
 3. Describe the feature, bug, or refactor. `planner` reviews the codebase, asks clarifying questions, and proposes a task-based plan with acceptance criteria.
 4. Once approved, `delivery` takes over: it reads the plan from disk, hands each task to the `code` subagent, and reviews the results with git evidence.
-5. `code` implements one task at a time in atomic stages, pausing after each for your approval.
+5. `code` implements one task at a time in atomic steps, pausing after each for your approval.
 6. `delivery` reviews each completed task and runs validation.
 7. At the end, run `/memory` to update durable memory (plans, ADRs, logs).
 
@@ -58,11 +58,11 @@ The installed setup includes three primary agents and three subagents.
 
 | Agent | Mode | Purpose |
 | :--- | :--- | :--- |
-| `planner` | Primary | Discovery, phased planning, clarifying questions, memory maintenance, shared task (issue) management. |
+| `planner` | Primary | Discovery, task-based planning, clarifying questions, memory maintenance, shared task (issue) management. |
 | `delivery` | Primary | Reads approved plans from disk, hands tasks to `code`, and reviews completed work with git evidence. |
 | `troubleshooter` | Primary | Provides command-first, safe, non-destructive diagnostic troubleshooting guidance via `/troubleshooter`. |
 | `research` | Subagent | Onboards unfamiliar repositories and creates initial `docs/ai/` memory. |
-| `code` | Subagent | Implements one task across atomic stages, pausing after each for manual validation. |
+| `code` | Subagent | Implements one task across atomic steps, pausing after each for manual validation. |
 | `architect` | Subagent | Reviews changes against architectural decisions (ADRs) when a task touches boundaries, contracts, or data models. |
 | `triage` | Skill | Classifies error/bug pastes and recommends the right next gate (`/plan` or backlog). |
 
@@ -264,6 +264,6 @@ Edit source templates under `base/opencode/**` — never the generated `.opencod
 
 - Keep installed configuration small and predictable.
 - Separate planning from implementation — `planner` plans, `delivery` executes.
-- Prefer explicit review gates for staged delivery.
+- Prefer explicit review gates for task-based delivery.
 - Persist decisions and architecture notes, not chat history.
 - Use git evidence for review, not agent memory.

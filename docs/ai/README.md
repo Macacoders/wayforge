@@ -22,7 +22,7 @@ Do **not** load all `docs/ai/**` by default.
 
 ## What To Persist
 
-- Approved plans and phase status
+- Approved plans and task status
 - Architecture boundaries/invariants
 - Durable decisions (ADRs)
 - Short monthly logs

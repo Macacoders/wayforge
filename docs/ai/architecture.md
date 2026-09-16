@@ -141,7 +141,7 @@ The delivery workflow is:
 3. Apply task economy before implementation: 1 task for simple work, justification above 3 tasks, explicit confirmation for 6-8 tasks, and splitting above 8 tasks.
 4. `delivery` loads the approved plan (`/load-plan`) and hands each task to `code` (`/implement-task`).
 5. Check reasonable existing patterns, utilities, scripts, helpers, commands, tests, and conventions before creating new repeatable logic.
-6. Pause after each atomic stage for manual validation.
+6. Pause after each atomic step for manual validation.
 7. Review the completed task with git evidence (`/review-task`).
 8. Update docs, decisions, and logs at close via `/memory`.
 
@@ -160,7 +160,7 @@ The shared issue creation workflow is:
 - Keep repository onboarding separate from feature planning.
 - Keep tasks as reviewable deliverables, not technical microtasks.
 - Keep plans above 8 apparent tasks out of single-task planning; split them into smaller tasks first.
-- Keep manual validation checkpoints between atomic stages.
+- Keep manual validation checkpoints between atomic steps.
 - Keep durable memory under `docs/ai/`.
 - Keep GitHub Issues as the operational shared source of truth for team tasks.
 - Keep shared tasks in GitHub Issues rather than a local JSONL backlog.
