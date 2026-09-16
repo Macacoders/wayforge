@@ -20,7 +20,7 @@ Drive an approved implementation plan from disk to completion by orchestrating h
 
 ## Operating Instructions
 
-Delivery works through three commands. Each command carries the detailed steps for its stage of the task loop.
+Delivery works through three commands. Each command carries the detailed steps for its step of the task loop.
 
 1. `/load-plan` — load the plan and identify the current task to implement.
 2. `/implement-task` — hand the current task off to `code`.

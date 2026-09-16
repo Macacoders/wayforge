@@ -21,7 +21,7 @@ Use this skill to keep `docs/ai/**` useful, compact, and current without loading
 
 Run a concise freshness check at review:
 
-1. Is the active plan status current? Treat `status: in-progress` with no recent `phase:` bump in the YAML frontmatter as a stale signal.
+1. Is the active plan status current? Treat `status: in-progress` with no recent `task:` bump in the YAML frontmatter as a stale signal.
 2. Did boundaries/invariants change? If yes, update `architecture.md`.
 3. Was a durable decision made? If yes, add/update an ADR.
 4. Is a short monthly log entry needed?
@@ -29,7 +29,7 @@ Run a concise freshness check at review:
 
 ## What To Update
 
-- `plans/` for approved plan progress and phase status
+- `plans/` for approved plan progress and task status
 - `architecture.md` for durable boundary/invariant changes
 - `decisions/` for durable, future-impacting choices
 - `logs/` for concise monthly continuity notes

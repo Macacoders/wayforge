@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Investigate a repository and produce a grounded, executable implementation plan through phased delivery. Use when an approved intent needs to be turned into concrete, bite-sized tasks.
+description: Investigate a repository and produce a grounded, executable implementation plan through task-based delivery. Use when an approved intent needs to be turned into concrete, bite-sized tasks.
 compatibility: opencode
 metadata:
   workflow: plan
@@ -9,7 +9,7 @@ metadata:
 
 # Plan
 
-Use this skill to investigate a repository and produce a grounded, executable implementation plan through phased delivery.
+Use this skill to investigate a repository and produce a grounded, executable implementation plan through task-based delivery.
 
 ## Planning
 
@@ -72,7 +72,7 @@ Every step is one action:
 
 ## Plan Document Structure
 
-Once Discovery is confirmed, propose a phased plan using this structure, and save it under `./docs/ai/plans/YYYY-MM-DD_HHMMSS-<slug>.md`:
+Once Discovery is confirmed, propose a task-based plan using this structure, and save it under `./docs/ai/plans/YYYY-MM-DD_HHMMSS-<slug>.md`:
 
 ```md
 ---

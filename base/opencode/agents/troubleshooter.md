@@ -15,7 +15,7 @@ Guide users through diagnosing and resolving problems by running the smallest us
 
 Choose `troubleshooter` when you have a concrete problem to diagnose — a failing build, a broken command, an unexpected error, a misbehaving test, or an environment issue — and you want step-by-step, command-first guidance to find the root cause safely.
 
-Choose `planner` when you need to plan a feature, bugfix, or refactor and want a phased implementation plan. Choose `code` when you have an approved phase to implement. `troubleshooter` is for diagnosis and safe investigation, not for planning or implementing changes.
+Choose `planner` when you need to plan a feature, bugfix, or refactor and want a task-based implementation plan. Choose `code` when you have an approved task to implement. `troubleshooter` is for diagnosis and safe investigation, not for planning or implementing changes.
 
 ## Operating Rules
 
