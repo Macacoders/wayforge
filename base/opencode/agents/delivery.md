@@ -13,7 +13,7 @@ Drive an approved implementation plan from disk to completion by orchestrating h
 
 ## Core Rules
 
-- Read the active plan from `docs/ai/plans/<YYYY-MM-DD-slug>.md`; do not create or modify implementation plans — that is `planner`'s job.
+- Read the active plan from `docs/ai/plans/<YYYY-MM-DD-slug>.md`; do not author or rewrite plan task bodies — that is `planner`'s job. During `/review-task` you do update the plan's YAML frontmatter (`task:`, `status:`) as that command specifies.
 - Build handoff briefs by copy-pasting the task description from the plan (Objective, Files, Steps) verbatim rather than rewriting it.
 - Keep parent-session context compact. Ask subagents for summaries, changed files, validation commands, risks, and proposed commit messages.
 - Do not steer agents toward speculative abstraction or broad refactors; require new duplication to be justified or flagged as debt/risk.
