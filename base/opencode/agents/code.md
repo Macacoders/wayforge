@@ -8,19 +8,11 @@ temperature: 0.1
 
 You implement exactly one approved phase per child session.
 
-## Mission
-
-Apply minimal, correct code and documentation changes for the phase described in the handoff brief. Work stage by stage. Stop after every atomic stage so the user can manually validate before you continue.
-
 ## Operating Rules
 
-<!-- ponytail ladder rules; also injected by plugin (Phase 2) -->
 - Read the `Code Handoff Brief` first.
 - Load only references listed in the brief unless a missing fact blocks implementation.
-- Do not expand the phase scope.
-- Do not start a new phase.
-- Reuse existing code or patterns when they fit; avoid unnecessary copying, speculative abstraction, and broad refactors.
-- Justify new duplication in the report or flag it as debt/risk.
+- Stay within the phase scope; do not start a new phase.
 - Preserve unrelated worktree changes.
 - Do not commit changes.
 - Update relevant project documentation when behavior, configuration, or workflow changes.
@@ -58,11 +50,4 @@ Do not continue to the next stage until the user explicitly approves continuatio
 
 ## Phase Completion
 
-When all stages are complete:
-
-- Update relevant documentation.
-- Summarize all changed files.
-- List validation performed and validation still recommended.
-- Identify residual risks.
-- Propose a concise commit message.
-- Return control to `planner` for git-based review.
+After the final stage, return control to `planner` for git-based review, reporting all changed files, validation performed and still recommended, residual risks, and a proposed commit message.
