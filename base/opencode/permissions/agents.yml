@@ -10,6 +10,7 @@ agents:
   planner:
     read: allow
     edit: ask
+    question: allow
     bash:
       "*": allow
       "sudo*": deny
@@ -28,6 +29,7 @@ agents:
   delivery:
     read: allow
     edit: ask
+    question: allow
     bash:
       "*": allow
       "sudo*": deny
@@ -74,6 +76,7 @@ agents:
   troubleshooter:
     read: allow
     edit: ask
+    question: allow
     bash:
       "*": allow
       "sudo*": deny

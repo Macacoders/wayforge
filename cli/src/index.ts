@@ -64,7 +64,7 @@ program
 		'--no-track',
 		'Skip recording this project in installed-projects.json.',
 	)
-	.action((options: Record<string, unknown>) => {
+	.action(async (options: Record<string, unknown>) => {
 		const installOptions: InstallOptions = {
 			repo: options.repo as string,
 			providers: options.providers as string,
@@ -77,7 +77,7 @@ program
 			force: Boolean(options.force),
 			noTrack: options.track === false,
 		}
-		installCommand(installOptions)
+		await installCommand(installOptions)
 	})
 
 program

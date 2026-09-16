@@ -143,7 +143,7 @@ ai-config install --repo /path/to/your-project --providers openai
 | `ai-config uninstall --repo <path>` | Remove ai-config managed files from a target repository |
 | `ai-config interactive` | Guided interactive installer |
 
-Use `--dry-run` to preview, `--force` to regenerate all managed files. Without `--force`, `AGENTS.md` and runtime config are preserved; only managed `.opencode/` files are refreshed.
+Use `--dry-run` to preview, `--force` to regenerate managed files and override unmanaged agent/command/skill/plugin files that match a bundled template. Without `--force`, a matching unmanaged file triggers a one-time yes/no prompt (or a warning + preserve when non-interactive); user files with no bundled counterpart are never touched.
 
 ### Self-uninstall (remove the CLI)
 

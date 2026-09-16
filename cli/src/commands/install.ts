@@ -14,6 +14,12 @@ import {
 	syncManagedPathFromManifest,
 	walkFiles,
 } from '../lib/manifest.js'
+import { promptYesNo } from '../lib/prompt.js'
+import {
+	findUnmanagedConflicts,
+	resolveUnmanagedConflicts,
+} from '../lib/reconcile.js'
+import type { PromptFn } from '../lib/reconcile.js'
 import {
 	renderAgentWithCentralPermissions,
 	syncAgentsTreeWithPermissions,
@@ -32,12 +38,14 @@ import { cloneRef } from '../lib/git.js'
 import { resolveSourceDir } from '../lib/source-dir.js'
 import type { InstallOptions } from '../types.js'
 
-// ponytail: resolved rung 6 — removed Promise.resolve() wrapper; Commander accepts void
-export function installCommand(options: InstallOptions): void {
-	doInstall(options)
+export async function installCommand(options: InstallOptions): Promise<void> {
+	await doInstall(options)
 }
 
-export function doInstall(options: InstallOptions): void {
+export async function doInstall(
+	options: InstallOptions,
+	promptFn: PromptFn = promptYesNo,
+): Promise<void> {
 	const ctx = new ManifestContext(
 		options.dryRun,
 		options.force,
@@ -87,6 +95,13 @@ export function doInstall(options: InstallOptions): void {
 	}
 
 	initManagedManifest(repo, version, options.ref || undefined, ctx)
+
+	const conflicts = findUnmanagedConflicts(repo, sourceDir)
+	ctx.overrideUnmanaged = await resolveUnmanagedConflicts(
+		conflicts,
+		ctx,
+		promptFn,
+	)
 
 	if (fs.pathExistsSync(path.join(repo, '.ai-config-managed'))) {
 		ctx.log(

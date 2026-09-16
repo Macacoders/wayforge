@@ -75,6 +75,19 @@ describe("renderAgentPermissionBlock", () => {
     );
   });
 
+  it("renders question: allow only for planner, delivery, and troubleshooter", () => {
+    for (const agent of ["planner", "delivery", "troubleshooter"]) {
+      expect(renderAgentPermissionBlock(agent, permissionsFile)).toContain(
+        "question: allow",
+      );
+    }
+    for (const agent of ["code", "research", "architect"]) {
+      expect(renderAgentPermissionBlock(agent, permissionsFile)).not.toContain(
+        "question: allow",
+      );
+    }
+  });
+
   it("throws for unknown agent", () => {
     expect(() =>
       renderAgentPermissionBlock("nonexistent-agent", permissionsFile),
