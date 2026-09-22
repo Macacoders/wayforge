@@ -1,6 +1,8 @@
 ---
 description: Onboard this repository: scaffold and populate docs/ai memory and generate AGENTS.md.
 agent: planner
+metadata:
+  workflow: init
 ---
 
 Fully onboard this repository so it is immediately ready to use with the ai-config workflow.

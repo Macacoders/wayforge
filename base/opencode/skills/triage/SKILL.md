@@ -3,7 +3,7 @@ name: triage
 description: Classify pasted errors and logs with context-hygiene questions, then recommend /plan or backlog.
 compatibility: opencode
 metadata:
-  workflow: error-triage
+  workflow: triage
 ---
 
 # Error / Bug Triage

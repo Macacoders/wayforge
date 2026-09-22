@@ -3,7 +3,7 @@ name: ai-memory
 description: Deterministic docs/ai bookkeeping: status, list-plans, list-adrs, close-check, and init scaffold.
 compatibility: opencode
 metadata:
-  workflow: memory-bookkeeping
+  workflow: memory
 ---
 
 # AI Memory Bookkeeping

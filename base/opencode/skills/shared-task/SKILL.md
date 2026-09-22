@@ -3,7 +3,7 @@ name: shared-task
 description: Use for shared GitHub Issues workflow via /issue and the gh-issue helper.
 compatibility: opencode
 metadata:
-  workflow: issue-github-issues
+  workflow: issue
 ---
 
 # Shared Task GitHub Issues Helper
