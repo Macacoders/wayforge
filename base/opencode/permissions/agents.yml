@@ -10,6 +10,7 @@ agents:
   planner:
     read: allow
     edit: ask
+    question: allow
     bash:
       "*": allow
       "sudo*": deny
@@ -23,14 +24,12 @@ agents:
       "*": deny
       research: allow
       code: allow
-      quickcode: allow
-      test: allow
-      taskanalyst: allow
       architect: allow
 
   delivery:
     read: allow
     edit: ask
+    question: allow
     bash:
       "*": allow
       "sudo*": deny
@@ -44,9 +43,6 @@ agents:
       "*": deny
       research: allow
       code: allow
-      quickcode: allow
-      test: allow
-      taskanalyst: allow
       architect: allow
 
   research:
@@ -77,51 +73,10 @@ agents:
       "/tmp/**": allow
     task: deny
 
-  quickcode:
-    read: allow
-    edit: allow
-    bash:
-      "*": allow
-      "sudo*": deny
-      "rm -rf*": deny
-      "git push --force*": deny
-      "git push -f*": deny
-    external_directory:
-      "*": deny
-      "/tmp/**": allow
-    task: deny
-
-  test:
-    read: allow
-    edit: ask
-    bash:
-      "*": allow
-      "sudo*": deny
-      "rm -rf*": deny
-      "git push --force*": deny
-      "git push -f*": deny
-    external_directory:
-      "*": deny
-      "/tmp/**": allow
-    task: deny
-
   troubleshooter:
     read: allow
     edit: ask
-    bash:
-      "*": allow
-      "sudo*": deny
-      "rm -rf*": deny
-      "git push --force*": deny
-      "git push -f*": deny
-    external_directory:
-      "*": deny
-      "/tmp/**": allow
-    task: deny
-
-  taskanalyst:
-    read: allow
-    edit: deny
+    question: allow
     bash:
       "*": allow
       "sudo*": deny

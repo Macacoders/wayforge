@@ -3,42 +3,6 @@ description: Manage GitHub issues via the shared gh-issue helper.
 agent: planner
 ---
 
-Use `/issue` for GitHub issue workflow only.
+Use `/issue` for the GitHub issue workflow. Load the `shared-task` skill for the `gh-issue.ts` operations, options, expected outputs, and safety rules.
 
-Usage:
-
-- `/issue list`
-- `/issue create <description>`
-- `/issue claim <issue-number>`
-- `/issue assign <issue-number> <collaborator>`
-- `/issue release <issue-number>`
-- `/issue close <issue-number>`
-- `/issue prclose <issue-number>`
-- `/issue show <issue-number>`
-
-For `/issue create <description>`:
-
-1. Use/load the `shared-task` skill as needed.
-2. Run `.opencode/skills/shared-task/scripts/gh-issue.ts check`; if access is missing, ask the user to authenticate/login.
-3. Run `.opencode/skills/shared-task/scripts/gh-issue.ts labels-check`; if labels are missing, report missing labels and stop.
-4. Invoke `taskanalyst` to extract the issue description.
-5. Iterate in the same `taskanalyst` session only when the extracted description is ambiguous, duplicate-prone/likely duplicate, vague, missing acceptance criteria, or missing required labels.
-6. Write the final issue body to a temporary aux file.
-7. Create with `.opencode/skills/shared-task/scripts/gh-issue.ts create <title> --body-file <tmp> --label ...`.
-8. Report the created issue number and URL.
-
-For non-create operations, call the helper command directly. The script handles all guardrails, labels, and formatting automatically.
-
-Mutating commands are silent on success by design: exit 0 = success, failures print to stderr with exit 1. Check the exit code if captured output looks incomplete.
-
-Helper command:
-- TypeScript: `.opencode/skills/shared-task/scripts/gh-issue.ts <operation> ...`
-
-For `prclose`: before calling the script, optionally create `temp/pr-body-<issue>.md` with populated Summary, Testing, and Breaking changes sections. If the file exists, the script uses it verbatim. If absent, the script generates defaults from `.github/pull_request_template.md`.
-
-On protected branches (`main`, `master`, `develop`), `prclose` auto-commits ALL working-tree changes (tracked + untracked; gitignored files excluded) into a new feature branch — commit or stash unrelated work before running.
-
-## Safety minimums
-
-- Authentication uses the GitHub App Device Flow via `.opencode/skills/shared-task/scripts/gh-app-auth.ts`. On first use, the agent will prompt for browser authorization. Subsequent runs use the cached token. Run the helper via `npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts`.
-- To bypass app auth, set `GITHUB_TOKEN` manually.
+$ARGUMENTS

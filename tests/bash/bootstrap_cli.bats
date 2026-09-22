@@ -193,7 +193,6 @@ remove_manifest_path() {
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"enabled_providers": ["opencode", "openai", "github-copilot"]'* ]]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"model": "openai/gpt-5.5"'* ]]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"small_model": "github-copilot/gemini-3.5-flash"'* ]]
-	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"taskanalyst": {'* ]]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"model": "github-copilot/gemini-3.5-flash"'* ]]
 	[[ "$(<"$TEST_REPO/opencode.jsonc")" == *'"steps": 30'* ]]
 }

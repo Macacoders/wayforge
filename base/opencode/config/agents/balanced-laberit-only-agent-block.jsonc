@@ -11,17 +11,8 @@
     "code": {
       "model": "laberit/laberit-ai"
     },
-    "quickcode": {
-      "model": "laberit/laberit-ai"
-    },
-    "test": {
-      "model": "laberit/laberit-ai-preview"
-    },
     "troubleshooter": {
       "model": "laberit/laberit-ai-preview"
-    },
-    "taskanalyst": {
-      "model": "laberit/laberit-ai"
     },
     "architect": {
       "model": "laberit/laberit-ai-preview"

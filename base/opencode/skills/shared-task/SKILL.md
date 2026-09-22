@@ -8,35 +8,65 @@ metadata:
 
 # Shared Task GitHub Issues Helper
 
-Use this skill for shared issue workflow through `/issue`.
+Reference for the `gh-issue.ts` CLI that backs `/issue`.
 
-## Quick reference
+Run as: `npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts [--repo OWNER/REPO|-R OWNER/REPO] [--json] [--dry-run] <operation> [args]`
 
-- `/issue list`
-- `/issue create <description>`
-- `/issue claim <issue-number>`
-- `/issue assign <issue-number> <collaborator>`
-- `/issue release <issue-number>`
-- `/issue close <issue-number>`
-- `/issue prclose <issue-number>`
-- `/issue show <issue-number>`
+## Operations
 
-Helper command:
+### list
 
-- TypeScript: `.opencode/skills/shared-task/scripts/gh-issue.ts <operation> ...`
+List open issues (pull requests filtered out). Prints `#<n>\t<title>\tassignee:<login>\t<status-labels>` per issue. Requires the required labels to exist.
 
-## Notes
-- For `/issue prclose <issue-number>` Write `temp/pr-body-<issue-number>.md` before calling `prclose` to populate the PR body with custom content. Without this file, the PR uses an empty template.
-- On protected branches (`main`, `master`, `develop`), `prclose` auto-commits all working-tree changes (tracked + untracked, gitignored excluded) into a new feature branch — commit or stash unrelated work before running.
-- `gh-issue.ts` has a `show <issue-number>` subcommand to view issue details (title, body, assignee, labels). For comments or full raw details, use `gh issue view <number>` (set `GITHUB_TOKEN` from `gh-app-auth.ts` if needed).
-- Mutating commands (`claim`, `assign`, `release`, `close`, `prclose`) are silent on success by design (token economy): exit 0 = success; failures print to stderr with exit 1. If captured output looks incomplete, check `$LASTEXITCODE` before re-running.
+### create `<title>` [`--body-file <path>`] [`--label <name>`]...
 
+Create an issue. `--body-file` reads the body from a file (e.g. `temp/issue-<slug>.md`); `--label` may be repeated. Validates that all required labels exist, then prints the issue URL.
+
+### claim `<issue-number>`
+
+Assign the issue to the current user, set `status:doing`, drop `status:to-do`, and comment. Fails if the issue is already assigned or already `status:doing`.
+
+### assign `<issue-number>` `<collaborator>`
+
+Same as `claim`, but assigns to `<collaborator>`.
+
+### release `<issue-number>` [`--blocked <reason>`]
+
+Unassign the current user and drop `status:doing`. With `--blocked <reason>`, sets `status:blocked`; otherwise returns to `status:to-do` (dropping `status:blocked` and `status:in-review`).
+
+### close `<issue-number>` [`completion-summary`]
+
+Comment (default `"Completed and validated."`), drop all status labels, and close the issue.
+
+### prclose `<issue-number>` [`completion-summary`]
+
+Create a pull request for the issue. Requires an active local branch and (on non-protected branches) a clean working tree. On a protected branch (`main`/`master`/`develop`) it auto-creates `feature/issue-<n>-<slug>`, commits, and pushes. The PR body is `temp/pr-body-<issue>.md` when present, else `.github/pull_request_template.md`, else default Summary / Testing / Breaking changes sections. Prints the PR URL, comments on the issue, and sets `status:in-review`.
+
+### show `<issue-number>`
+
+Print title, state, assignees, labels, and body. For issue comments, use `gh issue view <number>`.
+
+### check
+
+Verify GitHub access. Prints `OK: GitHub access verified for <repo>`.
+
+### labels-check
+
+Verify that all required labels exist; lists any missing labels and exits 1 if any are missing.
+
+## Output conventions
+
+- `create` and `prclose` print the resulting URL on success.
+- `claim`, `assign`, `release`, and `close` are silent on success (exit 0).
+- `--json` emits machine-readable JSON instead of human-readable output.
+- `--dry-run` prints the intended actions to stderr without mutating anything.
+- Failures print to stderr with exit 1 — check the exit code if captured output looks incomplete.
 
 ## Safety minimums
 
-- Authentication uses the GitHub App Device Flow via `gh-app-auth.ts`. First use requires browser authorization; token is cached for subsequent runs.
+- Authentication uses the GitHub App Device Flow via `gh-app-auth.ts`. First use requires browser authorization; the token is cached for subsequent runs.
 - Set `GITHUB_TOKEN` to bypass app authentication.
-- Required labels must exist already:
+- Required labels must already exist:
   - Status: `status:to-do`, `status:doing`, `status:in-review`, `status:blocked`
   - Type: `type:task`, `type:feature`, `type:bug`, `type:docs`, `type:chore`
   - Priority: `priority:high`, `priority:medium`, `priority:low`

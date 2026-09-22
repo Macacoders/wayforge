@@ -334,7 +334,7 @@ export function syncManagedFile(
 			)
 			return
 		}
-		if (!isManagedFile(dst)) {
+		if (!isManagedFile(dst) && !ctx.overrideUnmanaged.has(dst)) {
 			ctx.log(
 				`skip conflict with unmanaged file (preserving local content): ${dst}`,
 			)
@@ -355,7 +355,7 @@ export function syncManagedFile(
 			)
 			return
 		}
-		if (!isManagedFile(dst)) {
+		if (!isManagedFile(dst) && !ctx.overrideUnmanaged.has(dst)) {
 			ctx.log(
 				`skip conflict with unmanaged file (preserving local content): ${dst}`,
 			)
@@ -456,7 +456,11 @@ export function syncManagedTree(
 			fs.pathExistsSync(dstFile) &&
 			fs.lstatSync(dstFile).isSymbolicLink()
 		) {
-			if (!isManagedFile(dstFile) && !dstTreeWasManaged) {
+			if (
+				!isManagedFile(dstFile) &&
+				!dstTreeWasManaged &&
+				!ctx.overrideUnmanaged.has(dstFile)
+			) {
 				ctx.log(
 					`skip conflict with unmanaged path (preserving local content): ${dstFile}`,
 				)
@@ -481,7 +485,11 @@ export function syncManagedTree(
 				)
 				continue
 			}
-			if (!isManagedFile(dstFile) && !dstTreeWasManaged) {
+			if (
+				!isManagedFile(dstFile) &&
+				!dstTreeWasManaged &&
+				!ctx.overrideUnmanaged.has(dstFile)
+			) {
 				ctx.log(
 					`skip conflict with unmanaged path (preserving local content): ${dstFile}`,
 				)

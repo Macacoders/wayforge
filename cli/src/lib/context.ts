@@ -4,6 +4,7 @@ export class ManifestContext {
 	repoRoot: string
 	noTrack: boolean
 	projectId: string
+	overrideUnmanaged: Set<string>
 
 	constructor(dryRun: boolean, force: boolean, noTrack: boolean) {
 		this.dryRun = dryRun
@@ -11,6 +12,7 @@ export class ManifestContext {
 		this.repoRoot = ''
 		this.noTrack = noTrack
 		this.projectId = ''
+		this.overrideUnmanaged = new Set<string>()
 	}
 
 	log(message: string): void {

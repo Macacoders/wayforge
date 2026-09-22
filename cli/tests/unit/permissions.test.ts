@@ -57,31 +57,8 @@ describe("renderAgentPermissionBlock", () => {
     expect(block).toContain('"/tmp/**": allow');
   });
 
-  it("extracts quickcode permissions", () => {
-    const block = renderAgentPermissionBlock("quickcode", permissionsFile);
-
-    expect(block.startsWith("permission:")).toBe(true);
-    expect(block).toContain("read: allow");
-    expect(block).toContain("edit: allow");
-    expect(block).toContain("bash:");
-    expect(block).toContain('"*": allow');
-    expect(block.indexOf('"*": allow')).toBeLessThan(
-      block.indexOf('"sudo*": deny'),
-    );
-    expect(block).toContain('"sudo*": deny');
-    expect(block).toContain('"rm -rf*": deny');
-    expect(block).toContain('"git push --force*": deny');
-    expect(block).toContain('"git push -f*": deny');
-    expect(block).toContain("external_directory:");
-    expect(block).toContain('"*": deny');
-    expect(block).toContain('"/tmp/**": allow');
-  });
-
   it("renders the correct edit permission for each agent", () => {
     expect(renderAgentPermissionBlock("code", permissionsFile)).toContain(
-      "edit: allow",
-    );
-    expect(renderAgentPermissionBlock("quickcode", permissionsFile)).toContain(
       "edit: allow",
     );
     expect(renderAgentPermissionBlock("planner", permissionsFile)).toContain(
@@ -93,15 +70,22 @@ describe("renderAgentPermissionBlock", () => {
     expect(renderAgentPermissionBlock("research", permissionsFile)).toContain(
       "edit: ask",
     );
-    expect(renderAgentPermissionBlock("test", permissionsFile)).toContain(
-      "edit: ask",
-    );
     expect(renderAgentPermissionBlock("architect", permissionsFile)).toContain(
       "edit: deny",
     );
-    expect(
-      renderAgentPermissionBlock("taskanalyst", permissionsFile),
-    ).toContain("edit: deny");
+  });
+
+  it("renders question: allow only for planner, delivery, and troubleshooter", () => {
+    for (const agent of ["planner", "delivery", "troubleshooter"]) {
+      expect(renderAgentPermissionBlock(agent, permissionsFile)).toContain(
+        "question: allow",
+      );
+    }
+    for (const agent of ["code", "research", "architect"]) {
+      expect(renderAgentPermissionBlock(agent, permissionsFile)).not.toContain(
+        "question: allow",
+      );
+    }
   });
 
   it("throws for unknown agent", () => {

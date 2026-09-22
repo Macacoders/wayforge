@@ -61,8 +61,8 @@ The `.opencode/` directory in consuming repositories is local/generated runtime 
 
 - In the `ai-config` repository itself, durable workflow changes should normally be made in `base/opencode/**`, `base/AGENTS.md`, and the installer scripts.
 - Root `.opencode/` and root `opencode.jsonc` are local/generated artifacts and are gitignored in this repository.
-- `base/AGENTS.md` is the generic placeholder template (`[FILL IN]` values preserved) used for onboarding target repositories.
-- `/onboard-repo` + `research` are responsible for filling repo-specific guidance into each target repository root `AGENTS.md`.
+- `base/AGENTS.md` is now a general Coldtea-shaped template (project sections + `[FILL IN]` placeholders + a fixed `## Working with ai-config` section) used for onboarding target repositories.
+- `/init` (overriding the built-in command) + `research` are responsible for full onboarding: scaffolding/populating `docs/ai/` and filling each target repository root `AGENTS.md`.
 - Root `AGENTS.md` in this `ai-config` repository is curated repo-specific guidance and may be tracked/updated directly when repository guidance changes.
 
 The installer must not overwrite unmanaged existing files by default and supports dry-run preview. With force enabled, it refreshes generated OpenCode runtime trees (`.opencode/agents`, `.opencode/commands`, `.opencode/skills`) plus managed output and legacy symlink targets when encountered.
@@ -109,12 +109,11 @@ If no source tree is found, `install` raises a clear error rather than silently 
 
 ## Agent Topology
 
-- `planner` is the default primary agent. It uses a non-native id to avoid colliding with OpenCode's built-in `plan` agent.
+- `planner` is the default primary agent. It uses a non-native id to avoid colliding with OpenCode's built-in `plan` agent. It formalizes intent (via the `intent` skill) and produces task-based implementation plans (via the `plan` skill).
+- `delivery` is a primary orchestration gate that reads an approved plan from disk and drives it through three commands: `/load-plan` (identify the current task), `/implement-task` (handoff to `code`), and `/review-task` (validate and redirect). It does not implement code or own memory.
 - `research` is a subagent used for onboarding existing repositories before implementation planning.
-- `code` is a conservative implementation subagent used once per approved implementation phase, with medium reasoning effort and low temperature.
-- `quickcode` is an implementation subagent invoked by `planner` for one approved quick-delivery task, with low reasoning effort for small low-risk changes. It may edit autonomously within narrow low-risk scope, run `bash` commands under the coarse allow + deny-list model (ADR-0036), and must not invoke subagents.
-- `test` is an independent review subagent used when review identifies meaningful testing or regression risk, keeping critical review independent from implementation output.
-- `taskanalyst` is a lightweight analysis subagent used by `/issue create` to interpret problem reports and propose structured GitHub Issue content without editing files.
+- `code` is a conservative implementation subagent used once per approved task, with medium reasoning effort and low temperature.
+- `architect` is a read-only review subagent that flags architectural-boundary conflicts against ADRs and proposes new ADRs.
 - `troubleshooter` is a `mode: primary` chat agent reachable via `/troubleshooter` that provides command-first, safe, non-destructive diagnostic troubleshooting guidance. It is opt-in (not the default agent; default stays `planner`) and is distinct from `planner` and `code` — it diagnoses problems but does not plan features or implement changes.
 
 ## Context Strategy
@@ -135,39 +134,23 @@ The system uses progressive disclosure:
 
 ## Workflow Boundaries
 
-The default staged-delivery workflow is:
+The delivery workflow is:
 
 1. Onboard unfamiliar repositories through `research` and create initial `docs/ai/` memory.
-2. Plan with clarifying questions and acceptance criteria.
-3. Apply phase economy before implementation: 1 phase for simple work, justification above 3 phases, explicit confirmation for 6-8 phases, and task splitting above 8 phases.
-4. Implement one approved phase through `code`.
+2. Formalize intent (`intent` skill) and plan task-based work with acceptance criteria (`plan` skill).
+3. Apply task economy before implementation: 1 task for simple work, justification above 3 tasks, explicit confirmation for 6-8 tasks, and splitting above 8 tasks.
+4. `delivery` loads the approved plan (`/load-plan`) and hands each task to `code` (`/implement-task`).
 5. Check reasonable existing patterns, utilities, scripts, helpers, commands, tests, and conventions before creating new repeatable logic.
-6. Pause after each atomic stage for manual validation.
-7. Review the completed phase with git evidence.
-8. Distinguish running existing validation, recommending tests, and creating new tests.
-9. Do not invoke `test` by default.
-10. Prefer existing validation or a no-test rationale for low-risk work before recommending new tests.
-11. Invoke `test` in `write-tests` mode only when new test creation is explicitly approved (user request, approved acceptance criteria, or user-approved recommendation) and constrained by a concrete test budget.
-12. Update docs, decisions, and logs at close.
-
-The opt-in quick-delivery workflow is:
-
-1. Start with `/quick` or an explicit request for quick delivery.
-2. `planner` confirms the task is clear, small, low-risk, and safe to validate locally.
-3. `planner` invokes `quickcode` with a compact approved-scope handoff.
-4. `quickcode` completes the approved task without staged pauses and reports once.
-5. `planner` reviews the result with git evidence before responding.
-
-Quick delivery escalates back to staged delivery when scope, risk, validation, or acceptance criteria become unclear.
+6. Pause after each atomic step for manual validation.
+7. Review the completed task with git evidence (`/review-task`).
+8. Update docs, decisions, and logs at close via `/memory`.
 
 The shared issue creation workflow is:
 
 1. Start with `/issue create` and a problem, idea, or repository improvement request.
-2. `planner` uses `gh-issue check` and `gh-issue labels-check` for GitHub access and label readiness.
-3. `planner` invokes `taskanalyst` to interpret the request and draft a concise issue body.
-4. `planner` iterates only when the extracted issue description is ambiguous, duplicate-prone, vague, missing acceptance criteria, or missing required labels.
-5. `planner` creates a GitHub Issue with type/priority/status labels (initial status `status:to-do`) through `gh-issue`.
-6. `planner` reports the created issue number and URL.
+2. `planner` formalizes the request into an intent (via the `intent` skill) and translates that intent directly into the issue body.
+3. `planner` creates a GitHub Issue with type/priority/status labels (initial status `status:to-do`) through `gh-issue`.
+4. `planner` reports the created issue number and URL.
 
 ## Invariants
 
@@ -175,15 +158,10 @@ The shared issue creation workflow is:
 - Keep all operations inside the active repository root unless the user explicitly approves an external path.
 - Keep subagent handoffs compact.
 - Keep repository onboarding separate from feature planning.
-- Keep phases as reviewable deliverables, not technical microtasks.
-- Keep plans above 8 apparent implementation phases out of single-task planning; split them into smaller tasks first.
-- Keep `test` independent and critical of `code` output.
-- Keep new test creation strictly opt-in and auditable through Test Handoff Brief authorization fields.
-- Keep test recommendations tied to observable behavior, concrete risk, insufficient existing validation, and minimal budget.
-- Keep manual validation checkpoints between atomic stages for staged delivery.
-- Keep quick delivery limited to approved low-risk tasks with no staged pauses and mandatory planner review.
+- Keep tasks as reviewable deliverables, not technical microtasks.
+- Keep plans above 8 apparent tasks out of single-task planning; split them into smaller tasks first.
+- Keep manual validation checkpoints between atomic steps.
 - Keep durable memory under `docs/ai/`.
 - Keep GitHub Issues as the operational shared source of truth for team tasks.
 - Keep shared tasks in GitHub Issues rather than a local JSONL backlog.
-- Keep shared task analysis separated from issue operations.
 - Keep reuse-first guidance explicit: avoid unnecessary copying and speculative abstraction, and justify or flag new duplication.

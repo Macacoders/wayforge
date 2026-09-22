@@ -33,5 +33,5 @@ npx tsx scripts/ai-memory.ts init [--dry-run]
 - The script runs from any repository root (the skill's own repo or a consumer repo). It uses `process.cwd()` as the working directory.
 - All operations stay inside the repository root.
 - `init` never overwrites existing user-authored content.
-- Use `close-check` as evidence during phase closeout or review.
+- Use `close-check` as evidence during task closeout or review.
 - For memory routing and freshness decisions, load `memory-maintenance` instead.

@@ -14,7 +14,7 @@ Load and follow the `memory-maintenance` skill before routing or persisting upda
 Supported intents:
 
 - `find <topic>`: Route to the smallest relevant `docs/ai/**` file(s) and return concise paths + why.
-- `check`: Run a memory freshness check for the current work before review/close.
+- `check`: Run a memory freshness check for the current work before review.
 - `update <summary>`: Propose or apply minimal durable memory updates (plans, architecture, ADRs, logs) when justified.
 
 Keep memory compact. Do not load all memory files by default. Do not persist transcripts, raw diffs, or long terminal output.

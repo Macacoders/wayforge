@@ -1,55 +1,62 @@
 # AGENTS.md
 
-## Mission
+## Project overview
 
-Use the installed OpenCode workflows to onboard repositories and deliver minimal, reviewed, and documented changes. Staged delivery is the default conservative path; quick delivery handles clear, small, low-risk tasks via `/quick` or proactive planner suggestion.
+`ai-config` ships a reusable AI-assisted development workflow for OpenCode: three primary agents (`planner`, `delivery`, `troubleshooter`), three subagents (`research`, `code`, `architect`), skills, commands, plugins, and a persistent `docs/ai/` memory convention. Users are this repo's maintainers and maintainers of consuming repos that install it. Agents most often touch `base/opencode/**` (source templates), `cli/src/**` (installer), and `docs/ai/**` (memory). See [README.md](README.md) for usage and [docs/ai/architecture.md](docs/ai/architecture.md) for architecture.
 
-## AI Memory Index
+## Project structure
 
-This file is the practical entrypoint for AI agents working in this repository. For durable memory (architecture, decisions, approved plans, and logs), see `docs/ai/README.md`.
+- `base/opencode/**` — reusable source templates (the source of truth; edit here, not generated output)
+- `base/AGENTS.md` — generic skeleton with `[FILL IN]` placeholders for consuming repos
+- `cli/src/**` — TypeScript installer CLI
+- `cli/tests/` — CLI integration and unit tests
+- `install/` — one-shot installer scripts (`install.sh`, `install.ps1`) + frozen legacy
+- `scripts/` — release helper (`release.ts`)
+- `qa/` — QA scripts (lint runners, dependency installer, coverage)
+- `tests/` — unit tests (bash, powershell, typescript subdirs)
+- `docs/` + `docs/ai/` — contributor docs + durable AI memory (plans, ADRs, logs)
+- `.github/` — release workflow, PR/issue templates
+- `.opencode/` + `opencode.jsonc` — gitignored generated artifacts (do not edit directly)
+- `profiles/` — provider/model profile definitions
 
-Treat `docs/ai/README.md` as a tiny router. Do not load all memory files by default; use `/memory` (planner) or `memory-maintenance` for low-token lookup/freshness/update routing.
+## Setup & build
 
-## Repository Guidance
+- `npm install` — installs root + `cli/` workspace dependencies (npm workspaces)
+- `make install-deps` — runs `qa/install-deps` for all toolchains
+- `make check` — full validation (typecheck, lint, format, duplication)
+- `make cli-binary` — compiles standalone binary via `bun build --compile`
+- `npx tsx cli/src/index.ts install --repo /path/to/repo --providers openai` — run installer locally during development
 
-The sections below contain repository-specific guidance. `/onboard-repo` and `research` fill these values during onboarding.
+## Testing
 
-### Project Overview
+- Full suite: `make check` (typecheck + lint + format + duplication)
+- Unit tests: `npx vitest run` (or `npm test`)
+- Typecheck: `npm run typecheck` or `cd cli && npx tsc --noEmit`
+- Lint: `cd cli && npx eslint src/` — auto-fix with `make fix-node`
+- Format: `cd cli && npx prettier --check src/`
+- Integration: `cli/tests/integration/run.sh`
+- Duplication: `make check-duplication` (jscpd, 8% threshold)
+- Deprecated (legacy shell/PowerShell scripts): `make check-bash`, `make check-powershell`
 
-`ai-config` is a project-local OpenCode configuration repository that provides reusable AI-assisted development workflow sources (agents, skills, commands, plugins), installer scripts, and durable AI-memory conventions. Users are maintainers of this repo and maintainers of consuming repositories that install the configuration. See [README.md](./README.md) for the installation model and workflow contract.
+## Code style
 
-### Build/Test Commands
+TypeScript (CLI): Prettier via `.prettierrc` — no semicolons, single quotes, tab indentation (`useTabs`, `tabWidth: 4`), trailing commas all, `printWidth: 80`. ESLint via `cli/eslint.config.mjs`. Shell scripts: shfmt + ShellCheck. PowerShell: PSScriptAnalyzer. Reuse-first: follow patterns already in neighboring files.
 
-- **Full QA**: `make check` — runs TypeScript type-check + lint + format, vitest tests, and duplication checks (jscpd)
-- **Bash only**: `make check-bash` — shfmt formatting + ShellCheck lint
-- **PowerShell only**: `make check-powershell` — PSScriptAnalyzer + Pester tests (requires `pwsh`)
-- **Node CLI lint/format/type-check**: `make check-node` — ESLint + Prettier + tsc --noEmit for `cli/src/`
-- **Node CLI auto-fix**: `make fix-node` — auto-fix ESLint + Prettier for `cli/src/`
-- **Node CLI unit tests**: `npx vitest run` (CLI and shared TypeScript tool tests)
-- **Integration tests**: `cli/tests/integration/run.sh` — compares TS CLI output to legacy bash installer
-- **Coverage**: `make coverage` (Bash + PowerShell)
-- **Duplication**: `make check-duplication` (jscpd, 8% threshold on `.ts` files)
-- **Fix Bash formatting**: `make fix-bash`
-- **Install QA deps**: `make install-deps`
-- **One-shot CLI install**: `curl -fsSL https://github.com/Macacoders/ai-config/releases/latest/download/install.sh | sh` (Linux/macOS) or `powershell -c "irm https://github.com/Macacoders/ai-config/releases/latest/download/install.ps1 | iex"` (Windows; use `-ExecutionPolicy Bypass` if policy blocks scripts).
-- **Install config into a repo (dry-run)**: `ai-config install --repo /path/to/repo --dry-run`
-- **Install config into a repo**: `ai-config install --repo /path/to/repo --providers free-tier`
-- **Local dev fallback**: `npx tsx cli/src/index.ts install --repo /path/to/repo --providers free-tier`
-- See [Makefile](./Makefile) for all targets.
+## Git workflow
 
-Windows prerequisite: GNU Make is not preinstalled — install it with `choco install make` (verified working with 4.4.1).
+`develop` = active development, `main` = stable/release. Feature branches from `develop`, PR back into `develop`. Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`) with `(Issue #NN)` where applicable. PR template at `.github/pull_request_template.md` (Summary/Testing/Breaking changes). Releases: SemVer tag `vX.Y.Z`, update `VERSION` + `CHANGELOG.md` (Keep a Changelog), merge develop→main; see [RELEASE.md](RELEASE.md).
 
-### Key Conventions & Constraints
+## Boundaries
 
-1. **Source vs generated**: Edit `base/opencode/**` for durable agent/skill/command/plugin changes. `.opencode/` and `opencode.jsonc` are gitignored generated artifacts — never edit them directly in this repo.
-2. **Template preservation**: Keep `base/AGENTS.md` generic with `[FILL IN]` placeholders for consuming-repo onboarding. Root `AGENTS.md` is curated repo-specific guidance for this repository only.
-3. **Secrets boundary**: Never commit `.env*`, `.gh-config/`, tokens, or auth state. Provider auth is established in OpenCode via `/connect`; laberit uses local environment variables.
-4. **Installer safety**: Always use `--dry-run` first when testing installer changes. `--force` overwrites managed output — use only when intentionally refreshing.
+1. **Source vs generated** — edit `base/opencode/**`, never the gitignored `.opencode/` or `opencode.jsonc`.
+2. **Template preservation** — keep `base/AGENTS.md` generic with placeholders; root `AGENTS.md` is this repo's curated guidance.
+3. **Secrets** — never commit `.env*`, `.gh-config/`, tokens, or auth state.
+4. **Installer safety** — always `--dry-run` first; `--force` overwrites managed output deliberately.
 
-## Workflow & Engineering Rules
+## Repository boundary
 
-The `planner` (planning) and `delivery` (implementation pipeline) agents are the two primary entry gates. Planner owns discovery, phased plan creation, memory, and shared tasks. Delivery owns phase handoff, code/quickcode invocation, git-based review, and close workflow. See the installed planner and delivery agents for the canonical rulesets.
+Stay inside the repository root (`git rev-parse --show-toplevel` when in a git repo, otherwise the working directory). Don't read or write outside it unless the user approves.
 
-When pasting an error or log (stack trace, crash dump, exception), prefix with `/triage` so the triage skill loads before any investigation.
+## Working with ai-config
 
-Planner enforces a ponytail reuse-first discipline. Use `/ponytail-help` in an installed repo to see available commands and the 7-rung ladder. To disable: `/ponytail off`.
+This repository uses the ai-config workflow. Formalize and plan work with `/intent` then `/plan` (the `planner` agent). Track shared tasks with `/issue`. Implement approved plans with the `delivery` agent (`/load-plan`, `/implement-task`, `/review-task`). Load context progressively: start from this file and `README.md`, then route through `docs/ai/README.md` and load only what the task needs.

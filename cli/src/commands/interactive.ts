@@ -243,7 +243,7 @@ export async function interactiveCommand(): Promise<void> {
 		}
 
 		rl.close()
-		doInstall(options)
+		await doInstall(options)
 	} catch (error) {
 		rl.close()
 		throw error
