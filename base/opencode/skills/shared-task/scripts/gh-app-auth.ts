@@ -313,18 +313,15 @@ export async function getValidToken(): Promise<string> {
 }
 
 function usage(): void {
-  process.stdout.write(`Usage: npx tsx gh-app-auth.ts [--token] [--help]
+  process.stdout.write(`Usage: npx tsx gh-app-auth.ts [--help]
 
 Options:
-  --token   Output only the token string (stdout). All logs go to stderr.
   --help    Show this help message.
 `);
 }
 
 async function main(): Promise<void> {
-  let tokenOnlyMode = false;
   const args = process.argv.slice(2);
-  tokenOnlyMode = args.includes('--token');
 
   if (args.includes('--help')) {
     usage();

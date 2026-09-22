@@ -370,6 +370,11 @@ function slugify(text: string): string {
   return slug.slice(0, 60).replace(/-+$/, '');
 }
 
+/** Canonical scratch path for the agent-pre-populated PR body (ADR-0027). */
+function prBodyScratchPath(repoRoot: string, issueNumber: number): string {
+  return path.join(repoRoot, 'temp', `pr-body-${issueNumber}.md`);
+}
+
 function buildPRBody(issueNumber: number): string {
   const repoRoot = getRepoRoot();
 
@@ -377,14 +382,13 @@ function buildPRBody(issueNumber: number): string {
   let body = `Fixes #${issueNumber}\n\n`;
 
   // Agent pre-population mode: read temp file if it exists
-  // ponytail: path formula duplicated in cmdPrclose — extract helper when 3rd usage appears
-  const tempPath = path.join(repoRoot, 'temp', `pr-body-${issueNumber}.md`);
+  const tempPath = prBodyScratchPath(repoRoot, issueNumber);
   if (existsSync(tempPath)) {
     body += readFileSync(tempPath, 'utf8');
     return body;
   }
 
-  process.stderr.write(`⚠ PR body not pre-populated for #${issueNumber} — using empty template. Write temp/pr-body-${issueNumber}.md before prclose to customize the PR body.\n`);
+  process.stderr.write(`⚠ PR body not pre-populated for #${issueNumber} — using empty template. Write ${prBodyScratchPath(repoRoot, issueNumber)} before prclose to customize the PR body.\n`);
 
   // Template fallback mode
   const templatePath = path.join(repoRoot, '.github', 'pull_request_template.md');
@@ -848,8 +852,12 @@ async function cmdPrclose(ctx: GhContext, args: string[]): Promise<void> {
     const slug = slugify(issueTitle);
     const featureBranch = `feature/issue-${issueNumber}-${slug}`;
     process.stdout.write(`On protected branch '${currentBranch}'. Creating feature branch '${featureBranch}'...\n`);
+    // Transparency: print exactly what the auto-commit will include (tracked +
+    // untracked, minus gitignored) before anything is staged.
+    const pendingChanges = git(['status', '--porcelain'], undefined, 15000);
+    process.stdout.write(`Staging all working-tree changes (tracked + untracked, gitignored excluded) on '${featureBranch}':\n${pendingChanges}\n`);
     git(['checkout', '-b', featureBranch], undefined, 15000);
-    git(['add', '-u'], undefined, 15000);  // stage only tracked files (exclude untracked)
+    git(['add', '-A'], undefined, 15000);  // stage all changes incl. untracked files (gitignored excluded)
     git(['commit', '-m', `[Issue #${issueNumber}] ${issueTitle}`], undefined, 15000);
     git(['push', '-u', 'origin', featureBranch], undefined, 30000);
     currentBranch = featureBranch;
@@ -878,7 +886,7 @@ async function cmdPrclose(ctx: GhContext, args: string[]): Promise<void> {
   process.stdout.write(`${prUrl}\n`);
 
   // Clean up temp file if it was consumed
-  const tempPath = path.join(getRepoRoot(), 'temp', `pr-body-${issueNumber}.md`);
+  const tempPath = prBodyScratchPath(getRepoRoot(), issueNumber);
   try {
     unlinkSync(tempPath);
   } catch { /* temp file may not exist — tolerate ENOENT */ }
@@ -903,6 +911,13 @@ export async function main(
   argv: string[] = process.argv.slice(2),
   opts?: { repo?: string; token?: string; jsonMode?: boolean; dryRun?: boolean },
 ): Promise<void> {
+  // --help anywhere in argv — early return before parsing, token resolution, and
+  // any network work (mirrors gh-app-auth.ts main()). No auth required.
+  if (argv.includes('--help')) {
+    printUsage();
+    return;
+  }
+
   // Parse global-level arguments
   let explicitRepo = '';
   let jsonMode = false;
@@ -938,6 +953,12 @@ export async function main(
 
   const command = remainingArgs[0];
   const cmdArgs = remainingArgs.slice(1);
+
+  // `help` command — early return before token/repo resolution (no auth needed).
+  if (command === 'help') {
+    printUsage();
+    return;
+  }
 
   // Resolve auth token (may throw if no token available and device flow fails)
   const token = opts?.token ?? (dryRun ? '' : await resolveToken());
@@ -1000,7 +1021,7 @@ export {
   addAssignee, addComment, addLabel, api, apiGet, apiPost, buildPRBody, closeIssue, cmdAssign, cmdCheck, cmdClaim, cmdClose, cmdCreate, cmdLabelsCheck,
   cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureOpenIssue, ensureRequiredLabels, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
   getIssueFirstAssignee, getIssueState, getRepoLabels, issueHasLabel, output,
-  outputJson, printUsage, removeAssignee, removeLabel, REQUIRED_LABELS, resolveRepo, resolveToken, slugify
+  outputJson, prBodyScratchPath, printUsage, removeAssignee, removeLabel, REQUIRED_LABELS, resolveRepo, resolveToken, slugify
 };
 
 // ── Main entry guard ─────────────────────────────────────────────────────────
