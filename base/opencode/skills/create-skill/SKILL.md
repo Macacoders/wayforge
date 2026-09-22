@@ -3,7 +3,7 @@ name: create-skill
 description: Create or update OpenCode skills with correct frontmatter, trigger-focused descriptions, and concise operational guidance. Use when the user asks to create, scaffold, rename, or improve a SKILL.md-based skill.
 compatibility: opencode
 metadata:
-  workflow: skill-authoring
+  workflow: authoring
 ---
 
 # Create Skill
