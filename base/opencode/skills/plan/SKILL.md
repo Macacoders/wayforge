@@ -70,6 +70,17 @@ Every step is one action:
 [15 lines, 1 file]
 ```
 
+## Validation Ownership
+
+Every planned validation must have an owner: `agent` or `human`.
+
+- `agent`: bounded, non-interactive, safe validations that terminate on their own, such as targeted tests, linting, static analysis, type checks, and ordinary local builds.
+- `human`: validations involving containers, long-running processes, external infrastructure, deployment, interactive/manual verification, or commands that may block or require supervision.
+
+Agents MUST NOT execute human validations. They must provide the exact command/procedure and expected result for the user to run.
+
+If ownership is uncertain, classify the validation as `human`.
+
 ## Plan Document Structure
 
 Once Discovery is confirmed, propose a task-based plan using this structure, and save it under `./docs/ai/plans/YYYY-MM-DD_HHMMSS-<slug>.md`:

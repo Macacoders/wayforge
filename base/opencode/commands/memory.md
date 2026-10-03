@@ -1,6 +1,6 @@
 ---
 description: Find, check, and update durable AI memory with planner-owned routing.
-agent: planner
+agent: planner,delivery
 ---
 
 Manage durable memory with low-token routing:

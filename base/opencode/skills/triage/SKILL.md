@@ -34,6 +34,7 @@ Answer these four questions explicitly:
 End with exactly one of:
 
 - `/plan` — for work that needs discovery, planning, or review
+- New small correction/redirection.
 - **Backlog / not worth fixing now** — with a one-sentence rationale
 
 ## Progressive disclosure
