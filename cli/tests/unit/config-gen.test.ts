@@ -95,19 +95,19 @@ describe("parseProviders", () => {
 });
 
 describe("resolveDefaultModels", () => {
-  it("returns openai defaults as fallback", () => {
-    expect(resolveDefaultModels(["openai"])).toEqual({
-      model: "openai/gpt-5.5",
-      smallModel: "openai/gpt-5.4-mini",
-    });
-  });
+	it("returns openai defaults as fallback", () => {
+		expect(resolveDefaultModels(["openai"])).toEqual({
+			model: "openai/gpt-6-sol",
+			smallModel: "openai/gpt-5.6-luna",
+		});
+	});
 
-  it("returns openai+laberit fallback (openai defaults)", () => {
-    expect(resolveDefaultModels(["openai", "laberit"])).toEqual({
-      model: "openai/gpt-5.5",
-      smallModel: "openai/gpt-5.4-mini",
-    });
-  });
+	it("returns openai+laberit fallback (openai defaults)", () => {
+		expect(resolveDefaultModels(["openai", "laberit"])).toEqual({
+			model: "openai/gpt-6-sol",
+			smallModel: "openai/gpt-5.6-luna",
+		});
+	});
 
   it("returns github-copilot only defaults", () => {
     expect(resolveDefaultModels(["github-copilot"])).toEqual({
@@ -116,12 +116,12 @@ describe("resolveDefaultModels", () => {
     });
   });
 
-  it("returns openai+github-copilot mixed defaults", () => {
-    expect(resolveDefaultModels(["openai", "github-copilot"])).toEqual({
-      model: "openai/gpt-5.5",
-      smallModel: "github-copilot/gemini-3.5-flash",
-    });
-  });
+	it("returns openai+github-copilot mixed defaults", () => {
+		expect(resolveDefaultModels(["openai", "github-copilot"])).toEqual({
+			model: "openai/gpt-6-sol",
+			smallModel: "github-copilot/gemini-3.5-flash",
+		});
+	});
 
   it("returns laberit only defaults", () => {
     expect(resolveDefaultModels(["laberit"])).toEqual({
@@ -130,12 +130,12 @@ describe("resolveDefaultModels", () => {
     });
   });
 
-  it("returns opencode-go only defaults", () => {
-    expect(resolveDefaultModels(["opencode-go"])).toEqual({
-      model: "opencode-go/deepseek-v4-pro",
-      smallModel: "opencode-go/deepseek-v4-flash",
-    });
-  });
+	it("returns opencode-go only defaults", () => {
+		expect(resolveDefaultModels(["opencode-go"])).toEqual({
+			model: "opencode-go/deepseek-v4.1-flash",
+			smallModel: "opencode-go/muse-spark-1.3-contributor",
+		});
+	});
 
   it("returns empty strings for free-tier only", () => {
     expect(resolveDefaultModels(["free-tier"])).toEqual({
@@ -290,7 +290,7 @@ describe("buildAgentBlockJson", () => {
   it("selects openai-only agent block", () => {
     const block = buildAgentBlockJson(["openai"], sourceDir, "opencode");
     expect(block).toContain('"planner":');
-    expect(block).toContain('"model": "openai/gpt-5.5"');
+		expect(block).toContain('"model": "openai/gpt-6-sol"');
   });
 
   it("selects mixed agent block for openai+github-copilot", () => {
@@ -348,10 +348,10 @@ describe("generateOpenCodeJsonc", () => {
   it("generates openai-only config", () => {
     const content = generateOpenCodeJsonc(makeOpts("opencode", ["openai"]));
     expect(content).toContain('"enabled_providers": ["opencode", "openai"]');
-    expect(content).toContain('"model": "openai/gpt-5.5"');
-    expect(content).toContain('"small_model": "openai/gpt-5.4-mini"');
-    expect(content).toContain('"agent": {');
-    expect(content).toContain('"model": "openai/gpt-5.5"');
+		expect(content).toContain('"model": "openai/gpt-6-sol"');
+		expect(content).toContain('"small_model": "openai/gpt-5.6-luna"');
+		expect(content).toContain('"agent": {');
+		expect(content).toContain('"model": "openai/gpt-6-sol"');
   });
 
   it("generates github-copilot-only config", () => {
@@ -372,7 +372,7 @@ describe("generateOpenCodeJsonc", () => {
     expect(content).toContain(
       '"enabled_providers": ["opencode", "openai", "github-copilot"]',
     );
-    expect(content).toContain('"model": "openai/gpt-5.5"');
+		expect(content).toContain('"model": "openai/gpt-6-sol"');
     expect(content).toContain('"small_model": "github-copilot/gemini-3.5-flash"');
   });
 
@@ -383,7 +383,10 @@ describe("generateOpenCodeJsonc", () => {
     expect(content).toContain(
       '"enabled_providers": ["opencode", "opencode-go"]',
     );
-    expect(content).toContain('"model": "opencode-go/deepseek-v4-pro"');
+		expect(content).toContain('"model": "opencode-go/deepseek-v4.1-flash"');
+		expect(content).toContain(
+			'"small_model": "opencode-go/muse-spark-1.3-contributor"',
+		);
   });
 
   it("uses kilocode schema for kilocode runtime", () => {

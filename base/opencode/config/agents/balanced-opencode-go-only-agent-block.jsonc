@@ -1,26 +1,26 @@
 "agent": {
     "planner": {
-      "model": "opencode-go/deepseek-v4-pro",
+      "model": "opencode-go/deepseek-v4.1-flash",
       "steps": 24
     },
     "delivery": {
-      "model": "opencode-go/deepseek-v4-pro",
+      "model": "opencode-go/deepseek-v4.1-flash",
       "steps": 24
     },
     "research": {
-      "model": "opencode-go/qwen3.7-max",
+      "model": "opencode-go/muse-spark-1.3-contributor",
       "steps": 16
     },
     "code": {
-      "model": "opencode-go/kimi-k2.7-code",
+      "model": "opencode-go/glm-5.3-flash",
       "steps": 12
     },
     "troubleshooter": {
-      "model": "opencode-go/deepseek-v4-pro",
+      "model": "opencode-go/mimo-v2.6-flash",
       "steps": 10
     },
     "architect": {
-      "model": "opencode-go/qwen3.7-max",
+      "model": "opencode-go/mimo-v2.6-flash",
       "steps": 16
     }
   }

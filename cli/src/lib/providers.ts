@@ -87,7 +87,7 @@ export function resolveDefaultModels(selected: Provider[]): {
 
 	if (selected.includes('openai') && selected.includes('github-copilot')) {
 		return {
-			model: 'openai/gpt-5.5',
+			model: 'openai/gpt-6-sol',
 			smallModel: 'github-copilot/gemini-3.5-flash',
 		}
 	}
@@ -101,8 +101,8 @@ export function resolveDefaultModels(selected: Provider[]): {
 
 	if (selected.length === 1 && selected[0] === 'opencode-go') {
 		return {
-			model: 'opencode-go/deepseek-v4-pro',
-			smallModel: 'opencode-go/deepseek-v4-flash',
+			model: 'opencode-go/deepseek-v4.1-flash',
+			smallModel: 'opencode-go/muse-spark-1.3-contributor',
 		}
 	}
 
@@ -111,8 +111,8 @@ export function resolveDefaultModels(selected: Provider[]): {
 	}
 
 	return {
-		model: 'openai/gpt-5.5',
-		smallModel: 'openai/gpt-5.4-mini',
+		model: 'openai/gpt-6-sol',
+		smallModel: 'openai/gpt-5.6-luna',
 	}
 }
 
@@ -122,14 +122,14 @@ export const FAST_MODELS: Record<
 	Provider,
 	{ model: string; smallModel: string }
 > = {
-	openai: { model: 'openai/gpt-5.4-mini', smallModel: 'openai/gpt-5.4-mini' },
+	openai: { model: 'openai/gpt-5.6-luna', smallModel: 'openai/gpt-5.6-luna' },
 	'github-copilot': {
 		model: 'github-copilot/gpt-5.3-codex',
 		smallModel: 'github-copilot/gemini-3.5-flash',
 	},
 	'opencode-go': {
-		model: 'opencode-go/deepseek-v4-flash',
-		smallModel: 'opencode-go/deepseek-v4-flash',
+		model: 'opencode-go/muse-spark-1.3-contributor',
+		smallModel: 'opencode-go/muse-spark-1.3-contributor',
 	},
 	laberit: {
 		model: 'laberit/laberit-ai',

@@ -1,26 +1,26 @@
 "agent": {
     "planner": {
-      "model": "openai/gpt-5.5",
+      "model": "openai/gpt-6-sol",
       "steps": 20
     },
     "delivery": {
-      "model": "openai/gpt-5.5",
+      "model": "openai/gpt-6-luna",
       "steps": 20
     },
     "research": {
-      "model": "openai/gpt-5.5",
-      "steps": 10
+      "model": "openai/gpt-5.6-luna",
+      "steps": 15
     },
     "code": {
-      "model": "openai/gpt-5.5",
-      "steps": 5
+      "model": "openai/gpt-5.6-terra",
+      "steps": 15
     },
     "troubleshooter": {
-      "model": "openai/gpt-5.5",
+      "model": "openai/gpt-6-sol",
       "steps": 10
     },
     "architect": {
-      "model": "openai/gpt-5.5",
+      "model": "openai/gpt-6-sol",
       "steps": 10
     }
   }
