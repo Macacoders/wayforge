@@ -20,6 +20,12 @@ powershell -c "irm https://github.com/Macacoders/ai-config/releases/latest/downl
 
 Default prefix: `~/.ai-config` (Linux/macOS) or `%LOCALAPPDATA%\ai-config` (Windows).
 
+### Requirements
+
+- **Node.js >= 18** is required to run the installed workflow (skills and commands execute via `npx tsx`).
+- The one-shot installer provisions Node.js (>= 18) user-locally into the prefix when it is missing or too old — no manual install needed.
+- `ai-config install --repo` requires Node.js >= 18 on PATH; pass `--skip-node-check` to bypass the check.
+
 Install the runtime into a target repository:
 
 ```bash

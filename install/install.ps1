@@ -22,6 +22,9 @@
 .PARAMETER DryRun
     Print actions without performing them.
 
+.PARAMETER SkipNodeCheck
+    Skip Node.js detection and provisioning.
+
 .PARAMETER UrlBase
     Test override for the download base URL.
 #>
@@ -32,6 +35,7 @@ param(
     [string]$Version = "",
     [switch]$Uninstall,
     [switch]$DryRun,
+    [switch]$SkipNodeCheck,
     [string]$UrlBase = ""
 )
 
@@ -57,6 +61,15 @@ elseif (-not $Prefix) {
 if ($Version) {
     $Version = $Version.TrimStart('v')
 }
+
+# ---------------------------------------------------------------------------
+# Node.js provisioning
+# ---------------------------------------------------------------------------
+# Pinned LTS version, minimum major, and download base (override the base
+# with AI_CONFIG_NODE_BASE_URL for tests).
+$NodeMinMajor = 18
+$NodeVersion = "24.13.0"
+$NodeBaseUrl = if ($env:AI_CONFIG_NODE_BASE_URL) { $env:AI_CONFIG_NODE_BASE_URL } else { "https://nodejs.org/dist" }
 
 # ---------------------------------------------------------------------------
 # Platform detection
@@ -164,6 +177,102 @@ function Remove-UserPathEntry {
 }
 
 # ---------------------------------------------------------------------------
+# Node.js provisioning
+# ---------------------------------------------------------------------------
+function Get-NodeMajor {
+    $command = Get-Command node -ErrorAction SilentlyContinue
+    if (-not $command) {
+        return $null
+    }
+    $version = & node --version 2>$null
+    if (-not $version) {
+        return $null
+    }
+    $version = ("$version").TrimStart('v')
+    if ($version -notmatch '^\d+') {
+        return $null
+    }
+    return [int]$Matches[0]
+}
+
+function Install-LocalNode {
+    $nodeDir = Join-Path $Prefix "node"
+    $archive = "node-v${NodeVersion}-win-${Arch}.zip"
+    $url = "${NodeBaseUrl}/v${NodeVersion}/${archive}"
+
+    Write-Host "Installing Node.js v${NodeVersion} (win-${Arch}) to ${nodeDir}"
+    New-Item -ItemType Directory -Force -Path $nodeDir | Out-Null
+
+    # The Node zip contains a top-level node-v<ver>-win-<arch>\ folder; expand
+    # to a temp dir and move its contents so node.exe lands at nodeDir\node.exe.
+    $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("ai-config-node-" + [System.Guid]::NewGuid().ToString("N"))
+    $tmpZip = Join-Path $env:TEMP $archive
+    try {
+        Invoke-WebRequest -Uri $url -OutFile $tmpZip -UseBasicParsing
+        Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force
+    }
+    finally {
+        if (Test-Path $tmpZip) {
+            Remove-Item -Path $tmpZip -Force
+        }
+    }
+
+    $extracted = Get-ChildItem -Path $tmpDir -Force | Select-Object -First 1
+    if (-not $extracted) {
+        Remove-Item -Path $tmpDir -Recurse -Force
+        Write-Error "error: Node.js archive did not contain ${nodeDir}\node.exe" -ErrorAction Stop
+    }
+    Get-ChildItem -Path $extracted.FullName -Force | Move-Item -Destination $nodeDir -Force
+    Remove-Item -Path $tmpDir -Recurse -Force
+
+    if (-not (Test-Path (Join-Path $nodeDir "node.exe"))) {
+        Write-Error "error: Node.js archive did not contain ${nodeDir}\node.exe" -ErrorAction Stop
+    }
+
+    Add-UserPathEntry $nodeDir
+    $env:Path = "${nodeDir};$env:Path"
+}
+
+function Ensure-Node {
+    if ($SkipNodeCheck) {
+        return
+    }
+
+    $major = Get-NodeMajor
+    if ($null -ne $major) {
+        if ($major -ge $NodeMinMajor) {
+            Write-Host "Node.js $(& node --version) detected"
+            return
+        }
+        Write-Host "Node.js $(& node --version) is older than the required v${NodeMinMajor}; provisioning Node.js v${NodeVersion}"
+    }
+    else {
+        Write-Host "Node.js >= ${NodeMinMajor} not found on PATH; provisioning Node.js v${NodeVersion}"
+    }
+
+    if ($DryRun) {
+        Write-Host "[dry-run] would install Node.js v${NodeVersion} (win-${Arch})"
+        Write-Host "[dry-run] would download: ${NodeBaseUrl}/v${NodeVersion}/node-v${NodeVersion}-win-${Arch}.zip"
+        Write-Host "[dry-run] would extract to: $(Join-Path $Prefix 'node')"
+        Write-Host "[dry-run] would add to User PATH: $(Join-Path $Prefix 'node')"
+        return
+    }
+
+    try {
+        Install-LocalNode
+    }
+    catch {
+        Write-Error "error: failed to provision Node.js v${NodeVersion}; install Node.js >= ${NodeMinMajor} manually from https://nodejs.org and re-run" -ErrorAction Stop
+    }
+
+    $major = Get-NodeMajor
+    if ($null -eq $major -or $major -lt $NodeMinMajor) {
+        Write-Error "error: provisioned Node.js did not report version >= ${NodeMinMajor}; install Node.js manually from https://nodejs.org and re-run" -ErrorAction Stop
+    }
+    Write-Host "Node.js $(& node --version) provisioned at $(Join-Path $Prefix 'node')"
+}
+
+# ---------------------------------------------------------------------------
 # Install path
 # ---------------------------------------------------------------------------
 function Install-AiConfig {
@@ -171,6 +280,8 @@ function Install-AiConfig {
     if (-not $resolvedVersion) {
         Write-Error "error: version could not be determined" -ErrorAction Stop
     }
+
+    Ensure-Node
 
     $baseUrl = Build-UrlBase
     $shareName = "ai-config-share-${resolvedVersion}.zip"
@@ -231,6 +342,7 @@ function Install-AiConfig {
 function Uninstall-AiConfig {
     $binDir = Join-Path $Prefix "bin"
     $shareDir = Join-Path $Prefix (Join-Path "share" "ai-config")
+    $nodeDir = Join-Path $Prefix "node"
     $binaryPath = Join-Path $binDir "ai-config.exe"
     $trackingFile = Join-Path $Prefix "installed-projects.json"
 
@@ -238,8 +350,10 @@ function Uninstall-AiConfig {
         Write-Host "[dry-run] prefix: ${Prefix}"
         Write-Host "[dry-run] would remove: ${binaryPath}"
         Write-Host "[dry-run] would remove: ${shareDir}"
+        Write-Host "[dry-run] would remove: ${nodeDir}"
         Write-Host "[dry-run] would remove: ${trackingFile}"
         Write-Host "[dry-run] would remove from User PATH: ${binDir}"
+        Write-Host "[dry-run] would remove from User PATH: ${nodeDir}"
         return
     }
 
@@ -249,11 +363,15 @@ function Uninstall-AiConfig {
     if (Test-Path $shareDir) {
         Remove-Item -Path $shareDir -Recurse -Force
     }
+    if (Test-Path $nodeDir) {
+        Remove-Item -Path $nodeDir -Recurse -Force
+    }
     if (Test-Path $trackingFile) {
         Remove-Item -Path $trackingFile -Force
     }
 
     Remove-UserPathEntry $binDir
+    Remove-UserPathEntry $nodeDir
 
     if (Test-Path $Prefix) {
         $children = Get-ChildItem -Path $Prefix -Force -ErrorAction SilentlyContinue

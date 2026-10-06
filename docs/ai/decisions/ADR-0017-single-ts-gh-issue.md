@@ -2,6 +2,7 @@
 
 **Originally:** 2026-06-23 (Replace Bash/PowerShell gh-issue with Single TypeScript Script)
 **Broadened:** 2026-07-02 (Generalized to all tooling and skill scripts)
+**Amended:** 2026-10-06 (Node.js >= 18 requirement is provisioned by the ai-config one-shot installer when ai-config is installed through it — see ADR-0035 Decision 11)
 **Status:** Accepted
 
 ## Context
@@ -14,7 +15,7 @@ The repository historically maintained parallel Bash and PowerShell implementati
 
 3. **Skill scripts** (Issue #39, 2026-07-02): Skills needing deterministic helper scripts faced the same question — maintain Bash/PowerShell pairs or standardize on TypeScript.
 
-TypeScript offers: single codebase, cross-platform via `npx tsx`, strong typing, team familiarity, and zero-install execution for consumers with Node.js (already a requirement for OpenCode itself).
+TypeScript offers: single codebase, cross-platform via `npx tsx`, strong typing, team familiarity, and zero-install execution for consumers with Node.js (already a requirement for OpenCode itself). (Amended 2026-10-06: the Node.js >= 18 requirement is no longer merely assumed — the ai-config one-shot installer provisions a user-local Node >= 18 when missing, so consuming repositories installed through it have a working `npx tsx` runtime; for other install paths the requirement remains assumed. See ADR-0035 Decision 11.)
 
 ## Decision
 
@@ -61,7 +62,7 @@ Adopt TypeScript as the main language for all operational tooling scripts and sk
 - Consuming repositories need Node.js (already required for OpenCode)
 
 **Negative:**
-- Requires Node.js and `npx tsx` to run (Bash is available on any Unix system)
+- Requires Node.js and `npx tsx` to run (Bash is available on any Unix system) — since 2026-10-06 the ai-config one-shot installer provisions a user-local Node >= 18 when missing (ADR-0035 Decision 11), so this requirement is satisfied for installs performed through it; otherwise it remains assumed.
 - Bash/PowerShell-only environments without Node.js cannot run TypeScript scripts — acceptable since such environments cannot run OpenCode either
 
 ## ADRs Affected

@@ -36,6 +36,7 @@ import {
 import { trackInstalledProject } from '../lib/tracking.js'
 import { cloneRef } from '../lib/git.js'
 import { resolveSourceDir } from '../lib/source-dir.js'
+import { checkNode } from '../lib/prereq.js'
 import type { InstallOptions } from '../types.js'
 
 export async function installCommand(options: InstallOptions): Promise<void> {
@@ -56,6 +57,23 @@ export async function doInstall(
 	if (!fs.pathExistsSync(repo)) {
 		ctx.log(`error: repo path does not exist: ${repo}`)
 		process.exit(1)
+	}
+
+	if (!options.skipNodeCheck) {
+		const node = checkNode()
+		if (node.ok) {
+			ctx.log(`Node.js ${node.version} detected`)
+		} else if (options.dryRun) {
+			ctx.log(
+				`DRY-RUN: Node.js check failed (${node.reason}), continuing`,
+			)
+		} else {
+			ctx.log(
+				`error: Node.js >= 18 is required (${node.reason}; ` +
+					'install corepack/npm or run the ai-config release installer)',
+			)
+			process.exit(1)
+		}
 	}
 
 	ensureDir(path.join(repo, '.opencode'), ctx)
