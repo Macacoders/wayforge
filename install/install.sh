@@ -13,7 +13,15 @@ VERSION=""
 TAG=""
 UNINSTALL=0
 DRY_RUN=0
+SKIP_NODE=0
 URL_BASE=""
+
+# Node.js provisioning: pinned LTS version, minimum major, and download base
+# (override the base with AI_CONFIG_NODE_BASE_URL for tests).
+NODE_MIN_MAJOR=18
+NODE_VERSION="24.13.0"
+NODE_BASE_URL="${AI_CONFIG_NODE_BASE_URL:-https://nodejs.org/dist}"
+NODE_BIN_DIR=""
 
 # ---------------------------------------------------------------------------
 # Temporary-file cleanup
@@ -21,11 +29,13 @@ URL_BASE=""
 TMP_BINARY=""
 TMP_SHARE=""
 TMP_PATH_BLOCK=""
+TMP_NODE=""
 
 cleanup() {
 	if [ -n "${TMP_BINARY:-}" ]; then rm -f "$TMP_BINARY"; fi
 	if [ -n "${TMP_SHARE:-}" ]; then rm -f "$TMP_SHARE"; fi
 	if [ -n "${TMP_PATH_BLOCK:-}" ]; then rm -f "$TMP_PATH_BLOCK"; fi
+	if [ -n "${TMP_NODE:-}" ]; then rm -f "$TMP_NODE"; fi
 }
 trap cleanup EXIT INT TERM
 
@@ -40,6 +50,7 @@ Options:
                     Accepts "1.2.3" or "v1.2.3".
   --uninstall       Remove ai-config from the prefix.
   --dry-run         Print actions without performing them.
+  --skip-node-check Skip Node.js detection and provisioning.
   --url-base <base> Test override for the download base URL.
   -h, --help        Show this help message.
 EOF
@@ -72,6 +83,10 @@ while [ $# -gt 0 ]; do
 		;;
 	--dry-run)
 		DRY_RUN=1
+		shift
+		;;
+	--skip-node-check)
+		SKIP_NODE=1
 		shift
 		;;
 	--url-base)
@@ -141,7 +156,7 @@ append_path_block() {
 		echo "# Added by ai-config installer"
 		echo "export PATH=\"${bin_dir}:\$PATH\""
 		echo "$MARKER_END"
-	} >> "$file"
+	} >>"$file"
 }
 
 remove_path_block() {
@@ -155,7 +170,7 @@ remove_path_block() {
 	TMP_PATH_BLOCK="${file}.tmp.$$"
 	awk -v start="$MARKER_START" -v end="$MARKER_END" \
 		'$0 == start {inside=1; next} $0 == end {inside=0; next} !inside' \
-		"$file" > "$TMP_PATH_BLOCK"
+		"$file" >"$TMP_PATH_BLOCK"
 	mv "$TMP_PATH_BLOCK" "$file"
 	TMP_PATH_BLOCK=""
 }
@@ -191,6 +206,86 @@ download() {
 		wget -q --timeout=300 -O "$dest" "$url"
 		;;
 	esac
+}
+
+# ---------------------------------------------------------------------------
+# Node.js provisioning
+# ---------------------------------------------------------------------------
+node_major() {
+	command -v node >/dev/null 2>&1 || return 1
+	local version
+	version="$(node --version 2>/dev/null)" || return 1
+	version="${version#v}"
+	case "$version" in
+	[0-9]*) ;;
+	*) return 1 ;;
+	esac
+	local major="${version%%.*}"
+	case "$major" in
+	'' | *[!0-9]*) return 1 ;;
+	esac
+	printf '%s\n' "$major"
+}
+
+install_local_node() {
+	local node_dir="${PREFIX}/node"
+	local node_bin="${node_dir}/bin"
+	local archive="node-v${NODE_VERSION}-${OS}-${ARCH}.tar.gz"
+	local url="${NODE_BASE_URL}/v${NODE_VERSION}/${archive}"
+
+	echo "Installing Node.js v${NODE_VERSION} (${OS}-${ARCH}) to ${node_dir}"
+	mkdir -p "$node_dir"
+	TMP_NODE="$(mktemp)"
+	download "$url" "$TMP_NODE"
+	tar -xzf "$TMP_NODE" -C "$node_dir" --strip-components=1
+	rm -f "$TMP_NODE"
+	TMP_NODE=""
+
+	if [ ! -x "${node_bin}/node" ]; then
+		echo "error: Node.js archive did not contain ${node_bin}/node" >&2
+		return 1
+	fi
+
+	NODE_BIN_DIR="$node_bin"
+	PATH="${node_bin}:${PATH}"
+	export PATH
+}
+
+ensure_node() {
+	if [ "$SKIP_NODE" -eq 1 ]; then
+		return 0
+	fi
+
+	local major
+	if major="$(node_major)"; then
+		if [ "$major" -ge "$NODE_MIN_MAJOR" ]; then
+			echo "Node.js $(node --version) detected"
+			return 0
+		fi
+		echo "Node.js $(node --version) is older than the required v${NODE_MIN_MAJOR}; provisioning Node.js v${NODE_VERSION}"
+	else
+		echo "Node.js >= ${NODE_MIN_MAJOR} not found on PATH; provisioning Node.js v${NODE_VERSION}"
+	fi
+
+	if [ "$DRY_RUN" -eq 1 ]; then
+		echo "[dry-run] would install Node.js v${NODE_VERSION} (${OS}-${ARCH})"
+		echo "[dry-run] would download: ${NODE_BASE_URL}/v${NODE_VERSION}/node-v${NODE_VERSION}-${OS}-${ARCH}.tar.gz"
+		echo "[dry-run] would extract to: ${PREFIX}/node"
+		echo "[dry-run] would add to PATH: ${PREFIX}/node/bin"
+		return 0
+	fi
+
+	if ! install_local_node; then
+		echo "error: failed to provision Node.js v${NODE_VERSION}; install Node.js >= ${NODE_MIN_MAJOR} manually from https://nodejs.org and re-run" >&2
+		exit 1
+	fi
+
+	major="$(node_major)" || major=""
+	if [ -z "$major" ] || [ "$major" -lt "$NODE_MIN_MAJOR" ]; then
+		echo "error: provisioned Node.js did not report version >= ${NODE_MIN_MAJOR}; install Node.js manually from https://nodejs.org and re-run" >&2
+		exit 1
+	fi
+	echo "Node.js $(node --version) provisioned at ${PREFIX}/node"
 }
 
 # ---------------------------------------------------------------------------
@@ -247,6 +342,7 @@ build_url_base() {
 # ---------------------------------------------------------------------------
 run_install() {
 	detect_downloader
+	ensure_node
 
 	if [ -n "$VERSION" ]; then
 		case "$VERSION" in
@@ -313,12 +409,19 @@ run_install() {
 		exit 1
 	fi
 
+	local path_prefix="$bin_dir"
+	if [ -n "${NODE_BIN_DIR:-}" ]; then
+		path_prefix="${NODE_BIN_DIR}:${bin_dir}"
+		remove_path_block "${HOME}/.bashrc"
+		remove_path_block "${HOME}/.zshrc"
+	fi
+
 	echo "ai-config ${TAG#v} installed to ${binary_path}"
 	echo "Add to your PATH:"
-	echo "  export PATH=\"${bin_dir}:\$PATH\""
+	echo "  export PATH=\"${path_prefix}:\$PATH\""
 
-	append_path_block "${HOME}/.bashrc" "$bin_dir"
-	append_path_block "${HOME}/.zshrc" "$bin_dir"
+	append_path_block "${HOME}/.bashrc" "$path_prefix"
+	append_path_block "${HOME}/.zshrc" "$path_prefix"
 }
 
 # ---------------------------------------------------------------------------
@@ -327,6 +430,7 @@ run_install() {
 run_uninstall() {
 	local bin_dir="${PREFIX}/bin"
 	local share_dir="${PREFIX}/share/ai-config"
+	local node_dir="${PREFIX}/node"
 	local binary_path="${bin_dir}/ai-config"
 	local tracking_file="${PREFIX}/installed-projects.json"
 	local bashrc="${HOME}/.bashrc"
@@ -336,6 +440,7 @@ run_uninstall() {
 		echo "[dry-run] prefix: ${PREFIX}"
 		echo "[dry-run] would remove: ${binary_path}"
 		echo "[dry-run] would remove: ${share_dir}"
+		echo "[dry-run] would remove: ${node_dir}"
 		echo "[dry-run] would remove: ${tracking_file}"
 		echo "[dry-run] would remove ai-config PATH block from: ${bashrc}"
 		echo "[dry-run] would remove ai-config PATH block from: ${zshrc}"
@@ -344,6 +449,7 @@ run_uninstall() {
 
 	rm -f "$binary_path"
 	rm -rf "$share_dir"
+	rm -rf "$node_dir"
 	rm -f "$tracking_file"
 
 	remove_path_block "$bashrc"

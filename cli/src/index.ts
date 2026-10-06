@@ -60,6 +60,7 @@ program
 		'Refresh managed targets and generated runtime trees; preserve unmanaged local files.',
 		false,
 	)
+	.option('--skip-node-check', 'Skip the Node.js prerequisite check', false)
 	.option(
 		'--no-track',
 		'Skip recording this project in installed-projects.json.',
@@ -75,6 +76,7 @@ program
 			ghAppClientId: options.ghAppClientId as string | undefined,
 			dryRun: Boolean(options.dryRun),
 			force: Boolean(options.force),
+			skipNodeCheck: Boolean(options.skipNodeCheck),
 			noTrack: options.track === false,
 		}
 		await installCommand(installOptions)

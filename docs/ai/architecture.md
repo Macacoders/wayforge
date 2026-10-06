@@ -7,7 +7,7 @@ This repository provides reusable OpenCode source configuration and installs gen
 ## Runtime Boundary
 
 - OpenCode (default) and Kilo Code are supported AI runtimes, selectable at install time via the `--runtime` parameter.
-- Guided interactive installs are handled by the TypeScript CLI only (`ai-config interactive`); non-interactive installs use `ai-config install --repo <path>`. Users first install the CLI via the one-shot installer (`curl | sh` / `irm | iex`), then install configuration into each target repository.
+- Guided interactive installs are handled by the TypeScript CLI only (`ai-config interactive`); non-interactive installs use `ai-config install --repo <path>`. Users first install the CLI via the one-shot installer (`curl | sh` / `irm | iex`), then install configuration into each target repository. `ai-config install --repo` requires Node.js >= 18 on PATH (the one-shot installer provisions it user-locally when missing).
 - Supported provider sets during installation include `free-tier` (default for opencode), `openai`, `github-copilot`, `laberit`, `opencode-go`, and comma-separated combinations of those providers. `free-tier` is only available for the opencode runtime and installs the default OpenCode structure without configuring an external provider.
 - OpenAI authentication is handled in OpenCode with `/connect` (ChatGPT Plus/Pro or Azure credentials).
 - GitHub Copilot authentication is handled in OpenCode with `/connect` (device login flow).
@@ -27,11 +27,11 @@ The installer surface is a TypeScript CLI under `cli/src/`, distributed as a pre
 - **Framework**: TypeScript + Commander for argument parsing
 - **Source**: `cli/src/index.ts` (entrypoint), `cli/src/commands/` (install, uninstall, interactive), `cli/src/lib/` (shared libraries)
 - **Binary compilation**: `make cli-binary` produces a standalone executable via `bun build --compile` (~100MB)
-- **One-shot installer**: `install/install.sh` (POSIX) and `install/install.ps1` (PowerShell 5.1+) download the compiled binary and share archive into a dedicated prefix and register `bin` on the user PATH. No administrator privileges are required.
+- **One-shot installer**: `install/install.sh` (POSIX) and `install/install.ps1` (PowerShell 5.1+) download the compiled binary and share archive into a dedicated prefix and register `bin` on the user PATH. When Node.js >= 18 is absent (or too old), the installer provisions a pinned user-local Node.js into the prefix (`node/`) and adds it to PATH; `--skip-node-check` / `-SkipNodeCheck` bypasses this. No administrator privileges are required.
 - **Dedicated prefix / layout**:
   - Linux / macOS: `~/.ai-config`
   - Windows: `%LOCALAPPDATA%\ai-config`
-  - Layout: `bin/ai-config` (`ai-config.exe` on Windows), `share/ai-config/base/**`, `share/ai-config/VERSION`, and `installed-projects.json`
+  - Layout: `bin/ai-config` (`ai-config.exe` on Windows), `node/` (provisioned Node.js, when installed), `share/ai-config/base/**`, `share/ai-config/VERSION`, and `installed-projects.json`
 - **Release workflow**: `.github/workflows/release.yml` builds binaries for linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64, produces share archives (`ai-config-share-<version>.tar.gz` / `.zip`), and uploads `install.sh` / `install.ps1` as release assets
 - **Legacy references**: `install/legacy/bootstrap-legacy.sh` and `install/legacy/bootstrap-legacy.ps1` preserve the original full installers; `install/legacy/bootstrap-thin.sh` and `install/legacy/bootstrap-thin.ps1` preserve the retired thin entrypoints. All legacy scripts are frozen.
 

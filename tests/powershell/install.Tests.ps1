@@ -1,0 +1,112 @@
+#Requires -Modules Pester
+
+BeforeAll {
+    $script:repoRoot = Resolve-Path "$PSScriptRoot/../.." | Select-Object -ExpandProperty Path
+    $script:installScript = Join-Path $script:repoRoot 'install/install.ps1'
+    $script:scriptContent = Get-Content -Path $script:installScript -Raw
+}
+
+Describe 'install.ps1 file structure' {
+    It 'exists at the expected path' {
+        Test-Path $script:installScript | Should -Be $true
+    }
+
+    It 'requires PowerShell 5.1' {
+        $script:scriptContent | Should -Match '#requires -Version 5.1'
+    }
+
+    It 'pins a Node version constant' {
+        $script:scriptContent | Should -Match '\$NodeVersion\s*=\s*"[\d.]+"'
+    }
+
+    It 'enforces a Node minimum major version' {
+        $script:scriptContent | Should -Match '\$NodeMinMajor\s*=\s*18'
+    }
+
+    It 'allows overriding the Node download base URL for tests' {
+        $script:scriptContent | Should -Match 'AI_CONFIG_NODE_BASE_URL'
+    }
+}
+
+Describe 'Node detection and provisioning (-DryRun)' {
+    It 'prints the Node provision plan when no node is on PATH' {
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $tmp | Out-Null
+        try {
+            $output = & pwsh -NoProfile -Command "
+                `$env:PATH = '$tmp'
+                & '$script:installScript' -DryRun -Version 9.9.9 -Prefix '$tmp/prefix' 2>&1
+                exit 0
+            "
+            $combined = ($output | Out-String)
+            $combined | Should -Match 'Node.js >= 18 not found on PATH'
+            $combined | Should -Match '\[dry-run\] would install Node\.js'
+            $combined | Should -Match '\[dry-run\] would download: .*node-v[\d.]+-win-'
+            $combined | Should -Match '\[dry-run\] would extract to:'
+            $combined | Should -Match '\[dry-run\] would add to User PATH:'
+        }
+        finally {
+            Remove-Item -Path $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'omits Node lines when -SkipNodeCheck is passed and node is absent' {
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $tmp | Out-Null
+        try {
+            $output = & pwsh -NoProfile -Command "
+                `$env:PATH = '$tmp'
+                & '$script:installScript' -DryRun -SkipNodeCheck -Version 9.9.9 -Prefix '$tmp/prefix' 2>&1
+                exit 0
+            "
+            $combined = ($output | Out-String)
+            $combined | Should -Not -Match 'Node\.js'
+            $combined | Should -Not -Match 'would install Node'
+        }
+        finally {
+            Remove-Item -Path $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'detects Node >= 18 when a stub node reports v18.20.0' {
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path (Join-Path $tmp 'stubbin') | Out-Null
+        # Stub node: a shell script printing v18.20.0; the child pwsh on Linux
+        # resolves it via PATH like any other executable.
+        $stub = Join-Path $tmp 'stubbin' 'node'
+        Set-Content -Path $stub -Value "#!/bin/sh`necho v18.20.0`n"
+        & chmod +x $stub
+        try {
+            $output = & pwsh -NoProfile -Command "
+                `$env:PATH = '$(Join-Path $tmp 'stubbin'):' + `$env:PATH
+                & '$script:installScript' -DryRun -Version 9.9.9 -Prefix '$tmp/prefix' 2>&1
+                exit 0
+            "
+            $combined = ($output | Out-String)
+            $combined | Should -Match 'Node\.js v18\.20\.0 detected'
+            $combined | Should -Not -Match 'would install Node'
+        }
+        finally {
+            Remove-Item -Path $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+Describe 'Uninstall removes provisioned Node' {
+    It 'dry-run uninstall mentions the node directory and its PATH entry' {
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $tmp | Out-Null
+        try {
+            $output = & pwsh -NoProfile -Command "
+                & '$script:installScript' -Uninstall -DryRun -Prefix '$tmp/prefix' 2>&1
+                exit 0
+            "
+            $combined = ($output | Out-String)
+            $combined | Should -Match '\[dry-run\] would remove: .*node'
+            $combined | Should -Match '\[dry-run\] would remove from User PATH: .*node'
+        }
+        finally {
+            Remove-Item -Path $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}

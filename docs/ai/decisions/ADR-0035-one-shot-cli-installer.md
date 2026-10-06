@@ -3,10 +3,11 @@
 **Date**: 2026-08-24
 **Status**: Accepted
 **Amended**: 2026-08-25 — tracking relocation and WSL storage semantics made explicit (Decision 9–10).
+**Amended**: 2026-10-06 — Node.js provisioning added; the "no runtime dependency on Node.js" statement is superseded (Decision 11).
 
 ## Context
 
-Issue #177 asked for a standard install mechanism for `ai-config`. The original goal recorded in #177 was `./configure && make && make install`, but the project distributable is a prebuilt `bun build --compile` binary plus a static `base/` snapshot. There are no user-facing build flags and no runtime dependency on Node.js for end users, so the install ceremony reduces to "fetch two artifacts and place them in a prefix."
+Issue #177 asked for a standard install mechanism for `ai-config`. The original goal recorded in #177 was `./configure && make && make install`, but the project distributable is a prebuilt `bun build --compile` binary plus a static `base/` snapshot. There are no user-facing build flags, so the install ceremony reduces to "fetch two artifacts and place them in a prefix." (Amended 2026-10-06: the installed workflow runs `npx tsx` at use time, so end users do have a Node.js >= 18 dependency; the one-shot installer now provisions it — see Decision 11.)
 
 There is also an ambiguity that motivated #177: "install ai-config" can mean either (a) install the CLI itself onto the user machine, or (b) install the ai-config runtime configuration into a target repository. These must be named and surfaced separately.
 
@@ -39,10 +40,13 @@ Two distribution shapes were considered:
 8. Windows execution-policy friction with `irm | iex` is addressed by documentation (`-ExecutionPolicy Bypass`) rather than by a code workaround.
 9. **Per-user tracking relocation**: `installed-projects.json` is read/written under `resolveStateDir()` (`~/.ai-config` / `%LOCALAPPDATA%\ai-config`); the `rootDir` parameter was dropped from `trackInstalledProject`/`removeTrackingEntry`. Tracking is independent of the (possibly read-only) install location.
 10. **WSL path semantics**: on WSL, `toTrackedPath()` converts the canonical install path to a Windows-native path (via `wslpath -w`) before storing; uninstall matches symmetrically. `isTempPath()` gates `%TEMP%` handling on `process.platform === 'win32'` (see the ADR-0031 amendment).
+11. **Node.js provisioning** (2026-10-06): the one-shot installer detects Node.js >= 18 on PATH and, when missing or too old, downloads a pinned Node.js release (`NODE_VERSION` / `$NodeVersion`, currently 24.13.0) from `nodejs.org/dist` into the owned prefix (`${PREFIX}/node` / `$Prefix\node`), adds it to PATH, and verifies it before continuing. `--skip-node-check` / `-SkipNodeCheck` bypasses detection and provisioning; `--dry-run` / `-DryRun` prints the plan without downloading. Self-uninstall removes the provisioned Node.js and its PATH entry along with the rest of the prefix (Decision 6). Policy: checksum verification of the nodejs.org download is deliberately out of scope (accepted risk), consistent with the existing release-asset download posture; the download base is overridable via `AI_CONFIG_NODE_BASE_URL` for tests. The provisioned Node.js is prepended to the user's PATH, so it becomes that user's default Node until uninstall. The provisioned Node.js is static until uninstall/reinstall; `NODE_VERSION` / `$NodeVersion` is bumped in the release checklist.
+12. **CLI repo-install Node prerequisite gate** (2026-10-06): the TypeScript CLI's `doInstall` (used by `ai-config install --repo` and `ai-config interactive`) runs a Node.js prerequisite check (`checkNode()` in `cli/src/lib/prereq.ts`) after the repo-exists guard and before any filesystem mutation. If Node.js is missing or below major 18, it logs `[ai-config] error: Node.js >= 18 is required (...)` and exits non-zero unless `--skip-node-check` is passed; `--dry-run` logs the check result and continues without failing. `ai-config interactive` inherits the gate because it delegates to `doInstall`; it does not expose its own bypass flag.
 
 ## Consequences
 
 - End users get a familiar Bun-style install experience with no build step and no repository clone required.
+- The installed workflow depends on Node.js >= 18 at use time (`npx tsx`); the one-shot installer provisions it user-locally when absent (Decision 11), so a fresh machine needs no manual Node.js install.
 - The CLI binary is relocatable because `resolveSourceDir()` (see ADR-0032 second amendment) resolves the snapshot relative to the executable location when `AI_CONFIG_HOME` is unset.
 - `installed-projects.json` moves out of the (possibly read-only) source/share directory and into the per-user prefix, removing a regression risk for read-only installed layouts.
 - Tracking survives a relocated or read-only install location because it is written to the per-user prefix, not the source/share directory (Decision 9); on WSL the stored path is Windows-native (Decision 10).
