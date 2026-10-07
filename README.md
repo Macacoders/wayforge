@@ -2,7 +2,11 @@
 
 `ai-config` installs a repeatable, task-based AI-assisted workflow into OpenCode projects. It provides shared agents, commands, skills, and a `docs/ai/` memory convention, managed from a single CLI.
 
-## Install
+## Getting started
+
+Five steps: install the CLI, connect providers, install the runtime into your repo, review the generated files, and onboard the repository with `/init`.
+
+### 1. Install the CLI
 
 Install the CLI with the one-shot installer:
 
@@ -26,7 +30,15 @@ Default prefix: `~/.ai-config` (Linux/macOS) or `%LOCALAPPDATA%\ai-config` (Wind
 - The one-shot installer provisions Node.js (>= 18) user-locally into the prefix when it is missing or too old — no manual install needed.
 - `ai-config install --repo` requires Node.js >= 18 on PATH; pass `--skip-node-check` to bypass the check.
 
-Install the runtime into a target repository:
+### 2. Connect providers
+
+Open the OpenCode TUI with `opencode`, then run `/connect` to authenticate a provider (API key or OAuth) and `/models` to pick a model. Credentials are stored by OpenCode outside the repo — nothing lands in your project.
+
+The provider IDs you connect must match the `enabled_providers` list and the `provider` block in `opencode.jsonc` (see step 4). See the [OpenCode providers doc](https://opencode.ai/docs/providers) for supported providers.
+
+### 3. Install the runtime into your repo
+
+Install the workflow into a target repository:
 
 ```bash
 ai-config install --repo /path/to/repo --providers openai
@@ -39,6 +51,24 @@ ai-config install --repo /path/to/repo --providers openai
 | `ai-config interactive` | Guided interactive installer |
 
 Use `--dry-run` to preview and `--force` to refresh managed files. Remove the CLI itself with `install.sh --uninstall` or `install.ps1 -Uninstall`.
+
+### 4. Review the generated files
+
+`ai-config install` writes two managed files into your repo — both are generated output, not source, and must not be hand-edited:
+
+- **`opencode.jsonc`** — the OpenCode runtime config: `$schema`, `enabled_providers`, `default_agent`, and `plugin` entries. Provider IDs here must match what you connected in step 2.
+- **`.ai-config-managed`** — the manifest of managed paths (with a `project_id` header) that tracks everything ai-config owns.
+
+To refresh them after a template update, re-run `ai-config install --repo <path> --force`.
+
+### 5. Onboard the repository with `/init`
+
+From the repo root, run `/init` in the OpenCode TUI. This is ai-config's overridden command (owned by the `planner` agent) and it initializes **both**:
+
+- **`docs/ai/` memory** — scaffolds and populates the durable memory convention: `architecture.md`, `decisions/` (ADRs), `logs/`, and `plans/`. See [`docs/ai/README.md`](./docs/ai/README.md).
+- **Root `AGENTS.md`** — generated from the `base/AGENTS.md` placeholder template, with every `[FILL IN]` placeholder filled with project-specific guidance. See [`AGENTS.md`](./AGENTS.md).
+
+If `AGENTS.md` already exists with useful content, `/init` improves it in place rather than replacing it.
 
 ### Use from source
 
@@ -57,7 +87,7 @@ See [`RELEASE.md`](./RELEASE.md) and [`CHANGELOG.md`](./CHANGELOG.md) for releas
 
 ## Use
 
-Work flows through four workflows: formalize intent, plan approved intent, track via issues, and deliver task by task.
+Work flows through five workflows: formalize intent, plan approved intent, track via issues, deliver task by task, and keep durable memory current.
 
 Node colors: gray = you · blue = `planner` · orange = `delivery` · green = `code` · purple = `research`.
 
@@ -102,6 +132,28 @@ flowchart LR
     class G delivery
 ```
 
+### GitHub authentication for `/issue`
+
+`/issue` talks to the GitHub Issues API through a GitHub App (OAuth Device Flow), not a personal access token. `.gh-config/app.yml` alone is not enough — it only stores the Client ID. The app itself must be created, permissioned, installed, and then authorized on first use.
+
+1. Create the app: go to [github.com/settings/apps](https://github.com/settings/apps) → **New GitHub App**.
+2. Set permissions: **Issues (Read & Write)** and **Pull Requests (Read & Write)**.
+3. Under **Identifying and authorizing users**, enable **Device Flow**.
+4. Save the app and copy the **Client ID** (GitHub shows it on the app page; modern IDs look like `Iv23li…`).
+5. Install the app on the target repository or organization (the app page → **Install App**).
+6. Supply the Client ID in one of these ways:
+   - Pass it at install time: `ai-config install --repo <path> --gh-app-client-id <client-id>` (writes `.gh-config/app.yml`), or
+   - Set the `GH_APP_CLIENT_ID` environment variable, or
+   - Hand-create `.gh-config/app.yml` in the repo with `client_id: <client-id>`.
+
+On the first `/issue` use, a one-time browser authorization opens (device flow). The token is cached at `.gh-config/github-token.json` (file mode `0600`) and refreshed silently afterwards.
+
+- `GH_CONFIG_DIR` overrides the config directory; otherwise the repo-local `.gh-config/` is used, falling back to `~/.config/opencode`.
+- `.gh-config/` is gitignored — never commit it.
+- Headless/CI: set `GITHUB_TOKEN` (or `GH_TOKEN`); it takes precedence over the device flow.
+
+Helper operations (list, create, claim, close, PR creation) are documented in [`base/opencode/skills/shared-task/SKILL.md`](./base/opencode/skills/shared-task/SKILL.md).
+
 ### `/issue`
 
 Create and track a shared GitHub Issue for a problem or idea.
@@ -143,6 +195,28 @@ flowchart LR
     class D code
     class G planner
 ```
+
+### `/memory`
+
+Find, check, and update durable `docs/ai/` memory with low-token routing — load only the smallest relevant files, never the whole memory tree.
+
+```mermaid
+flowchart LR
+    A["Question or finished task"] --> B{"/memory"}
+    B -- "find <topic>" --> C["Route to smallest docs/ai/ file(s)"]
+    B -- "check" --> D["Freshness check before review"]
+    B -- "update <summary>" --> E["Minimal durable update"]
+    C --> F["docs/ai/ stays compact"]
+    D --> F
+    E --> F
+
+    classDef user fill:#1f2937,stroke:#6b7280,color:#e5e7eb
+    classDef planner fill:#1e3a8a,stroke:#60a5fa,color:#dbeafe
+    class A user
+    class B,C,D,E,F planner
+```
+
+Deep memory guidance is in [`docs/ai/README.md`](./docs/ai/README.md); deterministic bookkeeping (`status`, `list-plans`, `list-adrs`, `close-check`, `init`) is in the [`ai-memory` skill](./base/opencode/skills/ai-memory/SKILL.md).
 
 ## Contribute
 
