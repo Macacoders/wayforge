@@ -137,7 +137,7 @@ function Build-UrlBase {
     else {
         $ref = "latest"
     }
-    return "https://github.com/${Repo}/releases/${ref}/download"
+    return "https://github.com/${Repo}/releases/download/${ref}"
 }
 
 # ---------------------------------------------------------------------------

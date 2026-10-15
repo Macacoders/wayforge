@@ -92,6 +92,26 @@ Describe 'Node detection and provisioning (-DryRun)' {
     }
 }
 
+Describe 'Release URL construction (-DryRun)' {
+    It 'builds releases/download/<tag> URLs' {
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $tmp | Out-Null
+        try {
+            $output = & pwsh -NoProfile -Command "
+                `$env:PATH = '$tmp'
+                & '$script:installScript' -DryRun -SkipNodeCheck -Version 9.9.9 -Prefix '$tmp/prefix' 2>&1
+                exit 0
+            "
+            $combined = ($output | Out-String)
+            $combined | Should -Match 'releases/download/v9\.9\.9/wayforge-'
+            $combined | Should -Not -Match 'releases/v9\.9\.9/download'
+        }
+        finally {
+            Remove-Item -Path $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 Describe 'Uninstall removes provisioned Node' {
     It 'dry-run uninstall mentions the node directory and its PATH entry' {
         $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))

@@ -334,7 +334,7 @@ build_url_base() {
 		return
 	fi
 
-	printf 'https://github.com/%s/releases/%s/download\n' "$REPO" "$TAG"
+	printf 'https://github.com/%s/releases/download/%s\n' "$REPO" "$TAG"
 }
 
 # ---------------------------------------------------------------------------
