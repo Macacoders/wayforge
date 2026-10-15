@@ -44,6 +44,10 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
+      - name: Install dependencies
+        shell: bash
+        run: bun install --frozen-lockfile
+
       - name: Read version
         id: version
         shell: bash
