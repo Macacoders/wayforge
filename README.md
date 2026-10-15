@@ -1,6 +1,6 @@
-# ai-config
+# wayforge
 
-`ai-config` installs a repeatable, task-based AI-assisted workflow into OpenCode projects. It provides shared agents, commands, skills, and a `docs/ai/` memory convention, managed from a single CLI.
+`wayforge` installs a repeatable, task-based AI-assisted workflow into OpenCode projects. It provides shared agents, commands, skills, and a `docs/ai/` memory convention, managed from a single CLI.
 
 ## Getting started
 
@@ -13,22 +13,22 @@ Install the CLI with the one-shot installer:
 **Linux / macOS**
 
 ```bash
-curl -fsSL https://github.com/Macacoders/ai-config/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/Macacoders/wayforge/releases/latest/download/install.sh | sh
 ```
 
 **Windows** (PowerShell)
 
 ```powershell
-powershell -c "irm https://github.com/Macacoders/ai-config/releases/latest/download/install.ps1 | iex"
+powershell -c "irm https://github.com/Macacoders/wayforge/releases/latest/download/install.ps1 | iex"
 ```
 
-Default prefix: `~/.ai-config` (Linux/macOS) or `%LOCALAPPDATA%\ai-config` (Windows).
+Default prefix: `~/.wayforge` (Linux/macOS) or `%LOCALAPPDATA%\wayforge` (Windows).
 
 ### Requirements
 
 - **Node.js >= 18** is required to run the installed workflow (skills and commands execute via `npx tsx`).
 - The one-shot installer provisions Node.js (>= 18) user-locally into the prefix when it is missing or too old — no manual install needed.
-- `ai-config install --repo` requires Node.js >= 18 on PATH; pass `--skip-node-check` to bypass the check.
+- `wfg install --repo` requires Node.js >= 18 on PATH; pass `--skip-node-check` to bypass the check.
 
 ### 2. Connect providers
 
@@ -41,29 +41,29 @@ The provider IDs you connect must match the `enabled_providers` list and the `pr
 Install the workflow into a target repository:
 
 ```bash
-ai-config install --repo /path/to/repo --providers openai
+wfg install --repo /path/to/repo --providers openai
 ```
 
 | Command | Purpose |
 |---|---|
-| `ai-config install --repo <path>` | Install runtime config into a repo |
-| `ai-config uninstall --repo <path>` | Remove ai-config managed files from a repo |
-| `ai-config interactive` | Guided interactive installer |
+| `wfg install --repo <path>` | Install runtime config into a repo |
+| `wfg uninstall --repo <path>` | Remove wayforge managed files from a repo |
+| `wfg interactive` | Guided interactive installer |
 
 Use `--dry-run` to preview and `--force` to refresh managed files. Remove the CLI itself with `install.sh --uninstall` or `install.ps1 -Uninstall`.
 
 ### 4. Review the generated files
 
-`ai-config install` writes two managed files into your repo — both are generated output, not source, and must not be hand-edited:
+`wfg install` writes two managed files into your repo — both are generated output, not source, and must not be hand-edited:
 
 - **`opencode.jsonc`** — the OpenCode runtime config: `$schema`, `enabled_providers`, `default_agent`, and `plugin` entries. Provider IDs here must match what you connected in step 2.
-- **`.ai-config-managed`** — the manifest of managed paths (with a `project_id` header) that tracks everything ai-config owns.
+- **`.wayforge-managed`** — the manifest of managed paths (with a `project_id` header) that tracks everything wayforge owns.
 
-To refresh them after a template update, re-run `ai-config install --repo <path> --force`.
+To refresh them after a template update, re-run `wfg install --repo <path> --force`.
 
 ### 5. Onboard the repository with `/init`
 
-From the repo root, run `/init` in the OpenCode TUI. This is ai-config's overridden command (owned by the `planner` agent) and it initializes **both**:
+From the repo root, run `/init` in the OpenCode TUI. This is wayforge's overridden command (owned by the `planner` agent) and it initializes **both**:
 
 - **`docs/ai/` memory** — scaffolds and populates the durable memory convention: `architecture.md`, `decisions/` (ADRs), `logs/`, and `plans/`. See [`docs/ai/README.md`](./docs/ai/README.md).
 - **Root `AGENTS.md`** — generated from the `base/AGENTS.md` placeholder template, with every `[FILL IN]` placeholder filled with project-specific guidance. See [`AGENTS.md`](./AGENTS.md).
@@ -75,8 +75,8 @@ If `AGENTS.md` already exists with useful content, `/init` improves it in place 
 Prefer a clone over the release? Run the installer straight from TypeScript source:
 
 ```bash
-git clone https://github.com/Macacoders/ai-config.git
-cd ai-config
+git clone https://github.com/Macacoders/wayforge.git
+cd wayforge
 npm install
 npx tsx cli/src/index.ts install --repo /path/to/your-project --providers openai
 ```
@@ -142,7 +142,7 @@ flowchart LR
 4. Save the app and copy the **Client ID** (GitHub shows it on the app page; modern IDs look like `Iv23li…`).
 5. Install the app on the target repository or organization (the app page → **Install App**).
 6. Supply the Client ID in one of these ways:
-   - Pass it at install time: `ai-config install --repo <path> --gh-app-client-id <client-id>` (writes `.gh-config/app.yml`), or
+   - Pass it at install time: `wfg install --repo <path> --gh-app-client-id <client-id>` (writes `.gh-config/app.yml`), or
    - Set the `GH_APP_CLIENT_ID` environment variable, or
    - Hand-create `.gh-config/app.yml` in the repo with `client_id: <client-id>`.
 

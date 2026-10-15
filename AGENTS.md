@@ -2,7 +2,7 @@
 
 ## Project overview
 
-`ai-config` ships a reusable AI-assisted development workflow for OpenCode: three primary agents (`planner`, `delivery`, `troubleshooter`), three subagents (`research`, `code`, `architect`), skills, commands, plugins, and a persistent `docs/ai/` memory convention. Users are this repo's maintainers and maintainers of consuming repos that install it. Agents most often touch `base/opencode/**` (source templates), `cli/src/**` (installer), and `docs/ai/**` (memory). See [README.md](README.md) for usage and [docs/ai/architecture.md](docs/ai/architecture.md) for architecture.
+`wayforge` ships a reusable AI-assisted development workflow for OpenCode: three primary agents (`planner`, `delivery`, `troubleshooter`), three subagents (`research`, `code`, `architect`), skills, commands, plugins, and a persistent `docs/ai/` memory convention. Users are this repo's maintainers and maintainers of consuming repos that install it. Agents most often touch `base/opencode/**` (source templates), `cli/src/**` (installer), and `docs/ai/**` (memory). See [README.md](README.md) for usage and [docs/ai/architecture.md](docs/ai/architecture.md) for architecture.
 
 ## Project structure
 
@@ -57,6 +57,6 @@ TypeScript (CLI): Prettier via `.prettierrc` — no semicolons, single quotes, t
 
 Stay inside the repository root (`git rev-parse --show-toplevel` when in a git repo, otherwise the working directory). Don't read or write outside it unless the user approves.
 
-## Working with ai-config
+## Working with wayforge
 
-This repository uses the ai-config workflow. Formalize and plan work with `/intent` then `/plan` (the `planner` agent). Track shared tasks with `/issue`. Implement approved plans with the `delivery` agent (`/load-plan`, `/implement-task`, `/review-task`). Load context progressively: start from this file and `README.md`, then route through `docs/ai/README.md` and load only what the task needs.
+This repository uses the wayforge workflow. Formalize and plan work with `/intent` then `/plan` (the `planner` agent). Track shared tasks with `/issue`. Implement approved plans with the `delivery` agent (`/load-plan`, `/implement-task`, `/review-task`). Load context progressively: start from this file and `README.md`, then route through `docs/ai/README.md` and load only what the task needs.

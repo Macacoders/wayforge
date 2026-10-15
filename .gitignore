@@ -47,5 +47,5 @@ temp/
 AGENTS.md.*
 opencode.jsonc
 kilo.jsonc
-.ai-config-managed
+.wayforge-managed
 installed-projects.json
