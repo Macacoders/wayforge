@@ -179,3 +179,27 @@ Human (requires pushing to `main` / external infra):
 - Registering the runner or installing host packages (operational preconditions above).
 - Updating the local git remote URL (operational precondition).
 - Version bump / tag creation / actual release cut.
+
+## Post-completion follow-up: missing dependency install (2026-10-15)
+
+The first live run of the retargeted workflow failed on every matrix job with:
+
+```text
+error: Could not resolve: "commander". Maybe you need to "bun install"?
+```
+
+**Root cause (pre-existing, not introduced by this plan):** `.github/workflows/release.yml` never had a dependency-install step. `actions/checkout` → `oven-sh/setup-bun@v2` → `bun build --compile` left `node_modules` empty, and `bun build` does not auto-install packages (bundler auto-install landed in a later Bun release, not 1.4.0). The same failure would have occurred on the original GitHub-hosted runners; it was latent from the day the workflow was written.
+
+**Fix** (`70cc59a` `fix(ci): install dependencies before compiling release binaries`) adds, after `setup-bun`:
+
+```yaml
+      - name: Install dependencies
+        shell: bash
+        run: bun install --frozen-lockfile
+```
+
+Verified on a clean tree (no `node_modules`): `bun install --frozen-lockfile` installs the workspace deps, `bun build --compile --target=bun-linux-x64` compiles, and the resulting binary reports the expected version. Release `v1.0.0` was then produced successfully.
+
+**Residual:** `--frozen-lockfile` is currently not pinning — no `bun.lock` is committed (the repo carries npm `package-lock.json`; `--frozen-lockfile` installs without erroring when no `bun.lock` exists). For reproducible CI installs, generate and commit `bun.lock` (`bun install`) and keep `--frozen-lockfile`, or switch the step to `actions/setup-node@v4` + `npm ci` to honor the existing npm lockfile. Not actioned.
+
+**Learning:** any CI job that runs `bun build --compile` must install dependencies first; `bun install` present in local workflows does not imply it is present in CI.

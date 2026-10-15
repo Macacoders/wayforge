@@ -73,6 +73,14 @@ run_installer() {
 	[[ "$output" != *"Node"* ]]
 }
 
+@test "install.sh builds releases/download/<tag> URLs" {
+	stub_node "v18.20.0"
+	run_installer
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"https://github.com/Macacoders/wayforge/releases/download/v9.9.9/wayforge-linux-x64"* ]]
+	[[ "$output" != *"releases/v9.9.9/download"* ]]
+}
+
 @test "install.sh --uninstall dry-run plans removal of the provisioned Node" {
 	run env PATH="$STUB_DIR" HOME="$TEST_HOME" /bin/sh "$REPO_ROOT/install/install.sh" --uninstall --dry-run --prefix "$TEST_PREFIX"
 	[ "$status" -eq 0 ]
