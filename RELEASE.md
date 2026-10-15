@@ -92,7 +92,7 @@ git push origin main
 git push origin v0.2.0   # if not already pushed
 ```
 
-Pushing the tag triggers the GitHub Actions release workflow (see [Release Automation](#release-automation)) which auto-creates the GitHub Release.
+Pushing `main` triggers the GitHub Actions release workflow (see [Release Automation](#release-automation)) which auto-creates the GitHub Release. The release version is read from the `VERSION` file, and the tag (`v<version>`) is derived from it by the workflow.
 
 ## Dry-Run Validation
 
@@ -230,7 +230,7 @@ After the initial release, subsequent releases follow the standard steps above.
 
 The following automation tools are now available:
 
-- **GitHub Actions workflow** (`.github/workflows/release.yml`): Auto-creates a GitHub Release when code is pushed or merged to `main`. The release version is read from the `VERSION` file, and the latest CHANGELOG entry is used as the release body.
+- **GitHub Actions workflow** (`.github/workflows/release.yml`): Auto-creates a GitHub Release when code is pushed or merged to `main`. The release version is read from the `VERSION` file (the tag `v<version>` is derived from it), and the latest CHANGELOG entry is used as the release body. The workflow runs on the project's self-hosted Linux x64 runner (`runs-on: [self-hosted, linux, x64]`); the trigger is `push: branches: [main]` — pushing the tag alone does not trigger it.
 - **Helper script** (`scripts/release.ts`): Automates preparation steps — update VERSION, update CHANGELOG, create annotated tag, and validate the working tree. Use `--dry-run` to preview operations.
 
 ### Using the helper script
@@ -255,13 +255,15 @@ The GitHub Actions workflow will detect the push to `main` and create the releas
 
 The `.github/workflows/release.yml` workflow builds and attaches the following artifacts automatically when a release is created:
 
-- **Platform binaries** produced by `bun build --compile`:
+- **Platform binaries** cross-compiled on the single self-hosted Linux x64 runner via `bun build --compile --target=<target>` (one matrix job per target; artifact names are unchanged):
   - `wayforge-linux-x64`
   - `wayforge-linux-arm64`
   - `wayforge-darwin-x64`
   - `wayforge-darwin-arm64`
   - `wayforge-win32-x64.exe`
   - `wayforge-win32-arm64.exe`
+
+  The runner must carry the default labels `[self-hosted, linux, x64]` and have these prerequisites installed: `git`, `curl`, `unzip`, `tar`, `ca-certificates`, `python3`, `gawk`, and `gh` (GitHub CLI). Because all six binaries are cross-compiled on a Linux host, the Windows and macOS binaries cannot be smoke-executed on the runner — for those targets verification is compile-only; run the downloaded asset on the matching platform to confirm it executes.
 - **Share archives** containing `base/` + `VERSION` at archive root:
   - `wayforge-share-<version>.tar.gz` (POSIX installer)
   - `wayforge-share-<version>.zip` (Windows installer)

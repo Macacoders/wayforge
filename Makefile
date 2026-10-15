@@ -17,7 +17,7 @@ cli-binary:
 		darwin) ;; \
 		*)      echo "error: unsupported OS: $$OS" >&2; exit 1 ;; \
 	esac; \
-	bun build ./cli/src/index.ts --compile --outfile "dist/wayforge-$$OS-$$ARCH" --define "process.env.WAYFORGE_VERSION:$$(cat VERSION)"
+	bun build ./cli/src/index.ts --compile --outfile "dist/wayforge-$$OS-$$ARCH" --define "process.env.WAYFORGE_VERSION:'$$(cat VERSION)'"
 
 # Bash/PowerShell lint checks deprecated (YAGNI) — installer migrated to TypeScript CLI
 check:
