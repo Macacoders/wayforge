@@ -3,7 +3,7 @@
 setup() {
 	REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
 	TEST_TMPDIR="$(mktemp -d)"
-	STUB_ROOT="$TEST_TMPDIR/ai-config-home"
+	STUB_ROOT="$TEST_TMPDIR/wayforge-home"
 	STUB_CLI_DIR="$STUB_ROOT/cli/src"
 	export CAPTURE_FILE="$TEST_TMPDIR/cli-args.txt"
 	TARGET_REPO="$TEST_TMPDIR/target-repo"
@@ -22,26 +22,26 @@ teardown() {
 	rm -rf "$TEST_TMPDIR"
 }
 
-@test "_ai_config_root prefers AI_CONFIG_HOME" {
-	run bash -c 'source "$1/install/bashrc_snippet.sh"; AI_CONFIG_HOME="$2"; _ai_config_root' _ "$REPO_ROOT" "$STUB_ROOT"
+@test "_wayforge_root prefers WAYFORGE_HOME" {
+	run bash -c 'source "$1/install/bashrc_snippet.sh"; WAYFORGE_HOME="$2"; _wayforge_root' _ "$REPO_ROOT" "$STUB_ROOT"
 	[ "$status" -eq 0 ]
 	[ "$output" = "$STUB_ROOT" ]
 }
 
-@test "ai-setup-repo requires a path" {
-	run bash -c 'source "$1/install/bashrc_snippet.sh"; ai-setup-repo' _ "$REPO_ROOT"
+@test "wayforge-setup-repo requires a path" {
+	run bash -c 'source "$1/install/bashrc_snippet.sh"; wayforge-setup-repo' _ "$REPO_ROOT"
 	[ "$status" -eq 1 ]
-	[[ "$output" == *"usage: ai-setup-repo <path>"* ]]
+	[[ "$output" == *"usage: wayforge-setup-repo <path>"* ]]
 }
 
-@test "ai-setup-repo rejects missing directories" {
-	run bash -c 'source "$1/install/bashrc_snippet.sh"; ai-setup-repo "$2"' _ "$REPO_ROOT" "$TEST_TMPDIR/does-not-exist"
+@test "wayforge-setup-repo rejects missing directories" {
+	run bash -c 'source "$1/install/bashrc_snippet.sh"; wayforge-setup-repo "$2"' _ "$REPO_ROOT" "$TEST_TMPDIR/does-not-exist"
 	[ "$status" -eq 1 ]
 	[[ "$output" == *"error: repo path does not exist: $TEST_TMPDIR/does-not-exist"* ]]
 }
 
-@test "ai-setup-repo-dry-run forwards install, repo path and dry-run flag" {
-	run bash -c 'source "$1/install/bashrc_snippet.sh"; AI_CONFIG_HOME="$2"; ai-setup-repo-dry-run "$3"' _ "$REPO_ROOT" "$STUB_ROOT" "$TARGET_REPO"
+@test "wayforge-setup-repo-dry-run forwards install, repo path and dry-run flag" {
+	run bash -c 'source "$1/install/bashrc_snippet.sh"; WAYFORGE_HOME="$2"; wayforge-setup-repo-dry-run "$3"' _ "$REPO_ROOT" "$STUB_ROOT" "$TARGET_REPO"
 	[ "$status" -eq 0 ]
 	run bash -c 'mapfile -t args <"$1"; printf "%s|%s|%s|%s\n" "${args[0]}" "${args[1]}" "${args[2]}" "${args[3]}"' _ "$CAPTURE_FILE"
 	[ "$status" -eq 0 ]

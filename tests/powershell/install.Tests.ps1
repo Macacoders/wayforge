@@ -24,7 +24,7 @@ Describe 'install.ps1 file structure' {
     }
 
     It 'allows overriding the Node download base URL for tests' {
-        $script:scriptContent | Should -Match 'AI_CONFIG_NODE_BASE_URL'
+        $script:scriptContent | Should -Match 'WAYFORGE_NODE_BASE_URL'
     }
 }
 

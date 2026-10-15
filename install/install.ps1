@@ -3,21 +3,21 @@
 
 <#
 .SYNOPSIS
-    One-shot installer for ai-config on Windows.
+    One-shot installer for wayforge on Windows.
 
 .DESCRIPTION
     Fetches the prebuilt binary and share archive for this platform and places
     them under a dedicated prefix. Supports install, uninstall, and dry-run.
 
 .PARAMETER Prefix
-    Installation directory. Defaults to %LOCALAPPDATA%\ai-config.
-    Override with the AI_CONFIG_INSTALL_DIR environment variable.
+    Installation directory. Defaults to %LOCALAPPDATA%\wayforge.
+    Override with the WAYFORGE_INSTALL_DIR environment variable.
 
 .PARAMETER Version
     Version to install (e.g. "1.2.3" or "v1.2.3"). Defaults to the latest release.
 
 .PARAMETER Uninstall
-    Remove ai-config from the prefix.
+    Remove wayforge from the prefix.
 
 .PARAMETER DryRun
     Print actions without performing them.
@@ -41,17 +41,17 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$Repo = "Macacoders/ai-config"
+$Repo = "Macacoders/wayforge"
 if ($env:LOCALAPPDATA) {
-    $DefaultPrefix = Join-Path $env:LOCALAPPDATA "ai-config"
+    $DefaultPrefix = Join-Path $env:LOCALAPPDATA "wayforge"
 } else {
     # LOCALAPPDATA is absent on non-Windows hosts (e.g. CI smoke tests);
     # fall back to a home-directory prefix so -DryRun stays testable anywhere.
-    $DefaultPrefix = Join-Path $HOME ".ai-config"
+    $DefaultPrefix = Join-Path $HOME ".wayforge"
 }
 
-if ($env:AI_CONFIG_INSTALL_DIR) {
-    $Prefix = $env:AI_CONFIG_INSTALL_DIR
+if ($env:WAYFORGE_INSTALL_DIR) {
+    $Prefix = $env:WAYFORGE_INSTALL_DIR
 }
 elseif (-not $Prefix) {
     $Prefix = $DefaultPrefix
@@ -66,10 +66,10 @@ if ($Version) {
 # Node.js provisioning
 # ---------------------------------------------------------------------------
 # Pinned LTS version, minimum major, and download base (override the base
-# with AI_CONFIG_NODE_BASE_URL for tests).
+# with WAYFORGE_NODE_BASE_URL for tests).
 $NodeMinMajor = 18
 $NodeVersion = "24.13.0"
-$NodeBaseUrl = if ($env:AI_CONFIG_NODE_BASE_URL) { $env:AI_CONFIG_NODE_BASE_URL } else { "https://nodejs.org/dist" }
+$NodeBaseUrl = if ($env:WAYFORGE_NODE_BASE_URL) { $env:WAYFORGE_NODE_BASE_URL } else { "https://nodejs.org/dist" }
 
 # ---------------------------------------------------------------------------
 # Platform detection
@@ -80,7 +80,7 @@ $NodeBaseUrl = if ($env:AI_CONFIG_NODE_BASE_URL) { $env:AI_CONFIG_NODE_BASE_URL 
 # PowerShell on 64-bit Windows returns x86; we therefore reject based on OS
 # bitness, not process architecture.
 if (-not [Environment]::Is64BitOperatingSystem) {
-    Write-Error "error: ai-config requires a 64-bit operating system" -ErrorAction Stop
+    Write-Error "error: wayforge requires a 64-bit operating system" -ErrorAction Stop
 }
 $archEnv = $env:PROCESSOR_ARCHITECTURE
 if ($archEnv -and $archEnv -eq "ARM64") {
@@ -90,7 +90,7 @@ else {
     $Arch = "x64"
 }
 
-$BinaryName = "ai-config-win32-${Arch}.exe"
+$BinaryName = "wayforge-win32-${Arch}.exe"
 
 # ---------------------------------------------------------------------------
 # Version resolution
@@ -205,7 +205,7 @@ function Install-LocalNode {
 
     # The Node zip contains a top-level node-v<ver>-win-<arch>\ folder; expand
     # to a temp dir and move its contents so node.exe lands at nodeDir\node.exe.
-    $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("ai-config-node-" + [System.Guid]::NewGuid().ToString("N"))
+    $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("wayforge-node-" + [System.Guid]::NewGuid().ToString("N"))
     $tmpZip = Join-Path $env:TEMP $archive
     try {
         Invoke-WebRequest -Uri $url -OutFile $tmpZip -UseBasicParsing
@@ -275,7 +275,7 @@ function Ensure-Node {
 # ---------------------------------------------------------------------------
 # Install path
 # ---------------------------------------------------------------------------
-function Install-AiConfig {
+function Install-Wayforge {
     $resolvedVersion = if ($Version) { $Version } else { Resolve-LatestVersion }
     if (-not $resolvedVersion) {
         Write-Error "error: version could not be determined" -ErrorAction Stop
@@ -284,13 +284,13 @@ function Install-AiConfig {
     Ensure-Node
 
     $baseUrl = Build-UrlBase
-    $shareName = "ai-config-share-${resolvedVersion}.zip"
+    $shareName = "wayforge-share-${resolvedVersion}.zip"
     $binaryUrl = "${baseUrl}/${BinaryName}"
     $shareUrl = "${baseUrl}/${shareName}"
 
     $binDir = Join-Path $Prefix "bin"
-    $shareDir = Join-Path $Prefix (Join-Path "share" "ai-config")
-    $binaryPath = Join-Path $binDir "ai-config.exe"
+    $shareDir = Join-Path $Prefix (Join-Path "share" "wayforge")
+    $binaryPath = Join-Path $binDir "wfg.exe"
 
     if ($DryRun) {
         $baseCheck = Join-Path $shareDir "base"
@@ -315,7 +315,7 @@ function Install-AiConfig {
     Invoke-WebRequest -Uri $binaryUrl -OutFile $tmpBinary -UseBasicParsing
     Move-Item -Path $tmpBinary -Destination $binaryPath -Force
 
-    $tmpShare = Join-Path $env:TEMP "ai-config-share-${resolvedVersion}.zip"
+    $tmpShare = Join-Path $env:TEMP "wayforge-share-${resolvedVersion}.zip"
     Invoke-WebRequest -Uri $shareUrl -OutFile $tmpShare -UseBasicParsing
 
     if (Test-Path $shareDir) {
@@ -332,18 +332,18 @@ function Install-AiConfig {
 
     Add-UserPathEntry $binDir
 
-    Write-Host "ai-config ${resolvedVersion} installed to ${binaryPath}"
+    Write-Host "wayforge ${resolvedVersion} installed to ${binaryPath}"
     Write-Host "${binDir} added to your User PATH."
 }
 
 # ---------------------------------------------------------------------------
 # Uninstall path
 # ---------------------------------------------------------------------------
-function Uninstall-AiConfig {
+function Uninstall-Wayforge {
     $binDir = Join-Path $Prefix "bin"
-    $shareDir = Join-Path $Prefix (Join-Path "share" "ai-config")
+    $shareDir = Join-Path $Prefix (Join-Path "share" "wayforge")
     $nodeDir = Join-Path $Prefix "node"
-    $binaryPath = Join-Path $binDir "ai-config.exe"
+    $binaryPath = Join-Path $binDir "wfg.exe"
     $trackingFile = Join-Path $Prefix "installed-projects.json"
 
     if ($DryRun) {
@@ -380,15 +380,15 @@ function Uninstall-AiConfig {
         }
     }
 
-    Write-Host "ai-config uninstalled from ${Prefix}"
+    Write-Host "wayforge uninstalled from ${Prefix}"
 }
 
 # ---------------------------------------------------------------------------
 # Main dispatch
 # ---------------------------------------------------------------------------
 if ($Uninstall) {
-    Uninstall-AiConfig
+    Uninstall-Wayforge
 }
 else {
-    Install-AiConfig
+    Install-Wayforge
 }
