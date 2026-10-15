@@ -1,7 +1,7 @@
 {
-  "name": "ai-config",
+  "name": "wayforge",
   "private": true,
-  "description": "OpenCode AI configuration repository — TypeScript tooling workspace",
+  "description": "Wayforge AI-assisted development workflow repository — TypeScript tooling workspace",
   "workspaces": [
     "cli"
   ],

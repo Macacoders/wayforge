@@ -27,17 +27,17 @@ describe('resolveSourceDir', () => {
 		}
 	})
 
-	it('returns AI_CONFIG_HOME when env var is set', () => {
+	it('returns WAYFORGE_HOME when env var is set', () => {
 		const customPath = '/custom/ai/config/path'
-		vi.stubEnv('AI_CONFIG_HOME', customPath)
+		vi.stubEnv('WAYFORGE_HOME', customPath)
 
 		const result = resolveSourceDir()
 
 		expect(result).toBe(path.resolve(customPath))
 	})
 
-	it('treats empty-string AI_CONFIG_HOME as unset', () => {
-		vi.stubEnv('AI_CONFIG_HOME', '')
+	it('treats empty-string WAYFORGE_HOME as unset', () => {
+		vi.stubEnv('WAYFORGE_HOME', '')
 
 		const result = resolveSourceDir()
 
@@ -46,7 +46,7 @@ describe('resolveSourceDir', () => {
 	})
 
 	it('returns repo root via dev fallback when env unset', () => {
-		vi.stubEnv('AI_CONFIG_HOME', undefined)
+		vi.stubEnv('WAYFORGE_HOME', undefined)
 
 		const result = resolveSourceDir()
 
@@ -58,15 +58,15 @@ describe('resolveSourceDir', () => {
 		tempDir = fs.mkdtempSync(path.join(BASE, 'installed-'))
 		const prefix = path.join(tempDir, 'prefix')
 		fs.mkdirpSync(path.join(prefix, 'bin'))
-		fs.mkdirpSync(path.join(prefix, 'share', 'ai-config', 'base'))
+		fs.mkdirpSync(path.join(prefix, 'share', 'wayforge', 'base'))
 		vi.stubGlobal('process', {
 			...process,
-			execPath: path.join(prefix, 'bin', 'ai-config'),
+			execPath: path.join(prefix, 'bin', 'wayforge'),
 		})
 
 		const result = resolveSourceDir()
 
-		expect(result).toBe(path.join(prefix, 'share', 'ai-config'))
+		expect(result).toBe(path.join(prefix, 'share', 'wayforge'))
 	})
 
 	it('falls through to dev fallback when location-based base/ is absent', () => {
@@ -75,7 +75,7 @@ describe('resolveSourceDir', () => {
 		fs.mkdirpSync(path.join(prefix, 'bin'))
 		vi.stubGlobal('process', {
 			...process,
-			execPath: path.join(prefix, 'bin', 'ai-config'),
+			execPath: path.join(prefix, 'bin', 'wayforge'),
 		})
 
 		const result = resolveSourceDir()

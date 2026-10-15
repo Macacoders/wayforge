@@ -6,16 +6,16 @@ import { uninstallCommand } from './commands/uninstall.js'
 import { interactiveCommand } from './commands/interactive.js'
 import type { InstallOptions, Runtime } from './types.js'
 
-const program = new Command('ai-config')
+const program = new Command('wayforge')
 
 program
-	.name('ai-config')
-	.description('Cross-platform CLI installer for ai-config')
-	.version(process.env.AI_CONFIG_VERSION || '0.1.0', '-v, --version')
+	.name('wayforge')
+	.description('Cross-platform CLI installer for wayforge')
+	.version(process.env.WAYFORGE_VERSION || '0.1.0', '-v, --version')
 
 program
 	.command('install')
-	.description('Install ai-config managed files into a target repository')
+	.description('Install wayforge managed files into a target repository')
 	.requiredOption(
 		'--repo <path>',
 		'Link OpenCode config into a target project.',
@@ -44,7 +44,7 @@ program
 	)
 	.option(
 		'--ref <ref>',
-		'Fetch source from a specific Git ref (tag, branch, commit) on GitHub. Without --ref, installs from the local ai-config source tree.',
+		'Fetch source from a specific Git ref (tag, branch, commit) on GitHub. Without --ref, installs from the local wayforge source tree.',
 	)
 	.option(
 		'--gh-app-client-id <id>',
@@ -84,10 +84,10 @@ program
 
 program
 	.command('uninstall')
-	.description('Uninstall ai-config managed files from a target repository')
+	.description('Uninstall wayforge managed files from a target repository')
 	.requiredOption(
 		'--repo <path>',
-		'Uninstall ai-config managed files from the target project.',
+		'Uninstall wayforge managed files from the target project.',
 	)
 	.option(
 		'--dry-run',

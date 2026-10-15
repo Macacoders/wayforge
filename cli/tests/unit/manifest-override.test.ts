@@ -20,7 +20,7 @@ describe('syncManagedFile override behavior', () => {
 	let repo: string
 
 	beforeEach(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-config-override-test-'))
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wayforge-override-test-'))
 		repo = path.join(tmpDir, 'repo')
 		fs.mkdirpSync(repo)
 	})
@@ -75,7 +75,7 @@ describe('syncManagedTree override behavior', () => {
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'ai-config-tree-override-test-'),
+			path.join(os.tmpdir(), 'wayforge-tree-override-test-'),
 		)
 		repo = path.join(tmpDir, 'repo')
 		srcDir = path.join(tmpDir, 'source', '.opencode', 'agents')

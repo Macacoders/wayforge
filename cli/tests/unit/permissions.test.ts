@@ -169,7 +169,7 @@ describe("renderAgentWithCentralPermissions", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-config-perm-test-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "wayforge-perm-test-"));
   });
 
   afterEach(() => {

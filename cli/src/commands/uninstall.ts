@@ -26,7 +26,7 @@ function doUninstall(options: UninstallOptions): void {
 
 	const manifestPaths = readManagedManifest(repo)
 	if (manifestPaths.length === 0) {
-		ctx.log(`error: no .ai-config-managed found in ${repo}`)
+		ctx.log(`error: no .wayforge-managed found in ${repo}`)
 		process.exit(1)
 	}
 
@@ -42,7 +42,7 @@ function doUninstall(options: UninstallOptions): void {
 		rm(absPath, ctx)
 	}
 
-	const manifestPath = path.join(repo, '.ai-config-managed')
+	const manifestPath = path.join(repo, '.wayforge-managed')
 	if (fs.pathExistsSync(manifestPath)) {
 		rm(manifestPath, ctx)
 	}

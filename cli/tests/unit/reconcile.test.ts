@@ -48,8 +48,8 @@ function setupTargetRepo(repo: string): void {
 			`# ${sub} tracked`,
 		)
 		fs.writeFileSync(
-			path.join(repo, '.opencode', sub, 'tracked.md.ai-config-managed'),
-			'generated-by=ai-config-bootstrap',
+			path.join(repo, '.opencode', sub, 'tracked.md.wayforge-managed'),
+			'generated-by=wayforge-bootstrap',
 		)
 
 		// user-only file with no source counterpart
@@ -70,7 +70,7 @@ describe('findUnmanagedConflicts', () => {
 	let sourceDir: string
 
 	beforeEach(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-config-reconcile-'))
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wayforge-reconcile-'))
 		repo = path.join(tmpDir, 'repo')
 		sourceDir = path.join(tmpDir, 'source')
 		fs.mkdirpSync(repo)

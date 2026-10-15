@@ -23,9 +23,9 @@ describe("uninstallCommand", () => {
     stateDir = path.join(testDir, "home");
     repoDir = path.join(testDir, "repo");
     fs.mkdirpSync(stateDir);
-    fs.mkdirpSync(path.join(stateDir, ".ai-config"));
+    fs.mkdirpSync(path.join(stateDir, ".wayforge"));
     fs.mkdirpSync(repoDir);
-    trackingFile = path.join(stateDir, ".ai-config", "installed-projects.json");
+    trackingFile = path.join(stateDir, ".wayforge", "installed-projects.json");
     vi.spyOn(os, "homedir").mockReturnValue(stateDir);
   });
 
@@ -45,7 +45,7 @@ describe("uninstallCommand", () => {
 
   it("removes tracking entry from state dir when uninstalling a tracked project", () => {
     const manifest = "managed_paths:\n  - managed.txt\n";
-    fs.writeFileSync(path.join(repoDir, ".ai-config-managed"), manifest);
+    fs.writeFileSync(path.join(repoDir, ".wayforge-managed"), manifest);
     fs.writeFileSync(path.join(repoDir, "managed.txt"), "hello");
 
     const data = {
@@ -56,7 +56,7 @@ describe("uninstallCommand", () => {
           name: "repo",
           path: fs.realpathSync(repoDir),
           lastUpdated: "2025-01-01T12:00:00+01:00",
-          aiConfigVersion: "0.2.0",
+          wayforgeVersion: "0.2.0",
           installRef: "develop",
         },
         {
@@ -64,7 +64,7 @@ describe("uninstallCommand", () => {
           name: "other",
           path: "/some/other/path",
           lastUpdated: "2025-01-01T12:00:00+01:00",
-          aiConfigVersion: "0.2.0",
+          wayforgeVersion: "0.2.0",
           installRef: "develop",
         },
       ],
@@ -75,7 +75,7 @@ describe("uninstallCommand", () => {
 
     // Managed file and manifest should be removed.
     expect(fs.pathExistsSync(path.join(repoDir, "managed.txt"))).toBe(false);
-    expect(fs.pathExistsSync(path.join(repoDir, ".ai-config-managed"))).toBe(false);
+    expect(fs.pathExistsSync(path.join(repoDir, ".wayforge-managed"))).toBe(false);
 
     // Matching tracking entry should be removed from the state dir; the other stays.
     const after = JSON.parse(fs.readFileSync(trackingFile, "utf8"));
@@ -85,7 +85,7 @@ describe("uninstallCommand", () => {
 
   it("is a no-op when the tracking file is missing", () => {
     const manifest = "managed_paths:\n  - managed.txt\n";
-    fs.writeFileSync(path.join(repoDir, ".ai-config-managed"), manifest);
+    fs.writeFileSync(path.join(repoDir, ".wayforge-managed"), manifest);
     fs.writeFileSync(path.join(repoDir, "managed.txt"), "hello");
 
     expect(() => uninstallCommand({ repo: repoDir, dryRun: false })).not.toThrow();

@@ -2,14 +2,14 @@ import path from 'path'
 import fs from 'fs-extra'
 
 export function resolveSourceDir(): string {
-	if (process.env.AI_CONFIG_HOME) {
-		return path.resolve(process.env.AI_CONFIG_HOME)
+	if (process.env.WAYFORGE_HOME) {
+		return path.resolve(process.env.WAYFORGE_HOME)
 	}
 	const locationBased = path.join(
 		path.dirname(process.execPath),
 		'..',
 		'share',
-		'ai-config',
+		'wayforge',
 	)
 	if (fs.pathExistsSync(path.join(locationBased, 'base'))) {
 		return locationBased
