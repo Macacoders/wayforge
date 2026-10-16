@@ -112,6 +112,57 @@ Describe 'Release URL construction (-DryRun)' {
     }
 }
 
+Describe 'Latest release resolution (-DryRun, no -Version)' {
+    BeforeEach {
+        $script:tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:tmp | Out-Null
+    }
+    AfterEach {
+        Remove-Item -Path $script:tmp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'reads the final URL from BaseResponse.ResponseUri (Windows PowerShell 5.1 shape)' {
+        $stub = @"
+function Invoke-WebRequest {
+    [CmdletBinding()]
+    param([string]`$Uri, [switch]`$UseBasicParsing)
+    [pscustomobject]@{
+        BaseResponse = [pscustomobject]@{
+            ResponseUri = [uri]'https://github.com/Macacoders/wayforge/releases/tag/v9.9.9'
+        }
+    }
+}
+& '$script:installScript' -DryRun -SkipNodeCheck -Prefix '$script:tmp/prefix' 2>&1
+exit 0
+"@
+        $combined = (& pwsh -NoProfile -Command $stub | Out-String)
+        $combined | Should -Match '\[dry-run\] version: 9\.9\.9'
+        $combined | Should -Match 'releases/download/v9\.9\.9/wayforge-win32-x64\.exe'
+        $combined | Should -Not -Match 'releases/download/latest'
+    }
+
+    It 'reads the final URL from BaseResponse.RequestMessage.RequestUri (PowerShell 7 shape)' {
+        $stub = @"
+function Invoke-WebRequest {
+    [CmdletBinding()]
+    param([string]`$Uri, [switch]`$UseBasicParsing)
+    [pscustomobject]@{
+        BaseResponse = [pscustomobject]@{
+            ResponseUri = `$null
+            RequestMessage = [pscustomobject]@{ RequestUri = [uri]'https://github.com/Macacoders/wayforge/releases/tag/v9.9.9' }
+        }
+    }
+}
+& '$script:installScript' -DryRun -SkipNodeCheck -Prefix '$script:tmp/prefix' 2>&1
+exit 0
+"@
+        $combined = (& pwsh -NoProfile -Command $stub | Out-String)
+        $combined | Should -Match '\[dry-run\] version: 9\.9\.9'
+        $combined | Should -Match 'releases/download/v9\.9\.9/wayforge-win32-x64\.exe'
+        $combined | Should -Not -Match 'releases/download/latest'
+    }
+}
+
 Describe 'Uninstall removes provisioned Node' {
     It 'dry-run uninstall mentions the node directory and its PATH entry' {
         $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))

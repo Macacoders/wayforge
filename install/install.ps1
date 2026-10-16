@@ -98,19 +98,20 @@ $BinaryName = "wayforge-win32-${Arch}.exe"
 function Resolve-LatestVersion {
     $uri = "https://github.com/${Repo}/releases/latest"
     try {
-        $response = Invoke-WebRequest -Uri $uri -MaximumRedirection 0 -UseBasicParsing
-        $location = $response.Headers["Location"]
+        $response = Invoke-WebRequest -Uri $uri -UseBasicParsing
     }
     catch {
-        # With -MaximumRedirection 0 the redirect throws; headers are still
-        # exposed on the exception response.
-        if ($_.Exception.Response -and $_.Exception.Response.Headers) {
-            $location = $_.Exception.Response.Headers["Location"]
-        }
-        else {
-            Write-Error "error: unable to resolve latest release" -ErrorAction Stop
-        }
+        Write-Error "error: unable to resolve latest release" -ErrorAction Stop
     }
+
+    # /releases/latest redirects to /releases/tag/<tag>; read the final URL.
+    # Windows PowerShell 5.1 exposes it as BaseResponse.ResponseUri; PowerShell 7
+    # as BaseResponse.RequestMessage.RequestUri.
+    $finalUri = $response.BaseResponse.ResponseUri
+    if (-not $finalUri) {
+        $finalUri = $response.BaseResponse.RequestMessage.RequestUri
+    }
+    $location = "$finalUri"
 
     if (-not $location -or $location -notmatch "/tag/") {
         Write-Error "error: unable to resolve latest release (got ${location})" -ErrorAction Stop
@@ -127,17 +128,13 @@ function Resolve-LatestVersion {
 # URL construction
 # ---------------------------------------------------------------------------
 function Build-UrlBase {
+    param([Parameter(Mandatory)][string]$ResolvedVersion)
+
     if ($UrlBase) {
         return $UrlBase
     }
 
-    if ($Version) {
-        $ref = "v${Version}"
-    }
-    else {
-        $ref = "latest"
-    }
-    return "https://github.com/${Repo}/releases/download/${ref}"
+    return "https://github.com/${Repo}/releases/download/v${ResolvedVersion}"
 }
 
 # ---------------------------------------------------------------------------
@@ -283,7 +280,7 @@ function Install-Wayforge {
 
     Ensure-Node
 
-    $baseUrl = Build-UrlBase
+    $baseUrl = Build-UrlBase -ResolvedVersion $resolvedVersion
     $shareName = "wayforge-share-${resolvedVersion}.zip"
     $binaryUrl = "${baseUrl}/${BinaryName}"
     $shareUrl = "${baseUrl}/${shareName}"
