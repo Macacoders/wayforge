@@ -101,7 +101,7 @@ function Resolve-LatestVersion {
         $response = Invoke-WebRequest -Uri $uri -UseBasicParsing
     }
     catch {
-        Write-Error "error: unable to resolve latest release" -ErrorAction Stop
+        Write-Error "error: unable to resolve latest release: ${_}" -ErrorAction Stop
     }
 
     # /releases/latest redirects to /releases/tag/<tag>; read the final URL.
