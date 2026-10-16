@@ -22,6 +22,10 @@ List open issues (pull requests filtered out). Prints `#<n>\t<title>\tassignee:<
 
 Create an issue. `--body-file` reads the body from a file (e.g. `temp/issue-<slug>.md`); `--label` may be repeated. Validates that all required labels exist, then prints the issue URL.
 
+### edit `<issue-number>` [`--title <title>`] [`--body-file <path>`] [`--add-label <name>`]... [`--remove-label <name>`]...
+
+Update the title, body, and/or labels of an existing open issue. Requires at least one of `--title`, `--body-file`, `--add-label`, or `--remove-label`. `--body-file` behaves like `create` (path relative to cwd unless absolute). Title and/or body are applied in a single PATCH; label changes reuse the add/remove helpers — labels must already exist (no auto-create). Prints the issue URL.
+
 ### claim `<issue-number>`
 
 Assign the issue to the current user, set `status:doing`, drop `status:to-do`, and comment. Fails if the issue is already assigned or already `status:doing`.
@@ -56,9 +60,9 @@ Verify that all required labels exist; lists any missing labels and exits 1 if a
 
 ## Output conventions
 
-- `create` and `prclose` print the resulting URL on success.
+- `create`, `edit`, and `prclose` print the resulting URL on success.
 - `claim`, `assign`, `release`, and `close` are silent on success (exit 0).
-- `--json` emits machine-readable JSON instead of human-readable output.
+- `--json` emits machine-readable JSON instead of human-readable output; for `edit` it emits `{ number, url, updated_fields }` where `updated_fields` lists the applied changes (e.g. `["title","body","label+status:blocked","label-status:to-do"]`).
 - `--dry-run` prints the intended actions to stderr without mutating anything.
 - Failures print to stderr with exit 1 — check the exit code if captured output looks incomplete.
 
