@@ -72,6 +72,7 @@ function printUsage(): void {
     '  gh-issue.ts [--repo OWNER/REPO|-R OWNER/REPO] [--json] [--dry-run] labels-check',
     '  gh-issue.ts [--repo OWNER/REPO|-R OWNER/REPO] [--json] [--dry-run] list',
     '  gh-issue.ts [--repo OWNER/REPO|-R OWNER/REPO] [--json] [--dry-run] create <title> [--body-file <path>] [--label <name>]...',
+    '  gh-issue.ts [--repo OWNER/REPO|-R OWNER/REPO] [--json] [--dry-run] edit <issue-number> [--title <title>] [--body-file <path>] [--add-label <name>]... [--remove-label <name>]...',
     '  gh-issue.ts [--repo OWNER/REPO|-R OWNER/REPO] [--json] [--dry-run] claim <issue-number>',
     '  gh-issue.ts [--repo OWNER/REPO|-R OWNER/REPO] [--json] [--dry-run] assign <issue-number> <collaborator>',
     '  gh-issue.ts [--repo OWNER/REPO|-R OWNER/REPO] [--json] [--dry-run] release <issue-number> [--blocked <reason>]',
@@ -558,6 +559,129 @@ async function cmdCreate(ctx: GhContext, args: string[]): Promise<void> {
   }
 }
 
+async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
+  if (args.length < 1) {
+    console.error('Error: edit requires <issue-number>.');
+    throw new Error();
+  }
+
+  const issueNumber = Number(args[0]);
+  if (!Number.isInteger(issueNumber) || issueNumber < 1) {
+    console.error('Error: invalid issue number.');
+    throw new Error();
+  }
+
+  let title: string | undefined;
+  let bodyFile: string | undefined;
+  const addLabels: string[] = [];
+  const removeLabels: string[] = [];
+
+  for (let i = 1; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--title') {
+      i++;
+      if (i >= args.length) {
+        console.error('Error: --title requires a value.');
+        throw new Error();
+      }
+      title = args[i];
+    } else if (arg.startsWith('--title=')) {
+      title = arg.slice('--title='.length);
+    } else if (arg === '--body-file') {
+      i++;
+      if (i >= args.length) {
+        console.error('Error: --body-file requires a path.');
+        throw new Error();
+      }
+      bodyFile = args[i];
+    } else if (arg.startsWith('--body-file=')) {
+      bodyFile = arg.slice('--body-file='.length);
+    } else if (arg === '--add-label') {
+      i++;
+      if (i >= args.length) {
+        console.error('Error: --add-label requires a value.');
+        throw new Error();
+      }
+      addLabels.push(args[i]);
+    } else if (arg.startsWith('--add-label=')) {
+      addLabels.push(arg.slice('--add-label='.length));
+    } else if (arg === '--remove-label') {
+      i++;
+      if (i >= args.length) {
+        console.error('Error: --remove-label requires a value.');
+        throw new Error();
+      }
+      removeLabels.push(args[i]);
+    } else if (arg.startsWith('--remove-label=')) {
+      removeLabels.push(arg.slice('--remove-label='.length));
+    } else {
+      console.error(`Error: unknown edit option: ${arg}`);
+      throw new Error();
+    }
+  }
+
+  if (
+    title === undefined &&
+    bodyFile === undefined &&
+    addLabels.length === 0 &&
+    removeLabels.length === 0
+  ) {
+    console.error(
+      'Error: edit requires at least one of --title, --body-file, --add-label, --remove-label.',
+    );
+    throw new Error();
+  }
+
+  if (ctx.dryRun) {
+    const parts = [`[DRY-RUN] would edit issue #${issueNumber}`];
+    if (title !== undefined) parts.push(`title='${title}'`);
+    if (bodyFile) parts.push(`body-file='${bodyFile}'`);
+    if (addLabels.length) parts.push(`add-labels=[${addLabels.join(', ')}]`);
+    if (removeLabels.length) parts.push(`remove-labels=[${removeLabels.join(', ')}]`);
+    console.error(parts.join(' '));
+    return;
+  }
+
+  await ensureRequiredLabels(ctx);
+  const issue = await getIssue(ctx, issueNumber);
+  await ensureOpenIssue(issue);
+
+  const patch: { title?: string; body?: string } = {};
+  const updatedFields: string[] = [];
+
+  if (title !== undefined) {
+    patch.title = title;
+    updatedFields.push('title');
+  }
+  if (bodyFile) {
+    let resolvedFile = bodyFile;
+    if (!path.isAbsolute(bodyFile)) {
+      resolvedFile = path.resolve(process.cwd(), bodyFile);
+    }
+    patch.body = readFileSync(resolvedFile, 'utf8');
+    updatedFields.push('body');
+  }
+
+  if (Object.keys(patch).length > 0) {
+    await api(ctx, 'PATCH', `/repos/${ctx.repo}/issues/${issueNumber}`, patch);
+  }
+
+  for (const label of addLabels) {
+    await addLabel(ctx, issueNumber, label);
+    updatedFields.push(`label+${label}`);
+  }
+  for (const label of removeLabels) {
+    await removeLabel(ctx, issueNumber, label);
+    updatedFields.push(`label-${label}`);
+  }
+
+  if (ctx.jsonMode) {
+    outputJson({ number: issueNumber, url: issue.html_url, updated_fields: updatedFields });
+  } else {
+    process.stdout.write(`${issue.html_url}\n`);
+  }
+}
+
 async function cmdClaim(ctx: GhContext, args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: claim requires <issue-number>.');
@@ -987,6 +1111,9 @@ export async function main(
     case 'create':
       await cmdCreate(ctx, cmdArgs);
       break;
+    case 'edit':
+      await cmdEdit(ctx, cmdArgs);
+      break;
     case 'claim':
       await cmdClaim(ctx, cmdArgs);
       break;
@@ -1018,7 +1145,7 @@ export async function main(
 // ── Exports for testing ─────────────────────────────────────────────────────
 
 export {
-  addAssignee, addComment, addLabel, api, apiGet, apiPost, buildPRBody, closeIssue, cmdAssign, cmdCheck, cmdClaim, cmdClose, cmdCreate, cmdLabelsCheck,
+  addAssignee, addComment, addLabel, api, apiGet, apiPost, buildPRBody, closeIssue, cmdAssign, cmdCheck, cmdClaim, cmdClose, cmdCreate, cmdEdit, cmdLabelsCheck,
   cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureOpenIssue, ensureRequiredLabels, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
   getIssueFirstAssignee, getIssueState, getRepoLabels, issueHasLabel, output,
   outputJson, prBodyScratchPath, printUsage, removeAssignee, removeLabel, REQUIRED_LABELS, resolveRepo, resolveToken, slugify

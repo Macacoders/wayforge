@@ -617,6 +617,160 @@ describe('cmdCreate', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Edit operation
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('cmdEdit', () => {
+  /** Mock the full edit flow: labels guard, GET issue, PATCH issue, label add/remove */
+  function mockEditFlow(issue = DEFAULT_ISSUE): void {
+    let labelsCallCount = 0;
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = opts?.method ?? 'GET';
+      if (url.includes('/labels?per_page=100') && method === 'GET') {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
+      if (url.includes('/issues/1') && method === 'GET') {
+        return Promise.resolve(okResponse(issue));
+      }
+      if (url.includes('/issues/1') && method === 'PATCH') {
+        return Promise.resolve(okResponse(issue));
+      }
+      if (url.includes('/issues/1/labels') && method === 'POST') {
+        return Promise.resolve(okResponse({}));
+      }
+      if (url.includes('/labels/') && method === 'DELETE') {
+        return Promise.resolve({ ok: true, status: 204, headers: new Headers(), text: async () => '' });
+      }
+      return Promise.reject(new Error(`Unexpected: ${method} ${url}`));
+    });
+  }
+
+  function patchCalls(): Array<[string, RequestInit]> {
+    return mockFetch.mock.calls.filter(
+      ([url, opts]: [string, RequestInit]) =>
+        url.includes('/issues/1') && opts?.method === 'PATCH',
+    );
+  }
+
+  function captureStdout(): string[] {
+    const stdout: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      stdout.push(String(chunk));
+      return true;
+    });
+    return stdout;
+  }
+
+  it('updates title only via a single PATCH', async () => {
+    mockEditFlow();
+    const stdout = captureStdout();
+
+    await gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed']);
+
+    const patches = patchCalls();
+    expect(patches).toHaveLength(1);
+    expect(JSON.parse(patches[0][1].body as string)).toEqual({ title: 'Renamed' });
+    expect(stdout.join('')).toContain(DEFAULT_ISSUE.html_url);
+  });
+
+  it('updates body only from --body-file via a single PATCH', async () => {
+    mockEditFlow();
+    mockReadFileSync.mockReturnValue('new body');
+
+    await gh.cmdEdit(baseCtx, ['1', '--body-file', 'body.md']);
+
+    const patches = patchCalls();
+    expect(patches).toHaveLength(1);
+    expect(JSON.parse(patches[0][1].body as string)).toEqual({ body: 'new body' });
+  });
+
+  it('adds and removes labels without PATCHing the issue', async () => {
+    mockEditFlow();
+
+    await gh.cmdEdit(baseCtx, ['1', '--add-label', 'type:bug', '--remove-label', 'status:to-do']);
+
+    expect(patchCalls()).toHaveLength(0);
+    const postUrls = mockFetch.mock.calls
+      .filter(([url, opts]: [string, RequestInit]) => url.includes('/issues/1/labels') && opts?.method === 'POST')
+      .map(([url]: [string, RequestInit]) => url);
+    expect(postUrls).toHaveLength(1);
+    const deleteUrls = mockFetch.mock.calls
+      .filter(([url, opts]: [string, RequestInit]) => url.includes('/labels/') && opts?.method === 'DELETE')
+      .map(([url]: [string, RequestInit]) => url);
+    expect(deleteUrls.some((u) => u.includes('status%3Ato-do'))).toBe(true);
+  });
+
+  it('combines --title and --body-file into a single PATCH', async () => {
+    mockEditFlow();
+    mockReadFileSync.mockReturnValue('new body');
+
+    await gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed', '--body-file', 'body.md']);
+
+    const patches = patchCalls();
+    expect(patches).toHaveLength(1);
+    expect(JSON.parse(patches[0][1].body as string)).toEqual({ title: 'Renamed', body: 'new body' });
+  });
+
+  it('throws when no title/body/label option is given', async () => {
+    await expect(gh.cmdEdit(baseCtx, [])).rejects.toThrow(Error);
+    await expect(gh.cmdEdit(baseCtx, ['1'])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('throws on unknown option', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--bogus'])).rejects.toThrow(Error);
+  });
+
+  it('throws when a flag is missing its value', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--title'])).rejects.toThrow(Error);
+    await expect(gh.cmdEdit(baseCtx, ['1', '--body-file'])).rejects.toThrow(Error);
+    await expect(gh.cmdEdit(baseCtx, ['1', '--add-label'])).rejects.toThrow(Error);
+    await expect(gh.cmdEdit(baseCtx, ['1', '--remove-label'])).rejects.toThrow(Error);
+  });
+
+  it('parses --flag=value syntax', async () => {
+    mockEditFlow();
+
+    await gh.cmdEdit(baseCtx, ['1', '--title=Eq Title', '--add-label=type:bug']);
+
+    const patches = patchCalls();
+    expect(patches).toHaveLength(1);
+    expect(JSON.parse(patches[0][1].body as string)).toEqual({ title: 'Eq Title' });
+  });
+
+  it('does not call the API in --dry-run', async () => {
+    await gh.cmdEdit({ ...baseCtx, dryRun: true }, ['1', '--title', 'Renamed']);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('outputs JSON with updated_fields in --json mode', async () => {
+    mockEditFlow();
+    const stdout = captureStdout();
+
+    await gh.cmdEdit(
+      { ...baseCtx, jsonMode: true },
+      ['1', '--title', 'Renamed', '--add-label', 'type:bug', '--remove-label', 'status:to-do'],
+    );
+
+    const json = JSON.parse(stdout.join(''));
+    expect(json).toEqual({
+      number: 1,
+      url: DEFAULT_ISSUE.html_url,
+      updated_fields: ['title', 'label+type:bug', 'label-status:to-do'],
+    });
+  });
+
+  it('throws when the issue is closed', async () => {
+    mockEditFlow({ ...DEFAULT_ISSUE, state: 'closed' });
+
+    await expect(gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed'])).rejects.toThrow('not open');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Claim operation
 // ─────────────────────────────────────────────────────────────────────────────
 
