@@ -1076,6 +1076,7 @@ describe('cmdPrclose', () => {
         return Promise.resolve(okResponse({ default_branch: 'main' }));
       }
       if (url.includes('/user') && method === 'GET') { return Promise.resolve(okResponse({ login: 'testuser' })); }
+      if (url.includes('/pulls/42/requested_reviewers') && method === 'POST') { return Promise.resolve(okResponse({}, 201)); }
       if (url.includes('/pulls') && method === 'POST') { return Promise.resolve(okResponse(PR_RESPONSE)); }
       if (url.includes('/comments') && method === 'POST') { return Promise.resolve(okResponse({})); }
       if (url.includes('/labels/') && method === 'DELETE') {
@@ -1094,6 +1095,13 @@ describe('cmdPrclose', () => {
 
     await gh.cmdPrclose(baseCtx, ['1', 'Ready for review']);
     expect(stdout.join('')).toContain(PR_RESPONSE.html_url);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.github.com/repos/test/repo/pulls/42/requested_reviewers',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ team_reviewers: ['wayforge-maintainers'] }),
+      }),
+    );
   });
 
   it('stages all working-tree changes on protected branches and prints the commit scope', async () => {
@@ -1136,6 +1144,7 @@ describe('cmdPrclose', () => {
         return Promise.resolve(okResponse({ default_branch: 'main' }));
       }
       if (url.includes('/user') && method === 'GET') { return Promise.resolve(okResponse({ login: 'testuser' })); }
+      if (url.includes('/pulls/42/requested_reviewers') && method === 'POST') { return Promise.resolve(okResponse({}, 201)); }
       if (url.includes('/pulls') && method === 'POST') { return Promise.resolve(okResponse(PR_RESPONSE)); }
       if (url.includes('/comments') && method === 'POST') { return Promise.resolve(okResponse({})); }
       if (url.includes('/labels/') && method === 'DELETE') {
@@ -1165,6 +1174,81 @@ describe('cmdPrclose', () => {
     expect(mockExecFileSync).toHaveBeenCalledWith('git', ['push', '-u', 'origin', 'feature/issue-1-test-issue'], { encoding: 'utf8', cwd: undefined, timeout: 30000 });
     // The old tracked-only staging must NOT be used
     expect(mockExecFileSync).not.toHaveBeenCalledWith('git', ['add', '-u'], expect.anything());
+  });
+
+  it('warns and still completes when the team review request fails', async () => {
+    const PR_RESPONSE = {
+      html_url: 'https://github.com/test/repo/pull/42',
+      number: 42,
+      title: 'PR Title',
+      state: 'open',
+    };
+
+    let labelsCallCount = 0;
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = opts?.method ?? 'GET';
+      if (url.includes('/labels?per_page=100') && method === 'GET') {
+        labelsCallCount++;
+        return Promise.resolve(
+          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+        );
+      }
+      if (url.includes('/issues/1') && method === 'GET') { return Promise.resolve(okResponse(DEFAULT_ISSUE)); }
+      if (url === 'https://api.github.com/repos/test/repo' && method === 'GET') {
+        return Promise.resolve(okResponse({ default_branch: 'main' }));
+      }
+      if (url.includes('/user') && method === 'GET') { return Promise.resolve(okResponse({ login: 'testuser' })); }
+      if (url.includes('/pulls/42/requested_reviewers') && method === 'POST') {
+        return Promise.resolve(errorResponse(422, 'Reviews may only be requested from collaborators.'));
+      }
+      if (url.includes('/pulls') && method === 'POST') { return Promise.resolve(okResponse(PR_RESPONSE)); }
+      if (url.includes('/comments') && method === 'POST') { return Promise.resolve(okResponse({})); }
+      if (url.includes('/labels/') && method === 'DELETE') {
+        return Promise.resolve({ ok: true, status: 204, headers: new Headers(), text: async () => '' });
+      }
+      if (url.includes('/issues/1/labels') && method === 'POST') { return Promise.resolve(okResponse({})); }
+      if (url.includes('/issues/42/assignees') && method === 'POST') { return Promise.resolve(okResponse({})); }
+      return Promise.reject(new Error(`Unexpected fetch: ${method} ${url}`));
+    });
+
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      stdout.push(String(chunk));
+      return true;
+    });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+      stderr.push(String(chunk));
+      return true;
+    });
+
+    // The failed review request must not reject cmdPrclose
+    await expect(gh.cmdPrclose(baseCtx, ['1', 'Ready for review'])).resolves.toBeUndefined();
+
+    stderrSpy.mockRestore();
+
+    // PR URL still printed
+    expect(stdout.join('')).toContain(PR_RESPONSE.html_url);
+    // Warning names the PR and the team
+    expect(stderr.join('')).toContain('wayforge-maintainers');
+    expect(stderr.join('')).toContain('PR #42');
+    // The review request was attempted with the team payload
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.github.com/repos/test/repo/pulls/42/requested_reviewers',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ team_reviewers: ['wayforge-maintainers'] }),
+      }),
+    );
+    // Issue comment and label transitions still happened
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.github.com/repos/test/repo/issues/1/comments',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.github.com/repos/test/repo/issues/1/labels',
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 
   it('throws when issue number is missing', async () => {

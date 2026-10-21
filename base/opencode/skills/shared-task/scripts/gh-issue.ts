@@ -14,6 +14,9 @@ const git = (args: string[], cwd?: string, t?: number) =>
 const GITHUB_API_BASE = 'https://api.github.com';
 const API_VERSION = '2022-11-28';
 
+/** Team requested as reviewer on every PR created by `prclose` (Issue #234). */
+const PR_REVIEW_TEAM = 'wayforge-maintainers';
+
 const REQUIRED_LABELS = [
   'status:to-do',
   'status:doing',
@@ -291,6 +294,20 @@ async function addComment(ctx: GhContext, issueNumber: number, body: string): Pr
     return;
   }
   await apiPost(ctx, `/repos/${ctx.repo}/issues/${issueNumber}/comments`, { body });
+}
+
+/** Request a team review on a PR. Non-fatal: warns on stderr if the API call fails. */
+async function requestTeamReview(ctx: GhContext, prNumber: number, team: string): Promise<void> {
+  if (ctx.dryRun) {
+    console.error(`[DRY-RUN] request review from team '${team}' on PR #${prNumber}`);
+    return;
+  }
+  try {
+    await apiPost(ctx, `/repos/${ctx.repo}/pulls/${prNumber}/requested_reviewers`, { team_reviewers: [team] });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`⚠ could not request review from team '${team}' on PR #${prNumber}: ${message}\n`);
+  }
 }
 
 async function closeIssue(ctx: GhContext, issueNumber: number): Promise<void> {
@@ -802,6 +819,7 @@ async function cmdPrclose(ctx: GhContext, args: string[]): Promise<void> {
   // Early dry-run guard — skip all local git checks and API calls
   if (ctx.dryRun) {
     console.error(`[DRY-RUN] would create PR for issue #${issueNumber}`);
+    console.error(`[DRY-RUN] would request review from team '${PR_REVIEW_TEAM}'`);
     console.error(`[DRY-RUN] would update labels to status:in-review`);
     return;
   }
@@ -882,6 +900,7 @@ async function cmdPrclose(ctx: GhContext, args: string[]): Promise<void> {
     maintainer_can_modify: true,
   });
   await addAssignee(ctx, pr.number, me);
+  await requestTeamReview(ctx, pr.number, PR_REVIEW_TEAM);
   const prUrl = pr.html_url;
   process.stdout.write(`${prUrl}\n`);
 
@@ -1021,7 +1040,7 @@ export {
   addAssignee, addComment, addLabel, api, apiGet, apiPost, buildPRBody, closeIssue, cmdAssign, cmdCheck, cmdClaim, cmdClose, cmdCreate, cmdLabelsCheck,
   cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureOpenIssue, ensureRequiredLabels, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
   getIssueFirstAssignee, getIssueState, getRepoLabels, issueHasLabel, output,
-  outputJson, prBodyScratchPath, printUsage, removeAssignee, removeLabel, REQUIRED_LABELS, resolveRepo, resolveToken, slugify
+  outputJson, PR_REVIEW_TEAM, prBodyScratchPath, printUsage, removeAssignee, removeLabel, requestTeamReview, REQUIRED_LABELS, resolveRepo, resolveToken, slugify
 };
 
 // ── Main entry guard ─────────────────────────────────────────────────────────
