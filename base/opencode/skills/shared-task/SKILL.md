@@ -40,7 +40,7 @@ Comment (default `"Completed and validated."`), drop all status labels, and clos
 
 ### prclose `<issue-number>` [`completion-summary`]
 
-Create a pull request for the issue. Requires an active local branch and (on non-protected branches) a clean working tree. On a protected branch (`main`/`master`/`develop`) it auto-creates `feature/issue-<n>-<slug>`, commits, and pushes. The PR body is `temp/pr-body-<issue>.md` when present, else `.github/pull_request_template.md`, else default Summary / Testing / Breaking changes sections. Prints the PR URL, comments on the issue, and sets `status:in-review`. After creating the PR it requests a review from the `wayforge-maintainers` team; if that request fails (e.g. the team does not exist in the repo's org), it only prints a warning to stderr and the command still succeeds.
+Create a pull request for the issue. Requires an active local branch and (on non-protected branches) a clean working tree. On a protected branch (`main`/`master`/`develop`) it auto-creates `feature/issue-<n>-<slug>`, commits, and pushes. The PR body is `temp/pr-body-<issue>.md` when present, else `.github/pull_request_template.md`, else default Summary / Testing / Breaking changes sections. The script prepends `Fixes #<issue>` unless the body already contains a closing keyword for that issue. Prints the PR URL, comments on the issue, and sets `status:in-review`. After creating the PR it requests a review from the `wayforge-maintainers` team; if that request fails (e.g. the team does not exist in the repo's org), it only prints a warning to stderr and the command still succeeds.
 
 ### show `<issue-number>`
 

@@ -1300,6 +1300,35 @@ describe('buildPRBody', () => {
     expect(body).toContain('Custom agent-generated content');
   });
 
+  it('does not duplicate the closing keyword when the temp body already has one', () => {
+    mockExistsSync.mockReturnValueOnce(true);
+    mockReadFileSync.mockReturnValue('Fixes #1\n\n## Summary\n\nAlready closes the issue.');
+
+    const body = gh.buildPRBody(1);
+
+    expect(body.match(/Fixes #1/g)).toHaveLength(1);
+  });
+
+  it('does not prepend when the temp body closes the issue with another keyword', () => {
+    mockExistsSync.mockReturnValueOnce(true);
+    mockReadFileSync.mockReturnValue('## Summary\n\nCloses #1.');
+
+    const body = gh.buildPRBody(1);
+
+    expect(body).not.toContain('Fixes #1');
+    expect(body.match(/Closes #1/g)).toHaveLength(1);
+  });
+
+  it('still prepends when the temp body only closes a different issue', () => {
+    mockExistsSync.mockReturnValueOnce(true);
+    mockReadFileSync.mockReturnValue('Fixes #2\n\n## Summary\n\nDifferent issue.');
+
+    const body = gh.buildPRBody(1);
+
+    expect(body.startsWith('Fixes #1')).toBe(true);
+    expect(body).toContain('Fixes #2');
+  });
+
   it('reads the scratch file from the canonical prBodyScratchPath (drift guard)', () => {
     mockExistsSync.mockReturnValueOnce(true).mockReturnValueOnce(false);
     mockReadFileSync.mockReturnValue('Scratch content');
