@@ -392,26 +392,17 @@ function prBodyScratchPath(repoRoot: string, issueNumber: number): string {
   return path.join(repoRoot, 'temp', `pr-body-${issueNumber}.md`);
 }
 
-/**
- * Prepend the auto-close keyword so the issue closes when the PR merges.
- * Skip it when the body already contains a closing keyword for this issue —
- * agent pre-populated bodies often include `Fixes #N` already.
- */
-function withClosingKeyword(issueNumber: number, body: string): string {
-  const closingKeyword = new RegExp(
-    `^\\s*(?:[-*+]\\s+)?(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?)\\s+#${issueNumber}\\b`,
-    'im',
-  );
-  return closingKeyword.test(body) ? body : `Fixes #${issueNumber}\n\n${body}`;
-}
-
 function buildPRBody(issueNumber: number): string {
   const repoRoot = getRepoRoot();
+
+  // Always prepend the auto-close keyword so the issue closes when the PR merges.
+  let body = `Fixes #${issueNumber}\n\n`;
 
   // Agent pre-population mode: read temp file if it exists
   const tempPath = prBodyScratchPath(repoRoot, issueNumber);
   if (existsSync(tempPath)) {
-    return withClosingKeyword(issueNumber, readFileSync(tempPath, 'utf8'));
+    body += readFileSync(tempPath, 'utf8');
+    return body;
   }
 
   process.stderr.write(`⚠ PR body not pre-populated for #${issueNumber} — using empty template. Write ${prBodyScratchPath(repoRoot, issueNumber)} before prclose to customize the PR body.\n`);
@@ -419,9 +410,10 @@ function buildPRBody(issueNumber: number): string {
   // Template fallback mode
   const templatePath = path.join(repoRoot, '.github', 'pull_request_template.md');
 
-  const content = existsSync(templatePath)
-    ? readFileSync(templatePath, 'utf8')
-    : [
+  if (existsSync(templatePath)) {
+    body += readFileSync(templatePath, 'utf8');
+  } else {
+    body += [
       '## Summary',
       '',
       '_Describe the purpose and scope of this change. What problem does it solve? What does it implement?_',
@@ -434,8 +426,9 @@ function buildPRBody(issueNumber: number): string {
       '',
       '_List any breaking changes to contracts, workflows, configuration, or APIs. If none, state "None."_',
     ].join('\n');
+  }
 
-  return withClosingKeyword(issueNumber, content);
+  return body;
 }
 
 // ── Command handlers ──
