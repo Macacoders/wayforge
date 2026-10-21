@@ -59,6 +59,16 @@ function errorResponse(status: number, message: string) {
   };
 }
 
+/** Helper: spy on process.stdout and return the captured writes */
+function captureStdout(): string[] {
+  const stdout: string[] = [];
+  vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+    stdout.push(String(chunk));
+    return true;
+  });
+  return stdout;
+}
+
 /** All 12 required labels as GitHub API objects */
 const ALL_REQUIRED_LABELS_API = gh.REQUIRED_LABELS.map((name) => ({ name }));
 
@@ -72,15 +82,23 @@ const DEFAULT_ISSUE = {
   html_url: 'https://github.com/test/repo/issues/1',
 };
 
+/** Helper: paginated labels responses (first page full, then empty) */
+function labelsPager(): () => Promise<unknown> {
+  let callCount = 0;
+  return () => {
+    callCount++;
+    return Promise.resolve(
+      callCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+    );
+  };
+}
+
 /** Helper: makes mockFetch respond to labels endpoint (pagination-aware) */
 function mockLabelsResponse(): void {
-  let labelsCallCount = 0;
+  const nextLabelsPage = labelsPager();
   mockFetch.mockImplementation((url: string) => {
     if (url.includes('/labels?per_page=100')) {
-      labelsCallCount++;
-      return Promise.resolve(
-        labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
-      );
+      return nextLabelsPage();
     }
     return Promise.reject(new Error(`Unexpected fetch: ${url}`));
   });
@@ -92,18 +110,14 @@ function mockWithLabels(
   data: unknown,
   method = 'GET',
 ): void {
-  let labelsCallCount = 0;
+  const nextLabelsPage = labelsPager();
   mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
     const reqMethod = opts?.method ?? 'GET';
     const matches =
       typeof urlPattern === 'string' ? url.includes(urlPattern) : urlPattern.test(url);
 
     if (url.includes('/labels?per_page=100') && reqMethod === 'GET') {
-      labelsCallCount++;
-      if (labelsCallCount > 1) {
-        return Promise.resolve(okResponse([]));
-      }
-      return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      return nextLabelsPage();
     }
     if (matches && reqMethod === method) {
       return Promise.resolve(okResponse(data));
@@ -342,11 +356,7 @@ describe('cmdCheck', () => {
   it('succeeds with human-readable output', async () => {
     mockFetch.mockResolvedValue(okResponse({ full_name: 'test/repo' }));
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdCheck(baseCtx);
     expect(stdout.join('')).toContain('OK: GitHub access verified for test/repo');
@@ -355,11 +365,7 @@ describe('cmdCheck', () => {
   it('succeeds with JSON output', async () => {
     mockFetch.mockResolvedValue(okResponse({ full_name: 'test/repo' }));
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdCheck({ ...baseCtx, jsonMode: true });
     const json = JSON.parse(stdout.join(''));
@@ -387,11 +393,7 @@ describe('cmdLabelsCheck', () => {
       );
     });
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdLabelsCheck(baseCtx);
     expect(stdout.join('')).toContain('OK: all required labels are present');
@@ -420,11 +422,7 @@ describe('cmdLabelsCheck', () => {
       return Promise.resolve(data);
     });
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await expect(gh.cmdLabelsCheck({ ...baseCtx, jsonMode: true })).rejects.toThrow(Error);
     const json = JSON.parse(stdout.join(''));
@@ -460,11 +458,7 @@ describe('cmdList', () => {
   it('outputs tab-separated lines for each issue', async () => {
     mockWithLabels('/issues?state=open', fakeIssues);
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdList(baseCtx);
     const output = stdout.join('');
@@ -479,11 +473,7 @@ describe('cmdList', () => {
     ];
     mockWithLabels('/issues?state=open', issuesWithPr);
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdList(baseCtx);
     const output = stdout.join('');
@@ -494,11 +484,7 @@ describe('cmdList', () => {
   it('returns JSON array in --json mode', async () => {
     mockWithLabels('/issues?state=open', fakeIssues);
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdList({ ...baseCtx, jsonMode: true });
     const json = JSON.parse(stdout.join(''));
@@ -520,11 +506,7 @@ describe('cmdList', () => {
     ];
     mockWithLabels('/issues?state=open', multiStatusIssues);
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdList(baseCtx);
     const output = stdout.join('');
@@ -550,11 +532,7 @@ describe('cmdCreate', () => {
   it('creates an issue with title only', async () => {
     mockWithLabels('/issues', CREATED_ISSUE, 'POST');
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdCreate(baseCtx, ['My Issue']);
     expect(stdout.join('')).toContain(CREATED_ISSUE.html_url);
@@ -563,11 +541,7 @@ describe('cmdCreate', () => {
   it('creates an issue with labels', async () => {
     mockWithLabels('/issues', CREATED_ISSUE, 'POST');
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdCreate(baseCtx, ['Test', '--label', 'status:doing', '--label', 'type:bug']);
     expect(stdout.join('')).toContain(CREATED_ISSUE.html_url);
@@ -582,11 +556,7 @@ describe('cmdCreate', () => {
   it('returns JSON in --json mode', async () => {
     mockWithLabels('/issues', CREATED_ISSUE, 'POST');
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdCreate({ ...baseCtx, jsonMode: true }, ['My Issue']);
     const json = JSON.parse(stdout.join(''));
@@ -623,14 +593,11 @@ describe('cmdCreate', () => {
 describe('cmdEdit', () => {
   /** Mock the full edit flow: labels guard, GET issue, PATCH issue, label add/remove */
   function mockEditFlow(issue = DEFAULT_ISSUE): void {
-    let labelsCallCount = 0;
+    const nextLabelsPage = labelsPager();
     mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
       const method = opts?.method ?? 'GET';
       if (url.includes('/labels?per_page=100') && method === 'GET') {
-        labelsCallCount++;
-        return Promise.resolve(
-          labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
-        );
+        return nextLabelsPage();
       }
       if (url.includes('/issues/1') && method === 'GET') {
         return Promise.resolve(okResponse(issue));
@@ -653,15 +620,6 @@ describe('cmdEdit', () => {
       ([url, opts]: [string, RequestInit]) =>
         url.includes('/issues/1') && opts?.method === 'PATCH',
     );
-  }
-
-  function captureStdout(): string[] {
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
-    return stdout;
   }
 
   it('updates title only via a single PATCH', async () => {
@@ -942,11 +900,7 @@ describe('cmdClaim', () => {
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdClaim({ ...baseCtx, jsonMode: true }, ['1']);
     const json = JSON.parse(stdout.join(''));
@@ -1303,11 +1257,7 @@ describe('cmdPrclose', () => {
       return Promise.reject(new Error(`Unexpected fetch: ${method} ${url}`));
     });
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdPrclose(baseCtx, ['1', 'Ready for review']);
     expect(stdout.join('')).toContain(PR_RESPONSE.html_url);
@@ -1363,11 +1313,7 @@ describe('cmdPrclose', () => {
       return Promise.reject(new Error(`Unexpected fetch: ${method} ${url}`));
     });
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdPrclose(baseCtx, ['1', 'Ready for review']);
 
@@ -1458,11 +1404,7 @@ describe('main() dispatch', () => {
     const origArgv = process.argv;
     process.argv = ['node', 'gh-issue.ts', '--repo', 'test/repo', 'check'];
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.main();
     expect(stdout.join('')).toContain('OK: GitHub access verified');
@@ -1487,11 +1429,7 @@ describe('main() dispatch', () => {
     const origArgv = process.argv;
     process.argv = ['node', 'gh-issue.ts', '--help'];
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await expect(gh.main()).resolves.toBeUndefined();
     const output = stdout.join('');
@@ -1509,11 +1447,7 @@ describe('main() dispatch', () => {
     const origArgv = process.argv;
     process.argv = ['node', 'gh-issue.ts', 'help'];
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await expect(gh.main()).resolves.toBeUndefined();
     const output = stdout.join('');
@@ -1541,11 +1475,7 @@ describe('main() dispatch', () => {
 
     mockFetch.mockResolvedValue(okResponse({ full_name: 'test/repo' }));
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.main();
     const json = JSON.parse(stdout.join(''));
@@ -1637,11 +1567,7 @@ describe('cmdShow', () => {
     };
     mockFetch.mockResolvedValue(okResponse(issue));
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdShow(baseCtx, ['123']);
     const output = stdout.join('');
@@ -1664,11 +1590,7 @@ describe('cmdShow', () => {
     };
     mockFetch.mockResolvedValue(okResponse(issue));
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdShow(baseCtx, ['456']);
     const output = stdout.join('');
@@ -1689,11 +1611,7 @@ describe('cmdShow', () => {
     };
     mockFetch.mockResolvedValue(okResponse(issue));
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdShow({ ...baseCtx, jsonMode: true }, ['789']);
     const json = JSON.parse(stdout.join(''));

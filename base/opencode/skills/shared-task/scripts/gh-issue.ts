@@ -507,6 +507,15 @@ async function cmdList(ctx: GhContext): Promise<void> {
   }
 }
 
+/** Resolve a `--body-file` path relative to cwd, rejecting empty paths up front. */
+function resolveBodyFile(bodyFile: string): string {
+  if (bodyFile.trim() === '') {
+    console.error('Error: --body-file requires a non-empty path.');
+    throw new Error();
+  }
+  return path.isAbsolute(bodyFile) ? bodyFile : path.resolve(process.cwd(), bodyFile);
+}
+
 async function cmdCreate(ctx: GhContext, args: string[]): Promise<void> {
   if (args.length < 1) {
     console.error('Error: create requires <title>.');
@@ -543,6 +552,9 @@ async function cmdCreate(ctx: GhContext, args: string[]): Promise<void> {
     }
   }
 
+  const resolvedBodyFile =
+    bodyFile !== undefined ? resolveBodyFile(bodyFile) : undefined;
+
   if (ctx.dryRun) {
     const msg = `[DRY-RUN] would create issue with title='${title}'`;
     const parts = [msg];
@@ -556,12 +568,8 @@ async function cmdCreate(ctx: GhContext, args: string[]): Promise<void> {
     title,
   };
 
-  if (bodyFile) {
-    let resolvedFile = bodyFile;
-    if (!path.isAbsolute(bodyFile)) {
-      resolvedFile = path.resolve(process.cwd(), bodyFile);
-    }
-    bodyPayload.body = readFileSync(resolvedFile, 'utf8');
+  if (resolvedBodyFile !== undefined) {
+    bodyPayload.body = readFileSync(resolvedBodyFile, 'utf8');
   }
 
   if (labels.length > 0) {
@@ -640,14 +648,12 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
     }
   }
 
-  if (bodyFile !== undefined && bodyFile.trim() === '') {
-    console.error('Error: --body-file requires a non-empty path.');
-    throw new Error();
-  }
+  const resolvedBodyFile =
+    bodyFile !== undefined ? resolveBodyFile(bodyFile) : undefined;
 
   if (
     title === undefined &&
-    bodyFile === undefined &&
+    resolvedBodyFile === undefined &&
     addLabels.length === 0 &&
     removeLabels.length === 0
   ) {
@@ -682,16 +688,12 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
     patch.title = title;
     updatedFields.push('title');
   }
-  if (bodyFile !== undefined) {
-    let resolvedFile = bodyFile;
-    if (!path.isAbsolute(bodyFile)) {
-      resolvedFile = path.resolve(process.cwd(), bodyFile);
-    }
-    patch.body = readFileSync(resolvedFile, 'utf8');
+  if (resolvedBodyFile !== undefined) {
+    patch.body = readFileSync(resolvedBodyFile, 'utf8');
     updatedFields.push('body');
   }
 
-  if (Object.keys(patch).length > 0) {
+  if (patch.title !== undefined || patch.body !== undefined) {
     await api(ctx, 'PATCH', `/repos/${ctx.repo}/issues/${issueNumber}`, patch);
   }
 
