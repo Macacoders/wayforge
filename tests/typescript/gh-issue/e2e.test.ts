@@ -77,6 +77,18 @@ describe('gh-issue.ts dry-run lifecycle', () => {
     expect(r.stderr).toContain('[DRY-RUN] would edit issue #1');
   });
 
+  it('edit with empty --body-file= fails', () => {
+    const r = run([...base, 'edit', '1', '--body-file=']);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('--body-file requires a non-empty path');
+  });
+
+  it('edit with empty --body-file value fails', () => {
+    const r = run([...base, 'edit', '1', '--body-file', '']);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('--body-file requires a non-empty path');
+  });
+
   it('claim prints dry-run message', () => {
     const r = run([...base, 'claim', '1']);
     expect(r.status).toBe(0);

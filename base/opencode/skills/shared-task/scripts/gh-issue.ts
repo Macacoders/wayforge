@@ -47,6 +47,7 @@ interface GitHubIssue {
   labels: GitHubLabel[];
   html_url: string;
   body?: string;
+  pull_request?: unknown;
 }
 
 interface GitHubPR {
@@ -225,13 +226,14 @@ async function getRepoLabels(ctx: GhContext): Promise<string[]> {
   return allLabels;
 }
 
-async function ensureRequiredLabels(ctx: GhContext): Promise<void> {
+async function ensureRequiredLabels(ctx: GhContext): Promise<Set<string>> {
   const existing = await getRepoLabels(ctx);
   const existingSet = new Set(existing);
   const missing = REQUIRED_LABELS.filter((l) => !existingSet.has(l));
   if (missing.length > 0) {
     throw new Error(`missing required labels: ${missing.join(', ')}`);
   }
+  return existingSet;
 }
 
 async function getIssue(ctx: GhContext, issueNumber: number): Promise<GitHubIssue> {
@@ -325,6 +327,24 @@ async function ensureOpenIssue(issue: GitHubIssue): Promise<void> {
   const state = getIssueState(issue);
   if (state !== 'open') {  // GitHub REST API always returns lowercase "open"
     throw new Error(`issue #${issue.number} is not open.`);
+  }
+}
+
+/** Validate label edits before any mutation: additions must exist in the repo,
+ * removals must be present on the issue. No auto-create. */
+function preflightLabelEdits(
+  issue: GitHubIssue,
+  repoLabels: Set<string>,
+  addLabels: string[],
+  removeLabels: string[],
+): void {
+  const unknownAdd = addLabels.filter((l) => !repoLabels.has(l));
+  if (unknownAdd.length > 0) {
+    throw new Error(`unknown labels: ${unknownAdd.join(', ')}`);
+  }
+  const notPresent = removeLabels.filter((l) => !issueHasLabel(issue, l));
+  if (notPresent.length > 0) {
+    throw new Error(`issue #${issue.number} does not have labels: ${notPresent.join(', ')}`);
   }
 }
 
@@ -620,6 +640,11 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
     }
   }
 
+  if (bodyFile !== undefined && bodyFile.trim() === '') {
+    console.error('Error: --body-file requires a non-empty path.');
+    throw new Error();
+  }
+
   if (
     title === undefined &&
     bodyFile === undefined &&
@@ -635,16 +660,20 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
   if (ctx.dryRun) {
     const parts = [`[DRY-RUN] would edit issue #${issueNumber}`];
     if (title !== undefined) parts.push(`title='${title}'`);
-    if (bodyFile) parts.push(`body-file='${bodyFile}'`);
+    if (bodyFile !== undefined) parts.push(`body-file='${bodyFile}'`);
     if (addLabels.length) parts.push(`add-labels=[${addLabels.join(', ')}]`);
     if (removeLabels.length) parts.push(`remove-labels=[${removeLabels.join(', ')}]`);
     console.error(parts.join(' '));
     return;
   }
 
-  await ensureRequiredLabels(ctx);
+  const repoLabels = await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
+  if (issue.pull_request) {
+    throw new Error(`#${issueNumber} is a pull request, not an issue.`);
+  }
   await ensureOpenIssue(issue);
+  preflightLabelEdits(issue, repoLabels, addLabels, removeLabels);
 
   const patch: { title?: string; body?: string } = {};
   const updatedFields: string[] = [];
@@ -653,7 +682,7 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
     patch.title = title;
     updatedFields.push('title');
   }
-  if (bodyFile) {
+  if (bodyFile !== undefined) {
     let resolvedFile = bodyFile;
     if (!path.isAbsolute(bodyFile)) {
       resolvedFile = path.resolve(process.cwd(), bodyFile);

@@ -768,6 +768,69 @@ describe('cmdEdit', () => {
 
     await expect(gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed'])).rejects.toThrow('not open');
   });
+
+  /** All mutating (non-GET) fetch calls: PATCH, POST, DELETE */
+  function mutatingCalls(): Array<[string, RequestInit]> {
+    return mockFetch.mock.calls.filter(([, opts]: [string, RequestInit]) =>
+      ['PATCH', 'POST', 'DELETE'].includes(String(opts?.method)),
+    );
+  }
+
+  it('rejects a pull request target without mutating anything', async () => {
+    mockEditFlow({ ...DEFAULT_ISSUE, pull_request: { url: 'https://github.com/test/repo/pull/1' } });
+
+    await expect(gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed'])).rejects.toThrow(/pull request/i);
+    expect(mutatingCalls()).toHaveLength(0);
+  });
+
+  it('rejects unknown --add-label values before any mutation', async () => {
+    mockEditFlow();
+
+    await expect(
+      gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed', '--add-label', 'not-a-label']),
+    ).rejects.toThrow(/unknown label/i);
+    expect(mutatingCalls()).toHaveLength(0);
+  });
+
+  it('rejects --remove-label values not present on the issue before any mutation', async () => {
+    mockEditFlow();
+
+    await expect(
+      gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed', '--remove-label', 'type:bug']),
+    ).rejects.toThrow(/does not have/i);
+    expect(mutatingCalls()).toHaveLength(0);
+  });
+
+  it('rejects an empty --body-file= path without any fetch', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--body-file='])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a separate empty --body-file value without any fetch', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--body-file', ''])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects empty --body-file paths in --dry-run without any fetch', async () => {
+    await expect(gh.cmdEdit({ ...baseCtx, dryRun: true }, ['1', '--body-file='])).rejects.toThrow(
+      Error,
+    );
+    await expect(
+      gh.cmdEdit({ ...baseCtx, dryRun: true }, ['1', '--body-file', '']),
+    ).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('sends PATCH { body: \'\' } for a valid path with empty file content', async () => {
+    mockEditFlow();
+    mockReadFileSync.mockReturnValue('');
+
+    await gh.cmdEdit(baseCtx, ['1', '--body-file', 'body.md']);
+
+    const patches = patchCalls();
+    expect(patches).toHaveLength(1);
+    expect(JSON.parse(patches[0][1].body as string)).toEqual({ body: '' });
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
