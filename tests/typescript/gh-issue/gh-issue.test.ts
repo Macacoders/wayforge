@@ -59,6 +59,16 @@ function errorResponse(status: number, message: string) {
   };
 }
 
+/** Helper: spy on process.stdout and return the captured writes */
+function captureStdout(): string[] {
+  const stdout: string[] = [];
+  vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+    stdout.push(String(chunk));
+    return true;
+  });
+  return stdout;
+}
+
 /** All 12 required labels as GitHub API objects */
 const ALL_REQUIRED_LABELS_API = gh.REQUIRED_LABELS.map((name) => ({ name }));
 
@@ -72,15 +82,23 @@ const DEFAULT_ISSUE = {
   html_url: 'https://github.com/test/repo/issues/1',
 };
 
+/** Helper: paginated labels responses (first page full, then empty) */
+function labelsPager(): () => Promise<unknown> {
+  let callCount = 0;
+  return () => {
+    callCount++;
+    return Promise.resolve(
+      callCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
+    );
+  };
+}
+
 /** Helper: makes mockFetch respond to labels endpoint (pagination-aware) */
 function mockLabelsResponse(): void {
-  let labelsCallCount = 0;
+  const nextLabelsPage = labelsPager();
   mockFetch.mockImplementation((url: string) => {
     if (url.includes('/labels?per_page=100')) {
-      labelsCallCount++;
-      return Promise.resolve(
-        labelsCallCount === 1 ? okResponse(ALL_REQUIRED_LABELS_API) : okResponse([]),
-      );
+      return nextLabelsPage();
     }
     return Promise.reject(new Error(`Unexpected fetch: ${url}`));
   });
@@ -92,18 +110,14 @@ function mockWithLabels(
   data: unknown,
   method = 'GET',
 ): void {
-  let labelsCallCount = 0;
+  const nextLabelsPage = labelsPager();
   mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
     const reqMethod = opts?.method ?? 'GET';
     const matches =
       typeof urlPattern === 'string' ? url.includes(urlPattern) : urlPattern.test(url);
 
     if (url.includes('/labels?per_page=100') && reqMethod === 'GET') {
-      labelsCallCount++;
-      if (labelsCallCount > 1) {
-        return Promise.resolve(okResponse([]));
-      }
-      return Promise.resolve(okResponse(ALL_REQUIRED_LABELS_API));
+      return nextLabelsPage();
     }
     if (matches && reqMethod === method) {
       return Promise.resolve(okResponse(data));
@@ -342,11 +356,7 @@ describe('cmdCheck', () => {
   it('succeeds with human-readable output', async () => {
     mockFetch.mockResolvedValue(okResponse({ full_name: 'test/repo' }));
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdCheck(baseCtx);
     expect(stdout.join('')).toContain('OK: GitHub access verified for test/repo');
@@ -355,11 +365,7 @@ describe('cmdCheck', () => {
   it('succeeds with JSON output', async () => {
     mockFetch.mockResolvedValue(okResponse({ full_name: 'test/repo' }));
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdCheck({ ...baseCtx, jsonMode: true });
     const json = JSON.parse(stdout.join(''));
@@ -387,11 +393,7 @@ describe('cmdLabelsCheck', () => {
       );
     });
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdLabelsCheck(baseCtx);
     expect(stdout.join('')).toContain('OK: all required labels are present');
@@ -420,11 +422,7 @@ describe('cmdLabelsCheck', () => {
       return Promise.resolve(data);
     });
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await expect(gh.cmdLabelsCheck({ ...baseCtx, jsonMode: true })).rejects.toThrow(Error);
     const json = JSON.parse(stdout.join(''));
@@ -460,11 +458,7 @@ describe('cmdList', () => {
   it('outputs tab-separated lines for each issue', async () => {
     mockWithLabels('/issues?state=open', fakeIssues);
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdList(baseCtx);
     const output = stdout.join('');
@@ -479,11 +473,7 @@ describe('cmdList', () => {
     ];
     mockWithLabels('/issues?state=open', issuesWithPr);
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdList(baseCtx);
     const output = stdout.join('');
@@ -494,11 +484,7 @@ describe('cmdList', () => {
   it('returns JSON array in --json mode', async () => {
     mockWithLabels('/issues?state=open', fakeIssues);
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdList({ ...baseCtx, jsonMode: true });
     const json = JSON.parse(stdout.join(''));
@@ -520,11 +506,7 @@ describe('cmdList', () => {
     ];
     mockWithLabels('/issues?state=open', multiStatusIssues);
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdList(baseCtx);
     const output = stdout.join('');
@@ -550,11 +532,7 @@ describe('cmdCreate', () => {
   it('creates an issue with title only', async () => {
     mockWithLabels('/issues', CREATED_ISSUE, 'POST');
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdCreate(baseCtx, ['My Issue']);
     expect(stdout.join('')).toContain(CREATED_ISSUE.html_url);
@@ -563,11 +541,7 @@ describe('cmdCreate', () => {
   it('creates an issue with labels', async () => {
     mockWithLabels('/issues', CREATED_ISSUE, 'POST');
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdCreate(baseCtx, ['Test', '--label', 'status:doing', '--label', 'type:bug']);
     expect(stdout.join('')).toContain(CREATED_ISSUE.html_url);
@@ -582,11 +556,7 @@ describe('cmdCreate', () => {
   it('returns JSON in --json mode', async () => {
     mockWithLabels('/issues', CREATED_ISSUE, 'POST');
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdCreate({ ...baseCtx, jsonMode: true }, ['My Issue']);
     const json = JSON.parse(stdout.join(''));
@@ -613,6 +583,241 @@ describe('cmdCreate', () => {
     // The --body-file=path format (with =) should be parsed correctly without error
     await expect(gh.cmdCreate({ ...baseCtx, dryRun: true }, ['Title', '--body-file=some/path.md']))
       .resolves.toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Edit operation
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('cmdEdit', () => {
+  /** Mock the full edit flow: labels guard, GET issue, PATCH issue, label add/remove */
+  function mockEditFlow(issue = DEFAULT_ISSUE): void {
+    const nextLabelsPage = labelsPager();
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = opts?.method ?? 'GET';
+      if (url.includes('/labels?per_page=100') && method === 'GET') {
+        return nextLabelsPage();
+      }
+      if (url.includes('/issues/1') && method === 'GET') {
+        return Promise.resolve(okResponse(issue));
+      }
+      if (url.includes('/issues/1') && method === 'PATCH') {
+        return Promise.resolve(okResponse(issue));
+      }
+      if (url.includes('/issues/1/labels') && method === 'POST') {
+        return Promise.resolve(okResponse({}));
+      }
+      if (url.includes('/labels/') && method === 'DELETE') {
+        return Promise.resolve({ ok: true, status: 204, headers: new Headers(), text: async () => '' });
+      }
+      return Promise.reject(new Error(`Unexpected: ${method} ${url}`));
+    });
+  }
+
+  function patchCalls(): Array<[string, RequestInit]> {
+    return mockFetch.mock.calls.filter(
+      ([url, opts]: [string, RequestInit]) =>
+        url.includes('/issues/1') && opts?.method === 'PATCH',
+    );
+  }
+
+  it('updates title only via a single PATCH', async () => {
+    mockEditFlow();
+    const stdout = captureStdout();
+
+    await gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed']);
+
+    const patches = patchCalls();
+    expect(patches).toHaveLength(1);
+    expect(JSON.parse(patches[0][1].body as string)).toEqual({ title: 'Renamed' });
+    expect(stdout.join('')).toContain(DEFAULT_ISSUE.html_url);
+  });
+
+  it('updates body only from --body-file via a single PATCH', async () => {
+    mockEditFlow();
+    mockReadFileSync.mockReturnValue('new body');
+
+    await gh.cmdEdit(baseCtx, ['1', '--body-file', 'body.md']);
+
+    const patches = patchCalls();
+    expect(patches).toHaveLength(1);
+    expect(JSON.parse(patches[0][1].body as string)).toEqual({ body: 'new body' });
+  });
+
+  it('adds and removes labels without PATCHing the issue', async () => {
+    mockEditFlow();
+
+    await gh.cmdEdit(baseCtx, ['1', '--add-label', 'type:bug', '--remove-label', 'status:to-do']);
+
+    expect(patchCalls()).toHaveLength(0);
+    const postUrls = mockFetch.mock.calls
+      .filter(([url, opts]: [string, RequestInit]) => url.includes('/issues/1/labels') && opts?.method === 'POST')
+      .map(([url]: [string, RequestInit]) => url);
+    expect(postUrls).toHaveLength(1);
+    const deleteUrls = mockFetch.mock.calls
+      .filter(([url, opts]: [string, RequestInit]) => url.includes('/labels/') && opts?.method === 'DELETE')
+      .map(([url]: [string, RequestInit]) => url);
+    expect(deleteUrls.some((u) => u.includes('status%3Ato-do'))).toBe(true);
+  });
+
+  it('combines --title and --body-file into a single PATCH', async () => {
+    mockEditFlow();
+    mockReadFileSync.mockReturnValue('new body');
+
+    await gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed', '--body-file', 'body.md']);
+
+    const patches = patchCalls();
+    expect(patches).toHaveLength(1);
+    expect(JSON.parse(patches[0][1].body as string)).toEqual({ title: 'Renamed', body: 'new body' });
+  });
+
+  it('throws when no title/body/label option is given', async () => {
+    await expect(gh.cmdEdit(baseCtx, [])).rejects.toThrow(Error);
+    await expect(gh.cmdEdit(baseCtx, ['1'])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('throws on unknown option', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--bogus'])).rejects.toThrow(Error);
+  });
+
+  it('throws when a flag is missing its value', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--title'])).rejects.toThrow(Error);
+    await expect(gh.cmdEdit(baseCtx, ['1', '--body-file'])).rejects.toThrow(Error);
+    await expect(gh.cmdEdit(baseCtx, ['1', '--add-label'])).rejects.toThrow(Error);
+    await expect(gh.cmdEdit(baseCtx, ['1', '--remove-label'])).rejects.toThrow(Error);
+  });
+
+  it('parses --flag=value syntax', async () => {
+    mockEditFlow();
+
+    await gh.cmdEdit(baseCtx, ['1', '--title=Eq Title', '--add-label=type:bug']);
+
+    const patches = patchCalls();
+    expect(patches).toHaveLength(1);
+    expect(JSON.parse(patches[0][1].body as string)).toEqual({ title: 'Eq Title' });
+  });
+
+  it('does not call the API in --dry-run', async () => {
+    await gh.cmdEdit({ ...baseCtx, dryRun: true }, ['1', '--title', 'Renamed']);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('outputs JSON with updated_fields in --json mode', async () => {
+    mockEditFlow();
+    const stdout = captureStdout();
+
+    await gh.cmdEdit(
+      { ...baseCtx, jsonMode: true },
+      ['1', '--title', 'Renamed', '--add-label', 'type:bug', '--remove-label', 'status:to-do'],
+    );
+
+    const json = JSON.parse(stdout.join(''));
+    expect(json).toEqual({
+      number: 1,
+      url: DEFAULT_ISSUE.html_url,
+      updated_fields: ['title', 'label+type:bug', 'label-status:to-do'],
+    });
+  });
+
+  it('throws when the issue is closed', async () => {
+    mockEditFlow({ ...DEFAULT_ISSUE, state: 'closed' });
+
+    await expect(gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed'])).rejects.toThrow('not open');
+  });
+
+  /** All mutating (non-GET) fetch calls: PATCH, POST, DELETE */
+  function mutatingCalls(): Array<[string, RequestInit]> {
+    return mockFetch.mock.calls.filter(([, opts]: [string, RequestInit]) =>
+      ['PATCH', 'POST', 'DELETE'].includes(String(opts?.method)),
+    );
+  }
+
+  it('rejects a pull request target without mutating anything', async () => {
+    mockEditFlow({ ...DEFAULT_ISSUE, pull_request: { url: 'https://github.com/test/repo/pull/1' } });
+
+    await expect(gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed'])).rejects.toThrow(/pull request/i);
+    expect(mutatingCalls()).toHaveLength(0);
+  });
+
+  it('rejects unknown --add-label values before any mutation', async () => {
+    mockEditFlow();
+
+    await expect(
+      gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed', '--add-label', 'not-a-label']),
+    ).rejects.toThrow(/unknown label/i);
+    expect(mutatingCalls()).toHaveLength(0);
+  });
+
+  it('rejects --remove-label values not present on the issue before any mutation', async () => {
+    mockEditFlow();
+
+    await expect(
+      gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed', '--remove-label', 'type:bug']),
+    ).rejects.toThrow(/does not have/i);
+    expect(mutatingCalls()).toHaveLength(0);
+  });
+
+  it('deduplicates repeated label flags into one mutation each', async () => {
+    mockEditFlow();
+    const stdout = captureStdout();
+
+    await gh.cmdEdit({ ...baseCtx, jsonMode: true }, [
+      '1',
+      '--add-label',
+      'type:bug',
+      '--add-label=type:bug',
+      '--remove-label',
+      'status:to-do',
+      '--remove-label=status:to-do',
+    ]);
+
+    const postCalls = mockFetch.mock.calls.filter(
+      ([url, opts]: [string, RequestInit]) =>
+        url.includes('/issues/1/labels') && opts?.method === 'POST',
+    );
+    const deleteCalls = mockFetch.mock.calls.filter(
+      ([url, opts]: [string, RequestInit]) =>
+        url.includes('/labels/') && opts?.method === 'DELETE',
+    );
+    expect(postCalls).toHaveLength(1);
+    expect(deleteCalls).toHaveLength(1);
+    expect(JSON.parse(stdout.join('')).updated_fields).toEqual([
+      'label+type:bug',
+      'label-status:to-do',
+    ]);
+  });
+
+  it('rejects an empty --body-file= path without any fetch', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--body-file='])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a separate empty --body-file value without any fetch', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--body-file', ''])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects empty --body-file paths in --dry-run without any fetch', async () => {
+    await expect(gh.cmdEdit({ ...baseCtx, dryRun: true }, ['1', '--body-file='])).rejects.toThrow(
+      Error,
+    );
+    await expect(
+      gh.cmdEdit({ ...baseCtx, dryRun: true }, ['1', '--body-file', '']),
+    ).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('sends PATCH { body: \'\' } for a valid path with empty file content', async () => {
+    mockEditFlow();
+    mockReadFileSync.mockReturnValue('');
+
+    await gh.cmdEdit(baseCtx, ['1', '--body-file', 'body.md']);
+
+    const patches = patchCalls();
+    expect(patches).toHaveLength(1);
+    expect(JSON.parse(patches[0][1].body as string)).toEqual({ body: '' });
   });
 });
 
@@ -725,11 +930,7 @@ describe('cmdClaim', () => {
       return Promise.reject(new Error(`Unexpected: ${url}`));
     });
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdClaim({ ...baseCtx, jsonMode: true }, ['1']);
     const json = JSON.parse(stdout.join(''));
@@ -1087,11 +1288,7 @@ describe('cmdPrclose', () => {
       return Promise.reject(new Error(`Unexpected fetch: ${method} ${url}`));
     });
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdPrclose(baseCtx, ['1', 'Ready for review']);
     expect(stdout.join('')).toContain(PR_RESPONSE.html_url);
@@ -1155,11 +1352,7 @@ describe('cmdPrclose', () => {
       return Promise.reject(new Error(`Unexpected fetch: ${method} ${url}`));
     });
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdPrclose(baseCtx, ['1', 'Ready for review']);
 
@@ -1325,11 +1518,7 @@ describe('main() dispatch', () => {
     const origArgv = process.argv;
     process.argv = ['node', 'gh-issue.ts', '--repo', 'test/repo', 'check'];
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.main();
     expect(stdout.join('')).toContain('OK: GitHub access verified');
@@ -1354,11 +1543,7 @@ describe('main() dispatch', () => {
     const origArgv = process.argv;
     process.argv = ['node', 'gh-issue.ts', '--help'];
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await expect(gh.main()).resolves.toBeUndefined();
     const output = stdout.join('');
@@ -1376,11 +1561,7 @@ describe('main() dispatch', () => {
     const origArgv = process.argv;
     process.argv = ['node', 'gh-issue.ts', 'help'];
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await expect(gh.main()).resolves.toBeUndefined();
     const output = stdout.join('');
@@ -1408,11 +1589,7 @@ describe('main() dispatch', () => {
 
     mockFetch.mockResolvedValue(okResponse({ full_name: 'test/repo' }));
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.main();
     const json = JSON.parse(stdout.join(''));
@@ -1504,11 +1681,7 @@ describe('cmdShow', () => {
     };
     mockFetch.mockResolvedValue(okResponse(issue));
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdShow(baseCtx, ['123']);
     const output = stdout.join('');
@@ -1531,11 +1704,7 @@ describe('cmdShow', () => {
     };
     mockFetch.mockResolvedValue(okResponse(issue));
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdShow(baseCtx, ['456']);
     const output = stdout.join('');
@@ -1556,11 +1725,7 @@ describe('cmdShow', () => {
     };
     mockFetch.mockResolvedValue(okResponse(issue));
 
-    const stdout: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
+    const stdout = captureStdout();
 
     await gh.cmdShow({ ...baseCtx, jsonMode: true }, ['789']);
     const json = JSON.parse(stdout.join(''));
