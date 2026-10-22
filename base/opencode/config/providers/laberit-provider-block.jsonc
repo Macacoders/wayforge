@@ -1,9 +1,9 @@
     "laberit": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Laberit AI",
+      "env": ["OPENAI_API_KEY"],
       "options": {
-        "baseURL": "{env:OPENAI_BASE_URL}",
-        "apiKey": "{env:OPENAI_API_KEY}",
+        "baseURL": "${OPENAI_BASE_URL}",
         "headers": {
           "Content-Type": "application/json"
         }

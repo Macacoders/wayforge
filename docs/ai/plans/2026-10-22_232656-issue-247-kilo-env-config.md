@@ -1,7 +1,7 @@
 ---
 status: planned
 created: 2026-10-22
-task: 0/2
+task: 1/2
 required_gates:
   architect_review: true
   memory_update: true

@@ -265,6 +265,46 @@ describe("buildProviderBlockJson", () => {
     expect(block).toBe("");
   });
 
+  // Invariant: the laberit fragment is runtime-agnostic and read verbatim for
+  // both runtimes. `provider.env` must contain exactly one name because both
+  // OpenCode and Kilo only inject the API key when env.length === 1.
+  const laberitRuntimes: Runtime[] = ["opencode", "kilocode"];
+
+  for (const runtime of laberitRuntimes) {
+    it(`emits unified env-based laberit block for ${runtime}`, () => {
+      const block = buildProviderBlockJson(["laberit"], runtime, sourceDir);
+      expect(block).toContain('"env": ["OPENAI_API_KEY"]');
+      expect(block).toContain('"${OPENAI_BASE_URL}"');
+      expect(block).not.toContain("{env:");
+      expect(block).not.toContain("{file:");
+      // Exactly one env name guards the env.length === 1 key-injection rule.
+      expect(block.match(/"env": \[[^\]]*\]/)?.[0]).toBe(
+        '"env": ["OPENAI_API_KEY"]',
+      );
+      expect(block).toContain('"laberit-ai-preview"');
+      expect(block).toContain('"laberit-ai"');
+      expect(block).toContain('"laberit-gpt-5.6-luna"');
+    });
+  }
+
+  it("produces identical laberit block text for both runtimes", () => {
+    // The opencode runtime prepends the "opencode" free-provider fragment;
+    // laberit is the last fragment in both cases, so compare from its key on.
+    const opencodeBlock = buildProviderBlockJson(
+      ["laberit"],
+      "opencode",
+      sourceDir,
+    );
+    const kilocodeBlock = buildProviderBlockJson(
+      ["laberit"],
+      "kilocode",
+      sourceDir,
+    );
+    expect(opencodeBlock.slice(opencodeBlock.indexOf('"laberit": {'))).toBe(
+      kilocodeBlock.slice(kilocodeBlock.indexOf('"laberit": {')),
+    );
+  });
+
   it("joins multiple provider fragments with comma-newline", () => {
     const block = buildProviderBlockJson(
       ["openai", "github-copilot"],
@@ -443,6 +483,38 @@ describe("generateOpenCodeJsonc", () => {
     );
     exitSpy.mockRestore();
   });
+
+  for (const runtime of ["opencode", "kilocode"] as Runtime[]) {
+    it(`generates laberit config without env/file references for ${runtime}`, () => {
+      const content = generateOpenCodeJsonc(makeOpts(runtime, ["laberit"]));
+      expect(content).not.toContain("{env:");
+      expect(content).not.toContain("{file:");
+      // Strip the single-line generated header comment, then the rest must
+      // parse as strict JSON (no JSONC comments/refs leaked into output).
+      const json = content.slice(content.indexOf("\n") + 1);
+      expect(() => JSON.parse(json)).not.toThrow();
+    });
+  }
+
+  const providerCombinations: Provider[][] = [
+    ["openai"],
+    ["github-copilot"],
+    ["laberit"],
+    ["opencode-go"],
+    ["openai", "laberit"],
+    ["openai", "github-copilot"],
+    ["openai", "github-copilot", "laberit"],
+  ];
+
+  for (const runtime of ["opencode", "kilocode"] as Runtime[]) {
+    for (const selected of providerCombinations) {
+      it(`emits no env/file references for ${runtime} with ${selected.join(",")}`, () => {
+        const content = generateOpenCodeJsonc(makeOpts(runtime, selected));
+        expect(content).not.toContain("{env:");
+        expect(content).not.toContain("{file:");
+      });
+    }
+  }
 });
 
 describe("syncGeneratedOpenCodeJsonc", () => {
