@@ -1,9 +1,9 @@
 ---
-status: planned
+status: completed
 created: 2026-10-21
 issue: 237
 parent_issue: 48
-task: 1/2
+task: 2/2
 required_gates:
   architect_review: true
   memory_update: true
@@ -216,17 +216,17 @@ git commit -m "feat(cli): add verified self-update and release checksums (Issue 
 
 ## Acceptance criteria
 
-- [ ] On eligible interactive commands, wayforge checks the latest release at most once per 24 hours, caches the result, and prints a one-line notice when a newer version exists.
-- [ ] A fresh cache performs no network request, and the cache is stored under `WAYFORGE_STATE_DIR` (or the platform user state dir); it never assumes the install prefix is writable (on default Windows installs the two paths coincide).
-- [ ] `WAYFORGE_NO_UPDATE_CHECK=1` disables the automatic notice.
-- [ ] `architect` review is recorded after Task 1 and before Task 2 begins.
-- [ ] `wfg self-update --check` reports current and latest.
-- [ ] `wfg self-update` prompts, verifies SHA-256 checksums, replaces the binary and `share/wayforge`, rolls back on failure, and reports the new version.
-- [ ] Missing or mismatched checksums abort with no changes.
-- [ ] Self-update refuses from a dev checkout and prints an actionable installer fallback.
-- [ ] `.github/workflows/release.yml` publishes `wayforge-checksums.txt` covering every binary and both share archives.
-- [ ] Tests cover version comparison, release resolution/cache/notice, checksum verification, replacement, and rollback.
-- [ ] `make check` is green.
+- [x] On eligible interactive commands, wayforge checks the latest release at most once per 24 hours, caches the result, and prints a one-line notice when a newer version exists.
+- [x] A fresh cache performs no network request, and the cache is stored under `WAYFORGE_STATE_DIR` (or the platform user state dir); it never assumes the install prefix is writable (on default Windows installs the two paths coincide).
+- [x] `WAYFORGE_NO_UPDATE_CHECK=1` disables the automatic notice.
+- [x] `architect` review is recorded after Task 1 and before Task 2 begins.
+- [x] `wfg self-update --check` reports current and latest.
+- [x] `wfg self-update` prompts, verifies SHA-256 checksums, replaces the binary and `share/wayforge`, rolls back on failure, and reports the new version.
+- [x] Missing or mismatched checksums abort with no changes.
+- [x] Self-update refuses from a dev checkout and prints an actionable installer fallback.
+- [x] `.github/workflows/release.yml` publishes `wayforge-checksums.txt` covering every binary and both share archives.
+- [x] Tests cover version comparison, release resolution/cache/notice, checksum verification, replacement, and rollback.
+- [x] `make check` is green.
 
 ## Out of scope
 
@@ -242,3 +242,21 @@ git commit -m "feat(cli): add verified self-update and release checksums (Issue 
 - Requires the release workflow checksum change to land with or before the release that ships self-update.
 - First release containing self-update must publish `wayforge-checksums.txt`; users install that release with the existing one-shot installer.
 - Parent: #48.
+
+## Closure notes
+
+Completed 2026-10-22. Task 1 committed as `1e99df9` (`feat(cli): detect wayforge releases and notify users (Issue #237)`); Task 2 committed as the following `feat(cli): add verified self-update and release checksums (Issue #237)`.
+
+Agent-validated: `npx vitest run` green (60 passed / 1 platform-skipped in the self-update + release suites; full suite green under `make check`), `tsc --noEmit`, `npx eslint src/`, `npx prettier --check src/`, `self-update --help`, dev-checkout refusal with installer fallback, `make check` green with `LOCALAPPDATA` cleared (jscpd 7.09% < 8%). Gates: `architect_review` performed for both tasks (Task 1 accepted with conditions, all applied; Task 2 accepted with three conditions, all applied); `memory_update` recorded in `README.md`, `RELEASE.md`, `docs/ai/architecture.md`, ADR-0047, ADR-0031 amendment, and the 2026-10 change log.
+
+Human-owned validation still outstanding (see Validation ownership):
+
+- Real `wfg self-update` on Windows (running-exe rename; expect a lingering `wfg.exe.old-<pid>` until a later update ≥7 days out — confirm harmless) and on one Linux/macOS host.
+- Checksum-mismatch abort on a real install.
+- `wayforge-checksums.txt` present on the first release shipping this code (hard prerequisite before users can self-update).
+
+Known non-blocking observations:
+
+- One transient unit-test failure was observed during review in a combined run of the release + self-update suites; it was not reproduced in 10 sequential and 5 parallel runs, nor in repeated `make check` runs. Likely Windows filesystem/process contention (same class as the EPERM rename flake that `renameWithRetry` absorbs). Re-investigate only if it recurs in CI.
+- `install.sh` / `install.ps1` do not verify the new checksum file; ADR-0035's accepted posture is unchanged and installer checksum verification is a follow-up.
+- No explicit tar containment assertion is added; the archive is checksum-verified and tar's default path protections are relied upon (ADR-0047 trust-anchor scope).
