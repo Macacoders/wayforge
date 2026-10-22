@@ -759,20 +759,34 @@ describe('cmdEdit', () => {
     expect(mutatingCalls()).toHaveLength(0);
   });
 
-  it('rejects duplicate --remove-label values before any mutation', async () => {
+  it('deduplicates repeated label flags into one mutation each', async () => {
     mockEditFlow();
+    const stdout = captureStdout();
 
-    await expect(
-      gh.cmdEdit(baseCtx, [
-        '1',
-        '--title',
-        'Renamed',
-        '--remove-label',
-        'status:to-do',
-        '--remove-label=status:to-do',
-      ]),
-    ).rejects.toThrow(Error);
-    expect(mockFetch).not.toHaveBeenCalled();
+    await gh.cmdEdit({ ...baseCtx, jsonMode: true }, [
+      '1',
+      '--add-label',
+      'type:bug',
+      '--add-label=type:bug',
+      '--remove-label',
+      'status:to-do',
+      '--remove-label=status:to-do',
+    ]);
+
+    const postCalls = mockFetch.mock.calls.filter(
+      ([url, opts]: [string, RequestInit]) =>
+        url.includes('/issues/1/labels') && opts?.method === 'POST',
+    );
+    const deleteCalls = mockFetch.mock.calls.filter(
+      ([url, opts]: [string, RequestInit]) =>
+        url.includes('/labels/') && opts?.method === 'DELETE',
+    );
+    expect(postCalls).toHaveLength(1);
+    expect(deleteCalls).toHaveLength(1);
+    expect(JSON.parse(stdout.join('')).updated_fields).toEqual([
+      'label+type:bug',
+      'label-status:to-do',
+    ]);
   });
 
   it('rejects an empty --body-file= path without any fetch', async () => {

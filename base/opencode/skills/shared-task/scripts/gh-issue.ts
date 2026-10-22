@@ -29,6 +29,14 @@ const REQUIRED_LABELS = [
   'priority:low',
 ];
 
+/** Flags accepted by `edit`; each takes exactly one value. */
+const EDIT_VALUE_FLAGS = new Set([
+  '--title',
+  '--body-file',
+  '--add-label',
+  '--remove-label',
+]);
+
 // ── Types ───────────────────────────────────────────────────────────────────
 
 interface GitHubLabel {
@@ -334,15 +342,15 @@ async function ensureOpenIssue(issue: GitHubIssue): Promise<void> {
  * removals must be present on the issue. No auto-create. */
 function preflightLabelEdits(
   issue: GitHubIssue,
-  repoLabels: Set<string>,
-  addLabels: string[],
-  removeLabels: string[],
+  repoLabels: ReadonlySet<string>,
+  addLabels: ReadonlySet<string>,
+  removeLabels: ReadonlySet<string>,
 ): void {
-  const unknownAdd = addLabels.filter((l) => !repoLabels.has(l));
+  const unknownAdd = [...addLabels].filter((l) => !repoLabels.has(l));
   if (unknownAdd.length > 0) {
     throw new Error(`unknown labels: ${unknownAdd.join(', ')}`);
   }
-  const notPresent = removeLabels.filter((l) => !issueHasLabel(issue, l));
+  const notPresent = [...removeLabels].filter((l) => !issueHasLabel(issue, l));
   if (notPresent.length > 0) {
     throw new Error(`issue #${issue.number} does not have labels: ${notPresent.join(', ')}`);
   }
@@ -470,7 +478,7 @@ async function cmdLabelsCheck(ctx: GhContext): Promise<void> {
 
 async function cmdList(ctx: GhContext): Promise<void> {
   await ensureRequiredLabels(ctx);
-  const issues = await apiGet<Array<GitHubIssue & { pull_request?: unknown }>>(
+  const issues = await apiGet<GitHubIssue[]>(
     ctx,
     `/repos/${ctx.repo}/issues?state=open&per_page=100&sort=created&direction=desc`,
   );
@@ -505,6 +513,12 @@ async function cmdList(ctx: GhContext): Promise<void> {
       `#${issue.number}\t${issue.title}\tassignee:${assigneeStr}\t${statusStr}\n`,
     );
   }
+}
+
+/** Split `--flag=value` into `['--flag', 'value']`; other args pass through. */
+function splitFlagArg(arg: string): string[] {
+  const eq = arg.startsWith('--') ? arg.indexOf('=') : -1;
+  return eq > 0 ? [arg.slice(0, eq), arg.slice(eq + 1)] : [arg];
 }
 
 /** Resolve a `--body-file` path relative to cwd, rejecting empty paths up front. */
@@ -601,61 +615,26 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
 
   let title: string | undefined;
   let bodyFile: string | undefined;
-  const addLabels: string[] = [];
-  const removeLabels: string[] = [];
+  const addLabels = new Set<string>();
+  const removeLabels = new Set<string>();
+  const tokens = args.slice(1).flatMap(splitFlagArg);
 
-  for (let i = 1; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === '--title') {
-      i++;
-      if (i >= args.length) {
-        console.error('Error: --title requires a value.');
-        throw new Error();
-      }
-      title = args[i];
-    } else if (arg.startsWith('--title=')) {
-      title = arg.slice('--title='.length);
-    } else if (arg === '--body-file') {
-      i++;
-      if (i >= args.length) {
-        console.error('Error: --body-file requires a path.');
-        throw new Error();
-      }
-      bodyFile = args[i];
-    } else if (arg.startsWith('--body-file=')) {
-      bodyFile = arg.slice('--body-file='.length);
-    } else if (arg === '--add-label') {
-      i++;
-      if (i >= args.length) {
-        console.error('Error: --add-label requires a value.');
-        throw new Error();
-      }
-      addLabels.push(args[i]);
-    } else if (arg.startsWith('--add-label=')) {
-      addLabels.push(arg.slice('--add-label='.length));
-    } else if (arg === '--remove-label') {
-      i++;
-      if (i >= args.length) {
-        console.error('Error: --remove-label requires a value.');
-        throw new Error();
-      }
-      removeLabels.push(args[i]);
-    } else if (arg.startsWith('--remove-label=')) {
-      removeLabels.push(arg.slice('--remove-label='.length));
-    } else {
-      console.error(`Error: unknown edit option: ${arg}`);
+  for (let i = 0; i < tokens.length; i++) {
+    const flag = tokens[i];
+    if (!EDIT_VALUE_FLAGS.has(flag)) {
+      console.error(`Error: unknown edit option: ${flag}`);
       throw new Error();
     }
-  }
-
-  const duplicateRemoveLabel = removeLabels.find(
-    (label, i) => removeLabels.indexOf(label) !== i,
-  );
-  if (duplicateRemoveLabel !== undefined) {
-    console.error(
-      `Error: duplicate --remove-label value: ${duplicateRemoveLabel}.`,
-    );
-    throw new Error();
+    const value = tokens[i + 1];
+    if (value === undefined) {
+      console.error(`Error: ${flag} requires a value.`);
+      throw new Error();
+    }
+    i++;
+    if (flag === '--title') title = value;
+    else if (flag === '--body-file') bodyFile = value;
+    else if (flag === '--add-label') addLabels.add(value);
+    else removeLabels.add(value);
   }
 
   const resolvedBodyFile =
@@ -664,8 +643,8 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
   if (
     title === undefined &&
     resolvedBodyFile === undefined &&
-    addLabels.length === 0 &&
-    removeLabels.length === 0
+    addLabels.size === 0 &&
+    removeLabels.size === 0
   ) {
     console.error(
       'Error: edit requires at least one of --title, --body-file, --add-label, --remove-label.',
@@ -677,13 +656,14 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
     const parts = [`[DRY-RUN] would edit issue #${issueNumber}`];
     if (title !== undefined) parts.push(`title='${title}'`);
     if (bodyFile !== undefined) parts.push(`body-file='${bodyFile}'`);
-    if (addLabels.length) parts.push(`add-labels=[${addLabels.join(', ')}]`);
-    if (removeLabels.length) parts.push(`remove-labels=[${removeLabels.join(', ')}]`);
+    if (addLabels.size) parts.push(`add-labels=[${[...addLabels].join(', ')}]`);
+    if (removeLabels.size) parts.push(`remove-labels=[${[...removeLabels].join(', ')}]`);
     console.error(parts.join(' '));
     return;
   }
 
-  const repoLabels = await ensureRequiredLabels(ctx);
+  const repoLabels =
+    addLabels.size > 0 ? await ensureRequiredLabels(ctx) : new Set<string>();
   const issue = await getIssue(ctx, issueNumber);
   if (issue.pull_request) {
     throw new Error(`#${issueNumber} is a pull request, not an issue.`);
