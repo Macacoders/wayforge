@@ -597,6 +597,43 @@ describe('cmdCreate', () => {
     await expect(gh.cmdCreate({ ...baseCtx, dryRun: true }, ['Title', '--body-file=some/path.md']))
       .resolves.toBeUndefined();
   });
+
+  it('rejects an empty --body-file= path without any fetch', async () => {
+    await expect(gh.cmdCreate(baseCtx, ['T', '--body-file='])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a separate empty --body-file value without any fetch', async () => {
+    await expect(gh.cmdCreate(baseCtx, ['T', '--body-file', ''])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects empty --body-file paths in --dry-run without any fetch', async () => {
+    await expect(gh.cmdCreate({ ...baseCtx, dryRun: true }, ['T', '--body-file='])).rejects.toThrow(
+      Error,
+    );
+    await expect(
+      gh.cmdCreate({ ...baseCtx, dryRun: true }, ['T', '--body-file', '']),
+    ).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('sends body: \'\' for a valid path with empty file content', async () => {
+    mockWithLabels('/issues', CREATED_ISSUE, 'POST');
+    mockReadFileSync.mockReturnValue('');
+
+    const stdout = captureStdout();
+
+    await gh.cmdCreate(baseCtx, ['T', '--body-file', 'body.md']);
+
+    const posts = mockFetch.mock.calls.filter(
+      ([url, opts]: [string, RequestInit]) =>
+        url.includes('/issues') && opts?.method === 'POST',
+    );
+    expect(posts).toHaveLength(1);
+    expect(JSON.parse(posts[0][1].body as string)).toEqual({ title: 'T', body: '' });
+    expect(stdout.join('')).toContain(CREATED_ISSUE.html_url);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -824,6 +861,77 @@ describe('cmdEdit', () => {
     const patches = patchCalls();
     expect(patches).toHaveLength(1);
     expect(JSON.parse(patches[0][1].body as string)).toEqual({ body: '' });
+  });
+
+  it('rejects the same label in --add-label and --remove-label without any fetch', async () => {
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((chunk) => {
+      errors.push(String(chunk));
+    });
+
+    await expect(
+      gh.cmdEdit(baseCtx, ['1', '--add-label', 'type:bug', '--remove-label', 'type:bug']),
+    ).rejects.toThrow(Error);
+    expect(errors.join('')).toContain('cannot add and remove the same label(s): type:bug.');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty --title= value without any fetch', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--title='])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a separate empty --title value without any fetch', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--title', ''])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a whitespace-only --title value without any fetch', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--title', '   '])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty --add-label= value without any fetch', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--add-label='])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a separate empty --add-label value without any fetch', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--add-label', ''])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty --remove-label= value without any fetch', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--remove-label='])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a whitespace-only --remove-label value without any fetch', async () => {
+    await expect(gh.cmdEdit(baseCtx, ['1', '--remove-label', '   '])).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects contradictory labels in --dry-run without any fetch', async () => {
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((chunk) => {
+      errors.push(String(chunk));
+    });
+
+    await expect(
+      gh.cmdEdit(
+        { ...baseCtx, dryRun: true },
+        ['1', '--add-label', 'type:bug', '--remove-label', 'type:bug'],
+      ),
+    ).rejects.toThrow(Error);
+    expect(errors.join('')).toContain('cannot add and remove the same label(s): type:bug.');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty --title in --dry-run without any fetch', async () => {
+    await expect(
+      gh.cmdEdit({ ...baseCtx, dryRun: true }, ['1', '--title', '']),
+    ).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });
 

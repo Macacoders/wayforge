@@ -656,10 +656,34 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
       throw new Error();
     }
     i++;
-    if (flag === '--title') title = value;
-    else if (flag === '--body-file') bodyFile = value;
-    else if (flag === '--add-label') addLabels.add(value);
-    else removeLabels.add(value);
+    if (flag === '--title') {
+      if (value.trim() === '') {
+        console.error('Error: --title requires a non-empty value.');
+        throw new Error();
+      }
+      title = value;
+    } else if (flag === '--body-file') bodyFile = value;
+    else if (flag === '--add-label') {
+      if (value.trim() === '') {
+        console.error('Error: --add-label requires a non-empty value.');
+        throw new Error();
+      }
+      addLabels.add(value);
+    } else {
+      if (value.trim() === '') {
+        console.error('Error: --remove-label requires a non-empty value.');
+        throw new Error();
+      }
+      removeLabels.add(value);
+    }
+  }
+
+  const conflicting = [...addLabels].filter((l) => removeLabels.has(l));
+  if (conflicting.length > 0) {
+    console.error(
+      `Error: cannot add and remove the same label(s): ${conflicting.join(', ')}.`,
+    );
+    throw new Error();
   }
 
   const resolvedBodyFile =

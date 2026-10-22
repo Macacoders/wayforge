@@ -24,7 +24,7 @@ Create an issue. `--body-file` reads the body from a file (e.g. `temp/issue-<slu
 
 ### edit `<issue-number>` [`--title <title>`] [`--body-file <path>`] [`--add-label <name>`]... [`--remove-label <name>`]...
 
-Update the title, body, and/or labels of an existing open issue. Requires at least one of `--title`, `--body-file`, `--add-label`, or `--remove-label`. Rejects pull request numbers. `--body-file` requires a non-empty path (an empty file is a valid way to clear the body) and behaves like `create` (path relative to cwd unless absolute). Title and/or body are applied in a single PATCH; label additions must already exist in the repo and removals must be present on the issue — all label validation happens before any mutation (no auto-create), and repeated `--add-label`/`--remove-label` values are deduplicated. Prints the issue URL.
+Update the title, body, and/or labels of an existing open issue. Requires at least one of `--title`, `--body-file`, `--add-label`, or `--remove-label`. Rejects pull request numbers. Rejects empty or whitespace-only `--title`, `--add-label`, and `--remove-label` values, and rejects supplying the same label to both `--add-label` and `--remove-label` — all before any API call (including `--dry-run`). `--body-file` requires a non-empty path (an empty file is a valid way to clear the body) and behaves like `create` (path relative to cwd unless absolute). Title and/or body are applied in a single PATCH; label additions must already exist in the repo and removals must be present on the issue — all label validation happens before any mutation (no auto-create), and repeated `--add-label`/`--remove-label` values are deduplicated. Prints the issue URL.
 
 ### claim `<issue-number>`
 
@@ -76,5 +76,7 @@ Verify that all required labels exist; lists any missing labels and exits 1 if a
   - Priority: `priority:high`, `priority:medium`, `priority:low`
 - Do not auto-create labels.
 - Mutating commands (`claim`, `assign`, `release`, `close`, `prclose`, `edit`) reject pull request numbers; `show` is read-only and still accepts them. `--dry-run` does not resolve the target, so PR rejection applies to real runs only.
+- Label names are matched case-sensitively (repo labels, issue labels, and `edit` add/remove conflicts) — keep this behavior for consistency with `ensureRequiredLabels`.
+- `edit` validates its arguments before the first mutation, but a network/5xx failure between sequential API calls can still leave earlier changes applied (the REST API has no transaction).
 - Do not use `gh repo view`.
 - Do not mutate issues without clear user intent.
