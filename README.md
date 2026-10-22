@@ -52,6 +52,21 @@ wfg install --repo /path/to/repo --providers openai
 
 Use `--dry-run` to preview and `--force` to refresh managed files. Remove the CLI itself with `install.sh --uninstall` or `install.ps1 -Uninstall`.
 
+#### Laberit environment variables
+
+When installed with `--providers laberit`, both runtimes (OpenCode and Kilo Code) emit the same provider shape: `env: ["OPENAI_API_KEY"]` plus `options.baseURL: "${OPENAI_BASE_URL}"`. You must set both variables in the process environment before launching either runtime — a project `.env` file is not picked up:
+
+```bash
+export OPENAI_BASE_URL="https://<laberit-endpoint>/v1"
+export OPENAI_API_KEY="<laberit-key>"
+```
+
+Both variables are required. If one is missing, `${VAR}` stays a literal placeholder and the request fails loudly (it is not silently sent with an empty key).
+
+For Kilo Code, run `kilo config check` after setting the variables. It validates the config shape but not the presence of the variables. Kilo treats a project-level `kilo.jsonc` as untrusted and rejects active `{env:VAR}` references, which is why the generated config uses the unified form above. If a future Kilo release stops honoring project-level `provider.env`, the fallback is to move the laberit `options` block with `{env:...}` references into the trusted global `~/.config/kilo/kilo.jsonc` (a manual user step — the installer never writes global Kilo config) and keep only provider/model metadata in the project config.
+
+Existing installs that used `{env:}` in OpenCode switch to the unified form on the next `wfg install --repo <path> --force`; the environment variable names do not change.
+
 ### 4. Review the generated files
 
 `wfg install` writes two managed files into your repo — both are generated output, not source, and must not be hand-edited:
