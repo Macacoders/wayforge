@@ -759,6 +759,22 @@ describe('cmdEdit', () => {
     expect(mutatingCalls()).toHaveLength(0);
   });
 
+  it('rejects duplicate --remove-label values before any mutation', async () => {
+    mockEditFlow();
+
+    await expect(
+      gh.cmdEdit(baseCtx, [
+        '1',
+        '--title',
+        'Renamed',
+        '--remove-label',
+        'status:to-do',
+        '--remove-label=status:to-do',
+      ]),
+    ).rejects.toThrow(Error);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it('rejects an empty --body-file= path without any fetch', async () => {
     await expect(gh.cmdEdit(baseCtx, ['1', '--body-file='])).rejects.toThrow(Error);
     expect(mockFetch).not.toHaveBeenCalled();

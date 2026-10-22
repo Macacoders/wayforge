@@ -648,6 +648,16 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
     }
   }
 
+  const duplicateRemoveLabel = removeLabels.find(
+    (label, i) => removeLabels.indexOf(label) !== i,
+  );
+  if (duplicateRemoveLabel !== undefined) {
+    console.error(
+      `Error: duplicate --remove-label value: ${duplicateRemoveLabel}.`,
+    );
+    throw new Error();
+  }
+
   const resolvedBodyFile =
     bodyFile !== undefined ? resolveBodyFile(bodyFile) : undefined;
 
