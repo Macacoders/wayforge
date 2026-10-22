@@ -3,6 +3,7 @@
 import { Command } from 'commander'
 import { installCommand } from './commands/install.js'
 import { uninstallCommand } from './commands/uninstall.js'
+import { selfUpdateCommand } from './commands/self-update.js'
 import { interactiveCommand } from './commands/interactive.js'
 import { getCurrentVersion } from './lib/version.js'
 import { maybeNotifyUpdate, shouldNotifyUpdate } from './lib/release.js'
@@ -99,6 +100,28 @@ program
 	.action((options: Record<string, unknown>) => {
 		uninstallCommand({
 			repo: options.repo as string,
+			dryRun: Boolean(options.dryRun),
+		})
+	})
+
+program
+	.command('self-update')
+	.description('Verify and install the latest wayforge release')
+	.option(
+		'--check',
+		'Report the current and latest versions without updating',
+		false,
+	)
+	.option('--yes', 'Skip the confirmation prompt', false)
+	.option(
+		'--dry-run',
+		'Print the target version and asset URLs without downloading.',
+		false,
+	)
+	.action(async (options: Record<string, unknown>) => {
+		await selfUpdateCommand({
+			check: Boolean(options.check),
+			yes: Boolean(options.yes),
 			dryRun: Boolean(options.dryRun),
 		})
 	})

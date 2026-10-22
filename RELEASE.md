@@ -270,5 +270,6 @@ The `.github/workflows/release.yml` workflow builds and attaches the following a
 - **One-shot installer scripts** uploaded as release assets so the `releases/latest/download/` URLs resolve:
   - `install.sh`
   - `install.ps1`
+- **Checksums**: `wayforge-checksums.txt` in `sha256sum` format, covering every platform binary and both share archives. `wfg self-update` verifies the binary and share hashes against this file before any filesystem mutation; a missing or mismatched checksum aborts the update with no changes. The checksum file is strictly additive — existing artifact names are never renamed.
 
 The release workflow runs only at release time; source changes to `install/install.sh` or `install/install.ps1` are validated locally via `bash -n` and smoke tests against `--url-base` fixtures.

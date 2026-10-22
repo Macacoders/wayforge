@@ -92,6 +92,19 @@ When you run an installed `wfg` command in an interactive terminal, the CLI chec
 - Set `WAYFORGE_NO_UPDATE_CHECK=1` to disable the automatic notice.
 - The check result is cached under the platform state directory (`%LOCALAPPDATA%\wayforge` on Windows, `~/.local/state/wayforge` on Linux/macOS). Set `WAYFORGE_STATE_DIR` to override it.
 
+### Self-update
+
+An installed `wfg` can replace itself with a newer release:
+
+```bash
+wfg self-update --check   # report current vs latest, no changes
+wfg self-update --dry-run # show the target version and asset URLs
+wfg self-update           # prompt, then update
+wfg self-update --yes     # skip the prompt
+```
+
+Self-update downloads the platform binary, the share archive, and `wayforge-checksums.txt` from the release, verifies both SHA-256 checksums before touching the install, then replaces `bin/wfg` and `share/wayforge` with backup/rollback. Missing or mismatched checksums abort with no changes. Running from a source checkout, `self-update` refuses and points at the one-shot installer (`install.sh` / `install.ps1`) instead.
+
 ## Use
 
 Work flows through five workflows: formalize intent, plan approved intent, track via issues, deliver task by task, and keep durable memory current.
