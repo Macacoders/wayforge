@@ -1,7 +1,7 @@
 ---
 status: in-progress
 created: 2026-10-22
-task: 2/3
+task: 3/3
 required_gates:
   architect_review: false
   memory_update: true
@@ -42,7 +42,7 @@ required_gates:
 ## Progress
 
 - Task 1 — completed. `code.steps` raised to 16 in the six existing blocks; laberit-only `code` gained `steps` without re-pinning `laberit/laberit-ai`. Added `describe("agent block step floors")` coverage. Validated `npx vitest run cli/tests/unit/config-gen.test.ts` (52 passed, 2 skipped) and emission for all six provider sets. Commit `d58e08c` on `feature/issue-242-code-steps-laberit-kimi-combo`.
-- Task 2 — pending.
+- Task 2 — completed. Added `laberit-kimi-k2.7-code` (`Kimi K2.7 Code`, 262100/262100) as a fourth laberit model, additive only; existing entries and laberit defaults unchanged. Validated `buildProviderBlockJson(['laberit'], 'opencode', '.')` (four entries in order) and `npx vitest run cli/tests/unit/config-gen.test.ts` (52 passed, 2 skipped). Commit `f635808`.
 - Task 3 — pending.
 
 ## Tasks
