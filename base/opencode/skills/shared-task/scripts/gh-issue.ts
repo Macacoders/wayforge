@@ -355,6 +355,14 @@ async function ensureOpenIssue(issue: GitHubIssue): Promise<void> {
   }
 }
 
+/** Reject pull requests: GET /issues/{n} returns PRs too, but mutating
+ * commands must only ever touch issues. */
+function ensureNotPullRequest(issue: GitHubIssue): void {
+  if (issue.pull_request) {
+    throw new Error(`#${issue.number} is a pull request, not an issue.`);
+  }
+}
+
 /** Validate label edits before any mutation: additions must exist in the repo,
  * removals must be present on the issue. No auto-create. */
 function preflightLabelEdits(
@@ -682,9 +690,7 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
   const repoLabels =
     addLabels.size > 0 ? await ensureRequiredLabels(ctx) : new Set<string>();
   const issue = await getIssue(ctx, issueNumber);
-  if (issue.pull_request) {
-    throw new Error(`#${issueNumber} is a pull request, not an issue.`);
-  }
+  ensureNotPullRequest(issue);
   await ensureOpenIssue(issue);
   preflightLabelEdits(issue, repoLabels, addLabels, removeLabels);
 
@@ -740,6 +746,7 @@ async function cmdClaim(ctx: GhContext, args: string[]): Promise<void> {
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
   await ensureOpenIssue(issue);
+  ensureNotPullRequest(issue);
 
   if (getIssueAssigneeCount(issue) !== 0) {
     const assignee = getIssueFirstAssignee(issue);
@@ -783,6 +790,7 @@ async function cmdAssign(ctx: GhContext, args: string[]): Promise<void> {
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
   await ensureOpenIssue(issue);
+  ensureNotPullRequest(issue);
 
   if (getIssueAssigneeCount(issue) !== 0) {
     const assignee = getIssueFirstAssignee(issue);
@@ -839,6 +847,7 @@ async function cmdRelease(ctx: GhContext, args: string[]): Promise<void> {
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
   await ensureOpenIssue(issue);
+  ensureNotPullRequest(issue);
 
   const me = await getCurrentUser(ctx);
   const assignee = getIssueFirstAssignee(issue);
@@ -893,6 +902,7 @@ async function cmdClose(ctx: GhContext, args: string[]): Promise<void> {
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
   await ensureOpenIssue(issue);
+  ensureNotPullRequest(issue);
 
   await addComment(ctx, issueNumber, summary);
   await ensureLabelAbsent(ctx, issue, 'status:doing');
@@ -1003,6 +1013,7 @@ async function cmdPrclose(ctx: GhContext, args: string[]): Promise<void> {
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
   await ensureOpenIssue(issue);
+  ensureNotPullRequest(issue);
 
   // ── API calls ───────────────────────────────────────────────────────────
 
@@ -1186,7 +1197,7 @@ export async function main(
 
 export {
   addAssignee, addComment, addLabel, api, apiGet, apiPost, buildPRBody, closeIssue, cmdAssign, cmdCheck, cmdClaim, cmdClose, cmdCreate, cmdEdit, cmdLabelsCheck,
-  cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureOpenIssue, ensureRequiredLabels, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
+  cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureNotPullRequest, ensureOpenIssue, ensureRequiredLabels, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
   getIssueFirstAssignee, getIssueState, getRepoLabels, issueHasLabel, output,
   outputJson, PR_REVIEW_TEAM, prBodyScratchPath, printUsage, removeAssignee, removeLabel, requestTeamReview, REQUIRED_LABELS, resolveRepo, resolveToken, slugify
 };

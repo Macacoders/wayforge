@@ -82,6 +82,12 @@ const DEFAULT_ISSUE = {
   html_url: 'https://github.com/test/repo/issues/1',
 };
 
+/** Issue GET response carrying a pull_request object (PRs share the issues endpoint) */
+const PULL_REQUEST_ISSUE = {
+  ...DEFAULT_ISSUE,
+  pull_request: { url: 'https://api.github.com/repos/test/repo/pulls/1' },
+};
+
 /** Helper: paginated labels responses (first page full, then empty) */
 function labelsPager(): () => Promise<unknown> {
   let callCount = 0;
@@ -124,6 +130,13 @@ function mockWithLabels(
     }
     return Promise.reject(new Error(`Unexpected fetch: ${reqMethod} ${url}`));
   });
+}
+
+/** All mutating (non-GET) fetch calls: PATCH, POST, DELETE */
+function mutatingCalls(): Array<[string, RequestInit]> {
+  return mockFetch.mock.calls.filter(([, opts]: [string, RequestInit]) =>
+    ['PATCH', 'POST', 'DELETE'].includes(String(opts?.method)),
+  );
 }
 
 // ── Setup / teardown ────────────────────────────────────────────────────────
@@ -727,13 +740,6 @@ describe('cmdEdit', () => {
     await expect(gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed'])).rejects.toThrow('not open');
   });
 
-  /** All mutating (non-GET) fetch calls: PATCH, POST, DELETE */
-  function mutatingCalls(): Array<[string, RequestInit]> {
-    return mockFetch.mock.calls.filter(([, opts]: [string, RequestInit]) =>
-      ['PATCH', 'POST', 'DELETE'].includes(String(opts?.method)),
-    );
-  }
-
   it('rejects a pull request target without mutating anything', async () => {
     mockEditFlow({ ...DEFAULT_ISSUE, pull_request: { url: 'https://github.com/test/repo/pull/1' } });
 
@@ -940,6 +946,13 @@ describe('cmdClaim', () => {
   it('throws when issue number is missing', async () => {
     await expect(gh.cmdClaim(baseCtx, [])).rejects.toThrow(Error);
   });
+
+  it('rejects a pull request target without mutating', async () => {
+    mockWithLabels('/issues/1', PULL_REQUEST_ISSUE);
+
+    await expect(gh.cmdClaim(baseCtx, ['1'])).rejects.toThrow(/pull request/i);
+    expect(mutatingCalls()).toHaveLength(0);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -985,6 +998,13 @@ describe('cmdAssign', () => {
     });
 
     await expect(gh.cmdAssign(baseCtx, ['1', 'user'])).rejects.toThrow('already assigned');
+  });
+
+  it('rejects a pull request target without mutating', async () => {
+    mockWithLabels('/issues/1', PULL_REQUEST_ISSUE);
+
+    await expect(gh.cmdAssign(baseCtx, ['1', 'user'])).rejects.toThrow(/pull request/i);
+    expect(mutatingCalls()).toHaveLength(0);
   });
 });
 
@@ -1118,6 +1138,13 @@ describe('cmdRelease', () => {
     // Must add status:to-do (issue doesn't have it initially)
     expect(postUrls.some((u) => u.includes('/labels'))).toBe(true);
   });
+
+  it('rejects a pull request target without mutating', async () => {
+    mockWithLabels('/issues/1', PULL_REQUEST_ISSUE);
+
+    await expect(gh.cmdRelease(baseCtx, ['1'])).rejects.toThrow(/pull request/i);
+    expect(mutatingCalls()).toHaveLength(0);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1208,6 +1235,13 @@ describe('cmdClose', () => {
     });
 
     await expect(gh.cmdClose(baseCtx, ['1'])).rejects.toThrow('not open');
+  });
+
+  it('rejects a pull request target without mutating', async () => {
+    mockWithLabels('/issues/1', PULL_REQUEST_ISSUE);
+
+    await expect(gh.cmdClose(baseCtx, ['1'])).rejects.toThrow(/pull request/i);
+    expect(mutatingCalls()).toHaveLength(0);
   });
 });
 
@@ -1446,6 +1480,18 @@ describe('cmdPrclose', () => {
 
   it('throws when issue number is missing', async () => {
     await expect(gh.cmdPrclose(baseCtx, [])).rejects.toThrow(Error);
+  });
+
+  it('rejects a pull request target without mutating or branch side effects', async () => {
+    mockWithLabels('/issues/1', PULL_REQUEST_ISSUE);
+
+    await expect(gh.cmdPrclose(baseCtx, ['1'])).rejects.toThrow(/pull request/i);
+    expect(mutatingCalls()).toHaveLength(0);
+    const branchOps = mockExecFileSync.mock.calls.filter(
+      ([, args]: [string, string[]]) =>
+        ['checkout', 'commit', 'push'].includes(String(args?.[0])),
+    );
+    expect(branchOps).toHaveLength(0);
   });
 });
 
