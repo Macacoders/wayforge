@@ -19,6 +19,7 @@ describe("uninstallCommand", () => {
 
   beforeEach(() => {
     vi.stubEnv("WSL_DISTRO_NAME", "");
+    vi.stubEnv("LOCALAPPDATA", "");
     testDir = fs.mkdtempSync(path.join(BASE, "uninstall-"));
     stateDir = path.join(testDir, "home");
     repoDir = path.join(testDir, "repo");
