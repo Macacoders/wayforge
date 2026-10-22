@@ -469,21 +469,10 @@ describe("generateOpenCodeJsonc", () => {
   });
 
   for (const runtime of RUNTIMES) {
-    it(`generates laberit config without env/file references for ${runtime}`, () => {
-      const content = generateOpenCodeJsonc(makeOpts(runtime, ["laberit"]));
-      expect(content).not.toContain("{env:");
-      expect(content).not.toContain("{file:");
-      // Strip the single-line generated header comment, then the rest must
-      // parse as strict JSON (no JSONC comments/refs leaked into output).
-      const json = content.slice(content.indexOf("\n") + 1);
-      expect(() => JSON.parse(json)).not.toThrow();
-    });
-  }
-
-  for (const runtime of RUNTIMES) {
-    it(`emits no env/file references for ${runtime} with all providers`, () => {
+    it(`emits no env/file references for ${runtime} across all providers`, () => {
       // Generation concatenates per-provider fragments, so one combination
-      // containing every fragment is enough to guard the global invariant.
+      // containing every fragment (including laberit) guards the global
+      // invariant.
       const content = generateOpenCodeJsonc(
         makeOpts(runtime, [
           "openai",
@@ -494,6 +483,10 @@ describe("generateOpenCodeJsonc", () => {
       );
       expect(content).not.toContain("{env:");
       expect(content).not.toContain("{file:");
+      // Strip the single-line generated header comment, then the rest must
+      // parse as strict JSON (no JSONC comments/refs leaked into output).
+      const json = content.slice(content.indexOf("\n") + 1);
+      expect(() => JSON.parse(json)).not.toThrow();
     });
   }
 });
