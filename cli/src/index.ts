@@ -4,6 +4,8 @@ import { Command } from 'commander'
 import { installCommand } from './commands/install.js'
 import { uninstallCommand } from './commands/uninstall.js'
 import { interactiveCommand } from './commands/interactive.js'
+import { getCurrentVersion } from './lib/version.js'
+import { maybeNotifyUpdate, shouldNotifyUpdate } from './lib/release.js'
 import type { InstallOptions, Runtime } from './types.js'
 
 const program = new Command('wayforge')
@@ -11,7 +13,7 @@ const program = new Command('wayforge')
 program
 	.name('wayforge')
 	.description('Cross-platform CLI installer for wayforge')
-	.version(process.env.WAYFORGE_VERSION || '0.1.0', '-v, --version')
+	.version(getCurrentVersion(), '-v, --version')
 
 program
 	.command('install')
@@ -110,7 +112,15 @@ program
 		await interactiveCommand()
 	})
 
-program.parseAsync(process.argv).catch((error: unknown) => {
+async function main(): Promise<void> {
+	// Awaited so a fast command cannot exit before the notice is emitted.
+	if (shouldNotifyUpdate(process.argv.slice(2), process.stdout.isTTY)) {
+		await maybeNotifyUpdate()
+	}
+	await program.parseAsync(process.argv)
+}
+
+main().catch((error: unknown) => {
 	console.error(error instanceof Error ? error.message : String(error))
 	process.exit(1)
 })

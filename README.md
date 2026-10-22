@@ -85,6 +85,13 @@ Build a standalone binary with `make cli-binary` (no Node.js needed).
 
 See [`RELEASE.md`](./RELEASE.md) and [`CHANGELOG.md`](./CHANGELOG.md) for release and version history.
 
+### Update notices
+
+When you run an installed `wfg` command in an interactive terminal, the CLI checks GitHub for a newer release at most once every 24 hours and prints a one-line notice to stderr when one exists. The check is cached, never fails the command, and is skipped in CI, in non-interactive shells, and for maintenance commands (`uninstall`, `self-update`).
+
+- Set `WAYFORGE_NO_UPDATE_CHECK=1` to disable the automatic notice.
+- The check result is cached under the platform state directory (`%LOCALAPPDATA%\wayforge` on Windows, `~/.local/state/wayforge` on Linux/macOS). Set `WAYFORGE_STATE_DIR` to override it.
+
 ## Use
 
 Work flows through five workflows: formalize intent, plan approved intent, track via issues, deliver task by task, and keep durable memory current.
