@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: completed
 created: 2026-10-22
 task: 3/3
 required_gates:
@@ -43,7 +43,7 @@ required_gates:
 
 - Task 1 — completed. `code.steps` raised to 16 in the six existing blocks; laberit-only `code` gained `steps` without re-pinning `laberit/laberit-ai`. Added `describe("agent block step floors")` coverage. Validated `npx vitest run cli/tests/unit/config-gen.test.ts` (52 passed, 2 skipped) and emission for all six provider sets. Commit `d58e08c` on `feature/issue-242-code-steps-laberit-kimi-combo`.
 - Task 2 — completed. Added `laberit-kimi-k2.7-code` (`Kimi K2.7 Code`, 262100/262100) as a fourth laberit model, additive only; existing entries and laberit defaults unchanged. Validated `buildProviderBlockJson(['laberit'], 'opencode', '.')` (four entries in order) and `npx vitest run cli/tests/unit/config-gen.test.ts` (52 passed, 2 skipped). Commit `f635808`.
-- Task 3 — pending.
+- Task 3 — completed. Added `balanced-opencode-go-laberit-agent-block.jsonc`, inclusion-based combo branches in `providers.ts` and `config-gen.ts`, the interactive menu choice, combo tests, and architecture/log updates. Validated `npx vitest run cli/tests/unit/config-gen.test.ts` (56 passed, 2 skipped), `make check` (all checks passed; jscpd 7.85%), and a temp-repo `--providers opencode-go,laberit --no-track --force` install (expected `enabled_providers`, defaults, both provider fragments, Kimi model, `code.steps` 16, no openai models). Commit `f658281`. Human validation pending (owner: human): `/model` lists and switches to `laberit/laberit-kimi-k2.7-code` and `opencode-go/glm-5.3-flash` in an OpenCode session.
 
 ## Tasks
 
