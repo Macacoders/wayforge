@@ -330,6 +330,32 @@ describe("buildAgentBlockJson", () => {
   });
 });
 
+describe("agent block step floors", () => {
+  const agentBlockFragments = [
+    "balanced-github-copilot-only-agent-block.jsonc",
+    "balanced-openai-only-agent-block.jsonc",
+    "balanced-openai-github-copilot-agent-block.jsonc",
+    "balanced-opencode-go-only-agent-block.jsonc",
+    "free-tier-agent-block.jsonc",
+    "balanced-laberit-only-agent-block.jsonc",
+  ];
+
+  it.each(agentBlockFragments)("gives code at least 16 steps in %s", (file) => {
+    const fragment = readFragment(sourceDir, `agents/${file}`);
+    const parsed = JSON.parse(`{${fragment}}`);
+    expect(parsed.agent.code.steps).toBeGreaterThanOrEqual(16);
+  });
+
+  it("keeps laberit-only code model unpinned to laberit-ai", () => {
+    const fragment = readFragment(
+      sourceDir,
+      "agents/balanced-laberit-only-agent-block.jsonc",
+    );
+    const parsed = JSON.parse(`{${fragment}}`);
+    expect(parsed.agent.code.model).toBe("laberit/laberit-ai");
+  });
+});
+
 describe("generateOpenCodeJsonc", () => {
   it("generates free-tier opencode config with hidden agent entries", () => {
     const content = generateOpenCodeJsonc(
