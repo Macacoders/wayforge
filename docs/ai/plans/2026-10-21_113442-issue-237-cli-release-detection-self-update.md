@@ -249,14 +249,23 @@ Completed 2026-10-22. Task 1 committed as `1e99df9` (`feat(cli): detect wayforge
 
 Agent-validated: `npx vitest run` green (60 passed / 1 platform-skipped in the self-update + release suites; full suite green under `make check`), `tsc --noEmit`, `npx eslint src/`, `npx prettier --check src/`, `self-update --help`, dev-checkout refusal with installer fallback, `make check` green with `LOCALAPPDATA` cleared (jscpd 7.09% < 8%). Gates: `architect_review` performed for both tasks (Task 1 accepted with conditions, all applied; Task 2 accepted with three conditions, all applied); `memory_update` recorded in `README.md`, `RELEASE.md`, `docs/ai/architecture.md`, ADR-0047, ADR-0031 amendment, and the 2026-10 change log.
 
+Local end-to-end validation (2026-10-22, Windows, fully isolated under `%TEMP%`): built two real binaries with `bun` (`WAYFORGE_VERSION` 1.0.2 and 1.0.3), installed 1.0.2 into a temporary prefix (`bin/wfg.exe`, `share/wayforge/base`, `VERSION`), and served a fake release from a local HTTP server (`/releases/latest` → 302 → `/releases/tag/v1.0.3`) with the Windows binary asset, the share `.zip`, and `wayforge-checksums.txt`.
+
+- `self-update --check` reported `current v1.0.2` / `latest v1.0.3` and exited 0.
+- `self-update --dry-run` printed the target and asset URLs without changing anything.
+- `self-update --yes` printed `updated wayforge to v1.0.3`; `VERSION`, `base/`, the installed binary hash, and `wfg --version` all reflected 1.0.3. The running-exe rename succeeded and left the expected `wfg.exe.old-<pid>` backup (Windows cannot delete the running image; it is removed by a later update ≥7 days out).
+- A checksum mismatch and a checksum file missing the binary entry each exited 1 with a clear message and left the prefix byte-identical to the pre-update state.
+- The temporary workspace was removed; the repository was untouched (clean worktree, same HEAD).
+
 Human-owned validation still outstanding (see Validation ownership):
 
-- Real `wfg self-update` on Windows (running-exe rename; expect a lingering `wfg.exe.old-<pid>` until a later update ≥7 days out — confirm harmless) and on one Linux/macOS host.
-- Checksum-mismatch abort on a real install.
+- Real `wfg self-update` on one Linux/macOS host (the Windows running-exe path was validated locally against a fake release).
+- Checksum-mismatch abort on a real published install (validated locally against a fake release).
 - `wayforge-checksums.txt` present on the first release shipping this code (hard prerequisite before users can self-update).
 
 Known non-blocking observations:
 
+- The rollback path after a mid-replacement failure was not exercised end-to-end (injecting a failure into a compiled binary is impractical); it is covered by unit tests via the `rename` seam.
 - One transient unit-test failure was observed during review in a combined run of the release + self-update suites; it was not reproduced in 10 sequential and 5 parallel runs, nor in repeated `make check` runs. Likely Windows filesystem/process contention (same class as the EPERM rename flake that `renameWithRetry` absorbs). Re-investigate only if it recurs in CI.
 - `install.sh` / `install.ps1` do not verify the new checksum file; ADR-0035's accepted posture is unchanged and installer checksum verification is a follow-up.
 - No explicit tar containment assertion is added; the archive is checksum-verified and tar's default path protections are relied upon (ADR-0047 trust-anchor scope).
