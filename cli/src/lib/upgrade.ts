@@ -5,14 +5,20 @@ import fs from 'fs-extra'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { spawnSync } from 'node:child_process'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { isInstalledBinary, resolveInstallPrefix } from './install.js'
 import { checkForUpdate, resolveReleaseRoot } from './release.js'
-import { getCurrentVersion } from './version.js'
+import { displayVersion, getCurrentVersion } from './version.js'
 import { promptYesNo } from './prompt.js'
 
 const DOWNLOAD_TIMEOUT_MS = 60_000
 const BACKUP_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 const USER_AGENT = 'wayforge/upgrade'
+
+export const INSTALL_SH_COMMAND =
+	'curl -fsSL https://github.com/Macacoders/wayforge/releases/latest/download/install.sh | sh'
+export const INSTALL_PS1_COMMAND =
+	'powershell -c "irm https://github.com/Macacoders/wayforge/releases/latest/download/install.ps1 | iex"'
 
 export type UpgradeOutcome =
 	'dev-checkout' | 'no-prefix' | 'up-to-date' | 'declined' | 'updated'
@@ -37,7 +43,7 @@ export interface ReplacePaths {
 	extractedShareDir: string
 	newBinaryPath: string
 	/** Test seam: inject a rename failure. Defaults to renameWithRetry. */
-	rename?: (from: string, to: string) => void
+	rename?: (from: string, to: string) => Promise<void> | void
 }
 
 function binaryName(): string {
@@ -148,12 +154,12 @@ function backupName(name: string): string {
 // Windows transiently locks freshly written/extracted trees (antivirus,
 // indexer, lingering child handles), making rename fail with EPERM. A short
 // retry absorbs the lock; exhaustion still throws so rollback runs.
-function renameWithRetry(
+async function renameWithRetry(
 	from: string,
 	to: string,
 	attempts = 4,
 	delayMs = 75,
-): void {
+): Promise<void> {
 	for (let attempt = 1; ; attempt++) {
 		try {
 			fs.renameSync(from, to)
@@ -162,12 +168,7 @@ function renameWithRetry(
 			if (attempt >= attempts) {
 				throw error
 			}
-			Atomics.wait(
-				new Int32Array(new SharedArrayBuffer(4)),
-				0,
-				0,
-				delayMs,
-			)
+			await sleep(delayMs)
 		}
 	}
 }
@@ -217,9 +218,9 @@ export async function replaceInstall(paths: ReplacePaths): Promise<void> {
 	removeQuiet(binaryBackup)
 
 	// Share first: a failure here leaves the old binary in place.
-	rename(shareDir, shareBackup)
+	await rename(shareDir, shareBackup)
 	try {
-		rename(paths.extractedShareDir, shareDir)
+		await rename(paths.extractedShareDir, shareDir)
 	} catch (error) {
 		restore(shareBackup, shareDir)
 		throw error
@@ -228,7 +229,7 @@ export async function replaceInstall(paths: ReplacePaths): Promise<void> {
 	// Binary second: on Windows the running exe can only be renamed away,
 	// not overwritten, so the backup rename is the mechanism on both platforms.
 	try {
-		rename(binaryPath, binaryBackup)
+		await rename(binaryPath, binaryBackup)
 	} catch (error) {
 		rollShareBack()
 		throw error
@@ -237,7 +238,7 @@ export async function replaceInstall(paths: ReplacePaths): Promise<void> {
 		if (process.platform !== 'win32') {
 			await fs.chmod(paths.newBinaryPath, 0o755)
 		}
-		rename(paths.newBinaryPath, binaryPath)
+		await rename(paths.newBinaryPath, binaryPath)
 	} catch (error) {
 		restore(binaryBackup, binaryPath)
 		// Roll the share back too: the install must stay internally consistent.
@@ -299,12 +300,8 @@ export async function upgrade(
 			'  From a source checkout, update the repository (git pull) or run the',
 		)
 		log('  one-shot installer instead:')
-		log(
-			'    curl -fsSL https://github.com/Macacoders/wayforge/releases/latest/download/install.sh | sh',
-		)
-		log(
-			'    powershell -c "irm https://github.com/Macacoders/wayforge/releases/latest/download/install.ps1 | iex"',
-		)
+		log(`    ${INSTALL_SH_COMMAND}`)
+		log(`    ${INSTALL_PS1_COMMAND}`)
 		return {
 			outcome: 'dev-checkout',
 			current: getCurrentVersion(),
@@ -332,7 +329,7 @@ export async function upgrade(
 	const { current, latest } = check
 
 	if (!check.updateAvailable) {
-		log(`wayforge is up to date (v${current.replace(/^v/, '')})`)
+		log(`wayforge is up to date (${displayVersion(current)})`)
 		return { outcome: 'up-to-date', current, latest }
 	}
 
@@ -343,7 +340,7 @@ export async function upgrade(
 	const promptFn = options.promptFn ?? promptYesNo
 	if (!options.yes) {
 		const confirmed = await promptFn(
-			`Upgrade wayforge v${current.replace(/^v/, '')} -> ${latest}? [y/N] `,
+			`Upgrade wayforge ${displayVersion(current)} -> ${latest}? [y/N] `,
 		)
 		if (!confirmed) {
 			log('upgrade declined')
@@ -428,7 +425,7 @@ export async function upgrade(
 		removeQuiet(path.join(prefix, 'share', backupName('wayforge')))
 		removeQuiet(path.join(prefix, 'bin', backupName(binaryName())))
 
-		log(`upgraded wayforge to ${latest}`)
+		log(`upgraded wayforge to ${displayVersion(latest)}`)
 		return { outcome: 'updated', current, latest }
 	} finally {
 		removeQuiet(stagedBinaryPath)

@@ -73,6 +73,10 @@ export function isNewer(current: string, candidate: string): boolean {
 	}
 }
 
+export function displayVersion(version: string): string {
+	return `v${version.replace(/^v/, '')}`
+}
+
 export function getCurrentVersion(): string {
 	const fromEnv = process.env.WAYFORGE_VERSION
 	if (fromEnv && fromEnv.trim() !== '') {

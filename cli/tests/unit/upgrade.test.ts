@@ -153,6 +153,43 @@ function collectLogs(): { lines: string[]; log: (line: string) => void } {
 	return { lines, log: (line: string) => lines.push(line) }
 }
 
+function buildReleaseArchive(): Buffer {
+	const fixture = makeTempDir('fixture-')
+	const archive = path.join(fixture, 'share.tar.gz')
+	const fixtureShare = path.join(fixture, 'share')
+	writeFixtureShare(fixtureShare, '9.0.0')
+	buildShareArchive(fixtureShare, archive, ['base', 'VERSION'])
+	return fs.readFileSync(archive)
+}
+
+interface ReleaseFixtureOptions {
+	archive?: Buffer
+	checksumEntries?: Array<[string, Buffer | string]>
+}
+
+async function serveRelease(options: ReleaseFixtureOptions = {}) {
+	const binaryBytes = Buffer.from('new-binary')
+	const archiveBytes = options.archive ?? buildReleaseArchive()
+	const entries = options.checksumEntries ?? [
+		[binaryAssetName(), binaryBytes],
+		[shareAssetName('v9.0.0'), archiveBytes],
+	]
+	const server = await startServer({
+		'/releases/tag/v9.0.0': { body: Buffer.from('') },
+		'/releases/download/v9.0.0/wayforge-checksums.txt': {
+			body: Buffer.from(checksumsText(entries)),
+		},
+		[`/releases/download/v9.0.0/${binaryAssetName()}`]: {
+			body: binaryBytes,
+		},
+		[`/releases/download/v9.0.0/${shareAssetName('v9.0.0')}`]: {
+			body: archiveBytes,
+		},
+	})
+	vi.stubEnv('WAYFORGE_RELEASE_ROOT', server.url)
+	return server
+}
+
 afterEach(async () => {
 	vi.unstubAllEnvs()
 	vi.unstubAllGlobals()
@@ -526,32 +563,13 @@ describe('upgrade', () => {
 
 	it('aborts on a checksum mismatch without touching the install', async () => {
 		const prefix = installFixture()
-		const fixture = makeTempDir('fixture-')
-		const archive = path.join(fixture, 'share.tar.gz')
-		const fixtureShare = path.join(fixture, 'share')
-		writeFixtureShare(fixtureShare, '9.0.0')
-		buildShareArchive(fixtureShare, archive, ['base', 'VERSION'])
-		const archiveBytes = fs.readFileSync(archive)
-		const binaryBytes = Buffer.from('new-binary')
 
-		const server = await startServer({
-			'/releases/tag/v9.0.0': { body: Buffer.from('') },
-			[`/releases/download/v9.0.0/wayforge-checksums.txt`]: {
-				body: Buffer.from(
-					checksumsText([
-						[binaryAssetName(), binaryBytes],
-						[shareAssetName('v9.0.0'), Buffer.from('tampered')],
-					]),
-				),
-			},
-			[`/releases/download/v9.0.0/${binaryAssetName()}`]: {
-				body: binaryBytes,
-			},
-			[`/releases/download/v9.0.0/${shareAssetName('v9.0.0')}`]: {
-				body: archiveBytes,
-			},
+		const server = await serveRelease({
+			checksumEntries: [
+				[binaryAssetName(), Buffer.from('new-binary')],
+				[shareAssetName('v9.0.0'), Buffer.from('tampered')],
+			],
 		})
-		vi.stubEnv('WAYFORGE_RELEASE_ROOT', server.url)
 		const { log } = collectLogs()
 
 		await expect(upgrade({ yes: true, prefix, log })).rejects.toThrow(
@@ -595,32 +613,12 @@ describe('upgrade', () => {
 			fs.utimesSync(target, old, old)
 		}
 
-		const fixture = makeTempDir('fixture-')
-		const archive = path.join(fixture, 'share.tar.gz')
-		const fixtureShare = path.join(fixture, 'share')
-		writeFixtureShare(fixtureShare, '9.0.0')
-		buildShareArchive(fixtureShare, archive, ['base', 'VERSION'])
-		const archiveBytes = fs.readFileSync(archive)
-		const binaryBytes = Buffer.from('new-binary')
-
-		const server = await startServer({
-			'/releases/tag/v9.0.0': { body: Buffer.from('') },
-			'/releases/download/v9.0.0/wayforge-checksums.txt': {
-				body: Buffer.from(
-					checksumsText([
-						[binaryAssetName(), binaryBytes],
-						[shareAssetName('v9.0.0'), Buffer.from('tampered')],
-					]),
-				),
-			},
-			[`/releases/download/v9.0.0/${binaryAssetName()}`]: {
-				body: binaryBytes,
-			},
-			[`/releases/download/v9.0.0/${shareAssetName('v9.0.0')}`]: {
-				body: archiveBytes,
-			},
+		const server = await serveRelease({
+			checksumEntries: [
+				[binaryAssetName(), Buffer.from('new-binary')],
+				[shareAssetName('v9.0.0'), Buffer.from('tampered')],
+			],
 		})
-		vi.stubEnv('WAYFORGE_RELEASE_ROOT', server.url)
 
 		await expect(
 			upgrade({ yes: true, prefix, log: () => {} }),
@@ -645,19 +643,7 @@ describe('upgrade', () => {
 
 	it('aborts when the checksum file has no entry for an asset', async () => {
 		const prefix = installFixture()
-		const server = await startServer({
-			'/releases/tag/v9.0.0': { body: Buffer.from('') },
-			'/releases/download/v9.0.0/wayforge-checksums.txt': {
-				body: Buffer.from(''),
-			},
-			[`/releases/download/v9.0.0/${binaryAssetName()}`]: {
-				body: Buffer.from('new-binary'),
-			},
-			[`/releases/download/v9.0.0/${shareAssetName('v9.0.0')}`]: {
-				body: Buffer.from('archive'),
-			},
-		})
-		vi.stubEnv('WAYFORGE_RELEASE_ROOT', server.url)
+		const server = await serveRelease({ checksumEntries: [] })
 		const { log } = collectLogs()
 
 		await expect(upgrade({ yes: true, prefix, log })).rejects.toThrow(
@@ -675,26 +661,8 @@ describe('upgrade', () => {
 		fs.writeFileSync(path.join(noBase, 'VERSION'), '9.0.0\n', 'utf8')
 		buildShareArchive(noBase, badArchive, ['VERSION'])
 		const badBytes = fs.readFileSync(badArchive)
-		const binaryBytes = Buffer.from('new-binary')
 
-		const server = await startServer({
-			'/releases/tag/v9.0.0': { body: Buffer.from('') },
-			'/releases/download/v9.0.0/wayforge-checksums.txt': {
-				body: Buffer.from(
-					checksumsText([
-						[binaryAssetName(), binaryBytes],
-						[shareAssetName('v9.0.0'), badBytes],
-					]),
-				),
-			},
-			[`/releases/download/v9.0.0/${binaryAssetName()}`]: {
-				body: binaryBytes,
-			},
-			[`/releases/download/v9.0.0/${shareAssetName('v9.0.0')}`]: {
-				body: badBytes,
-			},
-		})
-		vi.stubEnv('WAYFORGE_RELEASE_ROOT', server.url)
+		const server = await serveRelease({ archive: badBytes })
 		const { log } = collectLogs()
 
 		await expect(upgrade({ yes: true, prefix, log })).rejects.toThrow(
@@ -736,31 +704,7 @@ describe('upgrade', () => {
 			fs.utimesSync(target, old, old)
 		}
 
-		const fixture = makeTempDir('fixture-')
-		const archive = path.join(fixture, 'share.tar.gz')
-		const fixtureShare = path.join(fixture, 'share')
-		writeFixtureShare(fixtureShare, '9.0.0')
-		buildShareArchive(fixtureShare, archive, ['base', 'VERSION'])
-		const archiveBytes = fs.readFileSync(archive)
-		const binaryBytes = Buffer.from('new-binary')
-		const server = await startServer({
-			'/releases/tag/v9.0.0': { body: Buffer.from('') },
-			'/releases/download/v9.0.0/wayforge-checksums.txt': {
-				body: Buffer.from(
-					checksumsText([
-						[binaryAssetName(), binaryBytes],
-						[shareAssetName('v9.0.0'), archiveBytes],
-					]),
-				),
-			},
-			[`/releases/download/v9.0.0/${binaryAssetName()}`]: {
-				body: binaryBytes,
-			},
-			[`/releases/download/v9.0.0/${shareAssetName('v9.0.0')}`]: {
-				body: archiveBytes,
-			},
-		})
-		vi.stubEnv('WAYFORGE_RELEASE_ROOT', server.url)
+		const server = await serveRelease()
 
 		const result = await upgrade({ yes: true, prefix, log: () => {} })
 		await server.close()
@@ -788,32 +732,7 @@ describe('upgrade', () => {
 
 	it('updates the prefix from a local HTTP release and removes backups', async () => {
 		const prefix = installFixture()
-		const fixture = makeTempDir('fixture-')
-		const archive = path.join(fixture, 'share.tar.gz')
-		const fixtureShare = path.join(fixture, 'share')
-		writeFixtureShare(fixtureShare, '9.0.0')
-		buildShareArchive(fixtureShare, archive, ['base', 'VERSION'])
-		const archiveBytes = fs.readFileSync(archive)
-		const binaryBytes = Buffer.from('new-binary')
-
-		const server = await startServer({
-			'/releases/tag/v9.0.0': { body: Buffer.from('') },
-			'/releases/download/v9.0.0/wayforge-checksums.txt': {
-				body: Buffer.from(
-					checksumsText([
-						[binaryAssetName(), binaryBytes],
-						[shareAssetName('v9.0.0'), archiveBytes],
-					]),
-				),
-			},
-			[`/releases/download/v9.0.0/${binaryAssetName()}`]: {
-				body: binaryBytes,
-			},
-			[`/releases/download/v9.0.0/${shareAssetName('v9.0.0')}`]: {
-				body: archiveBytes,
-			},
-		})
-		vi.stubEnv('WAYFORGE_RELEASE_ROOT', server.url)
+		const server = await serveRelease()
 		const { lines, log } = collectLogs()
 
 		const result = await upgrade({ yes: true, prefix, log })

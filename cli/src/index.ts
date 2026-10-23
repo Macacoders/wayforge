@@ -130,11 +130,7 @@ program
 		await interactiveCommand()
 	})
 
-async function main(): Promise<void> {
-	await program.parseAsync(process.argv)
-}
-
-main().catch((error: unknown) => {
+program.parseAsync(process.argv).catch((error: unknown) => {
 	console.error(error instanceof Error ? error.message : String(error))
 	process.exit(1)
 })

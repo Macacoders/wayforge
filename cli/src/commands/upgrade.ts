@@ -1,4 +1,8 @@
-import { upgrade } from '../lib/upgrade.js'
+import {
+	INSTALL_PS1_COMMAND,
+	INSTALL_SH_COMMAND,
+	upgrade,
+} from '../lib/upgrade.js'
 
 export interface UpgradeCommandOptions {
 	yes?: boolean
@@ -19,15 +23,13 @@ export async function upgradeCommand(
 		const message = error instanceof Error ? error.message : String(error)
 		console.error(`error: upgrade failed: ${message}`)
 		console.error(
-			'The upgrade failed and was rolled back where possible; the install may need repair.',
-		)
-		console.error('Run the one-shot installer to repair or reinstall:')
-		console.error(
-			'  curl -fsSL https://github.com/Macacoders/wayforge/releases/latest/download/install.sh | sh',
+			'The upgrade did not complete; the existing install was left in place where possible.',
 		)
 		console.error(
-			'  powershell -c "irm https://github.com/Macacoders/wayforge/releases/latest/download/install.ps1 | iex"',
+			'If the install needs repair, run the one-shot installer:',
 		)
+		console.error(`  ${INSTALL_SH_COMMAND}`)
+		console.error(`  ${INSTALL_PS1_COMMAND}`)
 		process.exit(1)
 	}
 }

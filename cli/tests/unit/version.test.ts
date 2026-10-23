@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import path from 'path'
+import os from 'os'
 import fs from 'fs-extra'
 import {
 	compareVersions,
@@ -29,7 +30,9 @@ describe('compareVersions', () => {
 	})
 
 	it('compares prerelease identifiers', () => {
-		expect(compareVersions('1.0.0-alpha.1', '1.0.0-alpha')).toBeGreaterThan(0)
+		expect(compareVersions('1.0.0-alpha.1', '1.0.0-alpha')).toBeGreaterThan(
+			0,
+		)
 		expect(compareVersions('1.0.0-beta', '1.0.0-alpha')).toBeGreaterThan(0)
 		expect(compareVersions('1.0.0-alpha', '1.0.0-alpha')).toBe(0)
 	})
@@ -70,7 +73,7 @@ describe('getCurrentVersion', () => {
 	})
 
 	function makeSourceDir(version?: string): string {
-		const dir = fs.mkdtempSync(path.join('C:\\DEV\\wayforge', '.tmp-version-'))
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wayforge-version-'))
 		tempDirs.push(dir)
 		if (version !== undefined) {
 			fs.writeFileSync(path.join(dir, 'VERSION'), `${version}\n`, 'utf8')
