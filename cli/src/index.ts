@@ -3,10 +3,10 @@
 import { Command } from 'commander'
 import { installCommand } from './commands/install.js'
 import { uninstallCommand } from './commands/uninstall.js'
-import { selfUpdateCommand } from './commands/self-update.js'
+import { updateCommand } from './commands/update.js'
+import { upgradeCommand } from './commands/upgrade.js'
 import { interactiveCommand } from './commands/interactive.js'
 import { getCurrentVersion } from './lib/version.js'
-import { maybeNotifyUpdate, shouldNotifyUpdate } from './lib/release.js'
 import type { InstallOptions, Runtime } from './types.js'
 
 const program = new Command('wayforge')
@@ -105,25 +105,20 @@ program
 	})
 
 program
-	.command('self-update')
-	.description('Verify and install the latest wayforge release')
-	.option(
-		'--check',
-		'Report the current and latest versions without updating',
-		false,
+	.command('update')
+	.description('Check for a newer wayforge CLI release without installing it')
+	.action(async () => {
+		await updateCommand()
+	})
+
+program
+	.command('upgrade')
+	.description(
+		'Download, verify, and install the latest wayforge CLI release',
 	)
 	.option('--yes', 'Skip the confirmation prompt', false)
-	.option(
-		'--dry-run',
-		'Print the target version and asset URLs without downloading.',
-		false,
-	)
 	.action(async (options: Record<string, unknown>) => {
-		await selfUpdateCommand({
-			check: Boolean(options.check),
-			yes: Boolean(options.yes),
-			dryRun: Boolean(options.dryRun),
-		})
+		await upgradeCommand({ yes: Boolean(options.yes) })
 	})
 
 program
@@ -136,10 +131,6 @@ program
 	})
 
 async function main(): Promise<void> {
-	// Awaited so a fast command cannot exit before the notice is emitted.
-	if (shouldNotifyUpdate(process.argv.slice(2), process.stdout.isTTY)) {
-		await maybeNotifyUpdate()
-	}
 	await program.parseAsync(process.argv)
 }
 

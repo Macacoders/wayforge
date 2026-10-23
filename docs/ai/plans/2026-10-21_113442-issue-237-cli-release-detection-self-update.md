@@ -1,5 +1,5 @@
 ---
-status: completed
+status: superseded
 created: 2026-10-21
 issue: 237
 parent_issue: 48
@@ -10,6 +10,16 @@ required_gates:
 ---
 
 # Issue #237 (48a): CLI release detection, verified self-update, and checksums
+
+## Revision (2026-10-23)
+
+This plan is **superseded** by `docs/ai/plans/2026-10-23_145950-issue-237-update-upgrade-revision.md`. The automatic notice/cache and `wfg self-update` portions were replaced before release; the historical tasks, acceptance criteria, and closure notes below are preserved as a record and must not be read as current behaviour.
+
+- **Commands.** `wfg update` checks the latest release and reports current/latest without downloading or writing. `wfg upgrade` is the only install path: it prompts unless `--yes`, verifies SHA-256 checksums and the extracted share, then replaces the install with temporary rollback. `wfg self-update` is removed with no compatibility alias; `--check` and `--dry-run` are removed (`wfg update` is the check).
+- **No automatic checks.** No `wfg` command other than `update`/`upgrade` performs a release check or prints a notice. The startup hook, 24-hour cache, `update-check.json`, `WAYFORGE_NO_UPDATE_CHECK`, and cache-related `WAYFORGE_STATE_DIR` are removed. `wfg update` is reserved for the CLI release check; #238's managed-project refresh must adopt a different verb.
+- **Verification ordering.** A missing/mismatched checksum or invalid archive aborts with the install and pre-existing stale artifacts untouched; stale cleanup runs only after verification, immediately before staging/replacement.
+- **Revised acceptance criteria.** `wfg update` reports availability and exits 0 for available/up-to-date and 1 on lookup/parse error. `wfg upgrade` exits 0 for updated/up-to-date/declined and 1 for dev-checkout, missing prefix, verification failure, or install failure; non-interactive without `--yes` auto-declines. Checksum verification precedes all install mutation, stale cleanup follows verification, rollback is temporary only, and no downgrade or backup/restore command exists.
+- **Docs.** README, RELEASE, architecture, ADR-0047, ADR-0031, and the October log were reconciled in Task 3 of the superseding plan.
 
 **Goal:** Make the installed wayforge CLI notice new GitHub releases, inform the user without interrupting commands, and safely replace its own binary and `share/wayforge` snapshot after confirmation.
 

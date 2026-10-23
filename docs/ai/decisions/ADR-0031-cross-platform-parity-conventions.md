@@ -3,7 +3,7 @@
 **Date**: 2026-08-06
 **Status**: Accepted
 **Amended**: 2026-08-25 — noted one accepted exception to Decision 5: `cli/src/lib/tracking.ts` `isTempPath()` gates `%TEMP%` handling on `process.platform === 'win32'` (pre-existing). This is the single `win32` platform check in the codebase; it is documented here rather than churned.
-**Amended**: 2026-10-21 — the `win32` exception list is extended: `cli/src/lib/release.ts` `resolveUpdateStateDir()` and `cli/src/lib/self-update.ts` platform-derived checks (asset naming, chmod skip) are accepted exceptions; see ADR-0047 Decision 4.
+**Amended**: 2026-10-23 — the PR-specific `win32` exception is narrowed to `cli/src/lib/upgrade.ts` platform-derived checks (asset naming, chmod skip); the existing `cli/src/lib/tracking.ts` `%TEMP%` exception remains, and the former `cli/src/lib/release.ts` state-directory exception is removed with the update cache; see ADR-0047 Decision 5.
 
 ## Context
 

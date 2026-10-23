@@ -6,35 +6,25 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { spawnSync } from 'node:child_process'
 import { isInstalledBinary, resolveInstallPrefix } from './install.js'
-import { resolveLatestReleaseVersion, resolveReleaseRoot } from './release.js'
-import { getCurrentVersion, isNewer } from './version.js'
+import { checkForUpdate, resolveReleaseRoot } from './release.js'
+import { getCurrentVersion } from './version.js'
 import { promptYesNo } from './prompt.js'
 
 const DOWNLOAD_TIMEOUT_MS = 60_000
 const BACKUP_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
-const USER_AGENT = 'wayforge/self-update'
+const USER_AGENT = 'wayforge/upgrade'
 
-export type SelfUpdateOutcome =
-	| 'dev-checkout'
-	| 'no-prefix'
-	| 'up-to-date'
-	| 'check'
-	| 'dry-run'
-	| 'declined'
-	| 'updated'
+export type UpgradeOutcome =
+	'dev-checkout' | 'no-prefix' | 'up-to-date' | 'declined' | 'updated'
 
-export interface SelfUpdateResult {
-	outcome: SelfUpdateOutcome
+export interface UpgradeResult {
+	outcome: UpgradeOutcome
 	current: string
 	latest: string
-	binaryUrl?: string
-	shareUrl?: string
 }
 
-export interface SelfUpdateOptions {
-	checkOnly?: boolean
+export interface UpgradeOptions {
 	yes?: boolean
-	dryRun?: boolean
 	prefix?: string
 	releaseRoot?: string
 	fetchImpl?: typeof fetch
@@ -297,14 +287,14 @@ function removeQuiet(target: string): void {
 	}
 }
 
-export async function selfUpdate(
-	options: SelfUpdateOptions = {},
-): Promise<SelfUpdateResult> {
+export async function upgrade(
+	options: UpgradeOptions = {},
+): Promise<UpgradeResult> {
 	const log =
 		options.log ?? ((line: string) => process.stdout.write(`${line}\n`))
 
 	if (!isInstalledBinary()) {
-		log('error: self-update only works for an installed wayforge CLI.')
+		log('error: upgrade only works for an installed wayforge CLI.')
 		log(
 			'  From a source checkout, update the repository (git pull) or run the',
 		)
@@ -335,54 +325,33 @@ export async function selfUpdate(
 		}
 	}
 
-	const current = getCurrentVersion()
-	const latest = await resolveLatestReleaseVersion({
+	const check = await checkForUpdate({
 		releaseRoot: options.releaseRoot,
 		fetchImpl: options.fetchImpl,
 	})
+	const { current, latest } = check
+
+	if (!check.updateAvailable) {
+		log(`wayforge is up to date (v${current.replace(/^v/, '')})`)
+		return { outcome: 'up-to-date', current, latest }
+	}
 
 	const root = options.releaseRoot ?? resolveReleaseRoot()
 	const binaryUrl = assetUrl(root, latest, binaryAssetName())
 	const shareUrl = assetUrl(root, latest, shareArchiveName(latest))
 
-	// --check is read-only and must report both versions, up to date or not.
-	if (options.checkOnly) {
-		log(`current version: v${current.replace(/^v/, '')}`)
-		log(`latest version: ${latest}`)
-		if (!isNewer(current, latest)) {
-			log('wayforge is up to date')
-		}
-		return { outcome: 'check', current, latest, binaryUrl, shareUrl }
-	}
-
-	if (!isNewer(current, latest)) {
-		log(`wayforge is up to date (v${current.replace(/^v/, '')})`)
-		return { outcome: 'up-to-date', current, latest }
-	}
-
-	if (options.dryRun) {
-		log(
-			`DRY-RUN: would update wayforge v${current.replace(/^v/, '')} -> ${latest}`,
-		)
-		log(`DRY-RUN: binary asset: ${binaryUrl}`)
-		log(`DRY-RUN: share asset: ${shareUrl}`)
-		return { outcome: 'dry-run', current, latest, binaryUrl, shareUrl }
-	}
-
 	const promptFn = options.promptFn ?? promptYesNo
 	if (!options.yes) {
 		const confirmed = await promptFn(
-			`Update wayforge v${current.replace(/^v/, '')} -> ${latest}? [y/N] `,
+			`Upgrade wayforge v${current.replace(/^v/, '')} -> ${latest}? [y/N] `,
 		)
 		if (!confirmed) {
-			log('update declined')
+			log('upgrade declined')
 			return { outcome: 'declined', current, latest }
 		}
 	}
 
 	const fetchImpl = options.fetchImpl ?? fetch
-	// Only now (after confirmation) may the install be touched.
-	cleanupStaleBackups(prefix)
 
 	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wayforge-update-'))
 	const checksumsPath = path.join(tmpDir, 'wayforge-checksums.txt')
@@ -442,6 +411,10 @@ export async function selfUpdate(
 		extractArchive(archivePath, extractDir)
 		verifyExtractedShare(extractDir, latest)
 
+		// Cleared only after verification succeeds: a failed verification must
+		// leave the install and any pre-existing stale artifacts untouched.
+		cleanupStaleBackups(prefix)
+
 		// Stage the verified binary next to its target for the atomic rename.
 		fs.copySync(downloadedBinaryPath, stagedBinaryPath)
 
@@ -455,7 +428,7 @@ export async function selfUpdate(
 		removeQuiet(path.join(prefix, 'share', backupName('wayforge')))
 		removeQuiet(path.join(prefix, 'bin', backupName(binaryName())))
 
-		log(`updated wayforge to ${latest}`)
+		log(`upgraded wayforge to ${latest}`)
 		return { outcome: 'updated', current, latest }
 	} finally {
 		removeQuiet(stagedBinaryPath)

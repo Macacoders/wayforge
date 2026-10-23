@@ -102,7 +102,7 @@ jobs:
 
       - name: Generate checksums
         run: |
-          # Key entries by bare asset name (self-update looks up
+          # Key entries by bare asset name (upgrade looks up
           # `wayforge-<os>-<arch>`, not `dist/wayforge-…`).
           (cd dist && sha256sum wayforge-*) > wayforge-checksums.txt
           sha256sum wayforge-share-*.tar.gz wayforge-share-*.zip >> wayforge-checksums.txt

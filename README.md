@@ -100,25 +100,21 @@ Build a standalone binary with `make cli-binary` (no Node.js needed).
 
 See [`RELEASE.md`](./RELEASE.md) and [`CHANGELOG.md`](./CHANGELOG.md) for release and version history.
 
-### Update notices
+### Update the CLI
 
-When you run an installed `wfg` command in an interactive terminal, the CLI checks GitHub for a newer release at most once every 24 hours and prints a one-line notice to stderr when one exists. The check is cached, never fails the command, and is skipped in CI, in non-interactive shells, and for maintenance commands (`uninstall`, `self-update`).
-
-- Set `WAYFORGE_NO_UPDATE_CHECK=1` to disable the automatic notice.
-- The check result is cached under the platform state directory (`%LOCALAPPDATA%\wayforge` on Windows, `~/.local/state/wayforge` on Linux/macOS). Set `WAYFORGE_STATE_DIR` to override it.
-
-### Self-update
-
-An installed `wfg` can replace itself with a newer release:
+An installed `wfg` can check for and install newer releases with two explicit commands:
 
 ```bash
-wfg self-update --check   # report current vs latest, no changes
-wfg self-update --dry-run # show the target version and asset URLs
-wfg self-update           # prompt, then update
-wfg self-update --yes     # skip the prompt
+wfg update        # report current and latest versions; changes nothing
+wfg upgrade       # confirm, verify, then install the latest release
+wfg upgrade --yes # skip the confirmation prompt
 ```
 
-Self-update downloads the platform binary, the share archive, and `wayforge-checksums.txt` from the release, verifies both SHA-256 checksums before touching the install, then replaces `bin/wfg` and `share/wayforge` with backup/rollback. Missing or mismatched checksums abort with no changes. Running from a source checkout, `self-update` refuses and points at the one-shot installer (`install.sh` / `install.ps1`) instead.
+`wfg update` only reports whether a newer release exists; it never downloads or writes. `wfg upgrade` downloads the platform binary, the share archive, and `wayforge-checksums.txt`, verifies both SHA-256 checksums before changing the installed binary or `share/wayforge` contents, then replaces them with temporary backup/rollback. Missing or mismatched checksums abort with no changes. The share is extracted to a temporary directory that is removed if validation fails. No `wfg` command other than `update` and `upgrade` checks for releases, and there is no automatic notice or cache.
+
+`wfg upgrade` requires an installed binary and a resolvable prefix. From a source checkout it refuses and points at `git pull` or the one-shot installer (`install.sh` / `install.ps1`). The `*.old-<pid>` backups are a failure-recovery measure only: there is no user-facing backup, restore, or downgrade command.
+
+Exit codes: `wfg update` exits `0` whether a newer release is available or not, and `1` on a release-lookup or parse error. `wfg upgrade` exits `0` when it updates, finds the install up to date, or the user declines, and `1` for a source checkout, a missing install prefix, a verification failure, or an install failure. Non-interactive `wfg upgrade` without `--yes` auto-declines through `promptYesNo`; automation must pass `--yes`.
 
 ## Use
 

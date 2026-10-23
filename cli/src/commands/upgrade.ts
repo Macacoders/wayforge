@@ -1,20 +1,14 @@
-import { selfUpdate } from '../lib/self-update.js'
+import { upgrade } from '../lib/upgrade.js'
 
-export interface SelfUpdateCommandOptions {
-	check?: boolean
+export interface UpgradeCommandOptions {
 	yes?: boolean
-	dryRun?: boolean
 }
 
-export async function selfUpdateCommand(
-	options: SelfUpdateCommandOptions,
+export async function upgradeCommand(
+	options: UpgradeCommandOptions,
 ): Promise<void> {
 	try {
-		const result = await selfUpdate({
-			checkOnly: Boolean(options.check),
-			yes: Boolean(options.yes),
-			dryRun: Boolean(options.dryRun),
-		})
+		const result = await upgrade({ yes: Boolean(options.yes) })
 		if (
 			result.outcome === 'dev-checkout' ||
 			result.outcome === 'no-prefix'
@@ -23,9 +17,9 @@ export async function selfUpdateCommand(
 		}
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
-		console.error(`error: self-update failed: ${message}`)
+		console.error(`error: upgrade failed: ${message}`)
 		console.error(
-			'The update failed and was rolled back where possible; the install may need repair.',
+			'The upgrade failed and was rolled back where possible; the install may need repair.',
 		)
 		console.error('Run the one-shot installer to repair or reinstall:')
 		console.error(
