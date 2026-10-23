@@ -1,10 +1,8 @@
-import { getCurrentVersion, isNewer } from './version.js'
+import { getCurrentVersion, isNewer, parseSemver } from './version.js'
 
 export const DEFAULT_RELEASE_ROOT =
 	'https://github.com/Macacoders/wayforge/releases'
 const FETCH_TIMEOUT_MS = 5000
-
-const TAG_RE = /\/tag\/(v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\/?$/
 
 export function resolveReleaseRoot(): string {
 	const override = process.env.WAYFORGE_RELEASE_ROOT
@@ -45,9 +43,9 @@ export async function resolveLatestReleaseVersion(
 	}
 	const redirectUrl = new URL(location, requestUrl)
 
-	// TAG_RE already enforces semver shape, so a match needs no re-parse.
-	const tag = TAG_RE.exec(redirectUrl.pathname)?.[1]
-	if (!tag) {
+	const segments = redirectUrl.pathname.split('/').filter(Boolean)
+	const tag = segments.at(-1)
+	if (!segments.includes('tag') || !tag || !parseSemver(tag)) {
 		throw new Error(
 			`Could not parse a release tag from ${redirectUrl.href}`,
 		)

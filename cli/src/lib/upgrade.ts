@@ -17,7 +17,6 @@ const USER_AGENT = 'wayforge/upgrade'
 const BACKUP_SUFFIX = '.old-'
 const TEMP_BINARY_PREFIX = '.wfg-download-'
 const TEMP_SHARE_PREFIX = '.wayforge-update-'
-const BACKUP_BASES = ['wfg', 'wfg.exe', 'wayforge']
 
 export type UpgradeOutcome = 'up-to-date' | 'declined' | 'updated'
 
@@ -145,38 +144,17 @@ function verifyExtractedShare(dir: string, tag: string): void {
 	}
 }
 
-function pidSuffix(): string {
-	return String(process.pid)
-}
+const pid = String(process.pid)
 
 function backupName(name: string): string {
-	return `${name}${BACKUP_SUFFIX}${pidSuffix()}`
+	return `${name}${BACKUP_SUFFIX}${pid}`
 }
 
-function stagedBinaryName(): string {
-	return `${TEMP_BINARY_PREFIX}${pidSuffix()}`
-}
+const STALE_ARTIFACT_RE =
+	/^(?:wfg|wfg\.exe|wayforge)\.old-\d+$|^\.(?:wfg-download|wayforge-update)-\d+$/
 
-function extractDirName(): string {
-	return `${TEMP_SHARE_PREFIX}${pidSuffix()}`
-}
-
-// Cleanup matches the names built by backupName/stagedBinaryName/
-// extractDirName above so the two cannot drift.
 function isStaleArtifact(name: string): boolean {
-	const hasPid = (value: string): boolean => /^\d+$/.test(value)
-	for (const base of BACKUP_BASES) {
-		const prefix = `${base}${BACKUP_SUFFIX}`
-		if (name.startsWith(prefix)) {
-			return hasPid(name.slice(prefix.length))
-		}
-	}
-	for (const prefix of [TEMP_BINARY_PREFIX, TEMP_SHARE_PREFIX]) {
-		if (name.startsWith(prefix)) {
-			return hasPid(name.slice(prefix.length))
-		}
-	}
-	return false
+	return STALE_ARTIFACT_RE.test(name)
 }
 
 // Windows transiently locks freshly written/extracted trees (antivirus,
@@ -351,8 +329,12 @@ export async function upgrade(
 	// after checksum verification, so a failed download/verify leaves the
 	// install untouched.
 	const downloadedBinaryPath = path.join(tmpDir, binaryAssetName())
-	const stagedBinaryPath = path.join(prefix, 'bin', stagedBinaryName())
-	const extractDir = path.join(prefix, 'share', extractDirName())
+	const stagedBinaryPath = path.join(
+		prefix,
+		'bin',
+		`${TEMP_BINARY_PREFIX}${pid}`,
+	)
+	const extractDir = path.join(prefix, 'share', `${TEMP_SHARE_PREFIX}${pid}`)
 
 	try {
 		await downloadTo(

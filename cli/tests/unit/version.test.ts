@@ -24,19 +24,6 @@ describe('compareVersions', () => {
 		expect(compareVersions('1.2.4', '1.2.3')).toBeGreaterThan(0)
 	})
 
-	it('ranks a stable release above its prerelease', () => {
-		expect(compareVersions('1.0.0', '1.0.0-alpha')).toBeGreaterThan(0)
-		expect(compareVersions('1.0.0-rc.1', '1.0.0')).toBeLessThan(0)
-	})
-
-	it('compares prerelease identifiers', () => {
-		expect(compareVersions('1.0.0-alpha.1', '1.0.0-alpha')).toBeGreaterThan(
-			0,
-		)
-		expect(compareVersions('1.0.0-beta', '1.0.0-alpha')).toBeGreaterThan(0)
-		expect(compareVersions('1.0.0-alpha', '1.0.0-alpha')).toBe(0)
-	})
-
 	it('throws on invalid semver', () => {
 		expect(() => compareVersions('not-a-version', '1.0.0')).toThrow()
 	})
@@ -45,13 +32,11 @@ describe('compareVersions', () => {
 describe('isNewer', () => {
 	it('returns true when the candidate is newer', () => {
 		expect(isNewer('0.9.0', '0.10.0')).toBe(true)
-		expect(isNewer('1.0.0-alpha', '1.0.0')).toBe(true)
 	})
 
 	it('returns false when equal or older', () => {
 		expect(isNewer('1.0.0', '1.0.0')).toBe(false)
 		expect(isNewer('0.10.0', '0.9.0')).toBe(false)
-		expect(isNewer('1.0.0', '1.0.0-alpha')).toBe(false)
 	})
 
 	it('returns false for invalid input instead of throwing', () => {

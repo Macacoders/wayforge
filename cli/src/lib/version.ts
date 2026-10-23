@@ -2,13 +2,12 @@ import path from 'path'
 import fs from 'fs-extra'
 import { resolveSourceDir } from './source-dir.js'
 
-const SEMVER_RE = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/
+const SEMVER_RE = /^v?(\d+)\.(\d+)\.(\d+)$/
 
 interface ParsedVersion {
 	major: number
 	minor: number
 	patch: number
-	prerelease: string[] | undefined
 }
 
 export function parseSemver(value: string): ParsedVersion | null {
@@ -20,39 +19,7 @@ export function parseSemver(value: string): ParsedVersion | null {
 		major: Number(match[1]),
 		minor: Number(match[2]),
 		patch: Number(match[3]),
-		prerelease: match[4] ? match[4].split('.') : undefined,
 	}
-}
-
-// ponytail: prerelease ordering is unused today (releases are plain X.Y.Z);
-// keep it only while TAG_RE accepts prerelease tags, otherwise delete it.
-function comparePrerelease(
-	a: string[] | undefined,
-	b: string[] | undefined,
-): number {
-	if (!a && !b) return 0
-	// A version without a prerelease is newer than one with it.
-	if (!a) return 1
-	if (!b) return -1
-	const shared = Math.min(a.length, b.length)
-	for (let i = 0; i < shared; i++) {
-		const left = a[i]
-		const right = b[i]
-		const leftNum = /^\d+$/.test(left) ? Number(left) : undefined
-		const rightNum = /^\d+$/.test(right) ? Number(right) : undefined
-		if (leftNum !== undefined && rightNum !== undefined) {
-			if (leftNum !== rightNum) return leftNum - rightNum
-		} else if (leftNum !== undefined) {
-			return -1
-		} else if (rightNum !== undefined) {
-			return 1
-		} else if (left !== right) {
-			return left < right ? -1 : 1
-		}
-	}
-	// A shorter prerelease that matches a longer one's prefix is older.
-	if (a.length !== b.length) return a.length < b.length ? -1 : 1
-	return 0
 }
 
 export function compareVersions(a: string, b: string): number {
@@ -64,7 +31,7 @@ export function compareVersions(a: string, b: string): number {
 	if (va.major !== vb.major) return va.major - vb.major
 	if (va.minor !== vb.minor) return va.minor - vb.minor
 	if (va.patch !== vb.patch) return va.patch - vb.patch
-	return comparePrerelease(va.prerelease, vb.prerelease)
+	return 0
 }
 
 export function isNewer(current: string, candidate: string): boolean {
