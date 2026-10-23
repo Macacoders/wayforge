@@ -1043,13 +1043,6 @@ describe('cmdClaim', () => {
   it('throws when issue number is missing', async () => {
     await expect(gh.cmdClaim(baseCtx, [])).rejects.toThrow(Error);
   });
-
-  it('rejects a pull request target without mutating', async () => {
-    mockWithLabels('/issues/1', PULL_REQUEST_ISSUE);
-
-    await expect(gh.cmdClaim(baseCtx, ['1'])).rejects.toThrow(/pull request/i);
-    expect(mutatingCalls()).toHaveLength(0);
-  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1095,13 +1088,6 @@ describe('cmdAssign', () => {
     });
 
     await expect(gh.cmdAssign(baseCtx, ['1', 'user'])).rejects.toThrow('already assigned');
-  });
-
-  it('rejects a pull request target without mutating', async () => {
-    mockWithLabels('/issues/1', PULL_REQUEST_ISSUE);
-
-    await expect(gh.cmdAssign(baseCtx, ['1', 'user'])).rejects.toThrow(/pull request/i);
-    expect(mutatingCalls()).toHaveLength(0);
   });
 });
 
@@ -1235,13 +1221,6 @@ describe('cmdRelease', () => {
     // Must add status:to-do (issue doesn't have it initially)
     expect(postUrls.some((u) => u.includes('/labels'))).toBe(true);
   });
-
-  it('rejects a pull request target without mutating', async () => {
-    mockWithLabels('/issues/1', PULL_REQUEST_ISSUE);
-
-    await expect(gh.cmdRelease(baseCtx, ['1'])).rejects.toThrow(/pull request/i);
-    expect(mutatingCalls()).toHaveLength(0);
-  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1333,11 +1312,24 @@ describe('cmdClose', () => {
 
     await expect(gh.cmdClose(baseCtx, ['1'])).rejects.toThrow('not open');
   });
+});
 
-  it('rejects a pull request target without mutating', async () => {
+// ─────────────────────────────────────────────────────────────────────────────
+// Mutating commands: pull request targets
+// ─────────────────────────────────────────────────────────────────────────────
+
+type MutatingCommand = (ctx: typeof baseCtx, args: string[]) => Promise<void>;
+
+describe('mutating commands: pull request targets', () => {
+  it.each<[string, MutatingCommand, string[]]>([
+    ['claim', gh.cmdClaim, ['1']],
+    ['assign', gh.cmdAssign, ['1', 'user']],
+    ['release', gh.cmdRelease, ['1']],
+    ['close', gh.cmdClose, ['1']],
+  ])('rejects a pull request target without mutating (%s)', async (_name, cmd, args) => {
     mockWithLabels('/issues/1', PULL_REQUEST_ISSUE);
 
-    await expect(gh.cmdClose(baseCtx, ['1'])).rejects.toThrow(/pull request/i);
+    await expect(cmd(baseCtx, args)).rejects.toThrow(/pull request/i);
     expect(mutatingCalls()).toHaveLength(0);
   });
 });

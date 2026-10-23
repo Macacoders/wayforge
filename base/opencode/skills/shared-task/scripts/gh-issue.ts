@@ -556,10 +556,7 @@ function requireNonEmptyValue(flag: string, value: string): void {
 
 /** Resolve a `--body-file` path relative to cwd, rejecting empty paths up front. */
 function resolveBodyFile(bodyFile: string): string {
-  if (bodyFile.trim() === '') {
-    console.error('Error: --body-file requires a non-empty path.');
-    throw new Error();
-  }
+  requireNonEmptyValue('--body-file', bodyFile);
   return path.isAbsolute(bodyFile) ? bodyFile : path.resolve(process.cwd(), bodyFile);
 }
 
@@ -664,7 +661,7 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
       throw new Error();
     }
     i++;
-    if (flag !== '--body-file') requireNonEmptyValue(flag, value);
+    requireNonEmptyValue(flag, value);
     if (flag === '--title') title = value;
     else if (flag === '--body-file') bodyFile = value;
     else if (flag === '--add-label') addLabels.add(value);
@@ -1026,7 +1023,7 @@ async function cmdPrclose(ctx: GhContext, args: string[]): Promise<void> {
     }
   }
 
-  // ── Validate before dry-run guard ───────────────────────────────────────
+  // ── Target validation before any mutation ───────────────────────────────
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
   ensureNotPullRequest(issue);
@@ -1214,7 +1211,7 @@ export async function main(
 
 export {
   addAssignee, addComment, addLabel, api, apiGet, apiPost, buildPRBody, closeIssue, cmdAssign, cmdCheck, cmdClaim, cmdClose, cmdCreate, cmdEdit, cmdLabelsCheck,
-  cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureNotPullRequest, ensureOpenIssue, ensureRequiredLabels, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
+  cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureOpenIssue, ensureRequiredLabels, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
   getIssueFirstAssignee, getIssueState, getRepoLabels, issueHasLabel, output,
   outputJson, PR_REVIEW_TEAM, prBodyScratchPath, printUsage, removeAssignee, removeLabel, requestTeamReview, REQUIRED_LABELS, resolveRepo, resolveToken, slugify
 };
