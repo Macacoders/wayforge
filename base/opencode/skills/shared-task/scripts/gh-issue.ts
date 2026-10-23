@@ -556,7 +556,10 @@ function requireNonEmptyValue(flag: string, value: string): void {
 
 /** Resolve a `--body-file` path relative to cwd, rejecting empty paths up front. */
 function resolveBodyFile(bodyFile: string): string {
-  requireNonEmptyValue('--body-file', bodyFile);
+  if (bodyFile.trim() === '') {
+    console.error('Error: --body-file requires a non-empty path.');
+    throw new Error();
+  }
   return path.isAbsolute(bodyFile) ? bodyFile : path.resolve(process.cwd(), bodyFile);
 }
 
@@ -661,7 +664,7 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
       throw new Error();
     }
     i++;
-    requireNonEmptyValue(flag, value);
+    if (flag !== '--body-file') requireNonEmptyValue(flag, value);
     if (flag === '--title') title = value;
     else if (flag === '--body-file') bodyFile = value;
     else if (flag === '--add-label') addLabels.add(value);
