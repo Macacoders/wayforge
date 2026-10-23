@@ -8,7 +8,7 @@ This repository provides reusable OpenCode source configuration and installs gen
 
 - OpenCode (default) and Kilo Code are supported AI runtimes, selectable at install time via the `--runtime` parameter.
 - Guided interactive installs are handled by the TypeScript CLI only (`wfg interactive`); non-interactive installs use `wfg install --repo <path>`. Users first install the CLI via the one-shot installer (`curl | sh` / `irm | iex`), then install configuration into each target repository. `wfg install --repo` requires Node.js >= 18 on PATH (the one-shot installer provisions it user-locally when missing).
-- Supported provider sets during installation include `free-tier` (default for opencode), `openai`, `github-copilot`, `laberit`, `opencode-go`, and comma-separated combinations of those providers. `free-tier` is only available for the opencode runtime and installs the default OpenCode structure without configuring an external provider.
+- Supported provider sets during installation include `free-tier` (default for opencode), `openai`, `github-copilot`, `laberit`, `opencode-go`, and comma-separated combinations of those providers (e.g. `openai,laberit`, `opencode-go,laberit`). `free-tier` is only available for the opencode runtime and installs the default OpenCode structure without configuring an external provider.
 - OpenAI authentication is handled in OpenCode with `/connect` (ChatGPT Plus/Pro or Azure credentials).
 - GitHub Copilot authentication is handled in OpenCode with `/connect` (device login flow).
 - laberit is configured via environment variables (`OPENAI_BASE_URL`, `OPENAI_API_KEY`).
@@ -16,7 +16,7 @@ This repository provides reusable OpenCode source configuration and installs gen
 - The default OpenAI model policy uses the current configured OpenAI model set (`openai/gpt-6-sol` plus lightweight `openai/gpt-5.6-luna`) and keeps installer defaults aligned with the provider fragment.
 - Generated `opencode.jsonc` (or `kilo.jsonc` for Kilo Code) is the provider/model brain for each target repository and centralizes per-agent model assignments under `agent`.
 - Generated runtime config includes `enabled_providers` based on installer provider selection. Agent presets (`balanced`, `fast`, `thorough`) were removed (ADR-0015); the interactive installer instead offers a model preset choice (installer defaults vs faster responses).
-- Users can switch providers interactively: `/model openai/gpt-6-sol`, `/model github-copilot/gpt-5.4`, `/model laberit/laberit-ai-preview`, or `/model opencode-go/deepseek-v4.1-flash`.
+- Users can switch providers interactively: `/model openai/gpt-6-sol`, `/model github-copilot/gpt-5.4`, `/model laberit/laberit-ai-preview`, `/model laberit/laberit-kimi-k2.7-code`, or `/model opencode-go/deepseek-v4.1-flash`.
 
 ## Installed Surface
 
