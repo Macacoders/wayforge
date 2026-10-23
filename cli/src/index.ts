@@ -6,6 +6,7 @@ import { uninstallCommand } from './commands/uninstall.js'
 import { updateCommand } from './commands/update.js'
 import { upgradeCommand } from './commands/upgrade.js'
 import { interactiveCommand } from './commands/interactive.js'
+import { errorMessage } from './lib/errors.js'
 import { getCurrentVersion } from './lib/version.js'
 import type { InstallOptions, Runtime } from './types.js'
 
@@ -131,6 +132,6 @@ program
 	})
 
 program.parseAsync(process.argv).catch((error: unknown) => {
-	console.error(error instanceof Error ? error.message : String(error))
+	console.error(errorMessage(error))
 	process.exit(1)
 })

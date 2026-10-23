@@ -1,3 +1,4 @@
+import { errorMessage } from '../lib/errors.js'
 import { upgrade } from '../lib/upgrade.js'
 
 const INSTALL_SH_COMMAND =
@@ -15,8 +16,7 @@ export async function upgradeCommand(
 	try {
 		await upgrade({ yes: options.yes })
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error)
-		console.error(`error: upgrade failed: ${message}`)
+		console.error(`error: upgrade failed: ${errorMessage(error)}`)
 		console.error(
 			'The upgrade did not complete; the existing install was left in place where possible.',
 		)

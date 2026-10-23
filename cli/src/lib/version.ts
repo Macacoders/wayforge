@@ -24,6 +24,8 @@ export function parseSemver(value: string): ParsedVersion | null {
 	}
 }
 
+// ponytail: prerelease ordering is unused today (releases are plain X.Y.Z);
+// keep it only while TAG_RE accepts prerelease tags, otherwise delete it.
 function comparePrerelease(
 	a: string[] | undefined,
 	b: string[] | undefined,

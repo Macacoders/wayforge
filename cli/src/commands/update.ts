@@ -1,3 +1,4 @@
+import { errorMessage } from '../lib/errors.js'
 import { checkForUpdate } from '../lib/release.js'
 import { displayVersion } from '../lib/version.js'
 
@@ -12,8 +13,7 @@ export async function updateCommand(): Promise<void> {
 				: 'wayforge is up to date\n',
 		)
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error)
-		console.error(`error: update check failed: ${message}`)
+		console.error(`error: update check failed: ${errorMessage(error)}`)
 		process.exit(1)
 	}
 }

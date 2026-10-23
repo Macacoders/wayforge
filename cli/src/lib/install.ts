@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs-extra'
-import { resolveSourceDir } from './source-dir.js'
+import { resolveSourceDir, shareDirFromPrefix } from './source-dir.js'
 
 const INSTALLED_BINARY_NAMES = new Set(['wfg', 'wfg.exe'])
 
@@ -21,7 +21,7 @@ export function resolveInstallPrefix(): string | null {
 	const prefix = configured
 		? path.resolve(configured)
 		: path.resolve(path.dirname(process.execPath), '..')
-	if (fs.pathExistsSync(path.join(prefix, 'share', 'wayforge'))) {
+	if (fs.pathExistsSync(shareDirFromPrefix(prefix))) {
 		return prefix
 	}
 	return null
