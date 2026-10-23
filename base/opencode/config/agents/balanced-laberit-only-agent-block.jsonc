@@ -9,7 +9,8 @@
       "model": "laberit/laberit-ai-preview"
     },
     "code": {
-      "model": "laberit/laberit-ai"
+      "model": "laberit/laberit-ai",
+      "steps": 16
     },
     "troubleshooter": {
       "model": "laberit/laberit-ai-preview"

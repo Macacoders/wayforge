@@ -1,9 +1,9 @@
     "laberit": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Laberit AI",
+      "env": ["OPENAI_API_KEY"],
       "options": {
-        "baseURL": "{env:OPENAI_BASE_URL}",
-        "apiKey": "{env:OPENAI_API_KEY}",
+        "baseURL": "${OPENAI_BASE_URL}",
         "headers": {
           "Content-Type": "application/json"
         }
@@ -28,6 +28,13 @@
           "limit": {
             "context": 1000000,
             "output": 131072
+          }
+        },
+        "laberit-kimi-k2.7-code": {
+          "name": "Kimi K2.7 Code",
+          "limit": {
+            "context": 262100,
+            "output": 262100
           }
         }
       }

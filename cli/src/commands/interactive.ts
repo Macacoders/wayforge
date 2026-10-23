@@ -87,6 +87,7 @@ export async function interactiveCommand(): Promise<void> {
 			{ label: 'github-copilot', value: 'github-copilot' },
 			{ label: 'laberit', value: 'laberit' },
 			{ label: 'opencode-go', value: 'opencode-go' },
+			{ label: 'opencode-go,laberit', value: 'opencode-go,laberit' },
 			{ label: 'openai,github-copilot', value: 'openai,github-copilot' },
 			{ label: 'openai,laberit', value: 'openai,laberit' },
 			{

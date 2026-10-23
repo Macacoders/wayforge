@@ -36,6 +36,7 @@ const canSymlink = (() => {
 })();
 
 const sourceDir = path.resolve(__dirname, '../../..');
+const RUNTIMES: Runtime[] = ["opencode", "kilocode"];
 
 function makeCtx(dryRun = false, force = false): ManifestContext {
   return new ManifestContext(dryRun, force, false);
@@ -132,6 +133,17 @@ describe("resolveDefaultModels", () => {
 
 	it("returns opencode-go only defaults", () => {
 		expect(resolveDefaultModels(["opencode-go"])).toEqual({
+			model: "opencode-go/deepseek-v4.1-flash",
+			smallModel: "opencode-go/muse-spark-1.3-contributor",
+		});
+	});
+
+	it("returns opencode-go+laberit combo defaults (either order)", () => {
+		expect(resolveDefaultModels(["opencode-go", "laberit"])).toEqual({
+			model: "opencode-go/deepseek-v4.1-flash",
+			smallModel: "opencode-go/muse-spark-1.3-contributor",
+		});
+		expect(resolveDefaultModels(["laberit", "opencode-go"])).toEqual({
 			model: "opencode-go/deepseek-v4.1-flash",
 			smallModel: "opencode-go/muse-spark-1.3-contributor",
 		});
@@ -265,6 +277,29 @@ describe("buildProviderBlockJson", () => {
     expect(block).toBe("");
   });
 
+  // The laberit fragment is runtime-agnostic and read verbatim for both
+  // runtimes; a single `env` name keeps the provider key-injection path active.
+  for (const runtime of RUNTIMES) {
+    it(`emits unified env-based laberit block for ${runtime}`, () => {
+      const block = buildProviderBlockJson(["laberit"], runtime, sourceDir);
+      // Exact array text guards the env.length === 1 key-injection rule.
+      expect(block).toContain('"env": ["OPENAI_API_KEY"]');
+      expect(block).toContain('"${OPENAI_BASE_URL}"');
+      expect(block).not.toContain("{env:");
+      expect(block).not.toContain("{file:");
+    });
+  }
+
+  it("produces identical laberit block text for both runtimes", () => {
+    // The opencode runtime prepends the "opencode" free-provider fragment;
+    // laberit is the last fragment in both cases, so compare from its key on.
+    const laberitSlice = (runtime: Runtime) => {
+      const block = buildProviderBlockJson(["laberit"], runtime, sourceDir);
+      return block.slice(block.indexOf('"laberit": {'));
+    };
+    expect(laberitSlice("opencode")).toBe(laberitSlice("kilocode"));
+  });
+
   it("joins multiple provider fragments with comma-newline", () => {
     const block = buildProviderBlockJson(
       ["openai", "github-copilot"],
@@ -307,6 +342,18 @@ describe("buildAgentBlockJson", () => {
     expect(block).toContain('"planner":');
   });
 
+  it("selects opencode-go+laberit combo agent block", () => {
+    const block = buildAgentBlockJson(
+      ["opencode-go", "laberit"],
+      sourceDir,
+      "opencode",
+    );
+    expect(block).toContain('"planner":');
+    expect(block).toContain('"model": "opencode-go/glm-5.3-flash"');
+    expect(block).toContain('"steps": 16');
+    expect(block).not.toContain('"model": "openai/');
+  });
+
   it("returns kilocode hidden agents for kilocode runtime", () => {
     const block = buildAgentBlockJson(["openai"], sourceDir, "kilocode");
     expect(block).toContain('"plan":');
@@ -327,6 +374,33 @@ describe("buildAgentBlockJson", () => {
     expect(block).toContain('"plan":');
     expect(block).toContain('"hidden": true');
     expect(block).not.toContain('"ask":');
+  });
+});
+
+describe("agent block step floors", () => {
+  const agentBlockFragments = [
+    "balanced-github-copilot-only-agent-block.jsonc",
+    "balanced-openai-only-agent-block.jsonc",
+    "balanced-openai-github-copilot-agent-block.jsonc",
+    "balanced-opencode-go-only-agent-block.jsonc",
+    "balanced-opencode-go-laberit-agent-block.jsonc",
+    "free-tier-agent-block.jsonc",
+    "balanced-laberit-only-agent-block.jsonc",
+  ];
+
+  it.each(agentBlockFragments)("gives code at least 16 steps in %s", (file) => {
+    const fragment = readFragment(sourceDir, `agents/${file}`);
+    const parsed = JSON.parse(`{${fragment}}`);
+    expect(parsed.agent.code.steps).toBeGreaterThanOrEqual(16);
+  });
+
+  it("keeps laberit-only code model unpinned to laberit-ai", () => {
+    const fragment = readFragment(
+      sourceDir,
+      "agents/balanced-laberit-only-agent-block.jsonc",
+    );
+    const parsed = JSON.parse(`{${fragment}}`);
+    expect(parsed.agent.code.model).toBe("laberit/laberit-ai");
   });
 });
 
@@ -389,6 +463,22 @@ describe("generateOpenCodeJsonc", () => {
 		);
   });
 
+  it("generates opencode-go+laberit combo config", () => {
+    const content = generateOpenCodeJsonc(
+      makeOpts("opencode", ["opencode-go", "laberit"]),
+    );
+    expect(content).toContain(
+      '"enabled_providers": ["opencode", "opencode-go", "laberit"]',
+    );
+    expect(content).toContain('"model": "opencode-go/deepseek-v4.1-flash"');
+    expect(content).toContain(
+      '"small_model": "opencode-go/muse-spark-1.3-contributor"',
+    );
+    expect(content).toContain('"opencode-go": {');
+    expect(content).toContain('"laberit": {');
+    expect(content).toContain('"muse-spark-1.3-contributor"');
+  });
+
   it("uses kilocode schema for kilocode runtime", () => {
     const content = generateOpenCodeJsonc(makeOpts("kilocode", ["openai"]));
     expect(content).toContain('"$schema": "https://app.kilo.ai/config.json"');
@@ -443,6 +533,28 @@ describe("generateOpenCodeJsonc", () => {
     );
     exitSpy.mockRestore();
   });
+
+  for (const runtime of RUNTIMES) {
+    it(`emits no env/file references for ${runtime} across all providers`, () => {
+      // Generation concatenates per-provider fragments, so one combination
+      // containing every fragment (including laberit) guards the global
+      // invariant.
+      const content = generateOpenCodeJsonc(
+        makeOpts(runtime, [
+          "openai",
+          "github-copilot",
+          "laberit",
+          "opencode-go",
+        ]),
+      );
+      expect(content).not.toContain("{env:");
+      expect(content).not.toContain("{file:");
+      // Strip the single-line generated header comment, then the rest must
+      // parse as strict JSON (no JSONC comments/refs leaked into output).
+      const json = content.slice(content.indexOf("\n") + 1);
+      expect(() => JSON.parse(json)).not.toThrow();
+    });
+  }
 });
 
 describe("syncGeneratedOpenCodeJsonc", () => {

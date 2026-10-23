@@ -71,6 +71,12 @@ describe('gh-issue.ts dry-run lifecycle', () => {
     expect(r.stderr).toContain("[DRY-RUN] would create issue with title='E2E Test Issue'");
   });
 
+  it('edit prints dry-run message', () => {
+    const r = run([...base, 'edit', '1', '--title', 'Renamed']);
+    expect(r.status).toBe(0);
+    expect(r.stderr).toContain('[DRY-RUN] would edit issue #1');
+  });
+
   it('claim prints dry-run message', () => {
     const r = run([...base, 'claim', '1']);
     expect(r.status).toBe(0);
