@@ -13,7 +13,7 @@
     },
     "code": {
       "model": "opencode-go/glm-5.3-flash",
-      "steps": 12
+      "steps": 16
     },
     "troubleshooter": {
       "model": "opencode-go/mimo-v2.6-flash",
