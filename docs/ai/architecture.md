@@ -25,14 +25,15 @@ This repository provides reusable OpenCode source configuration and installs gen
 The installer surface is a TypeScript CLI under `cli/src/`, distributed as a prebuilt binary plus a static source snapshot.
 
 - **Framework**: TypeScript + Commander for argument parsing
-- **Source**: `cli/src/index.ts` (entrypoint), `cli/src/commands/` (install, uninstall, interactive), `cli/src/lib/` (shared libraries)
+- **Source**: `cli/src/index.ts` (entrypoint), `cli/src/commands/` (install, uninstall, update, upgrade, interactive), `cli/src/lib/` (shared libraries)
 - **Binary compilation**: `make cli-binary` produces a standalone executable via `bun build --compile` (~100MB)
 - **One-shot installer**: `install/install.sh` (POSIX) and `install/install.ps1` (PowerShell 5.1+) download the compiled binary and share archive into a dedicated prefix and register `bin` on the user PATH. When Node.js >= 18 is absent (or too old), the installer provisions a pinned user-local Node.js into the prefix (`node/`) and adds it to PATH; `--skip-node-check` / `-SkipNodeCheck` bypasses this. No administrator privileges are required.
 - **Dedicated prefix / layout**:
   - Linux / macOS: `~/.wayforge`
   - Windows: `%LOCALAPPDATA%\wayforge`
   - Layout: `bin/wfg` (`wfg.exe` on Windows), `node/` (provisioned Node.js, when installed), `share/wayforge/base/**`, `share/wayforge/VERSION`, and `installed-projects.json`
-- **Release workflow**: `.github/workflows/release.yml` builds binaries for linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64, produces share archives (`wayforge-share-<version>.tar.gz` / `.zip`), and uploads `install.sh` / `install.ps1` as release assets
+- **Release workflow**: `.github/workflows/release.yml` builds binaries for linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64, produces share archives (`wayforge-share-<version>.tar.gz` / `.zip`), generates `wayforge-checksums.txt` (SHA-256 over every binary and both share archives), and uploads `install.sh` / `install.ps1` as release assets
+- **Update and upgrade**: `wfg update` reports the current and latest versions without downloading or writing anything; `wfg update` is reserved for the CLI release check (#238's managed-project refresh must adopt a different verb). `wfg upgrade` (installed binaries only) resolves the latest release, prompts unless `--yes`, downloads the platform binary, share archive, and `wayforge-checksums.txt`, verifies both SHA-256 hashes before changing the installed binary or `share/wayforge` contents, then replaces `share/wayforge` and `bin/wfg[.exe]` with `*.old-<pid>` backups and rollback; stale backup/temp artifacts are cleaned only after verification on the replacement path (older than 7 days). Commands other than `update`/`upgrade` never check for releases, and there is no automatic notice or cache. From a source checkout `wfg upgrade` refuses and points at `git pull` or the one-shot installer.
 - **Legacy references**: `install/legacy/bootstrap-legacy.sh` and `install/legacy/bootstrap-legacy.ps1` preserve the original full installers; `install/legacy/bootstrap-thin.sh` and `install/legacy/bootstrap-thin.ps1` preserve the retired thin entrypoints. All legacy scripts are frozen.
 
 Reusable versioned source lives in this repository under `base/opencode/**`.
