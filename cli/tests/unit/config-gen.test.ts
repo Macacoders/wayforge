@@ -36,6 +36,7 @@ const canSymlink = (() => {
 })();
 
 const sourceDir = path.resolve(__dirname, '../../..');
+const RUNTIMES: Runtime[] = ["opencode", "kilocode"];
 
 function makeCtx(dryRun = false, force = false): ManifestContext {
   return new ManifestContext(dryRun, force, false);
@@ -276,6 +277,29 @@ describe("buildProviderBlockJson", () => {
     expect(block).toBe("");
   });
 
+  // The laberit fragment is runtime-agnostic and read verbatim for both
+  // runtimes; a single `env` name keeps the provider key-injection path active.
+  for (const runtime of RUNTIMES) {
+    it(`emits unified env-based laberit block for ${runtime}`, () => {
+      const block = buildProviderBlockJson(["laberit"], runtime, sourceDir);
+      // Exact array text guards the env.length === 1 key-injection rule.
+      expect(block).toContain('"env": ["OPENAI_API_KEY"]');
+      expect(block).toContain('"${OPENAI_BASE_URL}"');
+      expect(block).not.toContain("{env:");
+      expect(block).not.toContain("{file:");
+    });
+  }
+
+  it("produces identical laberit block text for both runtimes", () => {
+    // The opencode runtime prepends the "opencode" free-provider fragment;
+    // laberit is the last fragment in both cases, so compare from its key on.
+    const laberitSlice = (runtime: Runtime) => {
+      const block = buildProviderBlockJson(["laberit"], runtime, sourceDir);
+      return block.slice(block.indexOf('"laberit": {'));
+    };
+    expect(laberitSlice("opencode")).toBe(laberitSlice("kilocode"));
+  });
+
   it("joins multiple provider fragments with comma-newline", () => {
     const block = buildProviderBlockJson(
       ["openai", "github-copilot"],
@@ -509,6 +533,28 @@ describe("generateOpenCodeJsonc", () => {
     );
     exitSpy.mockRestore();
   });
+
+  for (const runtime of RUNTIMES) {
+    it(`emits no env/file references for ${runtime} across all providers`, () => {
+      // Generation concatenates per-provider fragments, so one combination
+      // containing every fragment (including laberit) guards the global
+      // invariant.
+      const content = generateOpenCodeJsonc(
+        makeOpts(runtime, [
+          "openai",
+          "github-copilot",
+          "laberit",
+          "opencode-go",
+        ]),
+      );
+      expect(content).not.toContain("{env:");
+      expect(content).not.toContain("{file:");
+      // Strip the single-line generated header comment, then the rest must
+      // parse as strict JSON (no JSONC comments/refs leaked into output).
+      const json = content.slice(content.indexOf("\n") + 1);
+      expect(() => JSON.parse(json)).not.toThrow();
+    });
+  }
 });
 
 describe("syncGeneratedOpenCodeJsonc", () => {
