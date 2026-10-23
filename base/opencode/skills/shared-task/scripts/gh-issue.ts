@@ -546,6 +546,14 @@ function splitFlagArg(arg: string): string[] {
   return eq > 0 ? [arg.slice(0, eq), arg.slice(eq + 1)] : [arg];
 }
 
+/** Reject empty/whitespace-only values for flags that must be non-empty. */
+function requireNonEmptyValue(flag: string, value: string): void {
+  if (value.trim() === '') {
+    console.error(`Error: ${flag} requires a non-empty value.`);
+    throw new Error();
+  }
+}
+
 /** Resolve a `--body-file` path relative to cwd, rejecting empty paths up front. */
 function resolveBodyFile(bodyFile: string): string {
   if (bodyFile.trim() === '') {
@@ -656,26 +664,11 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
       throw new Error();
     }
     i++;
-    if (flag === '--title') {
-      if (value.trim() === '') {
-        console.error('Error: --title requires a non-empty value.');
-        throw new Error();
-      }
-      title = value;
-    } else if (flag === '--body-file') bodyFile = value;
-    else if (flag === '--add-label') {
-      if (value.trim() === '') {
-        console.error('Error: --add-label requires a non-empty value.');
-        throw new Error();
-      }
-      addLabels.add(value);
-    } else {
-      if (value.trim() === '') {
-        console.error('Error: --remove-label requires a non-empty value.');
-        throw new Error();
-      }
-      removeLabels.add(value);
-    }
+    if (flag !== '--body-file') requireNonEmptyValue(flag, value);
+    if (flag === '--title') title = value;
+    else if (flag === '--body-file') bodyFile = value;
+    else if (flag === '--add-label') addLabels.add(value);
+    else removeLabels.add(value);
   }
 
   const conflicting = [...addLabels].filter((l) => removeLabels.has(l));
@@ -769,8 +762,8 @@ async function cmdClaim(ctx: GhContext, args: string[]): Promise<void> {
 
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
-  await ensureOpenIssue(issue);
   ensureNotPullRequest(issue);
+  await ensureOpenIssue(issue);
 
   if (getIssueAssigneeCount(issue) !== 0) {
     const assignee = getIssueFirstAssignee(issue);
@@ -813,8 +806,8 @@ async function cmdAssign(ctx: GhContext, args: string[]): Promise<void> {
 
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
-  await ensureOpenIssue(issue);
   ensureNotPullRequest(issue);
+  await ensureOpenIssue(issue);
 
   if (getIssueAssigneeCount(issue) !== 0) {
     const assignee = getIssueFirstAssignee(issue);
@@ -870,8 +863,8 @@ async function cmdRelease(ctx: GhContext, args: string[]): Promise<void> {
 
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
-  await ensureOpenIssue(issue);
   ensureNotPullRequest(issue);
+  await ensureOpenIssue(issue);
 
   const me = await getCurrentUser(ctx);
   const assignee = getIssueFirstAssignee(issue);
@@ -925,8 +918,8 @@ async function cmdClose(ctx: GhContext, args: string[]): Promise<void> {
 
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
-  await ensureOpenIssue(issue);
   ensureNotPullRequest(issue);
+  await ensureOpenIssue(issue);
 
   await addComment(ctx, issueNumber, summary);
   await ensureLabelAbsent(ctx, issue, 'status:doing');
@@ -1036,8 +1029,8 @@ async function cmdPrclose(ctx: GhContext, args: string[]): Promise<void> {
   // ── Validate before dry-run guard ───────────────────────────────────────
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
-  await ensureOpenIssue(issue);
   ensureNotPullRequest(issue);
+  await ensureOpenIssue(issue);
 
   // ── API calls ───────────────────────────────────────────────────────────
 

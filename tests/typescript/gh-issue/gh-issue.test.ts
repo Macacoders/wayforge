@@ -598,13 +598,10 @@ describe('cmdCreate', () => {
       .resolves.toBeUndefined();
   });
 
-  it('rejects an empty --body-file= path without any fetch', async () => {
-    await expect(gh.cmdCreate(baseCtx, ['T', '--body-file='])).rejects.toThrow(Error);
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('rejects a separate empty --body-file value without any fetch', async () => {
-    await expect(gh.cmdCreate(baseCtx, ['T', '--body-file', ''])).rejects.toThrow(Error);
+  it('rejects empty --body-file values without any fetch', async () => {
+    for (const args of [['T', '--body-file='], ['T', '--body-file', '']]) {
+      await expect(gh.cmdCreate(baseCtx, args)).rejects.toThrow(Error);
+    }
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
@@ -865,55 +862,46 @@ describe('cmdEdit', () => {
 
   it('rejects the same label in --add-label and --remove-label without any fetch', async () => {
     const errors: string[] = [];
-    vi.spyOn(console, 'error').mockImplementation((chunk) => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation((chunk) => {
       errors.push(String(chunk));
     });
 
     await expect(
       gh.cmdEdit(baseCtx, ['1', '--add-label', 'type:bug', '--remove-label', 'type:bug']),
     ).rejects.toThrow(Error);
+    errorSpy.mockRestore();
     expect(errors.join('')).toContain('cannot add and remove the same label(s): type:bug.');
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('rejects an empty --title= value without any fetch', async () => {
-    await expect(gh.cmdEdit(baseCtx, ['1', '--title='])).rejects.toThrow(Error);
+  it('rejects empty or whitespace-only --title values without any fetch', async () => {
+    for (const args of [
+      ['1', '--title='],
+      ['1', '--title', ''],
+      ['1', '--title', '   '],
+    ]) {
+      await expect(gh.cmdEdit(baseCtx, args)).rejects.toThrow(Error);
+    }
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('rejects a separate empty --title value without any fetch', async () => {
-    await expect(gh.cmdEdit(baseCtx, ['1', '--title', ''])).rejects.toThrow(Error);
+  it('rejects empty --add-label values without any fetch', async () => {
+    for (const args of [['1', '--add-label='], ['1', '--add-label', '']]) {
+      await expect(gh.cmdEdit(baseCtx, args)).rejects.toThrow(Error);
+    }
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('rejects a whitespace-only --title value without any fetch', async () => {
-    await expect(gh.cmdEdit(baseCtx, ['1', '--title', '   '])).rejects.toThrow(Error);
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('rejects an empty --add-label= value without any fetch', async () => {
-    await expect(gh.cmdEdit(baseCtx, ['1', '--add-label='])).rejects.toThrow(Error);
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('rejects a separate empty --add-label value without any fetch', async () => {
-    await expect(gh.cmdEdit(baseCtx, ['1', '--add-label', ''])).rejects.toThrow(Error);
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('rejects an empty --remove-label= value without any fetch', async () => {
-    await expect(gh.cmdEdit(baseCtx, ['1', '--remove-label='])).rejects.toThrow(Error);
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('rejects a whitespace-only --remove-label value without any fetch', async () => {
-    await expect(gh.cmdEdit(baseCtx, ['1', '--remove-label', '   '])).rejects.toThrow(Error);
+  it('rejects empty or whitespace-only --remove-label values without any fetch', async () => {
+    for (const args of [['1', '--remove-label='], ['1', '--remove-label', '   ']]) {
+      await expect(gh.cmdEdit(baseCtx, args)).rejects.toThrow(Error);
+    }
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('rejects contradictory labels in --dry-run without any fetch', async () => {
     const errors: string[] = [];
-    vi.spyOn(console, 'error').mockImplementation((chunk) => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation((chunk) => {
       errors.push(String(chunk));
     });
 
@@ -923,6 +911,7 @@ describe('cmdEdit', () => {
         ['1', '--add-label', 'type:bug', '--remove-label', 'type:bug'],
       ),
     ).rejects.toThrow(Error);
+    errorSpy.mockRestore();
     expect(errors.join('')).toContain('cannot add and remove the same label(s): type:bug.');
     expect(mockFetch).not.toHaveBeenCalled();
   });
