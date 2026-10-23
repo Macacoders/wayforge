@@ -8,7 +8,7 @@ This repository provides reusable OpenCode source configuration and installs gen
 
 - OpenCode (default) and Kilo Code are supported AI runtimes, selectable at install time via the `--runtime` parameter.
 - Guided interactive installs are handled by the TypeScript CLI only (`wfg interactive`); non-interactive installs use `wfg install --repo <path>`. Users first install the CLI via the one-shot installer (`curl | sh` / `irm | iex`), then install configuration into each target repository. `wfg install --repo` requires Node.js >= 18 on PATH (the one-shot installer provisions it user-locally when missing).
-- Supported provider sets during installation include `free-tier` (default for opencode), `openai`, `github-copilot`, `laberit`, `opencode-go`, and comma-separated combinations of those providers. `free-tier` is only available for the opencode runtime and installs the default OpenCode structure without configuring an external provider.
+- Supported provider sets during installation include `free-tier` (default for opencode), `openai`, `github-copilot`, `laberit`, `opencode-go`, and comma-separated combinations of those providers (e.g. `openai,laberit`, `opencode-go,laberit`). `free-tier` is only available for the opencode runtime and installs the default OpenCode structure without configuring an external provider.
 - OpenAI authentication is handled in OpenCode with `/connect` (ChatGPT Plus/Pro or Azure credentials).
 - GitHub Copilot authentication is handled in OpenCode with `/connect` (device login flow).
 - laberit is configured via `OPENAI_BASE_URL` and `OPENAI_API_KEY`, both required in the process environment before launch (a project `.env` file is not picked up). Both runtimes emit the same unified provider shape — `env: ["OPENAI_API_KEY"]` + `options.baseURL: "${OPENAI_BASE_URL}"` — and generated project config never emits `{env:}`/`{file:}` references (invariant, candidate for a future ADR). This avoids Kilo's trusted-config guard: project-level `kilo.jsonc` is untrusted and rejects active `{env:VAR}` references. Fallback if Kilo stops honoring project-level `provider.env`: move `options` with `{env:...}` into the trusted global `~/.config/kilo/kilo.jsonc` (manual; the installer never writes it). A missing variable leaves `${VAR}` literal and the request fails loudly; see README for setup.
@@ -16,7 +16,7 @@ This repository provides reusable OpenCode source configuration and installs gen
 - The default OpenAI model policy uses the current configured OpenAI model set (`openai/gpt-6-sol` plus lightweight `openai/gpt-5.6-luna`) and keeps installer defaults aligned with the provider fragment.
 - Generated `opencode.jsonc` (or `kilo.jsonc` for Kilo Code) is the provider/model brain for each target repository and centralizes per-agent model assignments under `agent`.
 - Generated runtime config includes `enabled_providers` based on installer provider selection. Agent presets (`balanced`, `fast`, `thorough`) were removed (ADR-0015); the interactive installer instead offers a model preset choice (installer defaults vs faster responses).
-- Users can switch providers interactively: `/model openai/gpt-6-sol`, `/model github-copilot/gpt-5.4`, `/model laberit/laberit-ai-preview`, or `/model opencode-go/deepseek-v4.1-flash`.
+- Users can switch providers interactively: `/model openai/gpt-6-sol`, `/model github-copilot/gpt-5.4`, `/model laberit/laberit-ai-preview`, `/model laberit/laberit-kimi-k2.7-code`, or `/model opencode-go/deepseek-v4.1-flash`.
 
 ## Installed Surface
 

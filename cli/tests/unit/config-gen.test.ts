@@ -138,6 +138,17 @@ describe("resolveDefaultModels", () => {
 		});
 	});
 
+	it("returns opencode-go+laberit combo defaults (either order)", () => {
+		expect(resolveDefaultModels(["opencode-go", "laberit"])).toEqual({
+			model: "opencode-go/deepseek-v4.1-flash",
+			smallModel: "opencode-go/muse-spark-1.3-contributor",
+		});
+		expect(resolveDefaultModels(["laberit", "opencode-go"])).toEqual({
+			model: "opencode-go/deepseek-v4.1-flash",
+			smallModel: "opencode-go/muse-spark-1.3-contributor",
+		});
+	});
+
   it("returns empty strings for free-tier only", () => {
     expect(resolveDefaultModels(["free-tier"])).toEqual({
       model: "",
@@ -331,6 +342,18 @@ describe("buildAgentBlockJson", () => {
     expect(block).toContain('"planner":');
   });
 
+  it("selects opencode-go+laberit combo agent block", () => {
+    const block = buildAgentBlockJson(
+      ["opencode-go", "laberit"],
+      sourceDir,
+      "opencode",
+    );
+    expect(block).toContain('"planner":');
+    expect(block).toContain('"model": "opencode-go/glm-5.3-flash"');
+    expect(block).toContain('"steps": 16');
+    expect(block).not.toContain('"model": "openai/');
+  });
+
   it("returns kilocode hidden agents for kilocode runtime", () => {
     const block = buildAgentBlockJson(["openai"], sourceDir, "kilocode");
     expect(block).toContain('"plan":');
@@ -351,6 +374,33 @@ describe("buildAgentBlockJson", () => {
     expect(block).toContain('"plan":');
     expect(block).toContain('"hidden": true');
     expect(block).not.toContain('"ask":');
+  });
+});
+
+describe("agent block step floors", () => {
+  const agentBlockFragments = [
+    "balanced-github-copilot-only-agent-block.jsonc",
+    "balanced-openai-only-agent-block.jsonc",
+    "balanced-openai-github-copilot-agent-block.jsonc",
+    "balanced-opencode-go-only-agent-block.jsonc",
+    "balanced-opencode-go-laberit-agent-block.jsonc",
+    "free-tier-agent-block.jsonc",
+    "balanced-laberit-only-agent-block.jsonc",
+  ];
+
+  it.each(agentBlockFragments)("gives code at least 16 steps in %s", (file) => {
+    const fragment = readFragment(sourceDir, `agents/${file}`);
+    const parsed = JSON.parse(`{${fragment}}`);
+    expect(parsed.agent.code.steps).toBeGreaterThanOrEqual(16);
+  });
+
+  it("keeps laberit-only code model unpinned to laberit-ai", () => {
+    const fragment = readFragment(
+      sourceDir,
+      "agents/balanced-laberit-only-agent-block.jsonc",
+    );
+    const parsed = JSON.parse(`{${fragment}}`);
+    expect(parsed.agent.code.model).toBe("laberit/laberit-ai");
   });
 });
 
@@ -411,6 +461,22 @@ describe("generateOpenCodeJsonc", () => {
 		expect(content).toContain(
 			'"small_model": "opencode-go/muse-spark-1.3-contributor"',
 		);
+  });
+
+  it("generates opencode-go+laberit combo config", () => {
+    const content = generateOpenCodeJsonc(
+      makeOpts("opencode", ["opencode-go", "laberit"]),
+    );
+    expect(content).toContain(
+      '"enabled_providers": ["opencode", "opencode-go", "laberit"]',
+    );
+    expect(content).toContain('"model": "opencode-go/deepseek-v4.1-flash"');
+    expect(content).toContain(
+      '"small_model": "opencode-go/muse-spark-1.3-contributor"',
+    );
+    expect(content).toContain('"opencode-go": {');
+    expect(content).toContain('"laberit": {');
+    expect(content).toContain('"muse-spark-1.3-contributor"');
   });
 
   it("uses kilocode schema for kilocode runtime", () => {
