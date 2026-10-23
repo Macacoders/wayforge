@@ -22,19 +22,34 @@ export async function resolveLatestReleaseVersion(
 ): Promise<string> {
 	const root = options.releaseRoot ?? resolveReleaseRoot()
 	const fetchImpl = options.fetchImpl ?? fetch
-	const response = await fetchImpl(`${root}/latest`, {
-		redirect: 'follow',
+	const requestUrl = `${root}/latest`
+	const response = await fetchImpl(requestUrl, {
+		// Manual redirects keep the release page body off the wire; the tag
+		// lives in the Location header.
+		redirect: 'manual',
 		signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
 		headers: { 'User-Agent': `wayforge/${getCurrentVersion()}` },
 	})
-	if (!response.ok) {
+
+	const isRedirect = response.status >= 300 && response.status < 400
+	if (!isRedirect) {
 		throw new Error(
 			`Release lookup failed with status ${String(response.status)}`,
 		)
 	}
-	const tag = TAG_RE.exec(response.url)?.[1]
+	const location = response.headers.get('location')
+	if (!location) {
+		throw new Error(
+			`Release lookup redirected without a Location header: ${requestUrl}`,
+		)
+	}
+	const redirectUrl = new URL(location, requestUrl)
+
+	const tag = TAG_RE.exec(redirectUrl.pathname)?.[1]
 	if (!tag || !parseSemver(tag)) {
-		throw new Error(`Could not parse a release tag from ${response.url}`)
+		throw new Error(
+			`Could not parse a release tag from ${redirectUrl.href}`,
+		)
 	}
 	return tag
 }

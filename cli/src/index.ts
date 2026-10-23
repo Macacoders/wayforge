@@ -117,8 +117,8 @@ program
 		'Download, verify, and install the latest wayforge CLI release',
 	)
 	.option('--yes', 'Skip the confirmation prompt', false)
-	.action(async (options: Record<string, unknown>) => {
-		await upgradeCommand({ yes: Boolean(options.yes) })
+	.action(async (options: { yes: boolean }) => {
+		await upgradeCommand(options)
 	})
 
 program

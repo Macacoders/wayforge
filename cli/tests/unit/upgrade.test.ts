@@ -11,6 +11,8 @@ import {
 	cleanupStaleBackups,
 	parseChecksums,
 	sha256File,
+	binaryAssetName,
+	shareArchiveName,
 } from '../../src/lib/upgrade.js'
 import {
 	isInstalledBinary,
@@ -55,18 +57,6 @@ function buildShareArchive(
 			`test fixture: tar failed: ${result.stderr?.toString()}`,
 		)
 	}
-}
-
-function binaryAssetName(): string {
-	const ext = process.platform === 'win32' ? '.exe' : ''
-	return `wayforge-${process.platform}-${process.arch}${ext}`
-}
-
-function shareAssetName(tag: string): string {
-	const version = tag.replace(/^v/, '')
-	return process.platform === 'win32'
-		? `wayforge-share-${version}.zip`
-		: `wayforge-share-${version}.tar.gz`
 }
 
 function checksumsText(entries: Array<[string, Buffer | string]>): string {
@@ -172,7 +162,7 @@ async function serveRelease(options: ReleaseFixtureOptions = {}) {
 	const archiveBytes = options.archive ?? buildReleaseArchive()
 	const entries = options.checksumEntries ?? [
 		[binaryAssetName(), binaryBytes],
-		[shareAssetName('v9.0.0'), archiveBytes],
+		[shareArchiveName('v9.0.0'), archiveBytes],
 	]
 	const server = await startServer({
 		'/releases/tag/v9.0.0': { body: Buffer.from('') },
@@ -182,7 +172,7 @@ async function serveRelease(options: ReleaseFixtureOptions = {}) {
 		[`/releases/download/v9.0.0/${binaryAssetName()}`]: {
 			body: binaryBytes,
 		},
-		[`/releases/download/v9.0.0/${shareAssetName('v9.0.0')}`]: {
+		[`/releases/download/v9.0.0/${shareArchiveName('v9.0.0')}`]: {
 			body: archiveBytes,
 		},
 	})
@@ -501,12 +491,7 @@ describe('resolveInstallPrefix', () => {
 
 describe('upgrade', () => {
 	it('refuses to run from a dev checkout', async () => {
-		const { lines, log } = collectLogs()
-
-		const result = await upgrade({ log })
-
-		expect(result.outcome).toBe('dev-checkout')
-		expect(lines[0]).toContain(
+		await expect(upgrade()).rejects.toThrow(
 			'upgrade only works for an installed wayforge CLI',
 		)
 	})
@@ -514,12 +499,10 @@ describe('upgrade', () => {
 	it('reports the resolved prefix error when the layout is missing', async () => {
 		installFixture()
 		vi.stubEnv('WAYFORGE_INSTALL_DIR', path.join(makeTempDir('empty-')))
-		const { lines, log } = collectLogs()
 
-		const result = await upgrade({ log })
-
-		expect(result.outcome).toBe('no-prefix')
-		expect(lines[0]).toContain('could not resolve the install prefix')
+		await expect(upgrade()).rejects.toThrow(
+			'could not resolve the install prefix',
+		)
 	})
 
 	it('reports up-to-date when the latest release is not newer', async () => {
@@ -530,8 +513,11 @@ describe('upgrade', () => {
 			log,
 			releaseRoot: 'http://127.0.0.1:1/releases',
 			fetchImpl: (async () => ({
-				ok: true,
-				url: 'http://127.0.0.1:1/releases/tag/v9.0.0',
+				ok: false,
+				status: 302,
+				headers: new Headers({
+					location: 'http://127.0.0.1:1/releases/tag/v9.0.0',
+				}),
 			})) as unknown as typeof fetch,
 		})
 
@@ -548,8 +534,11 @@ describe('upgrade', () => {
 			log,
 			releaseRoot: 'http://127.0.0.1:1/releases',
 			fetchImpl: (async () => ({
-				ok: true,
-				url: 'http://127.0.0.1:1/releases/tag/v9.0.0',
+				ok: false,
+				status: 302,
+				headers: new Headers({
+					location: 'http://127.0.0.1:1/releases/tag/v9.0.0',
+				}),
 			})) as unknown as typeof fetch,
 			promptFn: async (question) => {
 				questions.push(question)
@@ -567,7 +556,7 @@ describe('upgrade', () => {
 		const server = await serveRelease({
 			checksumEntries: [
 				[binaryAssetName(), Buffer.from('new-binary')],
-				[shareAssetName('v9.0.0'), Buffer.from('tampered')],
+				[shareArchiveName('v9.0.0'), Buffer.from('tampered')],
 			],
 		})
 		const { log } = collectLogs()
@@ -616,7 +605,7 @@ describe('upgrade', () => {
 		const server = await serveRelease({
 			checksumEntries: [
 				[binaryAssetName(), Buffer.from('new-binary')],
-				[shareAssetName('v9.0.0'), Buffer.from('tampered')],
+				[shareArchiveName('v9.0.0'), Buffer.from('tampered')],
 			],
 		})
 

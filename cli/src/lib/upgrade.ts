@@ -8,20 +8,18 @@ import { spawnSync } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { isInstalledBinary, resolveInstallPrefix } from './install.js'
 import { checkForUpdate, resolveReleaseRoot } from './release.js'
-import { displayVersion, getCurrentVersion } from './version.js'
+import { displayVersion } from './version.js'
 import { promptYesNo } from './prompt.js'
 
 const DOWNLOAD_TIMEOUT_MS = 60_000
 const BACKUP_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 const USER_AGENT = 'wayforge/upgrade'
+const BACKUP_SUFFIX = '.old-'
+const TEMP_BINARY_PREFIX = '.wfg-download-'
+const TEMP_SHARE_PREFIX = '.wayforge-update-'
+const BACKUP_BASES = ['wfg', 'wfg.exe', 'wayforge']
 
-export const INSTALL_SH_COMMAND =
-	'curl -fsSL https://github.com/Macacoders/wayforge/releases/latest/download/install.sh | sh'
-export const INSTALL_PS1_COMMAND =
-	'powershell -c "irm https://github.com/Macacoders/wayforge/releases/latest/download/install.ps1 | iex"'
-
-export type UpgradeOutcome =
-	'dev-checkout' | 'no-prefix' | 'up-to-date' | 'declined' | 'updated'
+export type UpgradeOutcome = 'up-to-date' | 'declined' | 'updated'
 
 export interface UpgradeResult {
 	outcome: UpgradeOutcome
@@ -50,14 +48,14 @@ function binaryName(): string {
 	return process.platform === 'win32' ? 'wfg.exe' : 'wfg'
 }
 
-function shareArchiveName(tag: string): string {
+export function shareArchiveName(tag: string): string {
 	const version = tag.replace(/^v/, '')
 	return process.platform === 'win32'
 		? `wayforge-share-${version}.zip`
 		: `wayforge-share-${version}.tar.gz`
 }
 
-function binaryAssetName(): string {
+export function binaryAssetName(): string {
 	const ext = process.platform === 'win32' ? '.exe' : ''
 	return `wayforge-${process.platform}-${process.arch}${ext}`
 }
@@ -147,8 +145,38 @@ function verifyExtractedShare(dir: string, tag: string): void {
 	}
 }
 
+function pidSuffix(): string {
+	return String(process.pid)
+}
+
 function backupName(name: string): string {
-	return `${name}.old-${String(process.pid)}`
+	return `${name}${BACKUP_SUFFIX}${pidSuffix()}`
+}
+
+function stagedBinaryName(): string {
+	return `${TEMP_BINARY_PREFIX}${pidSuffix()}`
+}
+
+function extractDirName(): string {
+	return `${TEMP_SHARE_PREFIX}${pidSuffix()}`
+}
+
+// Cleanup matches the names built by backupName/stagedBinaryName/
+// extractDirName above so the two cannot drift.
+function isStaleArtifact(name: string): boolean {
+	const hasPid = (value: string): boolean => /^\d+$/.test(value)
+	for (const base of BACKUP_BASES) {
+		const prefix = `${base}${BACKUP_SUFFIX}`
+		if (name.startsWith(prefix)) {
+			return hasPid(name.slice(prefix.length))
+		}
+	}
+	for (const prefix of [TEMP_BINARY_PREFIX, TEMP_SHARE_PREFIX]) {
+		if (name.startsWith(prefix)) {
+			return hasPid(name.slice(prefix.length))
+		}
+	}
+	return false
 }
 
 // Windows transiently locks freshly written/extracted trees (antivirus,
@@ -175,9 +203,7 @@ async function renameWithRetry(
 
 function restore(backupPath: string, originalPath: string): void {
 	try {
-		if (fs.pathExistsSync(backupPath)) {
-			fs.renameSync(backupPath, originalPath)
-		}
+		fs.renameSync(backupPath, originalPath)
 	} catch {
 		// Best effort during rollback; the error below reports the real failure.
 	}
@@ -252,37 +278,20 @@ export function cleanupStaleBackups(
 	now: number = Date.now(),
 ): void {
 	const cutoff = now - BACKUP_MAX_AGE_MS
-	const binDir = path.join(prefix, 'bin')
-	const shareDir = path.join(prefix, 'share')
-	if (!fs.pathExistsSync(binDir) || !fs.pathExistsSync(shareDir)) {
-		return
-	}
-	for (const name of fs.readdirSync(binDir)) {
-		const filePath = path.join(binDir, name)
-		if (
-			(/\.old-\d+$/.test(name) || /^\.wfg-download-\d+$/.test(name)) &&
-			fs.statSync(filePath).mtimeMs < cutoff
-		) {
-			fs.removeSync(filePath)
-		}
-	}
-	for (const name of fs.readdirSync(shareDir)) {
-		const dirPath = path.join(shareDir, name)
-		if (
-			(/^wayforge\.old-\d+$/.test(name) ||
-				/^\.wayforge-update-\d+$/.test(name)) &&
-			fs.statSync(dirPath).mtimeMs < cutoff
-		) {
-			fs.removeSync(dirPath)
+	for (const dir of [path.join(prefix, 'bin'), path.join(prefix, 'share')]) {
+		if (!fs.pathExistsSync(dir)) continue
+		for (const name of fs.readdirSync(dir)) {
+			const target = path.join(dir, name)
+			if (isStaleArtifact(name) && fs.statSync(target).mtimeMs < cutoff) {
+				fs.removeSync(target)
+			}
 		}
 	}
 }
 
 function removeQuiet(target: string): void {
 	try {
-		if (fs.pathExistsSync(target)) {
-			fs.removeSync(target)
-		}
+		fs.removeSync(target)
 	} catch {
 		// Best-effort temp cleanup.
 	}
@@ -295,35 +304,21 @@ export async function upgrade(
 		options.log ?? ((line: string) => process.stdout.write(`${line}\n`))
 
 	if (!isInstalledBinary()) {
-		log('error: upgrade only works for an installed wayforge CLI.')
-		log(
-			'  From a source checkout, update the repository (git pull) or run the',
+		throw new Error(
+			'upgrade only works for an installed wayforge CLI; from a source checkout run git pull',
 		)
-		log('  one-shot installer instead:')
-		log(`    ${INSTALL_SH_COMMAND}`)
-		log(`    ${INSTALL_PS1_COMMAND}`)
-		return {
-			outcome: 'dev-checkout',
-			current: getCurrentVersion(),
-			latest: '',
-		}
 	}
 
 	const prefix = options.prefix ?? resolveInstallPrefix()
 	if (!prefix) {
-		log(
-			'error: could not resolve the install prefix (share/wayforge not found).',
+		throw new Error(
+			'could not resolve the install prefix (share/wayforge not found); set WAYFORGE_INSTALL_DIR to the wayforge install directory',
 		)
-		log('  Set WAYFORGE_INSTALL_DIR to the wayforge install directory.')
-		return {
-			outcome: 'no-prefix',
-			current: getCurrentVersion(),
-			latest: '',
-		}
 	}
 
+	const root = options.releaseRoot ?? resolveReleaseRoot()
 	const check = await checkForUpdate({
-		releaseRoot: options.releaseRoot,
+		releaseRoot: root,
 		fetchImpl: options.fetchImpl,
 	})
 	const { current, latest } = check
@@ -333,7 +328,6 @@ export async function upgrade(
 		return { outcome: 'up-to-date', current, latest }
 	}
 
-	const root = options.releaseRoot ?? resolveReleaseRoot()
 	const binaryUrl = assetUrl(root, latest, binaryAssetName())
 	const shareUrl = assetUrl(root, latest, shareArchiveName(latest))
 
@@ -357,16 +351,8 @@ export async function upgrade(
 	// after checksum verification, so a failed download/verify leaves the
 	// install untouched.
 	const downloadedBinaryPath = path.join(tmpDir, binaryAssetName())
-	const stagedBinaryPath = path.join(
-		prefix,
-		'bin',
-		`.wfg-download-${String(process.pid)}`,
-	)
-	const extractDir = path.join(
-		prefix,
-		'share',
-		`.wayforge-update-${String(process.pid)}`,
-	)
+	const stagedBinaryPath = path.join(prefix, 'bin', stagedBinaryName())
+	const extractDir = path.join(prefix, 'share', extractDirName())
 
 	try {
 		await downloadTo(

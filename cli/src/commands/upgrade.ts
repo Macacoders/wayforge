@@ -1,8 +1,9 @@
-import {
-	INSTALL_PS1_COMMAND,
-	INSTALL_SH_COMMAND,
-	upgrade,
-} from '../lib/upgrade.js'
+import { upgrade } from '../lib/upgrade.js'
+
+const INSTALL_SH_COMMAND =
+	'curl -fsSL https://github.com/Macacoders/wayforge/releases/latest/download/install.sh | sh'
+const INSTALL_PS1_COMMAND =
+	'powershell -c "irm https://github.com/Macacoders/wayforge/releases/latest/download/install.ps1 | iex"'
 
 export interface UpgradeCommandOptions {
 	yes?: boolean
@@ -12,13 +13,7 @@ export async function upgradeCommand(
 	options: UpgradeCommandOptions,
 ): Promise<void> {
 	try {
-		const result = await upgrade({ yes: Boolean(options.yes) })
-		if (
-			result.outcome === 'dev-checkout' ||
-			result.outcome === 'no-prefix'
-		) {
-			process.exit(1)
-		}
+		await upgrade({ yes: options.yes })
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
 		console.error(`error: upgrade failed: ${message}`)

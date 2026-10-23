@@ -5,10 +5,23 @@ import {
 	resolveReleaseRoot,
 } from '../../src/lib/release.js'
 
-function makeFetchMock(finalUrl: string) {
+const RELEASE_ROOT = 'https://github.com/Macacoders/wayforge/releases'
+const LOOKUP_URL = `${RELEASE_ROOT}/latest`
+
+function redirectMock(location: string, requestUrl = LOOKUP_URL) {
 	return vi.fn(async () => ({
-		ok: true,
-		url: finalUrl,
+		ok: false,
+		status: 302,
+		url: requestUrl,
+		headers: new Headers({ location }),
+	})) as unknown as typeof fetch
+}
+
+function statusMock(status: number) {
+	return vi.fn(async () => ({
+		ok: false,
+		status,
+		headers: new Headers(),
 	})) as unknown as typeof fetch
 }
 
@@ -18,22 +31,37 @@ describe('resolveLatestReleaseVersion', () => {
 		vi.unstubAllGlobals()
 	})
 
-	it('parses the release tag from the final redirect URL', async () => {
-		const fetchMock = makeFetchMock(
-			'https://github.com/Macacoders/wayforge/releases/tag/v1.2.3',
-		)
+	it('parses the release tag from the redirect Location header', async () => {
+		const fetchMock = redirectMock(`${RELEASE_ROOT}/tag/v1.2.3`)
 		vi.stubGlobal('fetch', fetchMock)
 
 		await expect(resolveLatestReleaseVersion()).resolves.toBe('v1.2.3')
 		expect(fetchMock).toHaveBeenCalledWith(
-			'https://github.com/Macacoders/wayforge/releases/latest',
-			expect.objectContaining({ redirect: 'follow' }),
+			LOOKUP_URL,
+			expect.objectContaining({ redirect: 'manual' }),
 		)
 	})
 
+	it('resolves a relative Location header against the lookup URL', async () => {
+		vi.stubGlobal(
+			'fetch',
+			redirectMock(
+				'/releases/tag/v1.2.3',
+				'http://localhost:1/releases/latest',
+			),
+		)
+
+		await expect(
+			resolveLatestReleaseVersion({
+				releaseRoot: 'http://localhost:1/releases',
+			}),
+		).resolves.toBe('v1.2.3')
+	})
+
 	it('uses WAYFORGE_RELEASE_ROOT for the lookup URL', async () => {
-		const fetchMock = makeFetchMock(
+		const fetchMock = redirectMock(
 			'http://localhost:1/releases/tag/v0.2.0',
+			'http://localhost:1/releases/latest',
 		)
 		vi.stubGlobal('fetch', fetchMock)
 		vi.stubEnv('WAYFORGE_RELEASE_ROOT', 'http://localhost:1/releases/')
@@ -45,11 +73,23 @@ describe('resolveLatestReleaseVersion', () => {
 		)
 	})
 
-	it('rejects a final URL without a release tag', async () => {
+	it('rejects a redirect without a Location header', async () => {
 		vi.stubGlobal(
 			'fetch',
-			makeFetchMock('https://github.com/Macacoders/wayforge/releases'),
+			vi.fn(async () => ({
+				ok: false,
+				status: 302,
+				headers: new Headers(),
+			})) as unknown as typeof fetch,
 		)
+
+		await expect(resolveLatestReleaseVersion()).rejects.toThrow(
+			'without a Location header',
+		)
+	})
+
+	it('rejects a Location without a release tag', async () => {
+		vi.stubGlobal('fetch', redirectMock(RELEASE_ROOT))
 
 		await expect(resolveLatestReleaseVersion()).rejects.toThrow()
 	})
@@ -57,25 +97,18 @@ describe('resolveLatestReleaseVersion', () => {
 	it('rejects a tag that is not valid semver', async () => {
 		vi.stubGlobal(
 			'fetch',
-			makeFetchMock(
-				'https://github.com/Macacoders/wayforge/releases/tag/not-a-version',
-			),
+			redirectMock(`${RELEASE_ROOT}/tag/not-a-version`),
 		)
 
 		await expect(resolveLatestReleaseVersion()).rejects.toThrow()
 	})
 
-	it('rejects a non-ok response', async () => {
-		vi.stubGlobal(
-			'fetch',
-			vi.fn(async () => ({
-				ok: false,
-				status: 404,
-				url: 'https://github.com/Macacoders/wayforge/releases/latest',
-			})) as unknown as typeof fetch,
-		)
+	it('rejects a non-redirect response', async () => {
+		vi.stubGlobal('fetch', statusMock(404))
 
-		await expect(resolveLatestReleaseVersion()).rejects.toThrow()
+		await expect(resolveLatestReleaseVersion()).rejects.toThrow(
+			'status 404',
+		)
 	})
 })
 
@@ -107,12 +140,7 @@ describe('checkForUpdate', () => {
 
 	it('reports an update when the latest release is newer', async () => {
 		vi.stubEnv('WAYFORGE_VERSION', '1.0.2')
-		vi.stubGlobal(
-			'fetch',
-			makeFetchMock(
-				'https://github.com/Macacoders/wayforge/releases/tag/v1.1.0',
-			),
-		)
+		vi.stubGlobal('fetch', redirectMock(`${RELEASE_ROOT}/tag/v1.1.0`))
 
 		await expect(checkForUpdate()).resolves.toEqual({
 			current: '1.0.2',
@@ -123,12 +151,7 @@ describe('checkForUpdate', () => {
 
 	it('reports no update when the installed version is current', async () => {
 		vi.stubEnv('WAYFORGE_VERSION', '1.1.0')
-		vi.stubGlobal(
-			'fetch',
-			makeFetchMock(
-				'https://github.com/Macacoders/wayforge/releases/tag/v1.1.0',
-			),
-		)
+		vi.stubGlobal('fetch', redirectMock(`${RELEASE_ROOT}/tag/v1.1.0`))
 
 		await expect(checkForUpdate()).resolves.toEqual({
 			current: '1.1.0',
@@ -139,12 +162,7 @@ describe('checkForUpdate', () => {
 
 	it('reports no update when the latest release is older', async () => {
 		vi.stubEnv('WAYFORGE_VERSION', '2.0.0')
-		vi.stubGlobal(
-			'fetch',
-			makeFetchMock(
-				'https://github.com/Macacoders/wayforge/releases/tag/v1.1.0',
-			),
-		)
+		vi.stubGlobal('fetch', redirectMock(`${RELEASE_ROOT}/tag/v1.1.0`))
 
 		await expect(checkForUpdate()).resolves.toEqual({
 			current: '2.0.0',
@@ -155,12 +173,7 @@ describe('checkForUpdate', () => {
 
 	it('works from a source checkout via WAYFORGE_VERSION without an install fixture', async () => {
 		vi.stubEnv('WAYFORGE_VERSION', '1.0.2')
-		vi.stubGlobal(
-			'fetch',
-			makeFetchMock(
-				'https://github.com/Macacoders/wayforge/releases/tag/v1.1.0',
-			),
-		)
+		vi.stubGlobal('fetch', redirectMock(`${RELEASE_ROOT}/tag/v1.1.0`))
 
 		await expect(checkForUpdate()).resolves.toEqual({
 			current: '1.0.2',
