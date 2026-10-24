@@ -598,20 +598,13 @@ describe('cmdCreate', () => {
       .resolves.toBeUndefined();
   });
 
-  it('rejects empty --body-file values without any fetch', async () => {
+  it.each([
+    ['normal', baseCtx],
+    ['dry-run', { ...baseCtx, dryRun: true }],
+  ])('rejects empty --body-file values without any fetch (%s)', async (_name, ctx) => {
     for (const args of [['T', '--body-file='], ['T', '--body-file', '']]) {
-      await expect(gh.cmdCreate(baseCtx, args)).rejects.toThrow(Error);
+      await expect(gh.cmdCreate(ctx, args)).rejects.toThrow(Error);
     }
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('rejects empty --body-file paths in --dry-run without any fetch', async () => {
-    await expect(gh.cmdCreate({ ...baseCtx, dryRun: true }, ['T', '--body-file='])).rejects.toThrow(
-      Error,
-    );
-    await expect(
-      gh.cmdCreate({ ...baseCtx, dryRun: true }, ['T', '--body-file', '']),
-    ).rejects.toThrow(Error);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
@@ -880,35 +873,19 @@ describe('cmdEdit', () => {
     },
   );
 
-  it('rejects empty or whitespace-only --title values without any fetch', async () => {
-    for (const args of [
-      ['1', '--title='],
-      ['1', '--title', ''],
-      ['1', '--title', '   '],
-    ]) {
-      await expect(gh.cmdEdit(baseCtx, args)).rejects.toThrow(Error);
+  it.each([
+    ['--title', ['1', '--title=']],
+    ['--title', ['1', '--title', '']],
+    ['--title', ['1', '--title', '   ']],
+    ['--add-label', ['1', '--add-label=']],
+    ['--add-label', ['1', '--add-label', '']],
+    ['--add-label', ['1', '--add-label', '   ']],
+    ['--remove-label', ['1', '--remove-label=']],
+    ['--remove-label', ['1', '--remove-label', '   ']],
+  ])('rejects empty %s values without any fetch', async (_flag, args) => {
+    for (const ctx of [baseCtx, { ...baseCtx, dryRun: true }]) {
+      await expect(gh.cmdEdit(ctx, args)).rejects.toThrow(Error);
     }
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('rejects empty --add-label values without any fetch', async () => {
-    for (const args of [['1', '--add-label='], ['1', '--add-label', ''], ['1', '--add-label', '   ']]) {
-      await expect(gh.cmdEdit(baseCtx, args)).rejects.toThrow(Error);
-    }
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('rejects empty or whitespace-only --remove-label values without any fetch', async () => {
-    for (const args of [['1', '--remove-label='], ['1', '--remove-label', '   ']]) {
-      await expect(gh.cmdEdit(baseCtx, args)).rejects.toThrow(Error);
-    }
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('rejects an empty --title in --dry-run without any fetch', async () => {
-    await expect(
-      gh.cmdEdit({ ...baseCtx, dryRun: true }, ['1', '--title', '']),
-    ).rejects.toThrow(Error);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 });
