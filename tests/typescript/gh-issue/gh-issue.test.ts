@@ -82,6 +82,12 @@ const DEFAULT_ISSUE = {
   html_url: 'https://github.com/test/repo/issues/1',
 };
 
+/** Issue GET response carrying a pull_request object (PRs share the issues endpoint) */
+const PULL_REQUEST_ISSUE = {
+  ...DEFAULT_ISSUE,
+  pull_request: { url: 'https://api.github.com/repos/test/repo/pulls/1' },
+};
+
 /** Helper: paginated labels responses (first page full, then empty) */
 function labelsPager(): () => Promise<unknown> {
   let callCount = 0;
@@ -124,6 +130,13 @@ function mockWithLabels(
     }
     return Promise.reject(new Error(`Unexpected fetch: ${reqMethod} ${url}`));
   });
+}
+
+/** All mutating (non-GET) fetch calls: PATCH, POST, DELETE */
+function mutatingCalls(): Array<[string, RequestInit]> {
+  return mockFetch.mock.calls.filter(([, opts]: [string, RequestInit]) =>
+    ['PATCH', 'POST', 'DELETE'].includes(String(opts?.method)),
+  );
 }
 
 // ── Setup / teardown ────────────────────────────────────────────────────────
@@ -584,6 +597,33 @@ describe('cmdCreate', () => {
     await expect(gh.cmdCreate({ ...baseCtx, dryRun: true }, ['Title', '--body-file=some/path.md']))
       .resolves.toBeUndefined();
   });
+
+  it.each([
+    ['normal', baseCtx],
+    ['dry-run', { ...baseCtx, dryRun: true }],
+  ])('rejects empty --body-file values without any fetch (%s)', async (_name, ctx) => {
+    for (const args of [['T', '--body-file='], ['T', '--body-file', '']]) {
+      await expect(gh.cmdCreate(ctx, args)).rejects.toThrow(Error);
+    }
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('sends body: \'\' for a valid path with empty file content', async () => {
+    mockWithLabels('/issues', CREATED_ISSUE, 'POST');
+    mockReadFileSync.mockReturnValue('');
+
+    const stdout = captureStdout();
+
+    await gh.cmdCreate(baseCtx, ['T', '--body-file', 'body.md']);
+
+    const posts = mockFetch.mock.calls.filter(
+      ([url, opts]: [string, RequestInit]) =>
+        url.includes('/issues') && opts?.method === 'POST',
+    );
+    expect(posts).toHaveLength(1);
+    expect(JSON.parse(posts[0][1].body as string)).toEqual({ title: 'T', body: '' });
+    expect(stdout.join('')).toContain(CREATED_ISSUE.html_url);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -727,15 +767,8 @@ describe('cmdEdit', () => {
     await expect(gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed'])).rejects.toThrow('not open');
   });
 
-  /** All mutating (non-GET) fetch calls: PATCH, POST, DELETE */
-  function mutatingCalls(): Array<[string, RequestInit]> {
-    return mockFetch.mock.calls.filter(([, opts]: [string, RequestInit]) =>
-      ['PATCH', 'POST', 'DELETE'].includes(String(opts?.method)),
-    );
-  }
-
   it('rejects a pull request target without mutating anything', async () => {
-    mockEditFlow({ ...DEFAULT_ISSUE, pull_request: { url: 'https://github.com/test/repo/pull/1' } });
+    mockEditFlow(PULL_REQUEST_ISSUE);
 
     await expect(gh.cmdEdit(baseCtx, ['1', '--title', 'Renamed'])).rejects.toThrow(/pull request/i);
     expect(mutatingCalls()).toHaveLength(0);
@@ -818,6 +851,42 @@ describe('cmdEdit', () => {
     const patches = patchCalls();
     expect(patches).toHaveLength(1);
     expect(JSON.parse(patches[0][1].body as string)).toEqual({ body: '' });
+  });
+
+  it.each([
+    ['normal', baseCtx],
+    ['dry-run', { ...baseCtx, dryRun: true }],
+  ])(
+    'rejects the same label in --add-label and --remove-label without any fetch (%s)',
+    async (_name, ctx) => {
+      const errors: string[] = [];
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation((chunk) => {
+        errors.push(String(chunk));
+      });
+
+      await expect(
+        gh.cmdEdit(ctx, ['1', '--add-label', 'type:bug', '--remove-label', 'type:bug']),
+      ).rejects.toThrow(Error);
+      errorSpy.mockRestore();
+      expect(errors.join('')).toContain('cannot add and remove the same label(s): type:bug.');
+      expect(mockFetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['--title', ['1', '--title=']],
+    ['--title', ['1', '--title', '']],
+    ['--title', ['1', '--title', '   ']],
+    ['--add-label', ['1', '--add-label=']],
+    ['--add-label', ['1', '--add-label', '']],
+    ['--add-label', ['1', '--add-label', '   ']],
+    ['--remove-label', ['1', '--remove-label=']],
+    ['--remove-label', ['1', '--remove-label', '   ']],
+  ])('rejects empty %s values without any fetch', async (_flag, args) => {
+    for (const ctx of [baseCtx, { ...baseCtx, dryRun: true }]) {
+      await expect(gh.cmdEdit(ctx, args)).rejects.toThrow(Error);
+    }
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });
 
@@ -1212,6 +1281,26 @@ describe('cmdClose', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Mutating commands: pull request targets
+// ─────────────────────────────────────────────────────────────────────────────
+
+type MutatingCommand = (ctx: typeof baseCtx, args: string[]) => Promise<void>;
+
+describe('mutating commands: pull request targets', () => {
+  it.each<[string, MutatingCommand, string[]]>([
+    ['claim', gh.cmdClaim, ['1']],
+    ['assign', gh.cmdAssign, ['1', 'user']],
+    ['release', gh.cmdRelease, ['1']],
+    ['close', gh.cmdClose, ['1']],
+  ])('rejects a pull request target without mutating (%s)', async (_name, cmd, args) => {
+    mockWithLabels('/issues/1', PULL_REQUEST_ISSUE);
+
+    await expect(cmd(baseCtx, args)).rejects.toThrow(/pull request/i);
+    expect(mutatingCalls()).toHaveLength(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Prclose operation
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1446,6 +1535,18 @@ describe('cmdPrclose', () => {
 
   it('throws when issue number is missing', async () => {
     await expect(gh.cmdPrclose(baseCtx, [])).rejects.toThrow(Error);
+  });
+
+  it('rejects a pull request target without mutating or branch side effects', async () => {
+    mockWithLabels('/issues/1', PULL_REQUEST_ISSUE);
+
+    await expect(gh.cmdPrclose(baseCtx, ['1'])).rejects.toThrow(/pull request/i);
+    expect(mutatingCalls()).toHaveLength(0);
+    const branchOps = mockExecFileSync.mock.calls.filter(
+      ([, args]: [string, string[]]) =>
+        ['checkout', 'commit', 'push'].includes(String(args?.[0])),
+    );
+    expect(branchOps).toHaveLength(0);
   });
 });
 
