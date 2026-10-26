@@ -3,6 +3,7 @@ import fs from 'fs-extra'
 import os from 'os'
 import path from 'path'
 import { doInstall } from '../../src/commands/install.js'
+import { MANAGED_OPENCODE_HEADER } from '../../src/lib/context.js'
 import { destRelForManagedPath, sourceForDest } from '../../src/lib/layout.js'
 import { readManagedManifest } from '../../src/lib/manifest.js'
 import { canSymlink } from '../../src/lib/pointers.js'
@@ -42,6 +43,32 @@ function seedLegacyInstall(repo: string, managedPaths: string[]): void {
 			'',
 		].join('\n'),
 	)
+}
+
+/** Seed the config a legacy install generated: `.opencode` plugin, no skills. */
+function seedLegacyConfig(repo: string): string {
+	const configPath = path.join(repo, 'opencode.jsonc')
+	fs.writeFileSync(
+		configPath,
+		[
+			MANAGED_OPENCODE_HEADER,
+			'{',
+			'  "plugin": ["./.opencode/plugins/ponytail/ponytail.mjs"]',
+			'}',
+			'',
+		].join('\n'),
+	)
+	return configPath
+}
+
+function readAgentContents(repo: string): Record<string, string> {
+	const agentsDir = path.join(repo, '.agents', 'agents')
+	const contents: Record<string, string> = {}
+	for (const name of fs.readdirSync(agentsDir)) {
+		if (!name.endsWith('.md')) continue
+		contents[name] = fs.readFileSync(path.join(agentsDir, name), 'utf8')
+	}
+	return contents
 }
 
 function captureLogs(): string[] {
@@ -261,6 +288,37 @@ describe('legacy .opencode migration', () => {
 			expect(manifest).toContain('.opencode/agents')
 			expect(manifest).toContain('.opencode/commands')
 		}
+	})
+
+	it('keeps agent permissions and regenerates a stale layout config', async () => {
+		seedLegacyInstall(repo, [
+			'.opencode/agents/planner.md',
+			'.opencode/commands/init.md',
+			'.opencode/skills/intent/SKILL.md',
+			'.opencode/plugins/ponytail/ponytail.mjs',
+		])
+		const configPath = seedLegacyConfig(repo)
+		captureLogs()
+
+		await doInstall(installOptions(repo, 'opencode'))
+
+		const agents = readAgentContents(repo)
+		expect(Object.keys(agents)).toHaveLength(6)
+		for (const content of Object.values(agents)) {
+			expect(content).toContain('permission:')
+			expect(content).toContain('"rm -rf*": deny')
+		}
+
+		const config = fs.readFileSync(configPath, 'utf8')
+		expect(config).toContain(
+			'"plugin": ["./.agents/plugins/ponytail/ponytail.mjs"]',
+		)
+		expect(config).toContain('"skills": ["./.agents/skills"]')
+
+		await doInstall(installOptions(repo, 'opencode'))
+
+		expect(readAgentContents(repo)).toEqual(agents)
+		expect(fs.readFileSync(configPath, 'utf8')).toBe(config)
 	})
 
 	it('leaves the legacy tree and manifest untouched in dry-run', async () => {

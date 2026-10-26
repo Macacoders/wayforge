@@ -4,6 +4,7 @@ import os from 'os'
 import path from 'path'
 import { doInstall } from '../../src/commands/install.js'
 import { uninstallCommand } from '../../src/commands/uninstall.js'
+import { MANAGED_OPENCODE_HEADER } from '../../src/lib/context.js'
 import { readManagedManifest } from '../../src/lib/manifest.js'
 import { canSymlink } from '../../src/lib/pointers.js'
 import type { InstallOptions, Runtime } from '../../src/types.js'
@@ -70,6 +71,20 @@ function seedLegacyInstall(repo: string, managedPaths: string[]): void {
 			'managed_paths:',
 			'',
 			...managedPaths.map((relPath) => `- ${relPath}`),
+			'',
+		].join('\n'),
+	)
+}
+
+/** Seed the config a legacy install generated: `.opencode` plugin, no skills. */
+function seedLegacyConfig(repo: string, runtime: Runtime): void {
+	fs.writeFileSync(
+		path.join(repo, configFileFor(runtime)),
+		[
+			MANAGED_OPENCODE_HEADER,
+			'{',
+			'  "plugin": ["./.opencode/plugins/ponytail/ponytail.mjs"]',
+			'}',
 			'',
 		].join('\n'),
 	)
@@ -227,7 +242,10 @@ describe('install layout integration', () => {
 		seedLegacyInstall(repo, [
 			'.opencode/agents/planner.md',
 			'.opencode/commands/init.md',
+			'.opencode/skills/intent/SKILL.md',
+			'.opencode/plugins/ponytail/ponytail.mjs',
 		])
+		seedLegacyConfig(repo, 'opencode')
 
 		await doInstall(installOptions(repo, 'opencode'))
 
@@ -246,6 +264,26 @@ describe('install layout integration', () => {
 
 		expectPointer(repo, '.opencode/agents', '.agents/agents')
 		expectPointer(repo, '.opencode/commands', '.agents/commands')
+
+		const agentsDir = path.join(repo, '.agents', 'agents')
+		const agentFiles = fs
+			.readdirSync(agentsDir)
+			.filter((name) => name.endsWith('.md'))
+		expect(agentFiles).toHaveLength(6)
+		for (const name of agentFiles) {
+			const content = fs.readFileSync(path.join(agentsDir, name), 'utf8')
+			expect(content).toContain('permission:')
+			expect(content).toContain('"rm -rf*": deny')
+		}
+
+		const config = fs.readFileSync(
+			path.join(repo, configFileFor('opencode')),
+			'utf8',
+		)
+		expect(config).toContain(
+			'"plugin": ["./.agents/plugins/ponytail/ponytail.mjs"]',
+		)
+		expect(config).toContain('"skills": ["./.agents/skills"]')
 	})
 
 	it('uninstall removes the .agents tree, pointers, and manifest', async () => {

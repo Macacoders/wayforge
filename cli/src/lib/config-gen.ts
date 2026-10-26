@@ -4,7 +4,13 @@ import { ManifestContext, MANAGED_OPENCODE_HEADER } from './context.js'
 import { ensureDir, rm, writeFile } from './files.js'
 import type { Provider, Runtime } from '../types.js'
 import { validateFreeTierRuntime, resolveDefaultModels } from './providers.js'
-import { PLUGIN_ENTRY, SKILLS_CONFIG_PATH, sourceDirFor } from './layout.js'
+import {
+	LEGACY_ARTIFACT_ROOT,
+	PLUGIN_ENTRY,
+	SKILLS_CONFIG_PATH,
+	sourceDirFor,
+} from './layout.js'
+import { isManagedOpenCodeFile } from './manifest.js'
 
 export interface GenerateOptions {
 	runtime: Runtime
@@ -225,6 +231,22 @@ ${providerBlock}
   }
 }
 `
+}
+
+/**
+ * True when a wayforge-owned config still describes the legacy `.opencode`
+ * layout (a migrated install deletes those plugins/skills), so it must be
+ * regenerated instead of kept.
+ */
+export function isLayoutStaleConfig(filePath: string): boolean {
+	if (!isManagedOpenCodeFile(filePath)) {
+		return false
+	}
+	const content = fs.readFileSync(filePath, 'utf8')
+	return (
+		content.includes(`${LEGACY_ARTIFACT_ROOT}/`) ||
+		!content.includes('"skills"')
+	)
 }
 
 export function syncGeneratedOpenCodeJsonc(

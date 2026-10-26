@@ -282,6 +282,38 @@ describe("managed detection", () => {
     ).toBe(true);
   });
 
+  it("isManagedFile detects entry only in the in-progress manifest", () => {
+    fs.mkdirpSync(path.join(repo, ".agents", "agents"));
+    fs.writeFileSync(path.join(repo, ".agents", "agents", "planner.md"), "");
+    fs.writeFileSync(
+      path.join(repo, ".wayforge-managed"),
+      "managed_paths:\n  - .agents/commands/init.md\n",
+    );
+    fs.writeFileSync(
+      path.join(repo, ".wayforge-managed.tmp"),
+      "managed_paths:\n  - .agents/agents/planner.md\n",
+    );
+    expect(
+      isManagedFile(path.join(repo, ".agents", "agents", "planner.md")),
+    ).toBe(true);
+  });
+
+  it("isManagedFile detects entry only in the finalized manifest", () => {
+    fs.mkdirpSync(path.join(repo, ".agents", "agents"));
+    fs.writeFileSync(path.join(repo, ".agents", "agents", "planner.md"), "");
+    fs.writeFileSync(
+      path.join(repo, ".wayforge-managed"),
+      "managed_paths:\n  - .agents/agents/planner.md\n",
+    );
+    fs.writeFileSync(
+      path.join(repo, ".wayforge-managed.tmp"),
+      "managed_paths:\n  - .agents/commands/init.md\n",
+    );
+    expect(
+      isManagedFile(path.join(repo, ".agents", "agents", "planner.md")),
+    ).toBe(true);
+  });
+
   it("isManagedDir detects per-dir marker", () => {
     fs.mkdirpSync(path.join(repo, "sub"));
     fs.writeFileSync(
@@ -323,6 +355,32 @@ describe("managed detection", () => {
     fs.writeFileSync(
       path.join(repo, ".wayforge-managed"),
       "managed_paths:\n\n- .agents/agents/planner.md\n",
+    );
+    expect(isManagedDir(path.join(repo, ".agents", "agents"))).toBe(true);
+  });
+
+  it("isManagedDir detects entry only in the in-progress manifest", () => {
+    fs.mkdirpSync(path.join(repo, ".agents", "agents"));
+    fs.writeFileSync(
+      path.join(repo, ".wayforge-managed"),
+      "managed_paths:\n  - .agents/commands\n",
+    );
+    fs.writeFileSync(
+      path.join(repo, ".wayforge-managed.tmp"),
+      "managed_paths:\n  - .agents/agents\n",
+    );
+    expect(isManagedDir(path.join(repo, ".agents", "agents"))).toBe(true);
+  });
+
+  it("isManagedDir detects entry only in the finalized manifest", () => {
+    fs.mkdirpSync(path.join(repo, ".agents", "agents"));
+    fs.writeFileSync(
+      path.join(repo, ".wayforge-managed"),
+      "managed_paths:\n  - .agents/agents\n",
+    );
+    fs.writeFileSync(
+      path.join(repo, ".wayforge-managed.tmp"),
+      "managed_paths:\n  - .agents/commands\n",
     );
     expect(isManagedDir(path.join(repo, ".agents", "agents"))).toBe(true);
   });

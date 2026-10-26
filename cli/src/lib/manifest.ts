@@ -218,6 +218,9 @@ export function isManagedFile(absolutePath: string): boolean {
 
 	let dir = path.dirname(absolutePath)
 	while (dir !== '/') {
+		// Consult both markers at an ancestor: `.wayforge-managed` lists the
+		// previous install, `.wayforge-managed.tmp` lists this run's writes, so
+		// a file refreshed during an upgrade is only in the tmp manifest.
 		for (const name of [MANAGED_DIR_MARKER, `${MANAGED_DIR_MARKER}.tmp`]) {
 			const manifest = path.join(dir, name)
 			if (fs.pathExistsSync(manifest)) {
@@ -229,7 +232,6 @@ export function isManagedFile(absolutePath: string): boolean {
 						return true
 					}
 				}
-				break
 			}
 		}
 		const parent = path.dirname(dir)
@@ -249,6 +251,9 @@ export function isManagedDir(absolutePath: string): boolean {
 
 	let dir = absolutePath
 	while (dir !== '/') {
+		// Consult both markers at an ancestor: `.wayforge-managed` lists the
+		// previous install, `.wayforge-managed.tmp` lists this run's writes, so
+		// a directory refreshed during an upgrade is only in the tmp manifest.
 		for (const name of [MANAGED_DIR_MARKER, `${MANAGED_DIR_MARKER}.tmp`]) {
 			const manifest = path.join(dir, name)
 			if (fs.pathExistsSync(manifest)) {
@@ -266,7 +271,6 @@ export function isManagedDir(absolutePath: string): boolean {
 						}
 					}
 				}
-				break
 			}
 		}
 		const parent = path.dirname(dir)

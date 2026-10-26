@@ -31,6 +31,7 @@ import {
 } from '../lib/providers.js'
 import {
 	syncGeneratedOpenCodeJsonc,
+	isLayoutStaleConfig,
 	GenerateOptions,
 } from '../lib/config-gen.js'
 import { trackInstalledProject } from '../lib/tracking.js'
@@ -146,7 +147,12 @@ export async function doInstall(
 		} else {
 			const configFile =
 				options.runtime === 'opencode' ? 'opencode.jsonc' : 'kilo.jsonc'
-			if (savedForce || !fs.pathExistsSync(path.join(repo, configFile))) {
+			const configPath = path.join(repo, configFile)
+			if (
+				savedForce ||
+				!fs.pathExistsSync(configPath) ||
+				isLayoutStaleConfig(configPath)
+			) {
 				syncGeneratedOpenCodeJsonc(repo, options.runtime, genOpts, ctx)
 			} else {
 				ctx.log(
