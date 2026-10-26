@@ -84,6 +84,54 @@ describe("uninstallCommand", () => {
     expect(after.projects[0].path).toBe("/some/other/path");
   });
 
+  it("removes pointer directories via rmdir when unlink fails with EPERM", () => {
+    // A Windows junction is a directory reparse point; unlink refuses it with
+    // EPERM, so uninstall must fall back to rmdir for pointer entries.
+    const pointerPaths = [
+      path.join(repoDir, ".opencode", "agents"),
+      path.join(repoDir, ".kilo", "agents"),
+    ];
+    const manifest =
+      "managed_paths:\n  - managed.txt\n  - .opencode/agents\n  - .kilo/agents\n";
+    fs.writeFileSync(path.join(repoDir, ".wayforge-managed"), manifest);
+    fs.writeFileSync(path.join(repoDir, "managed.txt"), "hello");
+    for (const pointerPath of pointerPaths) {
+      fs.mkdirpSync(pointerPath);
+    }
+
+    const realUnlinkSync = fs.unlinkSync.bind(fs);
+    const unlinkedPaths: string[] = [];
+    const rmdirPaths: string[] = [];
+    vi.spyOn(fs, "unlinkSync").mockImplementation((target) => {
+      const targetPath = String(target);
+      if (pointerPaths.includes(targetPath)) {
+        throw Object.assign(
+          new Error(`EPERM: operation not permitted, unlink '${targetPath}'`),
+          { code: "EPERM" },
+        );
+      }
+      realUnlinkSync(target);
+      unlinkedPaths.push(targetPath);
+    });
+    const realRmdirSync = fs.rmdirSync.bind(fs);
+    vi.spyOn(fs, "rmdirSync").mockImplementation((target) => {
+      rmdirPaths.push(String(target));
+      realRmdirSync(target);
+    });
+
+    uninstallCommand({ repo: repoDir, dryRun: false });
+
+    for (const pointerPath of pointerPaths) {
+      expect(rmdirPaths).toContain(pointerPath);
+      expect(fs.pathExistsSync(pointerPath)).toBe(false);
+    }
+    expect(unlinkedPaths).toContain(path.join(repoDir, "managed.txt"));
+    expect(unlinkedPaths).toContain(path.join(repoDir, ".wayforge-managed"));
+    expect(fs.pathExistsSync(path.join(repoDir, ".wayforge-managed"))).toBe(
+      false,
+    );
+  });
+
   it("is a no-op when the tracking file is missing", () => {
     const manifest = "managed_paths:\n  - managed.txt\n";
     fs.writeFileSync(path.join(repoDir, ".wayforge-managed"), manifest);
