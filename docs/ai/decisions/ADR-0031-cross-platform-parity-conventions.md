@@ -27,4 +27,4 @@ The repo is developed on Linux CI and Windows workstations. On Windows, `core.au
 - Windows refresh is quiet and manifest-stable; no phantom discovery or redundant copies.
 - Symlink code paths are covered on Linux/macOS CI and Windows+Developer Mode, documented-skipped elsewhere.
 - Formatting gates are platform-agnostic; genuine formatting regressions (quote/semicolon/width) are still caught on both platforms.
-- One accepted exception to "no `win32` hardcoding": `tracking.ts` `isTempPath()` uses `process.platform === 'win32'` to gate `%TEMP%` handling. Platform variance elsewhere continues to use runtime detection (`path.sep`, symlink probe).
+- Two accepted exceptions to "no `win32` hardcoding": `tracking.ts` `isTempPath()` uses `process.platform === 'win32'` to gate `%TEMP%` handling, and `upgrade.ts` derives binary/share asset names and skips `chmod` via `process.platform === 'win32'`. Platform variance elsewhere continues to use runtime detection (`path.sep`, symlink probe).
