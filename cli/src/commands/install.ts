@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs-extra'
-import { ManifestContext } from '../lib/context.js'
+import { MANAGED_DIR_MARKER, ManifestContext } from '../lib/context.js'
 import { ensureDir, readFileOrDefault, rm } from '../lib/files.js'
 import {
 	initManagedManifest,
@@ -140,10 +140,7 @@ export async function doInstall(
 
 		const manifestPaths = readManagedManifest(repo)
 		if (manifestPaths.length === 0) {
-			ctx.force = savedForce
-			ctx.log(
-				'note: could not read existing manifest, falling back to full sync',
-			)
+			failCorruptManifest(repo, ctx, cleanupFn)
 		} else {
 			const configFile =
 				options.runtime === 'opencode' ? 'opencode.jsonc' : 'kilo.jsonc'
@@ -232,11 +229,7 @@ export async function doInstall(
 			ctx.force = savedForce
 			finalizeManagedManifest(repo, ctx)
 			trackInstalledProject(repo, version, installRef, ctx)
-			if (blockedPointers.length > 0 && !ctx.dryRun) {
-				if (cleanupFn) cleanupFn()
-				process.exit(1)
-			}
-			ctx.log(`repo bootstrap complete for: ${repo}`)
+			finalizeBlocked(repo, blockedPointers, ctx, cleanupFn)
 			if (cleanupFn) cleanupFn()
 			return
 		}
@@ -309,11 +302,54 @@ export async function doInstall(
 
 	trackInstalledProject(repo, version, installRef, ctx)
 	finalizeManagedManifest(repo, ctx)
-	if (blockedPointers.length > 0 && !ctx.dryRun) {
-		process.exit(1)
-	}
-	ctx.log(`repo bootstrap complete for: ${repo}`)
+	finalizeBlocked(repo, blockedPointers, ctx, cleanupFn)
 	if (cleanupFn) cleanupFn()
+}
+
+/**
+ * A manifest that exists but lists no paths cannot classify legacy files, so a
+ * full sync would strand them behind pointers it can never unblock.
+ */
+function failCorruptManifest(
+	repo: string,
+	ctx: ManifestContext,
+	cleanupFn: (() => void) | undefined,
+): void {
+	const manifest = path.join(repo, MANAGED_DIR_MARKER)
+	fs.removeSync(path.join(repo, `${MANAGED_DIR_MARKER}.tmp`))
+	ctx.log(`error: corrupt or truncated managed manifest: ${manifest}`)
+	ctx.log(
+		'  repair or remove the manifest, or remove .opencode content manually',
+	)
+	ctx.log(
+		'  --force cannot classify those files: the manifest no longer traces them',
+	)
+	if (cleanupFn) cleanupFn()
+	process.exit(1)
+}
+
+/**
+ * Report the install outcome, or the dry-run prediction of a blocked install,
+ * instead of claiming success when pointers stay blocked.
+ */
+function finalizeBlocked(
+	repo: string,
+	blockedPointers: string[],
+	ctx: ManifestContext,
+	cleanupFn: (() => void) | undefined,
+): void {
+	if (blockedPointers.length === 0) {
+		ctx.log(`repo bootstrap complete for: ${repo}`)
+		return
+	}
+	if (ctx.dryRun) {
+		ctx.log(
+			`DRY-RUN: install would fail - ${String(blockedPointers.length)} path(s) block the runtime pointer(s)`,
+		)
+		return
+	}
+	if (cleanupFn) cleanupFn()
+	process.exit(1)
 }
 
 function legacyArtifactRoot(repo: string): string {

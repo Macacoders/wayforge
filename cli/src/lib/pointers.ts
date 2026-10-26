@@ -8,7 +8,7 @@ import {
 	POINTER_CATEGORIES,
 	RUNTIME_POINTER_DIRS,
 } from './layout.js'
-import { managedTrackFile, posixPath } from './manifest.js'
+import { isManagedFile, managedTrackFile, posixPath } from './manifest.js'
 import type { Runtime } from '../types.js'
 
 /**
@@ -53,13 +53,21 @@ function lstatIfExists(target: string): fs.Stats | null {
 	}
 }
 
-function collectResiduals(root: string): string[] {
+/**
+ * Files under a pointer directory that would remain after a real run. A
+ * dry-run keeps managed legacy files on disk, so skip them here to report the
+ * same residual set the real run leaves behind.
+ */
+function collectResiduals(root: string, ctx: ManifestContext): string[] {
 	const found: string[] = []
 	for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
 		const full = path.join(root, entry.name)
+		if (ctx.dryRun && isManagedFile(full)) {
+			continue
+		}
 		found.push(full)
 		if (entry.isDirectory() && !entry.isSymbolicLink()) {
-			found.push(...collectResiduals(full))
+			found.push(...collectResiduals(full, ctx))
 		}
 	}
 	return found
@@ -115,7 +123,7 @@ export function ensureRuntimePointers(
 				continue
 			}
 			if (existing.isDirectory()) {
-				const entries = collectResiduals(link)
+				const entries = collectResiduals(link, ctx)
 				if (entries.length > 0) {
 					residuals.push(
 						...entries.map((entry) =>

@@ -349,4 +349,82 @@ describe('legacy .opencode migration', () => {
 			),
 		).toBe(true)
 	})
+
+	it('dry-run reports one residual and predicts the blocked install', async () => {
+		seedLegacyInstall(repo, ['.opencode/agents/planner.md'])
+		fs.writeFileSync(
+			path.join(repo, '.opencode', 'agents', 'local.md'),
+			'# local agent\n',
+		)
+		const logs = captureLogs()
+
+		await doInstall({ ...installOptions(repo, 'opencode'), dryRun: true })
+
+		const errorIndex = logs.findIndex((line) =>
+			line.includes('cannot expose .agents artifacts'),
+		)
+		expect(errorIndex).toBeGreaterThan(-1)
+		expect(
+			logs.slice(errorIndex).filter((line) => line.includes('  - ')),
+		).toEqual(['[wayforge]   - .opencode/agents/local.md'])
+		expect(
+			logs.some((line) =>
+				line.includes('1 path(s) block the runtime pointer(s)'),
+			),
+		).toBe(true)
+		expect(
+			logs.some((line) =>
+				line.includes(
+					'DRY-RUN: install would fail - 1 path(s) block the runtime pointer(s)',
+				),
+			),
+		).toBe(true)
+		expect(
+			logs.some((line) => line.includes('repo bootstrap complete')),
+		).toBe(false)
+		expect(fs.pathExistsSync(path.join(repo, '.agents'))).toBe(false)
+		expect(
+			fs.pathExistsSync(
+				path.join(repo, '.opencode', 'agents', 'planner.md'),
+			),
+		).toBe(true)
+	})
+
+	it('fails fast on a corrupt managed manifest', async () => {
+		seedLegacyInstall(repo, ['.opencode/agents/planner.md'])
+		const manifestFile = path.join(repo, '.wayforge-managed')
+		fs.writeFileSync(
+			manifestFile,
+			[
+				'project_id: legacy-project',
+				'version: 0.1.0',
+				'managed_paths:',
+				'',
+			].join('\n'),
+		)
+		const before = fs.readFileSync(manifestFile, 'utf8')
+		const logs = captureLogs()
+		mockExit()
+
+		await expect(
+			doInstall(installOptions(repo, 'opencode')),
+		).rejects.toThrow('process.exit:1')
+
+		expect(fs.pathExistsSync(path.join(repo, '.agents'))).toBe(false)
+		expect(fs.readFileSync(manifestFile, 'utf8')).toBe(before)
+		expect(
+			fs.pathExistsSync(path.join(repo, '.wayforge-managed.tmp')),
+		).toBe(false)
+		expect(
+			logs.some((line) =>
+				line.includes('corrupt or truncated managed manifest'),
+			),
+		).toBe(true)
+		expect(logs.some((line) => line.includes(manifestFile))).toBe(true)
+		expect(
+			logs.some((line) =>
+				line.includes('--force cannot classify those files'),
+			),
+		).toBe(true)
+	})
 })

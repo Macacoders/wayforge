@@ -184,6 +184,47 @@ describe('ensureRuntimePointers', () => {
 		},
 	)
 
+	function seedLegacyPointerDir(): void {
+		fs.mkdirpSync(path.join(repo, '.opencode', 'agents'))
+		fs.writeFileSync(
+			path.join(repo, '.opencode', 'agents', 'planner.md'),
+			'# planner',
+		)
+		fs.writeFileSync(
+			path.join(repo, '.opencode', 'agents', 'local.md'),
+			'# local',
+		)
+		fs.writeFileSync(
+			path.join(repo, '.wayforge-managed'),
+			[
+				'project_id: pointer-test',
+				'managed_paths:',
+				'- .opencode/agents/planner.md',
+				'',
+			].join('\n'),
+		)
+	}
+
+	it('dry-run residual collection ignores managed files', () => {
+		seedLegacyPointerDir()
+		const ctx = makeCtx(true)
+
+		const blocked = track('opencode', ctx)
+
+		expect(blocked).toEqual(['.opencode/agents/local.md'])
+	})
+
+	it.skipIf(!symlinks)('real runs still report every residual file', () => {
+		seedLegacyPointerDir()
+
+		const blocked = track('opencode')
+
+		expect(blocked.sort()).toEqual([
+			'.opencode/agents/local.md',
+			'.opencode/agents/planner.md',
+		])
+	})
+
 	it.skipIf(!symlinks)(
 		'blocks on a pointer path that is the wrong symlink',
 		() => {
