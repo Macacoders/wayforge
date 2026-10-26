@@ -1,8 +1,13 @@
 import fs from 'fs-extra'
 import path from 'path'
 import { ManifestContext } from './context.js'
-import { isManagedFile, posixPath, walkFiles } from './manifest.js'
-import { CONTENT_CATEGORIES, destRelFor, sourceDirFor } from './layout.js'
+import { isManagedFile, walkFiles } from './manifest.js'
+import {
+	CONTENT_CATEGORIES,
+	destRelFor,
+	posixPath,
+	sourceDirFor,
+} from './layout.js'
 import { isInteractive } from './prompt.js'
 
 export interface UnmanagedConflict {

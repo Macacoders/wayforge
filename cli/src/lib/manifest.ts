@@ -8,16 +8,11 @@ import {
 	type SyncTreeResult,
 } from './context.js'
 import { cp, ensureDir, rm, writeFile } from './files.js'
-import { sourceForDest } from './layout.js'
+import { posixPath, sourceForDest } from './layout.js'
 
 /** Read a file and split into lines, normalizing CRLF to LF. */
 function readFileLines(filePath: string): string[] {
 	return fs.readFileSync(filePath, 'utf8').replace(/\r/g, '').split('\n')
-}
-
-/** Normalize Windows backslashes to POSIX forward slashes. */
-export function posixPath(p: string): string {
-	return p.replace(/\\/g, '/')
 }
 
 /** Returns the path portion of a manifest list entry (`- path` or `  - path`), or null. */

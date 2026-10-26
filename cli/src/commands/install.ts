@@ -8,7 +8,6 @@ import {
 	readManagedManifest,
 	isManagedFile,
 	managedTrackFile,
-	posixPath,
 	syncManagedFile,
 	syncManagedTree,
 	syncManagedPathFromManifest,
@@ -45,10 +44,12 @@ import {
 	destRelFor,
 	destRelForManagedPath,
 	isLegacyManagedPath,
+	pointerPathsFor,
+	posixPath,
 	sourceDirFor,
 } from '../lib/layout.js'
 import { ensureRuntimePointers, isPointerPath } from '../lib/pointers.js'
-import type { InstallOptions } from '../types.js'
+import type { InstallOptions, Runtime } from '../types.js'
 
 export async function installCommand(options: InstallOptions): Promise<void> {
 	await doInstall(options)
@@ -219,7 +220,10 @@ export async function doInstall(
 			if (hadLegacyPaths) {
 				pruneEmptyDirs(legacyArtifactRoot(repo), ctx)
 			}
-			reportLegacyResiduals(collectLegacyResiduals(repo), ctx)
+			reportLegacyResiduals(
+				collectLegacyResiduals(repo, options.runtime),
+				ctx,
+			)
 			const blockedPointers = ensureRuntimePointers(
 				repo,
 				options.runtime,
@@ -356,6 +360,8 @@ function legacyArtifactRoot(repo: string): string {
 	return path.join(repo, LEGACY_ARTIFACT_ROOT)
 }
 
+// ponytail: temporal — the legacy `.opencode` migration helpers below are
+// removable once installs made before the `.agents/` layout have upgraded.
 /** Remove legacy managed files that were synced into the canonical tree. */
 function removeManagedLegacyPaths(
 	repo: string,
@@ -410,15 +416,23 @@ function pruneEmptyDirs(dir: string, ctx: ManifestContext): void {
 /**
  * Non-managed files still under the legacy tree. Managed files are excluded so
  * a dry-run reports the same residuals it would leave after a real cleanup.
+ * Paths under this runtime's pointer directories are excluded too, because
+ * `ensureRuntimePointers` already reports them (ponytail: resolved rung 2 —
+ * both share the pointer list declared in `layout.ts`).
  */
-function collectLegacyResiduals(repo: string): string[] {
+function collectLegacyResiduals(repo: string, runtime: Runtime): string[] {
 	const root = legacyArtifactRoot(repo)
 	if (!fs.pathExistsSync(root)) {
 		return []
 	}
+	const pointerPrefixes = pointerPathsFor(runtime).map((p) => `${p}/`)
 	return walkFiles(root)
 		.filter((file) => !isManagedFile(file))
 		.map((file) => posixPath(path.relative(repo, file)))
+		.filter(
+			(relPath) =>
+				!pointerPrefixes.some((prefix) => relPath.startsWith(prefix)),
+		)
 }
 
 function reportLegacyResiduals(

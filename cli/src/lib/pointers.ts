@@ -6,9 +6,11 @@ import { ensureDir } from './files.js'
 import {
 	ARTIFACT_ROOT,
 	POINTER_CATEGORIES,
+	POINTER_PATHS,
 	RUNTIME_POINTER_DIRS,
+	posixPath,
 } from './layout.js'
-import { isManagedFile, managedTrackFile, posixPath } from './manifest.js'
+import { isManagedFile, managedTrackFile } from './manifest.js'
 import type { Runtime } from '../types.js'
 
 /**
@@ -34,15 +36,7 @@ export function canSymlink(): boolean {
 
 /** True when a manifest path is a runtime pointer directory. */
 export function isPointerPath(relPath: string): boolean {
-	const normalized = posixPath(relPath)
-	for (const pointerRoot of Object.values(RUNTIME_POINTER_DIRS)) {
-		for (const category of POINTER_CATEGORIES) {
-			if (normalized === `${pointerRoot}/${category}`) {
-				return true
-			}
-		}
-	}
-	return false
+	return POINTER_PATHS.includes(posixPath(relPath))
 }
 
 function lstatIfExists(target: string): fs.Stats | null {

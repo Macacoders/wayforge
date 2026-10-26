@@ -15,12 +15,10 @@ export const CONTENT_CATEGORIES = [
 	'plugins',
 ] as const
 
-export type ContentCategory = (typeof CONTENT_CATEGORIES)[number]
+type ContentCategory = (typeof CONTENT_CATEGORIES)[number]
 
 /** Categories read as generation inputs; never installed. */
-export const INPUT_CATEGORIES = ['config', 'permissions'] as const
-
-export type InputCategory = (typeof INPUT_CATEGORIES)[number]
+export type InputCategory = 'config' | 'permissions'
 
 /** Runtime-specific native directory used to reach the artifact tree. */
 export const RUNTIME_POINTER_DIRS: Record<Runtime, string> = {
@@ -31,7 +29,21 @@ export const RUNTIME_POINTER_DIRS: Record<Runtime, string> = {
 /** Categories reached through a runtime directory pointer. */
 export const POINTER_CATEGORIES = ['agents', 'commands'] as const
 
-export type PointerCategory = (typeof POINTER_CATEGORIES)[number]
+/** Repo-relative pointer directories for a runtime. */
+export function pointerPathsFor(runtime: Runtime): string[] {
+	const root = RUNTIME_POINTER_DIRS[runtime]
+	return POINTER_CATEGORIES.map((category) => `${root}/${category}`)
+}
+
+/** Every runtime's pointer directories. */
+export const POINTER_PATHS = (
+	Object.keys(RUNTIME_POINTER_DIRS) as Runtime[]
+).flatMap((runtime) => pointerPathsFor(runtime))
+
+/** Normalize Windows backslashes to POSIX forward slashes. */
+export function posixPath(p: string): string {
+	return p.replace(/\\/g, '/')
+}
 
 /** Generated config entry for the bundled plugin. */
 export const PLUGIN_ENTRY = `./${ARTIFACT_ROOT}/plugins/ponytail/ponytail.mjs`
@@ -61,10 +73,6 @@ function isContentCategory(value: string): value is ContentCategory {
 	return (CONTENT_CATEGORIES as readonly string[]).includes(value)
 }
 
-function normalize(relPath: string): string {
-	return relPath.replace(/\\/g, '/')
-}
-
 interface ArtifactRelPath {
 	category: ContentCategory
 	subpath: string
@@ -72,7 +80,7 @@ interface ArtifactRelPath {
 
 /** Split an artifact path under the canonical or legacy root. */
 function parseArtifactRel(relPath: string): ArtifactRelPath | null {
-	const normalized = normalize(relPath)
+	const normalized = posixPath(relPath)
 	for (const root of [ARTIFACT_ROOT, LEGACY_ARTIFACT_ROOT]) {
 		const prefix = `${root}/`
 		if (!normalized.startsWith(prefix)) {
@@ -99,7 +107,7 @@ function parseArtifactRel(relPath: string): ArtifactRelPath | null {
 
 /** True when a managed path was written by a legacy `.opencode` install. */
 export function isLegacyManagedPath(relPath: string): boolean {
-	return normalize(relPath).startsWith(`${LEGACY_ARTIFACT_ROOT}/`)
+	return posixPath(relPath).startsWith(`${LEGACY_ARTIFACT_ROOT}/`)
 }
 
 /**
