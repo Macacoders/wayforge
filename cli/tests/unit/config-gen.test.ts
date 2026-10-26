@@ -230,7 +230,6 @@ describe("readFragment", () => {
     const fragmentDir = path.join(
       tmpDir,
       "base",
-      "opencode",
       "config",
       "providers",
     );

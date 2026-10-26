@@ -553,16 +553,16 @@ export function syncManagedPathFromManifest(
 		srcFile = path.join(rootDir, 'base', 'AGENTS.md')
 	} else if (relativePath.startsWith('.opencode/agents/')) {
 		const subpath = relativePath.slice('.opencode/agents/'.length)
-		srcFile = path.join(rootDir, 'base', 'opencode', 'agents', subpath)
+		srcFile = path.join(rootDir, 'base', 'agents', subpath)
 	} else if (relativePath.startsWith('.opencode/commands/')) {
 		const subpath = relativePath.slice('.opencode/commands/'.length)
-		srcFile = path.join(rootDir, 'base', 'opencode', 'commands', subpath)
+		srcFile = path.join(rootDir, 'base', 'commands', subpath)
 	} else if (relativePath.startsWith('.opencode/skills/')) {
 		const subpath = relativePath.slice('.opencode/skills/'.length)
-		srcFile = path.join(rootDir, 'base', 'opencode', 'skills', subpath)
+		srcFile = path.join(rootDir, 'base', 'skills', subpath)
 	} else if (relativePath.startsWith('.opencode/plugins/')) {
 		const subpath = relativePath.slice('.opencode/plugins/'.length)
-		srcFile = path.join(rootDir, 'base', 'opencode', 'plugins', subpath)
+		srcFile = path.join(rootDir, 'base', 'plugins', subpath)
 	} else {
 		ctx.log(
 			`warning: unknown managed path prefix, skipping: ${relativePath}`,

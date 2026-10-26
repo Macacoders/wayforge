@@ -23,9 +23,9 @@ import { isInteractive } from '../../src/lib/prompt.js'
 function makeSourceTree(sourceDir: string): void {
 	const subs = ['agents', 'commands', 'skills', 'plugins']
 	for (const sub of subs) {
-		fs.mkdirpSync(path.join(sourceDir, 'base', 'opencode', sub))
+		fs.mkdirpSync(path.join(sourceDir, 'base', sub))
 		fs.writeFileSync(
-			path.join(sourceDir, 'base', 'opencode', sub, 'managed.md'),
+			path.join(sourceDir, 'base', sub, 'managed.md'),
 			`# ${sub} managed`,
 		)
 	}

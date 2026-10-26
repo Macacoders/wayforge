@@ -167,12 +167,7 @@ export async function doInstall(
 			// ponytail: debt — 4 discovery blocks below duplicate walk/relPath/guard/
 			// ensureDir/syncManagedFile; extract syncNewDiscoveryDir(base, relPrefix,
 			// ctx) — rung 2 — medium
-			const agentsBase = path.join(
-				sourceDir,
-				'base',
-				'opencode',
-				'agents',
-			)
+			const agentsBase = path.join(sourceDir, 'base', 'agents')
 			const agentFiles = fs.pathExistsSync(agentsBase)
 				? walkFiles(agentsBase).map((f) =>
 						posixPath(path.relative(agentsBase, f)),
@@ -184,25 +179,14 @@ export async function doInstall(
 					ctx.log(`new managed path discovered: ${relPath}`)
 					ensureDir(path.dirname(path.join(repo, relPath)), ctx)
 					syncManagedFile(
-						path.join(
-							sourceDir,
-							'base',
-							'opencode',
-							'agents',
-							subpath,
-						),
+						path.join(sourceDir, 'base', 'agents', subpath),
 						path.join(repo, relPath),
 						ctx,
 					)
 				}
 			}
 
-			const commandsBase = path.join(
-				sourceDir,
-				'base',
-				'opencode',
-				'commands',
-			)
+			const commandsBase = path.join(sourceDir, 'base', 'commands')
 			const commandFiles = fs.pathExistsSync(commandsBase)
 				? walkFiles(commandsBase).map((f) =>
 						posixPath(path.relative(commandsBase, f)),
@@ -214,25 +198,14 @@ export async function doInstall(
 				if (!manifestPaths.includes(relPath)) {
 					ctx.log(`new managed path discovered: ${relPath}`)
 					syncManagedFile(
-						path.join(
-							sourceDir,
-							'base',
-							'opencode',
-							'commands',
-							subpath,
-						),
+						path.join(sourceDir, 'base', 'commands', subpath),
 						path.join(repo, relPath),
 						ctx,
 					)
 				}
 			}
 
-			const skillsBase = path.join(
-				sourceDir,
-				'base',
-				'opencode',
-				'skills',
-			)
+			const skillsBase = path.join(sourceDir, 'base', 'skills')
 			const skillFiles = fs.pathExistsSync(skillsBase)
 				? walkFiles(skillsBase).map((f) =>
 						posixPath(path.relative(skillsBase, f)),
@@ -244,25 +217,14 @@ export async function doInstall(
 					ctx.log(`new managed path discovered: ${relPath}`)
 					ensureDir(path.dirname(path.join(repo, relPath)), ctx)
 					syncManagedFile(
-						path.join(
-							sourceDir,
-							'base',
-							'opencode',
-							'skills',
-							subpath,
-						),
+						path.join(sourceDir, 'base', 'skills', subpath),
 						path.join(repo, relPath),
 						ctx,
 					)
 				}
 			}
 
-			const pluginsBase = path.join(
-				sourceDir,
-				'base',
-				'opencode',
-				'plugins',
-			)
+			const pluginsBase = path.join(sourceDir, 'base', 'plugins')
 			const pluginFiles = fs.pathExistsSync(pluginsBase)
 				? walkFiles(pluginsBase).map((f) =>
 						posixPath(path.relative(pluginsBase, f)),
@@ -274,29 +236,16 @@ export async function doInstall(
 					ctx.log(`new managed path discovered: ${relPath}`)
 					ensureDir(path.dirname(path.join(repo, relPath)), ctx)
 					syncManagedFile(
-						path.join(
-							sourceDir,
-							'base',
-							'opencode',
-							'plugins',
-							subpath,
-						),
+						path.join(sourceDir, 'base', 'plugins', subpath),
 						path.join(repo, relPath),
 						ctx,
 					)
 				}
 			}
 
-			rewriteAgentPaths(repo, ctx)
 			injectPermissions(
 				repo,
-				path.join(
-					sourceDir,
-					'base',
-					'opencode',
-					'permissions',
-					'agents.yml',
-				),
+				path.join(sourceDir, 'base', 'permissions', 'agents.yml'),
 				ctx,
 			)
 
@@ -316,24 +265,23 @@ export async function doInstall(
 		ctx,
 	)
 	syncAgentsTreeWithPermissions(
-		path.join(sourceDir, 'base', 'opencode', 'agents'),
+		path.join(sourceDir, 'base', 'agents'),
 		path.join(repo, '.opencode', 'agents'),
-		path.join(sourceDir, 'base', 'opencode', 'permissions', 'agents.yml'),
+		path.join(sourceDir, 'base', 'permissions', 'agents.yml'),
 		ctx,
 	)
-	rewriteAgentPaths(repo, ctx)
 	syncManagedTree(
-		path.join(sourceDir, 'base', 'opencode', 'commands'),
+		path.join(sourceDir, 'base', 'commands'),
 		path.join(repo, '.opencode', 'commands'),
 		ctx,
 	)
 	syncManagedTree(
-		path.join(sourceDir, 'base', 'opencode', 'skills'),
+		path.join(sourceDir, 'base', 'skills'),
 		path.join(repo, '.opencode', 'skills'),
 		ctx,
 	)
 	syncManagedTree(
-		path.join(sourceDir, 'base', 'opencode', 'plugins'),
+		path.join(sourceDir, 'base', 'plugins'),
 		path.join(repo, '.opencode', 'plugins'),
 		ctx,
 	)
@@ -384,25 +332,6 @@ export async function doInstall(
 	finalizeManagedManifest(repo, ctx)
 	ctx.log(`repo bootstrap complete for: ${repo}`)
 	if (cleanupFn) cleanupFn()
-}
-
-function rewriteAgentPaths(repo: string, ctx: ManifestContext): void {
-	const agentsDir = path.join(repo, '.opencode', 'agents')
-	if (!fs.pathExistsSync(agentsDir)) return
-	const files = walkFiles(agentsDir).filter((f) => f.endsWith('.md'))
-	for (const file of files) {
-		const content = fs.readFileSync(file, 'utf8')
-		if (content.includes('base/opencode/')) {
-			const updated = content.replaceAll('base/opencode/', '.opencode/')
-			if (ctx.dryRun) {
-				ctx.log(
-					`DRY-RUN: would rewrite paths in ${path.relative(repo, file)}`,
-				)
-			} else {
-				fs.writeFileSync(file, updated)
-			}
-		}
-	}
 }
 
 function injectPermissions(

@@ -17,7 +17,7 @@ export function findUnmanagedConflicts(
 	const subs = ['agents', 'commands', 'skills', 'plugins']
 
 	for (const sub of subs) {
-		const srcBase = path.join(sourceDir, 'base', 'opencode', sub)
+		const srcBase = path.join(sourceDir, 'base', sub)
 		if (!fs.pathExistsSync(srcBase)) {
 			continue
 		}

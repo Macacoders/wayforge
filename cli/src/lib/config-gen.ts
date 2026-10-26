@@ -14,7 +14,7 @@ export interface GenerateOptions {
 }
 
 export function readFragment(sourceDir: string, subPath: string): string {
-	const file = path.join(sourceDir, 'base', 'opencode', 'config', subPath)
+	const file = path.join(sourceDir, 'base', 'config', subPath)
 	if (!fs.pathExistsSync(file)) {
 		console.error(`error: missing config fragment: ${file}`)
 		process.exit(1)
