@@ -231,6 +231,48 @@ describe('legacy .opencode migration', () => {
 		expect(fs.readFileSync(configPath, 'utf8')).toBe(config)
 	})
 
+	it('regenerates the sibling runtime config the migration invalidated', async () => {
+		seedLegacyInstall(repo, [
+			'.opencode/agents/planner.md',
+			'.opencode/skills/intent/SKILL.md',
+			'.opencode/plugins/ponytail/ponytail.mjs',
+			'opencode.jsonc',
+			'kilo.jsonc',
+		])
+		const opencodeConfig = seedLegacyConfig(repo, 'opencode')
+		const kiloConfig = seedLegacyConfig(repo, 'kilocode')
+		captureLogs()
+
+		await doInstall(installOptions(repo, 'kilocode'))
+
+		expect(fs.pathExistsSync(
+			path.join(repo, '.opencode', 'plugins', 'ponytail', 'ponytail.mjs'),
+		)).toBe(false)
+		for (const configPath of [opencodeConfig, kiloConfig]) {
+			const config = fs.readFileSync(configPath, 'utf8')
+			expect(config).toContain(
+				'"plugin": ["./.agents/plugins/ponytail/ponytail.mjs"]',
+			)
+			expect(config).toContain('"skills": ["./.agents/skills"]')
+			expect(config).not.toContain('.opencode/')
+		}
+	})
+
+	it('does not create a sibling runtime config on a forced refresh', async () => {
+		seedLegacyInstall(repo, ['.opencode/agents/planner.md'])
+		seedLegacyConfig(repo, 'opencode')
+		captureLogs()
+
+		await doInstall(
+			installOptions(repo, 'opencode', { force: true }),
+		)
+
+		expect(fs.pathExistsSync(path.join(repo, 'kilo.jsonc'))).toBe(false)
+		expect(
+			fs.readFileSync(path.join(repo, 'opencode.jsonc'), 'utf8'),
+		).toContain('"plugin": ["./.agents/plugins/ponytail/ponytail.mjs"]')
+	})
+
 	it('leaves the legacy tree and manifest untouched in dry-run', async () => {
 		seedLegacyInstall(repo, ['.opencode/agents/planner.md'])
 		fs.writeFileSync(

@@ -3,6 +3,10 @@ import path from 'path'
 import { expect, vi } from 'vitest'
 import { MANAGED_OPENCODE_HEADER } from '../../src/lib/context.js'
 import { canSymlink } from '../../src/lib/pointers.js'
+import {
+	RUNTIME_POINTER_DIRS,
+	configFileFor,
+} from '../../src/lib/layout.js'
 import type { InstallOptions, Runtime } from '../../src/types.js'
 
 /** Repository root that provides the `base/` source tree for installs. */
@@ -28,12 +32,10 @@ export function installOptions(
 	}
 }
 
-export function configFileFor(runtime: Runtime): string {
-	return runtime === 'opencode' ? 'opencode.jsonc' : 'kilo.jsonc'
-}
+export { configFileFor }
 
 export function pointerRootFor(runtime: Runtime): string {
-	return runtime === 'opencode' ? '.opencode' : '.kilo'
+	return RUNTIME_POINTER_DIRS[runtime]
 }
 
 /** Seed a legacy install: managed files plus a v0.1.0 `.opencode` manifest. */

@@ -26,6 +26,20 @@ export const RUNTIME_POINTER_DIRS: Record<Runtime, string> = {
 	kilocode: '.kilo',
 }
 
+/** Generated runtime config filename. */
+export const CONFIG_FILES: Record<Runtime, string> = {
+	opencode: 'opencode.jsonc',
+	kilocode: 'kilo.jsonc',
+}
+
+/** Every supported runtime. */
+export const RUNTIMES = Object.keys(CONFIG_FILES) as Runtime[]
+
+/** Repo-relative generated config path for a runtime. */
+export function configFileFor(runtime: Runtime): string {
+	return CONFIG_FILES[runtime]
+}
+
 /** Categories reached through a runtime directory pointer. */
 export const POINTER_CATEGORIES = ['agents', 'commands'] as const
 
@@ -36,9 +50,9 @@ export function pointerPathsFor(runtime: Runtime): string[] {
 }
 
 /** Every runtime's pointer directories. */
-export const POINTER_PATHS = (
-	Object.keys(RUNTIME_POINTER_DIRS) as Runtime[]
-).flatMap((runtime) => pointerPathsFor(runtime))
+export const POINTER_PATHS = RUNTIMES.flatMap((runtime) =>
+	pointerPathsFor(runtime),
+)
 
 /** Normalize Windows backslashes to POSIX forward slashes. */
 export function posixPath(p: string): string {

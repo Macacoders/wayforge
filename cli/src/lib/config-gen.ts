@@ -8,6 +8,7 @@ import {
 	LEGACY_ARTIFACT_ROOT,
 	PLUGIN_ENTRY,
 	SKILLS_CONFIG_PATH,
+	configFileFor,
 	sourceDirFor,
 } from './layout.js'
 import { isManagedOpenCodeFile } from './manifest.js'
@@ -255,7 +256,7 @@ export function syncGeneratedOpenCodeJsonc(
 	opts: GenerateOptions,
 	ctx: ManifestContext,
 ): void {
-	const configFile = runtime === 'opencode' ? 'opencode.jsonc' : 'kilo.jsonc'
+	const configFile = configFileFor(runtime)
 	const dst = path.join(repo, configFile)
 	const parent = path.dirname(dst)
 

@@ -41,6 +41,8 @@ import {
 	ARTIFACT_ROOT,
 	CONTENT_CATEGORIES,
 	LEGACY_ARTIFACT_ROOT,
+	RUNTIMES,
+	configFileFor,
 	destRelFor,
 	destRelForManagedPath,
 	isLegacyManagedPath,
@@ -143,19 +145,32 @@ export async function doInstall(
 		if (manifestPaths.length === 0) {
 			failCorruptManifest(repo, ctx, cleanupFn)
 		} else {
-			const configFile =
-				options.runtime === 'opencode' ? 'opencode.jsonc' : 'kilo.jsonc'
-			const configPath = path.join(repo, configFile)
-			if (
-				savedForce ||
-				!fs.pathExistsSync(configPath) ||
-				isLayoutStaleConfig(configPath)
-			) {
-				syncGeneratedOpenCodeJsonc(repo, options.runtime, genOpts, ctx)
-			} else {
-				ctx.log(
-					`kept existing ${configFile} (use --force to regenerate)`,
-				)
+			// Refresh every generated config whose paths the migration invalidated.
+			// A mixed install holds one config per runtime, and Kilo also merges a
+			// root `opencode.jsonc`, so a stale sibling config would keep pointing
+			// at plugin/skills paths the migration just deleted.
+			for (const runtime of RUNTIMES) {
+				const configFile = configFileFor(runtime)
+				const configPath = path.join(repo, configFile)
+				const exists = fs.pathExistsSync(configPath)
+				const selectedRuntime = runtime === options.runtime
+				// Never create a config for a runtime this repo did not install.
+				if (!selectedRuntime && !exists) continue
+				if (savedForce || !exists || isLayoutStaleConfig(configPath)) {
+					syncGeneratedOpenCodeJsonc(
+						repo,
+						runtime,
+						{
+							...genOpts,
+							runtime,
+						},
+						ctx,
+					)
+				} else if (selectedRuntime) {
+					ctx.log(
+						`kept existing ${configFile} (use --force to regenerate)`,
+					)
+				}
 			}
 
 			for (const relPath of manifestPaths) {
