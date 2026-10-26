@@ -18,8 +18,7 @@ FAIL_COUNT=0
 run_test() {
 	local providers="$1" runtime="$2"
 	TEST_COUNT=$((TEST_COUNT + 1))
-	local test_dir="${TMP_BASE}/test-${TEST_COUNT}"
-	local repo="${test_dir}/repo"
+	local repo="${TMP_BASE}/test-${TEST_COUNT}/repo"
 	mkdir -p "$repo"
 
 	echo "=== Test ${TEST_COUNT}: providers=${providers} runtime=${runtime} ==="

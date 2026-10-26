@@ -47,10 +47,6 @@ teardown() {
 	[ "$status" -eq 0 ]
 	# Node normalizes the repo path to a Windows form (C:/...) on Git Bash/Windows;
 	# normalize the expectation the same way when cygpath is available.
-	if command -v cygpath >/dev/null 2>&1; then
-		EXPECTED_REPO="$(cygpath -m "$TARGET_REPO")"
-	else
-		EXPECTED_REPO="$TARGET_REPO"
-	fi
+	EXPECTED_REPO="$(cygpath -m "$TARGET_REPO" 2>/dev/null || printf '%s' "$TARGET_REPO")"
 	[ "$output" = "install|--repo|$EXPECTED_REPO|--dry-run" ]
 }
