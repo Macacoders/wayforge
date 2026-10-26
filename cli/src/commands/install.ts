@@ -37,6 +37,7 @@ import { trackInstalledProject } from '../lib/tracking.js'
 import { cloneRef } from '../lib/git.js'
 import { resolveSourceDir } from '../lib/source-dir.js'
 import { checkNode } from '../lib/prereq.js'
+import { CONTENT_CATEGORIES, destRelFor, sourceDirFor } from '../lib/layout.js'
 import type { InstallOptions } from '../types.js'
 
 export async function installCommand(options: InstallOptions): Promise<void> {
@@ -75,8 +76,6 @@ export async function doInstall(
 			process.exit(1)
 		}
 	}
-
-	ensureDir(path.join(repo, '.opencode'), ctx)
 
 	let sourceDir = resolveSourceDir()
 	let version = readFileOrDefault(sourceDir, 'VERSION', '0.0.0')
@@ -138,7 +137,7 @@ export async function doInstall(
 		} else {
 			const configFile =
 				options.runtime === 'opencode' ? 'opencode.jsonc' : 'kilo.jsonc'
-			if (savedForce) {
+			if (savedForce || !fs.pathExistsSync(path.join(repo, configFile))) {
 				syncGeneratedOpenCodeJsonc(repo, options.runtime, genOpts, ctx)
 			} else {
 				ctx.log(
@@ -164,79 +163,22 @@ export async function doInstall(
 				)
 			}
 
-			// ponytail: debt — 4 discovery blocks below duplicate walk/relPath/guard/
-			// ensureDir/syncManagedFile; extract syncNewDiscoveryDir(base, relPrefix,
-			// ctx) — rung 2 — medium
-			const agentsBase = path.join(sourceDir, 'base', 'agents')
-			const agentFiles = fs.pathExistsSync(agentsBase)
-				? walkFiles(agentsBase).map((f) =>
-						posixPath(path.relative(agentsBase, f)),
-					)
-				: []
-			for (const subpath of agentFiles) {
-				const relPath = `.opencode/agents/${subpath}`
-				if (!manifestPaths.includes(relPath)) {
-					ctx.log(`new managed path discovered: ${relPath}`)
-					ensureDir(path.dirname(path.join(repo, relPath)), ctx)
-					syncManagedFile(
-						path.join(sourceDir, 'base', 'agents', subpath),
-						path.join(repo, relPath),
-						ctx,
-					)
-				}
-			}
-
-			const commandsBase = path.join(sourceDir, 'base', 'commands')
-			const commandFiles = fs.pathExistsSync(commandsBase)
-				? walkFiles(commandsBase).map((f) =>
-						posixPath(path.relative(commandsBase, f)),
-					)
-				: []
-			for (const subpath of commandFiles) {
-				if (!subpath.endsWith('.md')) continue
-				const relPath = `.opencode/commands/${subpath}`
-				if (!manifestPaths.includes(relPath)) {
+			for (const category of CONTENT_CATEGORIES) {
+				const categoryBase = sourceDirFor(sourceDir, category)
+				const files = fs.pathExistsSync(categoryBase)
+					? walkFiles(categoryBase).map((f) =>
+							posixPath(path.relative(categoryBase, f)),
+						)
+					: []
+				for (const subpath of files) {
+					if (category === 'commands' && !subpath.endsWith('.md')) {
+						continue
+					}
+					const relPath = destRelFor(category, subpath)
+					if (manifestPaths.includes(relPath)) continue
 					ctx.log(`new managed path discovered: ${relPath}`)
 					syncManagedFile(
-						path.join(sourceDir, 'base', 'commands', subpath),
-						path.join(repo, relPath),
-						ctx,
-					)
-				}
-			}
-
-			const skillsBase = path.join(sourceDir, 'base', 'skills')
-			const skillFiles = fs.pathExistsSync(skillsBase)
-				? walkFiles(skillsBase).map((f) =>
-						posixPath(path.relative(skillsBase, f)),
-					)
-				: []
-			for (const subpath of skillFiles) {
-				const relPath = `.opencode/skills/${subpath}`
-				if (!manifestPaths.includes(relPath)) {
-					ctx.log(`new managed path discovered: ${relPath}`)
-					ensureDir(path.dirname(path.join(repo, relPath)), ctx)
-					syncManagedFile(
-						path.join(sourceDir, 'base', 'skills', subpath),
-						path.join(repo, relPath),
-						ctx,
-					)
-				}
-			}
-
-			const pluginsBase = path.join(sourceDir, 'base', 'plugins')
-			const pluginFiles = fs.pathExistsSync(pluginsBase)
-				? walkFiles(pluginsBase).map((f) =>
-						posixPath(path.relative(pluginsBase, f)),
-					)
-				: []
-			for (const subpath of pluginFiles) {
-				const relPath = `.opencode/plugins/${subpath}`
-				if (!manifestPaths.includes(relPath)) {
-					ctx.log(`new managed path discovered: ${relPath}`)
-					ensureDir(path.dirname(path.join(repo, relPath)), ctx)
-					syncManagedFile(
-						path.join(sourceDir, 'base', 'plugins', subpath),
+						path.join(categoryBase, subpath),
 						path.join(repo, relPath),
 						ctx,
 					)
@@ -245,7 +187,7 @@ export async function doInstall(
 
 			injectPermissions(
 				repo,
-				path.join(sourceDir, 'base', 'permissions', 'agents.yml'),
+				path.join(sourceDirFor(sourceDir, 'permissions'), 'agents.yml'),
 				ctx,
 			)
 
@@ -265,26 +207,19 @@ export async function doInstall(
 		ctx,
 	)
 	syncAgentsTreeWithPermissions(
-		path.join(sourceDir, 'base', 'agents'),
-		path.join(repo, '.opencode', 'agents'),
-		path.join(sourceDir, 'base', 'permissions', 'agents.yml'),
+		sourceDirFor(sourceDir, 'agents'),
+		path.join(repo, destRelFor('agents')),
+		path.join(sourceDirFor(sourceDir, 'permissions'), 'agents.yml'),
 		ctx,
 	)
-	syncManagedTree(
-		path.join(sourceDir, 'base', 'commands'),
-		path.join(repo, '.opencode', 'commands'),
-		ctx,
-	)
-	syncManagedTree(
-		path.join(sourceDir, 'base', 'skills'),
-		path.join(repo, '.opencode', 'skills'),
-		ctx,
-	)
-	syncManagedTree(
-		path.join(sourceDir, 'base', 'plugins'),
-		path.join(repo, '.opencode', 'plugins'),
-		ctx,
-	)
+	for (const category of CONTENT_CATEGORIES) {
+		if (category === 'agents') continue
+		syncManagedTree(
+			sourceDirFor(sourceDir, category),
+			path.join(repo, destRelFor(category)),
+			ctx,
+		)
+	}
 
 	const appYml = path.join(repo, '.gh-config', 'app.yml')
 	ensureDir(path.dirname(appYml), ctx)
@@ -339,7 +274,7 @@ function injectPermissions(
 	permissionsFile: string,
 	ctx: ManifestContext,
 ): void {
-	const agentsDir = path.join(repo, '.opencode', 'agents')
+	const agentsDir = path.join(repo, destRelFor('agents'))
 	if (!fs.pathExistsSync(agentsDir)) return
 	const entries = fs.readdirSync(agentsDir, { withFileTypes: true })
 	for (const entry of entries) {

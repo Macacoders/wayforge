@@ -8,6 +8,7 @@ import {
 	type SyncTreeResult,
 } from './context.js'
 import { cp, ensureDir, rm, writeFile } from './files.js'
+import { sourceForDest } from './layout.js'
 
 /** Read a file and split into lines, normalizing CRLF to LF. */
 function readFileLines(filePath: string): string[] {
@@ -551,23 +552,15 @@ export function syncManagedPathFromManifest(
 		return
 	} else if (relativePath === 'AGENTS.md') {
 		srcFile = path.join(rootDir, 'base', 'AGENTS.md')
-	} else if (relativePath.startsWith('.opencode/agents/')) {
-		const subpath = relativePath.slice('.opencode/agents/'.length)
-		srcFile = path.join(rootDir, 'base', 'agents', subpath)
-	} else if (relativePath.startsWith('.opencode/commands/')) {
-		const subpath = relativePath.slice('.opencode/commands/'.length)
-		srcFile = path.join(rootDir, 'base', 'commands', subpath)
-	} else if (relativePath.startsWith('.opencode/skills/')) {
-		const subpath = relativePath.slice('.opencode/skills/'.length)
-		srcFile = path.join(rootDir, 'base', 'skills', subpath)
-	} else if (relativePath.startsWith('.opencode/plugins/')) {
-		const subpath = relativePath.slice('.opencode/plugins/'.length)
-		srcFile = path.join(rootDir, 'base', 'plugins', subpath)
 	} else {
-		ctx.log(
-			`warning: unknown managed path prefix, skipping: ${relativePath}`,
-		)
-		return
+		const resolved = sourceForDest(rootDir, relativePath)
+		if (!resolved) {
+			ctx.log(
+				`warning: unknown managed path prefix, skipping: ${relativePath}`,
+			)
+			return
+		}
+		srcFile = resolved
 	}
 
 	if (

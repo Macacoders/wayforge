@@ -34,27 +34,27 @@ function makeSourceTree(sourceDir: string): void {
 function setupTargetRepo(repo: string): void {
 	const subs = ['agents', 'commands', 'skills', 'plugins']
 	for (const sub of subs) {
-		fs.mkdirpSync(path.join(repo, '.opencode', sub))
+		fs.mkdirpSync(path.join(repo, '.agents', sub))
 
 		// unmanaged matching file
 		fs.writeFileSync(
-			path.join(repo, '.opencode', sub, 'managed.md'),
+			path.join(repo, '.agents', sub, 'managed.md'),
 			`# ${sub} local`,
 		)
 
 		// managed file with sidecar marker
 		fs.writeFileSync(
-			path.join(repo, '.opencode', sub, 'tracked.md'),
+			path.join(repo, '.agents', sub, 'tracked.md'),
 			`# ${sub} tracked`,
 		)
 		fs.writeFileSync(
-			path.join(repo, '.opencode', sub, 'tracked.md.wayforge-managed'),
+			path.join(repo, '.agents', sub, 'tracked.md.wayforge-managed'),
 			'generated-by=wayforge-bootstrap',
 		)
 
 		// user-only file with no source counterpart
 		fs.writeFileSync(
-			path.join(repo, '.opencode', sub, 'user-only.md'),
+			path.join(repo, '.agents', sub, 'user-only.md'),
 			`# ${sub} user only`,
 		)
 	}
@@ -88,10 +88,10 @@ describe('findUnmanagedConflicts', () => {
 		const relPaths = conflicts.map((c) => c.relPath).sort()
 
 		expect(relPaths).toEqual([
-			'.opencode/agents/managed.md',
-			'.opencode/commands/managed.md',
-			'.opencode/plugins/managed.md',
-			'.opencode/skills/managed.md',
+			'.agents/agents/managed.md',
+			'.agents/commands/managed.md',
+			'.agents/plugins/managed.md',
+			'.agents/skills/managed.md',
 		])
 	})
 
@@ -99,10 +99,10 @@ describe('findUnmanagedConflicts', () => {
 		const conflicts = findUnmanagedConflicts(repo, sourceDir)
 		const relPaths = new Set(conflicts.map((c) => c.relPath))
 
-		expect(relPaths.has('.opencode/agents/tracked.md')).toBe(false)
-		expect(relPaths.has('.opencode/agents/user-only.md')).toBe(false)
-		expect(relPaths.has('.opencode/plugins/tracked.md')).toBe(false)
-		expect(relPaths.has('.opencode/plugins/user-only.md')).toBe(false)
+		expect(relPaths.has('.agents/agents/tracked.md')).toBe(false)
+		expect(relPaths.has('.agents/agents/user-only.md')).toBe(false)
+		expect(relPaths.has('.agents/plugins/tracked.md')).toBe(false)
+		expect(relPaths.has('.agents/plugins/user-only.md')).toBe(false)
 	})
 
 	it('returns absolute dstPath for each conflict', () => {
@@ -121,8 +121,8 @@ describe('resolveUnmanagedConflicts', () => {
 
 	beforeEach(() => {
 		conflicts = [
-			{ relPath: '.opencode/agents/managed.md', dstPath: '/repo/.opencode/agents/managed.md' },
-			{ relPath: '.opencode/commands/plan.md', dstPath: '/repo/.opencode/commands/plan.md' },
+			{ relPath: '.agents/agents/managed.md', dstPath: '/repo/.agents/agents/managed.md' },
+			{ relPath: '.agents/commands/plan.md', dstPath: '/repo/.agents/commands/plan.md' },
 		]
 		ctx = makeCtx()
 		vi.mocked(isInteractive).mockReset()

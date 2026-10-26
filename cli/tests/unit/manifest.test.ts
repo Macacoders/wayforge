@@ -65,13 +65,13 @@ describe("manifest lifecycle", () => {
   it("addManagedPath appends path", () => {
     const ctx = makeCtx();
     initManagedManifest(repo, "0.1.0", undefined, ctx);
-    addManagedPath(repo, ".opencode/agents/planner.md", ctx);
+    addManagedPath(repo, ".agents/agents/planner.md", ctx);
 
     const content = fs.readFileSync(
       path.join(repo, ".wayforge-managed.tmp"),
       "utf8",
     );
-    expect(content).toContain("- .opencode/agents/planner.md");
+    expect(content).toContain("- .agents/agents/planner.md");
   });
 
   it("addManagedPath deduplicates", () => {
@@ -150,8 +150,8 @@ describe("manifest lifecycle", () => {
       "version: 0.1.0",
       "managed_paths:",
       "  - foo.md",
-      "  - .opencode/agents/planner.md",
-      "  - .opencode/skills/create.md",
+      "  - .agents/agents/planner.md",
+      "  - .agents/skills/create.md",
       "",
     ].join("\n");
     fs.writeFileSync(path.join(repo, ".wayforge-managed"), content);
@@ -159,8 +159,8 @@ describe("manifest lifecycle", () => {
     const paths = readManagedManifest(repo);
     expect(paths).toEqual([
       "foo.md",
-      ".opencode/agents/planner.md",
-      ".opencode/skills/create.md",
+      ".agents/agents/planner.md",
+      ".agents/skills/create.md",
     ]);
   });
 
@@ -171,8 +171,8 @@ describe("manifest lifecycle", () => {
       "managed_paths:",
       "",
       "- foo.md",
-      "- .opencode/agents/planner.md",
-      "- .opencode/skills/create.md",
+      "- .agents/agents/planner.md",
+      "- .agents/skills/create.md",
       "",
     ].join("\n");
     fs.writeFileSync(path.join(repo, ".wayforge-managed"), content);
@@ -180,8 +180,8 @@ describe("manifest lifecycle", () => {
     const paths = readManagedManifest(repo);
     expect(paths).toEqual([
       "foo.md",
-      ".opencode/agents/planner.md",
-      ".opencode/skills/create.md",
+      ".agents/agents/planner.md",
+      ".agents/skills/create.md",
     ]);
   });
 
@@ -259,26 +259,26 @@ describe("managed detection", () => {
   });
 
   it("isManagedFile walks directory tree", () => {
-    fs.mkdirpSync(path.join(repo, ".opencode", "agents"));
-    fs.writeFileSync(path.join(repo, ".opencode", "agents", "planner.md"), "");
+    fs.mkdirpSync(path.join(repo, ".agents", "agents"));
+    fs.writeFileSync(path.join(repo, ".agents", "agents", "planner.md"), "");
     fs.writeFileSync(
       path.join(repo, ".wayforge-managed"),
-      "managed_paths:\n  - .opencode/agents/planner.md\n",
+      "managed_paths:\n  - .agents/agents/planner.md\n",
     );
     expect(
-      isManagedFile(path.join(repo, ".opencode", "agents", "planner.md")),
+      isManagedFile(path.join(repo, ".agents", "agents", "planner.md")),
     ).toBe(true);
   });
 
   it("isManagedFile walks directory tree (new format)", () => {
-    fs.mkdirpSync(path.join(repo, ".opencode", "agents"));
-    fs.writeFileSync(path.join(repo, ".opencode", "agents", "planner.md"), "");
+    fs.mkdirpSync(path.join(repo, ".agents", "agents"));
+    fs.writeFileSync(path.join(repo, ".agents", "agents", "planner.md"), "");
     fs.writeFileSync(
       path.join(repo, ".wayforge-managed"),
-      "managed_paths:\n\n- .opencode/agents/planner.md\n",
+      "managed_paths:\n\n- .agents/agents/planner.md\n",
     );
     expect(
-      isManagedFile(path.join(repo, ".opencode", "agents", "planner.md")),
+      isManagedFile(path.join(repo, ".agents", "agents", "planner.md")),
     ).toBe(true);
   });
 
@@ -292,39 +292,39 @@ describe("managed detection", () => {
   });
 
   it("isManagedDir detects via manifest entry", () => {
-    fs.mkdirpSync(path.join(repo, ".opencode", "agents"));
+    fs.mkdirpSync(path.join(repo, ".agents", "agents"));
     fs.writeFileSync(
       path.join(repo, ".wayforge-managed"),
-      "managed_paths:\n  - .opencode/agents\n",
+      "managed_paths:\n  - .agents/agents\n",
     );
-    expect(isManagedDir(path.join(repo, ".opencode", "agents"))).toBe(true);
+    expect(isManagedDir(path.join(repo, ".agents", "agents"))).toBe(true);
   });
 
   it("isManagedDir detects via manifest entry (new format)", () => {
-    fs.mkdirpSync(path.join(repo, ".opencode", "agents"));
+    fs.mkdirpSync(path.join(repo, ".agents", "agents"));
     fs.writeFileSync(
       path.join(repo, ".wayforge-managed"),
-      "managed_paths:\n\n- .opencode/agents\n",
+      "managed_paths:\n\n- .agents/agents\n",
     );
-    expect(isManagedDir(path.join(repo, ".opencode", "agents"))).toBe(true);
+    expect(isManagedDir(path.join(repo, ".agents", "agents"))).toBe(true);
   });
 
   it("isManagedDir detects child via manifest prefix", () => {
-    fs.mkdirpSync(path.join(repo, ".opencode", "agents"));
+    fs.mkdirpSync(path.join(repo, ".agents", "agents"));
     fs.writeFileSync(
       path.join(repo, ".wayforge-managed"),
-      "managed_paths:\n  - .opencode/agents/planner.md\n",
+      "managed_paths:\n  - .agents/agents/planner.md\n",
     );
-    expect(isManagedDir(path.join(repo, ".opencode", "agents"))).toBe(true);
+    expect(isManagedDir(path.join(repo, ".agents", "agents"))).toBe(true);
   });
 
   it("isManagedDir detects child via manifest prefix (new format)", () => {
-    fs.mkdirpSync(path.join(repo, ".opencode", "agents"));
+    fs.mkdirpSync(path.join(repo, ".agents", "agents"));
     fs.writeFileSync(
       path.join(repo, ".wayforge-managed"),
-      "managed_paths:\n\n- .opencode/agents/planner.md\n",
+      "managed_paths:\n\n- .agents/agents/planner.md\n",
     );
-    expect(isManagedDir(path.join(repo, ".opencode", "agents"))).toBe(true);
+    expect(isManagedDir(path.join(repo, ".agents", "agents"))).toBe(true);
   });
 
   it("isManagedOpenCodeFile matches header", () => {

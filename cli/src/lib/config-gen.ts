@@ -4,6 +4,7 @@ import { ManifestContext, MANAGED_OPENCODE_HEADER } from './context.js'
 import { ensureDir, rm, writeFile } from './files.js'
 import type { Provider, Runtime } from '../types.js'
 import { validateFreeTierRuntime, resolveDefaultModels } from './providers.js'
+import { PLUGIN_ENTRY, SKILLS_CONFIG_PATH, sourceDirFor } from './layout.js'
 
 export interface GenerateOptions {
 	runtime: Runtime
@@ -14,7 +15,7 @@ export interface GenerateOptions {
 }
 
 export function readFragment(sourceDir: string, subPath: string): string {
-	const file = path.join(sourceDir, 'base', 'config', subPath)
+	const file = path.join(sourceDirFor(sourceDir, 'config'), subPath)
 	if (!fs.pathExistsSync(file)) {
 		console.error(`error: missing config fragment: ${file}`)
 		process.exit(1)
@@ -215,7 +216,8 @@ export function generateOpenCodeJsonc(opts: GenerateOptions): string {
   ${agentSection}"provider": {
 ${providerBlock}
   },
-  "plugin": ["./.opencode/plugins/ponytail/ponytail.mjs"],
+  "plugin": ["${PLUGIN_ENTRY}"],
+  "skills": ["${SKILLS_CONFIG_PATH}"],
   "permission": {
     "skill": {
       "*": "allow"

@@ -2,6 +2,7 @@ import fs from 'fs-extra'
 import path from 'path'
 import { ManifestContext } from './context.js'
 import { isManagedFile, posixPath, walkFiles } from './manifest.js'
+import { CONTENT_CATEGORIES, destRelFor, sourceDirFor } from './layout.js'
 import { isInteractive } from './prompt.js'
 
 export interface UnmanagedConflict {
@@ -14,21 +15,18 @@ export function findUnmanagedConflicts(
 	sourceDir: string,
 ): UnmanagedConflict[] {
 	const conflicts: UnmanagedConflict[] = []
-	const subs = ['agents', 'commands', 'skills', 'plugins']
 
-	for (const sub of subs) {
-		const srcBase = path.join(sourceDir, 'base', sub)
+	for (const sub of CONTENT_CATEGORIES) {
+		const srcBase = sourceDirFor(sourceDir, sub)
 		if (!fs.pathExistsSync(srcBase)) {
 			continue
 		}
 		for (const srcFile of walkFiles(srcBase)) {
 			const rel = posixPath(path.relative(srcBase, srcFile))
-			const dstPath = path.join(repo, '.opencode', sub, rel)
+			const relPath = destRelFor(sub, rel)
+			const dstPath = path.join(repo, relPath)
 			if (fs.pathExistsSync(dstPath) && !isManagedFile(dstPath)) {
-				conflicts.push({
-					relPath: `.opencode/${sub}/${rel}`,
-					dstPath,
-				})
+				conflicts.push({ relPath, dstPath })
 			}
 		}
 	}
