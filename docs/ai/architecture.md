@@ -33,7 +33,6 @@ The installer surface is a TypeScript CLI under `cli/src/`, distributed as a pre
   - Windows: `%LOCALAPPDATA%\wayforge`
   - Layout: `bin/wfg` (`wfg.exe` on Windows), `node/` (provisioned Node.js, when installed), `share/wayforge/base/**`, `share/wayforge/VERSION`, and `installed-projects.json`
 - **Release workflow**: `.github/workflows/release.yml` builds binaries for linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64, produces share archives (`wayforge-share-<version>.tar.gz` / `.zip`), and uploads `install.sh` / `install.ps1` as release assets
-- **Legacy references**: `install/legacy/bootstrap-legacy.sh` and `install/legacy/bootstrap-legacy.ps1` preserve the original full installers; `install/legacy/bootstrap-thin.sh` and `install/legacy/bootstrap-thin.ps1` preserve the retired thin entrypoints. All legacy scripts are frozen.
 
 Reusable versioned source lives in this repository under `base/opencode/**`.
 
@@ -92,7 +91,7 @@ Portable workflow helpers used by shared commands should be packaged under `.ope
 
 ### Bootstrap Scripts
 
-The canonical install surface is the one-shot installer (`install/install.sh` / `install/install.ps1`) plus the `wfg install --repo <path>` command. The retired thin entrypoints `install/bootstrap.sh` and `install/bootstrap.ps1` have been moved to `install/legacy/bootstrap-thin.{sh,ps1}` as frozen reference.
+The canonical install surface is the one-shot installer (`install/install.sh` / `install/install.ps1`) plus the `wfg install --repo <path>` command. The former frozen legacy installers were removed after ADR-0033's deletion trigger was executed; no legacy bootstrap entrypoints remain.
 
 - **No Administrator privileges required** (PowerShell): The one-shot installer uses file writes and updates the User PATH — no symbolic link creation and no elevation.
 - **Managed sync**: Deployed by the TS CLI — agents, commands, and skill files are synced with `.wayforge-managed` markers for safe refresh without clobbering local additions.

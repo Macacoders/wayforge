@@ -3,6 +3,7 @@
 **Date**: 2026-08-21
 **Status**: Accepted
 **Amended**: 2026-08-24 — the frozen legacy set now also includes the retired thin entrypoints `bootstrap-thin.{sh,ps1}` (moved from `install/bootstrap.{sh,ps1}`). They are retained as reference only and are not the canonical install surface.
+**Amended**: 2026-10-26 — the deletion trigger was executed: the eight `install/legacy/**` files plus the legacy-only bats/Pester tests were removed. The parity arm of Decision 4 was retired as stale (parity was never established; the TS CLI is the only installer).
 
 ## Context
 
@@ -15,13 +16,14 @@ ADR-0009 (amended 2026-08-21) changed the `.ai-config-managed` format to use a b
 1. The TS CLI is the sole canonical installer. The legacy Bash and PowerShell installers are frozen and will not receive `.ai-config-managed` format updates.
 2. Legacy installers may not correctly read TS-CLI-written manifests (accepted interop break). They must not be run against repositories installed by the TS CLI.
 3. The legacy uninstall scripts cannot clean up TS-CLI-installed projects.
-4. Deletion trigger: the legacy installers are removed once the TS CLI migration is complete and integration parity is established (no fixed date).
+4. Deletion trigger (executed 2026-10-26): the legacy installers were removed once the TS CLI migration was complete. The integration-parity arm was retired as stale — parity was never established, and the TS CLI is the sole installer.
 
 ## Consequences
 
 - Consumers who run the legacy installer against a TS-CLI-installed repository will silently see zero managed paths, causing re-install to recreate per-file sidecar markers and uninstall to leave managed files behind.
 - Contributors must not add `.ai-config-managed` format features to the legacy installers; such work goes to the TS CLI only.
 - The interop break is a known, accepted tradeoff rather than a hidden defect, and is documented here for future readers.
+- After the 2026-10-26 removal, the historical interop warnings above apply only to out-of-tree copies of the frozen scripts; no legacy installers remain in this repository.
 
 ## Alternatives Considered
 
