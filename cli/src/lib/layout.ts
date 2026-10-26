@@ -61,30 +61,66 @@ function isContentCategory(value: string): value is ContentCategory {
 	return (CONTENT_CATEGORIES as readonly string[]).includes(value)
 }
 
+function normalize(relPath: string): string {
+	return relPath.replace(/\\/g, '/')
+}
+
+interface ArtifactRelPath {
+	category: ContentCategory
+	subpath: string
+}
+
+/** Split an artifact path under the canonical or legacy root. */
+function parseArtifactRel(relPath: string): ArtifactRelPath | null {
+	const normalized = normalize(relPath)
+	for (const root of [ARTIFACT_ROOT, LEGACY_ARTIFACT_ROOT]) {
+		const prefix = `${root}/`
+		if (!normalized.startsWith(prefix)) {
+			continue
+		}
+
+		const rest = normalized.slice(prefix.length)
+		const separator = rest.indexOf('/')
+		if (separator <= 0) {
+			return null
+		}
+
+		const category = rest.slice(0, separator)
+		const subpath = rest.slice(separator + 1)
+		if (!isContentCategory(category) || !subpath) {
+			return null
+		}
+
+		return { category, subpath }
+	}
+
+	return null
+}
+
+/** True when a managed path was written by a legacy `.opencode/` install. */
+export function isLegacyManagedPath(relPath: string): boolean {
+	return normalize(relPath).startsWith(`${LEGACY_ARTIFACT_ROOT}/`)
+}
+
+/**
+ * Canonical destination for a managed path, translating legacy `.opencode/`
+ * prefixes into the `.agents/` tree.
+ */
+export function destRelForManagedPath(relPath: string): string | null {
+	const parsed = parseArtifactRel(relPath)
+	return parsed ? destRelFor(parsed.category, parsed.subpath) : null
+}
+
 /**
  * Source file for a managed artifact path, or null when the path does not
- * belong to a content category in the canonical tree.
+ * belong to a content category under the canonical or legacy root.
  */
 export function sourceForDest(
 	sourceDir: string,
 	relPath: string,
 ): string | null {
-	const prefix = `${ARTIFACT_ROOT}/`
-	if (!relPath.startsWith(prefix)) {
-		return null
-	}
-
-	const rest = relPath.slice(prefix.length)
-	const separator = rest.indexOf('/')
-	if (separator <= 0) {
-		return null
-	}
-
-	const category = rest.slice(0, separator)
-	const subpath = rest.slice(separator + 1)
-	if (!isContentCategory(category) || !subpath) {
-		return null
-	}
-
-	return path.join(sourceDirFor(sourceDir, category), subpath)
+	const parsed = parseArtifactRel(relPath)
+	return parsed
+		? path.join(sourceDirFor(sourceDir, parsed.category), parsed.subpath)
+		: null
 }

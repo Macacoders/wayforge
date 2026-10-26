@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs-extra'
 import { ManifestContext } from '../lib/context.js'
-import { ensureDir, readFileOrDefault } from '../lib/files.js'
+import { ensureDir, readFileOrDefault, rm } from '../lib/files.js'
 import {
 	initManagedManifest,
 	finalizeManagedManifest,
@@ -37,7 +37,15 @@ import { trackInstalledProject } from '../lib/tracking.js'
 import { cloneRef } from '../lib/git.js'
 import { resolveSourceDir } from '../lib/source-dir.js'
 import { checkNode } from '../lib/prereq.js'
-import { CONTENT_CATEGORIES, destRelFor, sourceDirFor } from '../lib/layout.js'
+import {
+	ARTIFACT_ROOT,
+	CONTENT_CATEGORIES,
+	LEGACY_ARTIFACT_ROOT,
+	destRelFor,
+	destRelForManagedPath,
+	isLegacyManagedPath,
+	sourceDirFor,
+} from '../lib/layout.js'
 import { ensureRuntimePointers, isPointerPath } from '../lib/pointers.js'
 import type { InstallOptions } from '../types.js'
 
@@ -159,7 +167,8 @@ export async function doInstall(
 					ctx.log('kept existing AGENTS.md (use --force to refresh)')
 					continue
 				}
-				syncManagedPathFromManifest(repo, relPath, sourceDir, ctx)
+				const destRel = destRelForManagedPath(relPath) ?? relPath
+				syncManagedPathFromManifest(repo, destRel, sourceDir, ctx)
 			}
 
 			if (!manifestPaths.includes('AGENTS.md')) {
@@ -199,9 +208,28 @@ export async function doInstall(
 				ctx,
 			)
 
+			const hadLegacyPaths = manifestPaths.some(
+				(relPath) =>
+					isLegacyManagedPath(relPath) && !isPointerPath(relPath),
+			)
+			removeManagedLegacyPaths(repo, manifestPaths, ctx)
+			if (hadLegacyPaths) {
+				pruneEmptyDirs(legacyArtifactRoot(repo), ctx)
+			}
+			reportLegacyResiduals(collectLegacyResiduals(repo), ctx)
+			const blockedPointers = ensureRuntimePointers(
+				repo,
+				options.runtime,
+				ctx,
+			)
+
 			ctx.force = savedForce
 			finalizeManagedManifest(repo, ctx)
 			trackInstalledProject(repo, version, installRef, ctx)
+			if (blockedPointers.length > 0 && !ctx.dryRun) {
+				if (cleanupFn) cleanupFn()
+				process.exit(1)
+			}
 			ctx.log(`repo bootstrap complete for: ${repo}`)
 			if (cleanupFn) cleanupFn()
 			return
@@ -280,6 +308,94 @@ export async function doInstall(
 	}
 	ctx.log(`repo bootstrap complete for: ${repo}`)
 	if (cleanupFn) cleanupFn()
+}
+
+function legacyArtifactRoot(repo: string): string {
+	return path.join(repo, LEGACY_ARTIFACT_ROOT)
+}
+
+/** Remove legacy managed files that were synced into the canonical tree. */
+function removeManagedLegacyPaths(
+	repo: string,
+	manifestPaths: string[],
+	ctx: ManifestContext,
+): void {
+	for (const relPath of manifestPaths) {
+		if (!isLegacyManagedPath(relPath) || isPointerPath(relPath)) {
+			continue
+		}
+		const absolute = path.join(repo, relPath)
+		if (!fs.pathExistsSync(absolute)) {
+			continue
+		}
+		const lstat = fs.lstatSync(absolute)
+		if (!lstat.isFile() && !lstat.isSymbolicLink()) {
+			continue
+		}
+		if (!isManagedFile(absolute)) {
+			continue
+		}
+		rm(absolute, ctx)
+		if (ctx.dryRun) {
+			ctx.log(`DRY-RUN: would remove legacy managed path: ${relPath}`)
+		} else {
+			ctx.log(`removed legacy managed path: ${relPath}`)
+		}
+	}
+}
+
+/** Remove empty directories bottom-up, including the directory itself. */
+function pruneEmptyDirs(dir: string, ctx: ManifestContext): void {
+	if (!fs.pathExistsSync(dir)) {
+		return
+	}
+	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+		if (entry.isDirectory() && !entry.isSymbolicLink()) {
+			pruneEmptyDirs(path.join(dir, entry.name), ctx)
+		}
+	}
+	if (fs.readdirSync(dir).length > 0) {
+		return
+	}
+	if (ctx.dryRun) {
+		ctx.log(`DRY-RUN: would remove empty directory: ${dir}`)
+		return
+	}
+	fs.rmdirSync(dir)
+	ctx.log(`removed empty directory: ${dir}`)
+}
+
+/**
+ * Non-managed files still under the legacy tree. Managed files are excluded so
+ * a dry-run reports the same residuals it would leave after a real cleanup.
+ */
+function collectLegacyResiduals(repo: string): string[] {
+	const root = legacyArtifactRoot(repo)
+	if (!fs.pathExistsSync(root)) {
+		return []
+	}
+	return walkFiles(root)
+		.filter((file) => !isManagedFile(file))
+		.map((file) => posixPath(path.relative(repo, file)))
+}
+
+function reportLegacyResiduals(
+	residuals: string[],
+	ctx: ManifestContext,
+): void {
+	if (residuals.length === 0) {
+		return
+	}
+	ctx.log(
+		`warning: legacy ${LEGACY_ARTIFACT_ROOT} content is not managed by wayforge:`,
+	)
+	for (const residual of residuals) {
+		ctx.log(`  - ${residual}`)
+	}
+	ctx.log(
+		`  move these paths into ${ARTIFACT_ROOT}/ or remove them; ` +
+			`managed ${LEGACY_ARTIFACT_ROOT} files were migrated automatically`,
+	)
 }
 
 function injectPermissions(
