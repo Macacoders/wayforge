@@ -6,9 +6,13 @@
 
 # ponytail: top-level helper; extracted from duplicated definitions in consumers
 run_pwsh_heredoc() {
+	local tmp_base
 	local tmp_ps
 	local status
-	tmp_ps="$(mktemp)"
+	# pwsh -File requires a .ps1 extension; mktemp alone does not provide one.
+	tmp_base="$(mktemp)"
+	tmp_ps="${tmp_base}.ps1"
+	rm -f "$tmp_base"
 	cat >"$tmp_ps"
 	if pwsh -NoProfile -NonInteractive -File "$tmp_ps"; then
 		status=0

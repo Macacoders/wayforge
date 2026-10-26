@@ -45,5 +45,12 @@ teardown() {
 	[ "$status" -eq 0 ]
 	run bash -c 'mapfile -t args <"$1"; printf "%s|%s|%s|%s\n" "${args[0]}" "${args[1]}" "${args[2]}" "${args[3]}"' _ "$CAPTURE_FILE"
 	[ "$status" -eq 0 ]
-	[ "$output" = "install|--repo|$TARGET_REPO|--dry-run" ]
+	# Node normalizes the repo path to a Windows form (C:/...) on Git Bash/Windows;
+	# normalize the expectation the same way when cygpath is available.
+	if command -v cygpath >/dev/null 2>&1; then
+		EXPECTED_REPO="$(cygpath -m "$TARGET_REPO")"
+	else
+		EXPECTED_REPO="$TARGET_REPO"
+	fi
+	[ "$output" = "install|--repo|$EXPECTED_REPO|--dry-run" ]
 }
