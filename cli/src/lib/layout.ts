@@ -28,6 +28,11 @@ export const RUNTIME_POINTER_DIRS: Record<Runtime, string> = {
 	kilocode: '.kilo',
 }
 
+/** Categories reached through a runtime directory pointer. */
+export const POINTER_CATEGORIES = ['agents', 'commands'] as const
+
+export type PointerCategory = (typeof POINTER_CATEGORIES)[number]
+
 /** Generated config entry for the bundled plugin. */
 export const PLUGIN_ENTRY = `./${ARTIFACT_ROOT}/plugins/ponytail/ponytail.mjs`
 

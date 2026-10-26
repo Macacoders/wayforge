@@ -38,6 +38,7 @@ import { cloneRef } from '../lib/git.js'
 import { resolveSourceDir } from '../lib/source-dir.js'
 import { checkNode } from '../lib/prereq.js'
 import { CONTENT_CATEGORIES, destRelFor, sourceDirFor } from '../lib/layout.js'
+import { ensureRuntimePointers, isPointerPath } from '../lib/pointers.js'
 import type { InstallOptions } from '../types.js'
 
 export async function installCommand(options: InstallOptions): Promise<void> {
@@ -146,6 +147,13 @@ export async function doInstall(
 			}
 
 			for (const relPath of manifestPaths) {
+				if (isPointerPath(relPath)) {
+					const pointer = path.join(repo, relPath)
+					if (fs.pathExistsSync(pointer)) {
+						managedTrackFile(pointer, ctx)
+					}
+					continue
+				}
 				if (relPath === 'AGENTS.md' && !savedForce) {
 					managedTrackFile(path.join(repo, 'AGENTS.md'), ctx)
 					ctx.log('kept existing AGENTS.md (use --force to refresh)')
@@ -221,6 +229,8 @@ export async function doInstall(
 		)
 	}
 
+	const blockedPointers = ensureRuntimePointers(repo, options.runtime, ctx)
+
 	const appYml = path.join(repo, '.gh-config', 'app.yml')
 	ensureDir(path.dirname(appYml), ctx)
 	if (options.ghAppClientId) {
@@ -265,6 +275,9 @@ export async function doInstall(
 
 	trackInstalledProject(repo, version, installRef, ctx)
 	finalizeManagedManifest(repo, ctx)
+	if (blockedPointers.length > 0 && !ctx.dryRun) {
+		process.exit(1)
+	}
 	ctx.log(`repo bootstrap complete for: ${repo}`)
 	if (cleanupFn) cleanupFn()
 }
