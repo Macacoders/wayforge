@@ -17,6 +17,7 @@ Scope: wayforge installs content once into `.agents/` and reaches each runtime t
 | --- | --- | --- |
 | Linux / macOS | relative directory symlink (keeps the repository relocatable) | verified |
 | Windows | directory junction fallback with an absolute target; the pointer does not survive moving the repository | pending — creation, relocation, and removal are unverified; no Windows host available on the verification host. Removal falls back from `unlink` to `rmdir` for a junction (`EPERM`/`EISDIR`), which removes only the link |
+| Filesystem rejects symlinks (WSL `/mnt/c`, exFAT/FAT32, SMB/UNC repository) | probe runs on the repository volume, so the junction is chosen up front; if creation still fails the pointer is reported as a residual with the OS error code and the install exits non-zero instead of crashing | implemented — covered on every platform by the mocked-`EPERM` case in `cli/tests/unit/pointers.test.ts` (`reports a residual instead of crashing`) |
 | Symlinks and junctions unavailable | generated stub files (copy `.agents/` content into the native directory) | deferred — not implemented (ADR-0046 decision 6) |
 
 Per-runtime materialization of the `.agents/` tree into native runtime directories is future work; the supported design is pointers plus generated config paths.

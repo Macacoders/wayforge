@@ -262,6 +262,33 @@ describe('ensureRuntimePointers', () => {
 		).toBe(true)
 	})
 
+	it('reports a residual instead of crashing when the filesystem rejects both mechanisms', () => {
+		const original = fs.symlinkSync.bind(fs)
+		vi.spyOn(fs, 'symlinkSync').mockImplementation((target, link, type) => {
+			if (String(link).includes('wayforge-link-probe-')) {
+				original(target, link, type)
+				return
+			}
+			const error = new Error('EPERM: operation not permitted')
+			;(error as NodeJS.ErrnoException).code = 'EPERM'
+			throw error
+		})
+		const ctx = makeCtx()
+		const logSpy = vi.spyOn(ctx, 'log').mockImplementation(() => {})
+
+		const blocked = track('opencode', ctx)
+
+		expect(blocked).toEqual(['.opencode/agents', '.opencode/commands'])
+		expect(logSpy).toHaveBeenCalledWith(
+			expect.stringContaining(
+				'cannot create runtime pointer .opencode/agents (EPERM)',
+			),
+		)
+		expect(fs.pathExistsSync(path.join(repo, '.opencode', 'agents'))).toBe(
+			false,
+		)
+	})
+
 	it('falls back to an absolute junction target when symlinks are unavailable', () => {
 		const original = fs.symlinkSync.bind(fs)
 		const junctionTargets: string[] = []

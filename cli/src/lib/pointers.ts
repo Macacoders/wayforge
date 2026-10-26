@@ -16,17 +16,19 @@ import type { Runtime } from '../types.js'
 /**
  * Probe whether the platform can create directory symlinks. Windows without
  * Developer Mode/admin cannot, so callers fall back to junctions (ADR-0031).
+ *
+ * The probe runs on `dir` when given, because symlink support is a property of
+ * the destination filesystem, not of the process: WSL `/mnt/c`, exFAT, and SMB
+ * repos reject symlinks even when `os.tmpdir()` accepts them.
  */
-export function canSymlink(): boolean {
+export function canSymlink(dir: string = os.tmpdir()): boolean {
 	try {
-		const dir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'wayforge-link-probe-'),
-		)
+		const root = fs.mkdtempSync(path.join(dir, 'wayforge-link-probe-'))
 		try {
-			fs.mkdirSync(path.join(dir, 'target'))
-			fs.symlinkSync('target', path.join(dir, 'link'), 'dir')
+			fs.mkdirSync(path.join(root, 'target'))
+			fs.symlinkSync('target', path.join(root, 'link'), 'dir')
 		} finally {
-			fs.removeSync(dir)
+			fs.removeSync(root)
 		}
 		return true
 	} catch {
@@ -77,6 +79,50 @@ function pointsAt(link: string, relativeTarget: string): boolean {
 }
 
 /**
+ * Create one pointer, falling back from a symlink to a junction when the
+ * destination filesystem rejects symlinks despite the probe. Returns false when
+ * neither mechanism works so the caller reports a residual with remediation
+ * instead of aborting the install on a raw OS error.
+ */
+function createPointer(
+	link: string,
+	managedRel: string,
+	relativeTarget: string,
+	type: 'dir' | 'junction',
+	ctx: ManifestContext,
+): boolean {
+	const absoluteTarget = path.resolve(path.dirname(link), relativeTarget)
+	const attempts: { type: 'dir' | 'junction'; target: string }[] =
+		type === 'dir'
+			? [
+					{ type: 'dir', target: relativeTarget },
+					{ type: 'junction', target: absoluteTarget },
+				]
+			: [{ type: 'junction', target: absoluteTarget }]
+
+	let failure: NodeJS.ErrnoException | undefined
+	for (const attempt of attempts) {
+		try {
+			fs.symlinkSync(attempt.target, link, attempt.type)
+			managedTrackFile(link, ctx)
+			ctx.log(
+				`created ${attempt.type} pointer: ${managedRel} -> ${attempt.target}`,
+			)
+			return true
+		} catch (error) {
+			failure = error as NodeJS.ErrnoException
+		}
+	}
+
+	ctx.log(
+		`error: cannot create runtime pointer ${managedRel} ` +
+			`(${failure?.code ?? 'unknown'}); this filesystem supports neither ` +
+			'symlinks nor junctions',
+	)
+	return false
+}
+
+/**
  * Create the runtime-native pointers that make `.agents/` visible to a runtime.
  *
  * Uses a relative directory symlink when the platform supports it, otherwise a
@@ -94,7 +140,7 @@ export function ensureRuntimePointers(
 	runtime: Runtime,
 	ctx: ManifestContext,
 ): string[] {
-	const symlinks = canSymlink()
+	const symlinks = canSymlink(repo)
 	const pointerRoot = RUNTIME_POINTER_DIRS[runtime]
 	const residuals: string[] = []
 
@@ -153,9 +199,9 @@ export function ensureRuntimePointers(
 		}
 
 		ensureDir(path.dirname(link), ctx)
-		fs.symlinkSync(target, link, type)
-		managedTrackFile(link, ctx)
-		ctx.log(`created ${type} pointer: ${managedRel} -> ${target}`)
+		if (!createPointer(link, managedRel, relativeTarget, type, ctx)) {
+			residuals.push(managedRel)
+		}
 	}
 
 	if (residuals.length > 0) {
