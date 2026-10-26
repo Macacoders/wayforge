@@ -97,13 +97,13 @@ function parseArtifactRel(relPath: string): ArtifactRelPath | null {
 	return null
 }
 
-/** True when a managed path was written by a legacy `.opencode/` install. */
+/** True when a managed path was written by a legacy `.opencode` install. */
 export function isLegacyManagedPath(relPath: string): boolean {
 	return normalize(relPath).startsWith(`${LEGACY_ARTIFACT_ROOT}/`)
 }
 
 /**
- * Canonical destination for a managed path, translating legacy `.opencode/`
+ * Canonical destination for a managed path, translating legacy `.opencode`
  * prefixes into the `.agents/` tree.
  */
 export function destRelForManagedPath(relPath: string): string | null {

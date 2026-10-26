@@ -180,28 +180,38 @@ project_id: eb9c6ede-6f71-464a-b500-02e9c9d0e77c
 version: 0.1.0
 managed_paths:
 
-- opencode.jsonc
 - AGENTS.md
-- .opencode/agents/planner.md
+- .agents/agents/planner.md
 - ...
+- .opencode/agents
+- .opencode/commands
 ```
 
 **Fresh install** (no existing `.wayforge-managed`):
-The installer copies all source files from `base/opencode/`, generates runtime config, and writes the manifest.
+The installer copies all source files from `base/` into the canonical `.agents/` tree, generates runtime config, creates the runtime pointer directories, and writes the manifest.
 
 **Refresh / re-install without `--force`** (existing `.wayforge-managed`):
-The installer preserves `AGENTS.md` and runtime config (`opencode.jsonc` / `kilo.jsonc`) **unchanged** — existing content is never modified. Managed files under `.opencode/agents/**`, `.opencode/commands/**`, and `.opencode/skills/**` are refreshed from source templates to receive updates. The manifest is updated to track all current managed paths.
+The installer preserves `AGENTS.md` and runtime config (`opencode.jsonc` / `kilo.jsonc`) **unchanged** — existing content is never modified. Managed files under `.agents/agents/**`, `.agents/commands/**`, `.agents/skills/**`, and `.agents/plugins/**` are refreshed from source templates to receive updates. Runtime pointers are re-tracked (and repaired when needed), and legacy `.opencode/` managed paths are migrated to their `.agents/` destinations. The manifest is updated to track all current managed paths.
 
 **Refresh / re-install with `--force`** (existing `.wayforge-managed`):
-The installer performs a complete refresh as if it were a fresh installation: `AGENTS.md` is copied from source template, runtime config is regenerated from scratch, and all agent/command/skill files are refreshed. The manifest is rewritten with the current version and complete path list.
+The installer performs a complete refresh as if it were a fresh installation: `AGENTS.md` is copied from source template, runtime config is regenerated from scratch, and all agent/command/skill/plugin files are refreshed. The manifest is rewritten with the current version and complete path list.
 
 **How the manifest-driven refresh works:**
 1. The installer reads the existing `.wayforge-managed` file.
-2. For each path in `managed_paths`, it maps the path back to its source template (e.g., `.opencode/agents/planner.md` → `base/opencode/agents/planner.md`) and re-syncs the file.
-3. It discovers new source files not yet in the manifest (new agents, commands, or skills) and syncs them too.
-4. It writes an updated `.wayforge-managed` with the current version and complete path list.
+2. For each path in `managed_paths`, it maps the path back to its source template (e.g., `.agents/agents/planner.md` → `base/agents/planner.md`) and re-syncs the file. Legacy `.opencode/<category>/<sub>` entries map to the same source and are removed after migration.
+3. Runtime pointer entries (`.opencode/{agents,commands}`, `.kilo/{agents,commands}`) are owned by the pointer layer and re-tracked rather than mapped to source templates.
+4. It discovers new source files not yet in the manifest (new agents, commands, skills, or plugins) and syncs them too.
+5. It writes an updated `.wayforge-managed` with the current version and complete path list.
 
 This manifest-driven refresh replaces the earlier per-file sidecar marker approach. Old markers from previous installs are cleaned up during the refresh.
+
+Frozen scripts under `install/legacy/**` still read the pre-flatten source layout; they are deprecated and do not work against the flattened `base/` tree (ADR-0033, ADR-0046).
+
+### Runtime pointers
+
+Agents and commands reach each runtime through a directory pointer: OpenCode uses `.opencode/agents` and `.opencode/commands`; Kilo Code uses `.kilo/agents` and `.kilo/commands`. Pointers are relative directory symlinks when available, with Windows junctions as the fallback. Skills and plugins need no pointers because generated config points at `.agents/skills` and `.agents/plugins/ponytail/ponytail.mjs`. Pi reads `.agents/skills/**/SKILL.md` natively.
+
+If a runtime's pointer category contains unmanaged files, the installer does not delete them or hide wayforge content: it reports the exact paths, finalizes the managed manifest, and exits non-zero with remediation. Kilo `.opencode` leftovers are reported without blocking the `.kilo` pointers. See [ADR-0046](docs/ai/decisions/ADR-0046-generic-agents-artifact-directory.md).
 
 ## First Release Procedure
 

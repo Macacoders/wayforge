@@ -42,9 +42,11 @@ temp/
 .devcontainer
 .gh-config
 
-# OpenCode generated/local runtime output
+# Runtime generated/local output (do not blanket-ignore .kilo/; it may hold user config)
 .opencode/
-AGENTS.md.*
+.agents/
+.kilo/agents/
+.kilo/commands/
 opencode.jsonc
 kilo.jsonc
 .wayforge-managed

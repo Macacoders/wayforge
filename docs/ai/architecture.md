@@ -35,19 +35,21 @@ The installer surface is a TypeScript CLI under `cli/src/`, distributed as a pre
 - **Release workflow**: `.github/workflows/release.yml` builds binaries for linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64, produces share archives (`wayforge-share-<version>.tar.gz` / `.zip`), and uploads `install.sh` / `install.ps1` as release assets
 - **Legacy references**: `install/legacy/bootstrap-legacy.sh` and `install/legacy/bootstrap-legacy.ps1` preserve the original full installers; `install/legacy/bootstrap-thin.sh` and `install/legacy/bootstrap-thin.ps1` preserve the retired thin entrypoints. All legacy scripts are frozen.
 
-Reusable versioned source lives in this repository under `base/opencode/**`.
+Reusable versioned source lives in this repository under `base/`. `base/{agents,commands,skills,plugins}` are installed content; `base/{config,permissions}` are generation inputs that are read and never installed.
 
-Agent permissions are centrally maintained in `base/opencode/permissions/agents.yml`. The installer renders those permissions into generated target `.opencode/agents/*.md` frontmatter because OpenCode consumes native agent metadata and does not natively import shared permission fragments from secondary files.
+Agent permissions are centrally maintained in `base/permissions/agents.yml`. The installer renders those permissions into installed `.agents/agents/*.md` frontmatter because OpenCode consumes native agent metadata and does not natively import shared permission fragments from secondary files.
 
-Target projects receive generated/local runtime output:
+Target projects receive one canonical installed tree plus runtime indirection:
 
-- `opencode.jsonc` (generated per install)
-- `.opencode/agents/**` (copied/generated local output)
-- `.opencode/commands/**` (copied/generated local output)
-- `.opencode/skills/**` (copied/generated local output)
-- `.opencode/plugins/**` (copied/generated local output); shared plugin utilities may live under `lib/` within the plugin tree
+- `.agents/agents/**`, `.agents/commands/**`, `.agents/skills/**`, `.agents/plugins/**` — canonical installed artifacts
+- `opencode.jsonc` / `kilo.jsonc` (generated per install); skills and plugin entries point at `.agents/skills` and `.agents/plugins/ponytail/ponytail.mjs`
+- `.opencode/agents` + `.opencode/commands` — OpenCode directory pointers to `.agents/` (relative symlink; Windows junction fallback)
+- `.kilo/agents` + `.kilo/commands` — Kilo Code directory pointers to `.agents/` (Kilo no longer reads `.opencode/`)
 - `AGENTS.md` (repo-specific entrypoint generated/curated per repository)
-- The ponytail plugin (`.opencode/plugins/ponytail/ponytail.mjs`) injects the reuse-first ladder into the system prompt via `experimental.chat.system.transform` and persists intensity mode via `command.execute.before`. Disable with `/ponytail off` or `PONYTAIL_DEFAULT_MODE=off`.
+- `.wayforge-managed` (manifest of managed paths, including pointer entries)
+- The ponytail plugin (`.agents/plugins/ponytail/ponytail.mjs`) injects the reuse-first ladder into the system prompt via `experimental.chat.system.transform` and persists intensity mode via `command.execute.before`. Disable with `/ponytail off` or `PONYTAIL_DEFAULT_MODE=off`.
+
+`.agents/` is the single source of installed content; `.opencode/` and the generated pointer directories under `.kilo/` contain only runtime indirection. Pi reads `.agents/skills/**/SKILL.md` natively and needs no installer step. Per-runtime materialization of `.agents/` into native trees is future work (ADR-0046).
 
 ### AGENTS.md vs docs/ai/README.md Relationship
 
@@ -55,19 +57,19 @@ Target projects receive generated/local runtime output:
 - **docs/ai/README.md**: Durable AI memory index. Persistent across work sessions. Contains architecture, decisions, plans, and logs. Load when the task touches structure, boundaries, or historical decisions.
 - **Relationship**: AGENTS.md is the "how to work in this repo" guide; docs/ai/README.md is the "what we've decided and built" memory. Both use progressive disclosure.
 
-The `.opencode/` directory in consuming repositories is local/generated runtime output, not the reusable source-of-truth for this repository.
+The `.agents/` directory and generated runtime pointers in consuming repositories are local/generated runtime output, not the reusable source-of-truth for this repository.
 
 ## Repository-Self Editing Rule
 
-- In the `wayforge` repository itself, durable workflow changes should normally be made in `base/opencode/**`, `base/AGENTS.md`, and the installer scripts.
-- Root `.opencode/` and root `opencode.jsonc` are local/generated artifacts and are gitignored in this repository.
+- In the `wayforge` repository itself, durable workflow changes should normally be made in `base/**`, `base/AGENTS.md`, and the installer scripts.
+- Root `.agents/`, `.opencode/`, `.kilo/agents`, `.kilo/commands`, `opencode.jsonc`, and `kilo.jsonc` are local/generated artifacts and are gitignored in this repository. Do not blanket-ignore `.kilo/` because it may hold user-authored Kilo configuration.
 - `base/AGENTS.md` is now a general Coldtea-shaped template (project sections + `[FILL IN]` placeholders + a fixed `## Working with wayforge` section) used for onboarding target repositories.
 - `/init` (overriding the built-in command) + `research` are responsible for full onboarding: scaffolding/populating `docs/ai/` and filling each target repository root `AGENTS.md`.
 - Root `AGENTS.md` in this `wayforge` repository is curated repo-specific guidance and may be tracked/updated directly when repository guidance changes.
 
-The installer must not overwrite unmanaged existing files by default and supports dry-run preview. With force enabled, it refreshes generated OpenCode runtime trees (`.opencode/agents`, `.opencode/commands`, `.opencode/skills`) plus managed output and legacy symlink targets when encountered.
+The installer must not overwrite unmanaged existing files by default and supports dry-run preview. With force enabled, it refreshes the managed `.agents/` tree (`.agents/agents`, `.agents/commands`, `.agents/skills`, `.agents/plugins`), regenerates runtime config, and repairs runtime pointers when encountered.
 
-Portable workflow helpers used by shared commands should be packaged under `.opencode/skills/**` so they are available through the installed surface; consuming repositories should not require a top-level `scripts/` directory for those helpers.
+Portable workflow helpers used by shared commands should be packaged under `base/skills/**` so they are installed to `.agents/skills/**` and available through the installed surface; consuming repositories should not require a top-level `scripts/` directory for those helpers.
 
 ### Installed Projects Tracking
 
@@ -95,11 +97,12 @@ Portable workflow helpers used by shared commands should be packaged under `.ope
 The canonical install surface is the one-shot installer (`install/install.sh` / `install/install.ps1`) plus the `wfg install --repo <path>` command. The retired thin entrypoints `install/bootstrap.sh` and `install/bootstrap.ps1` have been moved to `install/legacy/bootstrap-thin.{sh,ps1}` as frozen reference.
 
 - **No Administrator privileges required** (PowerShell): The one-shot installer uses file writes and updates the User PATH — no symbolic link creation and no elevation.
-- **Managed sync**: Deployed by the TS CLI — agents, commands, and skill files are synced with `.wayforge-managed` markers for safe refresh without clobbering local additions.
+- **Managed sync**: Deployed by the TS CLI — agents, commands, skill, and plugin files are synced into `.agents/` with `.wayforge-managed` markers for safe refresh without clobbering local additions.
+- **Frozen legacy installers**: `install/legacy/**` still reads the pre-flatten source layout and does not work against the flattened `base/` tree (ADR-0033, ADR-0046); only the TypeScript CLI is supported.
 
 ### Runtime source-directory resolution
 
-`resolveSourceDir()` (`cli/src/lib/source-dir.ts`) resolves the reusable `base/opencode/**` source tree at runtime using this precedence:
+`resolveSourceDir()` (`cli/src/lib/source-dir.ts`) resolves the reusable `base/**` source tree at runtime using this precedence:
 
 1. `WAYFORGE_HOME` if non-empty.
 2. A location-based fallback: `path.join(path.dirname(process.execPath), '..', 'share', 'wayforge')`, but only when `base/` exists there. This lets a compiled binary at `<prefix>/bin/wfg` find `<prefix>/share/wayforge/base` without an env var.
@@ -162,6 +165,7 @@ The shared issue creation workflow is:
 - Keep plans above 8 apparent tasks out of single-task planning; split them into smaller tasks first.
 - Keep manual validation checkpoints between atomic steps.
 - Keep durable memory under `docs/ai/`.
+- Keep `.agents/` as the single installed artifact tree; runtime-native pointer directories contain only indirection, and unmanaged files are never deleted to force a pointer into place.
 - Keep GitHub Issues as the operational shared source of truth for team tasks.
 - Keep shared tasks in GitHub Issues rather than a local JSONL backlog.
 - Keep reuse-first guidance explicit: avoid unnecessary copying and speculative abstraction, and justify or flag new duplication.
