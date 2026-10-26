@@ -132,6 +132,34 @@ describe("uninstallCommand", () => {
     );
   });
 
+  it("does not prune directories outside the repo for a relative --repo", () => {
+    // `--repo` used to be left unresolved, so the empty-directory walk compared
+    // a relative path against an absolute one and climbed past the repository.
+    const outer = path.join(testDir, "outer");
+    const nestedRepo = path.join(outer, "repo");
+    fs.mkdirpSync(path.join(nestedRepo, ".agents", "agents"));
+    fs.writeFileSync(
+      path.join(nestedRepo, ".agents", "agents", "planner.md"),
+      "# planner",
+    );
+    fs.writeFileSync(
+      path.join(nestedRepo, ".wayforge-managed"),
+      "managed_paths:\n  - .agents/agents/planner.md\n",
+    );
+
+    const previousCwd = process.cwd();
+    try {
+      process.chdir(testDir);
+      uninstallCommand({ repo: "outer/repo", dryRun: false });
+    } finally {
+      process.chdir(previousCwd);
+    }
+
+    expect(fs.pathExistsSync(outer)).toBe(true);
+    expect(fs.pathExistsSync(nestedRepo)).toBe(true);
+    expect(fs.pathExistsSync(path.join(nestedRepo, ".agents"))).toBe(false);
+  });
+
   it("is a no-op when the tracking file is missing", () => {
     const manifest = "managed_paths:\n  - managed.txt\n";
     fs.writeFileSync(path.join(repoDir, ".wayforge-managed"), manifest);

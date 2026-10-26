@@ -17,7 +17,9 @@ export function uninstallCommand(options: UninstallOptions): void {
 
 function doUninstall(options: UninstallOptions): void {
 	const ctx = new ManifestContext(options.dryRun, false, false)
-	const repo = options.repo
+	// Resolve once so the empty-directory walk below can never climb past the
+	// repository when `--repo .` or a relative path with `..` segments is used.
+	const repo = path.resolve(options.repo)
 
 	if (!fs.pathExistsSync(repo)) {
 		ctx.log(`error: repo path does not exist: ${repo}`)

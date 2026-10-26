@@ -289,27 +289,55 @@ describe('ensureRuntimePointers', () => {
 		)
 	})
 
+	it('reports only the blocking files, not their parent directories', () => {
+		fs.mkdirpSync(path.join(repo, '.opencode', 'agents', 'nested'))
+		fs.writeFileSync(
+			path.join(repo, '.opencode', 'agents', 'nested', 'local.md'),
+			'# local',
+		)
+
+		const blocked = track('opencode')
+
+		expect(blocked).toEqual(['.opencode/agents/nested/local.md'])
+	})
+
+	it.skipIf(!symlinks)(
+		'replaces a pointer directory that only holds empty subdirectories',
+		() => {
+			fs.mkdirpSync(path.join(repo, '.opencode', 'agents', 'empty'))
+
+			const blocked = track('opencode')
+
+			expect(blocked).toEqual([])
+			expectPointer(
+				path.join(repo, '.opencode', 'agents'),
+				path.join(repo, '.agents', 'agents'),
+			)
+		},
+	)
+
 	it('falls back to an absolute junction target when symlinks are unavailable', () => {
-		const original = fs.symlinkSync.bind(fs)
-		const junctionTargets: string[] = []
+		const calls: { target: string; type?: string }[] = []
 		vi.spyOn(fs, 'symlinkSync').mockImplementation((target, link, type) => {
-			if (type === 'junction') {
-				junctionTargets.push(String(target))
-				original(target, link, 'dir')
-				return
+			// The capability probe fails, so the installer picks junctions.
+			if (String(link).includes('wayforge-link-probe-')) {
+				const error = new Error('EPERM: operation not permitted')
+				;(error as NodeJS.ErrnoException).code = 'EPERM'
+				throw error
 			}
-			const error = new Error('EPERM: operation not permitted')
-			;(error as NodeJS.ErrnoException).code = 'EPERM'
-			throw error
+			// Record the call without touching the filesystem: a real `dir`
+			// symlink here would throw on the Windows hosts this covers.
+			calls.push({ target: String(target), type })
 		})
 
 		const blocked = track('opencode')
 
 		expect(blocked).toEqual([])
-		const agentsTarget = junctionTargets.find((target) =>
-			target.endsWith(path.join('.agents', 'agents')),
+		const agentsCall = calls.find((call) =>
+			call.target.endsWith(path.join('.agents', 'agents')),
 		)
-		expect(agentsTarget).toBeDefined()
+		expect(agentsCall?.type).toBe('junction')
+		const agentsTarget = agentsCall?.target
 		expect(path.isAbsolute(agentsTarget ?? '')).toBe(true)
 		expect(path.resolve(agentsTarget ?? '')).toBe(
 			path.join(repo, '.agents', 'agents'),

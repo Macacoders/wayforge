@@ -53,6 +53,10 @@ function lstatIfExists(target: string): fs.Stats | null {
  * Files under a pointer directory that would remain after a real run. A
  * dry-run keeps managed legacy files on disk, so skip them here to report the
  * same residual set the real run leaves behind.
+ *
+ * Only leaves are reported: an emptied subdirectory does not block the pointer,
+ * because the install prunes empty directories before linking. Symlinks are
+ * leaves (never descended into), so their targets are never reported or read.
  */
 function collectResiduals(root: string, ctx: ManifestContext): string[] {
 	const found: string[] = []
@@ -61,10 +65,11 @@ function collectResiduals(root: string, ctx: ManifestContext): string[] {
 		if (ctx.dryRun && isManagedFile(full)) {
 			continue
 		}
-		found.push(full)
 		if (entry.isDirectory() && !entry.isSymbolicLink()) {
 			found.push(...collectResiduals(full, ctx))
+			continue
 		}
+		found.push(full)
 	}
 	return found
 }
@@ -177,7 +182,9 @@ export function ensureRuntimePointers(
 						`DRY-RUN: would remove empty directory: ${managedRel}`,
 					)
 				} else {
-					fs.rmdirSync(link)
+					// Only empty directories can be left here, so this removes no
+					// user content; nested empty directories are pruned too.
+					fs.removeSync(link)
 					ctx.log(`removed empty directory: ${managedRel}`)
 				}
 			} else {
