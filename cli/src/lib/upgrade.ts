@@ -129,11 +129,15 @@ function extractArchive(archive: string, dest: string): void {
 }
 
 function verifyExtractedShare(dir: string, tag: string): void {
-	if (!fs.pathExistsSync(path.join(dir, 'base'))) {
+	const base = fs.lstatSync(path.join(dir, 'base'), {
+		throwIfNoEntry: false,
+	})
+	if (!base?.isDirectory()) {
 		throw new Error('Extracted share archive is missing base/')
 	}
 	const versionFile = path.join(dir, 'VERSION')
-	if (!fs.pathExistsSync(versionFile)) {
+	const versionStat = fs.lstatSync(versionFile, { throwIfNoEntry: false })
+	if (!versionStat?.isFile()) {
 		throw new Error('Extracted share archive is missing VERSION')
 	}
 	const version = fs.readFileSync(versionFile, 'utf8').trim()
@@ -151,7 +155,7 @@ function backupName(name: string): string {
 }
 
 const STALE_ARTIFACT_RE =
-	/^(?:wfg|wfg\.exe|wayforge)\.old-\d+$|^\.(?:wfg-download|wayforge-update)-\d+$/
+	/^(?:wfg|wfg\.exe|wayforge)\.old-\d+$|^\.(?:wfg-download|wayforge-update)-\d+(?:-[0-9a-f]{8})?$/
 
 function isStaleArtifact(name: string): boolean {
 	return STALE_ARTIFACT_RE.test(name)
@@ -329,12 +333,19 @@ export async function upgrade(
 	// after checksum verification, so a failed download/verify leaves the
 	// install untouched.
 	const downloadedBinaryPath = path.join(tmpDir, binaryAssetName())
+	// Run-owned paths ensure failed verification cannot delete or reuse
+	// pre-existing artifacts left by an earlier process with the same PID.
+	const runId = `${pid}-${crypto.randomBytes(4).toString('hex')}`
 	const stagedBinaryPath = path.join(
 		prefix,
 		'bin',
-		`${TEMP_BINARY_PREFIX}${pid}`,
+		`${TEMP_BINARY_PREFIX}${runId}`,
 	)
-	const extractDir = path.join(prefix, 'share', `${TEMP_SHARE_PREFIX}${pid}`)
+	const extractDir = path.join(
+		prefix,
+		'share',
+		`${TEMP_SHARE_PREFIX}${runId}`,
+	)
 
 	try {
 		await downloadTo(

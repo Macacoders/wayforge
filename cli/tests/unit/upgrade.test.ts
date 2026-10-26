@@ -310,6 +310,55 @@ describe('replaceInstall', () => {
 		)
 	})
 
+	it('restores the original share when the extracted-share rename fails', async () => {
+		const prefix = makeTempDir('share-rollback-')
+		const shareDir = path.join(prefix, 'share', 'wayforge')
+		writeFixtureShare(shareDir, '1.0.0')
+		const binaryName = process.platform === 'win32' ? 'wfg.exe' : 'wfg'
+		const binaryPath = path.join(prefix, 'bin', binaryName)
+		fs.mkdirpSync(path.join(prefix, 'bin'))
+		fs.writeFileSync(binaryPath, 'old', 'utf8')
+
+		const extracted = makeTempDir('extracted-')
+		const extractedShare = path.join(extracted, 'wayforge')
+		writeFixtureShare(extractedShare, '9.0.0')
+		const newBinary = path.join(extracted, binaryName)
+		fs.writeFileSync(newBinary, 'new', 'utf8')
+		let renameCalls = 0
+
+		await expect(
+			replaceInstall({
+				prefix,
+				extractedShareDir: extractedShare,
+				newBinaryPath: newBinary,
+				rename: (from, to) => {
+					renameCalls++
+					if (renameCalls === 2) {
+						throw new Error('injected share replacement failure')
+					}
+					fs.renameSync(from, to)
+				},
+			}),
+		).rejects.toThrow('injected share replacement failure')
+
+		expect(
+			fs.readFileSync(path.join(shareDir, 'VERSION'), 'utf8').trim(),
+		).toBe('1.0.0')
+		expect(fs.readFileSync(binaryPath, 'utf8')).toBe('old')
+		for (const dir of [path.join(prefix, 'bin'), path.join(prefix, 'share')]) {
+			expect(
+				fs
+					.readdirSync(dir)
+					.filter(
+						(name) =>
+							name.includes('.wfg-download') ||
+							name.includes('.wayforge-update') ||
+							name.includes('.old-'),
+					),
+			).toEqual([])
+		}
+	})
+
 	it('rolls the share back when the binary backup rename fails', async () => {
 		const prefix = makeTempDir('binbackup-')
 		const shareDir = path.join(prefix, 'share', 'wayforge')
@@ -630,8 +679,65 @@ describe('upgrade', () => {
 		expect(fs.pathExistsSync(staleShare)).toBe(true)
 	})
 
+	it('preserves pre-existing same-PID artifacts when checksum verification fails', async () => {
+		const prefix = installFixture()
+		const binaryName = process.platform === 'win32' ? 'wfg.exe' : 'wfg'
+		const staged = path.join(
+			prefix,
+			'bin',
+			`.wfg-download-${String(process.pid)}`,
+		)
+		const extracted = path.join(
+			prefix,
+			'share',
+			`.wayforge-update-${String(process.pid)}`,
+		)
+		fs.writeFileSync(staged, 'pre-existing', 'utf8')
+		fs.ensureDirSync(extracted)
+		fs.writeFileSync(path.join(extracted, 'VERSION'), 'pre-existing', 'utf8')
+		const old = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000)
+		fs.utimesSync(staged, old, old)
+		fs.utimesSync(extracted, old, old)
+		const server = await serveRelease({
+			checksumEntries: [
+				[binaryAssetName(), Buffer.from('new-binary')],
+				[shareArchiveName('v9.0.0'), Buffer.from('tampered')],
+			],
+		})
+
+		await expect(
+			upgrade({ yes: true, prefix, log: () => {} }),
+		).rejects.toThrow(/checksum mismatch/)
+		await server.close()
+
+		expect(fs.pathExistsSync(staged)).toBe(true)
+		expect(fs.pathExistsSync(extracted)).toBe(true)
+		expect(fs.readFileSync(path.join(prefix, 'bin', binaryName), 'utf8')).toBe(
+			'old-binary',
+		)
+		expect(
+			fs
+				.readFileSync(
+					path.join(prefix, 'share', 'wayforge', 'VERSION'),
+					'utf8',
+				)
+				.trim(),
+		).toBe('1.0.0')
+	})
+
 	it('aborts when the checksum file has no entry for an asset', async () => {
 		const prefix = installFixture()
+		const binaryName = process.platform === 'win32' ? 'wfg.exe' : 'wfg'
+		const staleBinary = path.join(prefix, 'bin', `${binaryName}.old-999`)
+		const staleStaged = path.join(prefix, 'bin', '.wfg-download-999')
+		const staleShare = path.join(prefix, 'share', 'wayforge.old-999')
+		fs.writeFileSync(staleBinary, 'stale', 'utf8')
+		fs.writeFileSync(staleStaged, 'stale', 'utf8')
+		fs.ensureDirSync(staleShare)
+		const old = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000)
+		for (const target of [staleBinary, staleStaged, staleShare]) {
+			fs.utimesSync(target, old, old)
+		}
 		const server = await serveRelease({ checksumEntries: [] })
 		const { log } = collectLogs()
 
@@ -639,9 +745,24 @@ describe('upgrade', () => {
 			/no entry for/,
 		)
 		await server.close()
+
+		expect(fs.readFileSync(path.join(prefix, 'bin', binaryName), 'utf8')).toBe(
+			'old-binary',
+		)
+		expect(
+			fs
+				.readFileSync(
+					path.join(prefix, 'share', 'wayforge', 'VERSION'),
+					'utf8',
+				)
+				.trim(),
+		).toBe('1.0.0')
+		expect(fs.pathExistsSync(staleBinary)).toBe(true)
+		expect(fs.pathExistsSync(staleStaged)).toBe(true)
+		expect(fs.pathExistsSync(staleShare)).toBe(true)
 	})
 
-	it('rejects a share archive without base/ or with a wrong VERSION', async () => {
+	it('rejects a share archive without base/', async () => {
 		const prefix = installFixture()
 		const fixture = makeTempDir('fixture-')
 		const badArchive = path.join(fixture, 'bad.tar.gz')
@@ -669,6 +790,60 @@ describe('upgrade', () => {
 		).toBe('1.0.0')
 	})
 
+	it('rejects a share archive whose VERSION does not match the target', async () => {
+		const prefix = installFixture()
+		const fixture = makeTempDir('fixture-')
+		const badArchive = path.join(fixture, 'wrong-version.tar.gz')
+		const wrongVersion = path.join(fixture, 'wrong-version')
+		writeFixtureShare(wrongVersion, '8.0.0')
+		buildShareArchive(wrongVersion, badArchive, ['base', 'VERSION'])
+		const server = await serveRelease({
+			archive: fs.readFileSync(badArchive),
+		})
+
+		await expect(
+			upgrade({ yes: true, prefix, log: () => {} }),
+		).rejects.toThrow(/does not match target/)
+		await server.close()
+
+		expect(
+			fs
+				.readFileSync(
+					path.join(prefix, 'share', 'wayforge', 'VERSION'),
+					'utf8',
+				)
+				.trim(),
+		).toBe('1.0.0')
+	})
+
+	it('rejects a share archive whose base is a regular file', async () => {
+		const prefix = installFixture()
+		const fixture = makeTempDir('fixture-')
+		const badArchive = path.join(fixture, 'file-base.tar.gz')
+		const fileBase = path.join(fixture, 'file-base')
+		fs.mkdirpSync(fileBase)
+		fs.writeFileSync(path.join(fileBase, 'base'), 'not a directory', 'utf8')
+		fs.writeFileSync(path.join(fileBase, 'VERSION'), '9.0.0\n', 'utf8')
+		buildShareArchive(fileBase, badArchive, ['base', 'VERSION'])
+		const server = await serveRelease({
+			archive: fs.readFileSync(badArchive),
+		})
+
+		await expect(
+			upgrade({ yes: true, prefix, log: () => {} }),
+		).rejects.toThrow(/missing base\//)
+		await server.close()
+
+		expect(
+			fs
+				.readFileSync(
+					path.join(prefix, 'share', 'wayforge', 'VERSION'),
+					'utf8',
+				)
+				.trim(),
+		).toBe('1.0.0')
+	})
+
 	it('removes stale artifacts and only its own backups on a successful upgrade', async () => {
 		const prefix = installFixture()
 		const binaryName = process.platform === 'win32' ? 'wfg.exe' : 'wfg'
@@ -676,19 +851,37 @@ describe('upgrade', () => {
 		const staleShare = path.join(prefix, 'share', 'wayforge.old-999')
 		const staleStaged = path.join(prefix, 'bin', '.wfg-download-999')
 		const staleExtract = path.join(prefix, 'share', '.wayforge-update-999')
+		const staleTokenStaged = path.join(
+			prefix,
+			'bin',
+			'.wfg-download-999-deadbeef',
+		)
+		const staleTokenExtract = path.join(
+			prefix,
+			'share',
+			'.wayforge-update-999-deadbeef',
+		)
 		const freshStale = path.join(prefix, 'bin', `${binaryName}.old-888`)
-		for (const target of [staleShare, staleExtract, freshStale]) {
+		for (const target of [
+			staleShare,
+			staleExtract,
+			staleTokenExtract,
+			freshStale,
+		]) {
 			fs.ensureDirSync(target)
 			fs.writeFileSync(path.join(target, 'x'), 'x', 'utf8')
 		}
 		fs.writeFileSync(staleBinary, 'stale', 'utf8')
 		fs.writeFileSync(staleStaged, 'stale', 'utf8')
+		fs.writeFileSync(staleTokenStaged, 'stale', 'utf8')
 		const old = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000)
 		for (const target of [
 			staleBinary,
 			staleStaged,
 			staleShare,
 			staleExtract,
+			staleTokenStaged,
+			staleTokenExtract,
 		]) {
 			fs.utimesSync(target, old, old)
 		}
@@ -703,6 +896,8 @@ describe('upgrade', () => {
 		expect(fs.pathExistsSync(staleStaged)).toBe(false)
 		expect(fs.pathExistsSync(staleShare)).toBe(false)
 		expect(fs.pathExistsSync(staleExtract)).toBe(false)
+		expect(fs.pathExistsSync(staleTokenStaged)).toBe(false)
+		expect(fs.pathExistsSync(staleTokenExtract)).toBe(false)
 		expect(fs.pathExistsSync(freshStale)).toBe(true)
 		expect(
 			fs
