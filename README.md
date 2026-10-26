@@ -105,6 +105,22 @@ Build a standalone binary with `make cli-binary` (no Node.js needed).
 
 See [`RELEASE.md`](./RELEASE.md) and [`CHANGELOG.md`](./CHANGELOG.md) for release and version history.
 
+### Update the CLI
+
+An installed `wfg` can check for and install newer releases with two explicit commands:
+
+```bash
+wfg update        # report current and latest versions; changes nothing
+wfg upgrade       # confirm, verify, then install the latest release
+wfg upgrade --yes # skip the confirmation prompt
+```
+
+`wfg update` only reports whether a newer release exists; it never downloads or writes. `wfg upgrade` downloads the platform binary, the share archive, and `wayforge-checksums.txt`, verifies both SHA-256 checksums before changing the installed binary or `share/wayforge` contents, then replaces them with temporary backup/rollback. Missing or mismatched checksums abort with no changes. The share is extracted to a temporary directory that is removed if validation fails. No `wfg` command other than `update` and `upgrade` checks for releases, and there is no automatic notice or cache.
+
+`wfg upgrade` requires an installed binary and a resolvable prefix. From a source checkout it refuses and points at `git pull` or the one-shot installer (`install.sh` / `install.ps1`). The `*.old-<pid>` backups are a failure-recovery measure only: there is no user-facing backup, restore, or downgrade command. On Windows, the running executable's backup may remain until a later verified upgrade removes it after 7 days.
+
+Exit codes: `wfg update` exits `0` whether a newer release is available or not, and `1` on a release-lookup or parse error. `wfg upgrade` exits `0` when it updates, finds the install up to date, or the user declines, and `1` for a source checkout, a missing install prefix, a verification failure, or an install failure. Non-interactive `wfg upgrade` without `--yes` auto-declines through `promptYesNo`; automation must pass `--yes`.
+
 ## Use
 
 Work flows through five workflows: formalize intent, plan approved intent, track via issues, deliver task by task, and keep durable memory current.

@@ -2,6 +2,7 @@ import { execSync } from 'child_process'
 import fs from 'fs-extra'
 import os from 'os'
 import path from 'path'
+import { errorMessage } from './errors.js'
 import { readFileOrDefault } from './files.js'
 
 /**
@@ -42,10 +43,9 @@ export function cloneRef(
 		)
 	} catch (err) {
 		fs.removeSync(tempDir)
-		const message = err instanceof Error ? err.message : String(err)
 		log(`error: failed to clone ref '${ref}' from ${repoUrl}`)
 		log(`       verify the ref exists and is reachable`)
-		log(`       ${message}`)
+		log(`       ${errorMessage(err)}`)
 		process.exit(1)
 	}
 
