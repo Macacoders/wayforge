@@ -167,23 +167,25 @@ flowchart LR
 
 ### GitHub authentication for `/issue`
 
-`/issue` talks to the GitHub Issues API through a GitHub App (OAuth Device Flow), not a personal access token. `.gh-config/app.yml` alone is not enough — it only stores the Client ID. The app itself must be created, permissioned, installed, and then authorized on first use.
+`/issue` resolves credentials in this order: `GITHUB_TOKEN`, `GH_TOKEN`, then
+an internal GitHub CLI lookup. Prefer a fine-grained, repository-scoped PAT
+for the environment variables. Grant **Issues** and **Pull requests** read and
+write access, plus **Contents** read access for PR operations. Alternatively,
+run `gh auth login` when a machine-wide GitHub CLI credential for all of that
+machine's repositories is appropriate.
 
-1. Create the app: go to [github.com/settings/apps](https://github.com/settings/apps) → **New GitHub App**.
-2. Set permissions: **Issues (Read & Write)** and **Pull Requests (Read & Write)**.
-3. Under **Identifying and authorizing users**, enable **Device Flow**.
-4. Save the app and copy the **Client ID** (GitHub shows it on the app page; modern IDs look like `Iv23li…`).
-5. Install the app on the target repository or organization (the app page → **Install App**).
-6. Supply the Client ID in one of these ways:
-   - Pass it at install time: `wfg install --repo <path> --gh-app-client-id <client-id>` (writes `.gh-config/app.yml`), or
-   - Set the `GH_APP_CLIENT_ID` environment variable, or
-   - Hand-create `.gh-config/app.yml` in the repo with `client_id: <client-id>`.
+Inject credentials through a secret manager, direnv, or OS keyring-backed
+environment integration; do not commit tokens, put them in generated config,
+or paste them into agent prompts. Verify the configured repository access with:
 
-On the first `/issue` use, a one-time browser authorization opens (device flow). The token is cached at `.gh-config/github-token.json` (file mode `0600`) and refreshed silently afterwards.
+```bash
+npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts check
+```
 
-- `GH_CONFIG_DIR` overrides the config directory; otherwise the repo-local `.gh-config/` is used, falling back to `~/.config/opencode`.
-- `.gh-config/` is gitignored — never commit it.
-- Headless/CI: set `GITHUB_TOKEN` (or `GH_TOKEN`); it takes precedence over the device flow.
+**Breaking change:** `/issue` no longer reads, refreshes, or removes legacy
+`.gh-config/github-token.json` or `.gh-config/app.yml` files. Existing users
+must configure an environment token or authenticate the GitHub CLI; remove old
+credential files manually only after confirming they are no longer needed.
 
 Helper operations (list, create, claim, close, PR creation) are documented in [`base/opencode/skills/shared-task/SKILL.md`](./base/opencode/skills/shared-task/SKILL.md).
 

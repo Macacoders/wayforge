@@ -4,7 +4,6 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getValidToken } from './gh-app-auth.ts';
 
 const git = (args: string[], cwd?: string, t?: number) =>
   execFileSync('git', args, { encoding: 'utf8', cwd, timeout: t }).trim();
@@ -98,13 +97,27 @@ function printUsage(): void {
 // ── Auth ────────────────────────────────────────────────────────────────────
 
 async function resolveToken(): Promise<string> {
-  if (process.env.GITHUB_TOKEN) {
-    return process.env.GITHUB_TOKEN;
-  }
-  if (process.env.GH_TOKEN) {
-    return process.env.GH_TOKEN;
-  }
-  return getValidToken();
+	if (process.env.GITHUB_TOKEN) {
+		return process.env.GITHUB_TOKEN;
+	}
+	if (process.env.GH_TOKEN) {
+		return process.env.GH_TOKEN;
+	}
+
+	try {
+		const token = execFileSync('gh', ['auth', 'token'], {
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'ignore'],
+			timeout: 5000,
+		}).trim();
+		if (token) return token;
+	} catch {
+		// Never expose gh output: it can include credential-related details.
+	}
+
+	throw new Error(
+		'No GitHub credentials available. Set GITHUB_TOKEN to a fine-grained personal access token for this repository, or run gh auth login to use a machine-wide credential for all repositories.',
+	);
 }
 
 // ── Repo detection ──────────────────────────────────────────────────────────
@@ -1095,8 +1108,8 @@ export async function main(
   argv: string[] = process.argv.slice(2),
   opts?: { repo?: string; token?: string; jsonMode?: boolean; dryRun?: boolean },
 ): Promise<void> {
-  // --help anywhere in argv — early return before parsing, token resolution, and
-  // any network work (mirrors gh-app-auth.ts main()). No auth required.
+	// --help anywhere in argv — early return before parsing, token resolution, and
+	// any network work. No auth required.
   if (argv.includes('--help')) {
     printUsage();
     return;
@@ -1144,7 +1157,7 @@ export async function main(
     return;
   }
 
-  // Resolve auth token (may throw if no token available and device flow fails)
+	// Resolve auth token (may throw if no configured credential source is available)
   const token = opts?.token ?? (dryRun ? '' : await resolveToken());
 
   // Resolve repository owner/name

@@ -9,18 +9,19 @@ Rule: each person/collaborator should use one responsible agent/session to inter
 
 ## Credentials and Safe `gh` Usage
 
-- Each collaborator must use their own fine-grained GitHub token scoped only to this repository.
+- Each collaborator must use their own GitHub credential: preferably a fine-grained token scoped only to this repository, or their existing machine-wide `gh` login.
 - Minimum required token permissions:
   - Metadata: **Read-only**
   - Issues: **Read and write**
+  - Pull requests: **Read and write**
+  - Contents: **Read-only** (for PR operations)
 - Never share tokens between people, sessions, or agents.
-- Do not rely on broad/global `gh` credentials for shared task operations.
-- Prefer repository-local credentials by setting `GH_CONFIG_DIR` to `.gh-config/` in this repository.
+- Keep tokens out of repository files and inject them through an approved local secret mechanism. `/issue` resolves `GITHUB_TOKEN`, then `GH_TOKEN`, then an internal `gh auth token` lookup; agents must not run that lookup directly or print a token.
 - For issue operations, resolve repository in this order:
   1. Use `GH_REPO` if set.
   2. Otherwise derive `OWNER/REPO` from `git remote get-url origin`.
 
-Use `.opencode/skills/shared-task/scripts/gh-issue.ts` as the shared helper for issue operations. It enforces repository-local `GH_CONFIG_DIR` and repository resolution via native GitHub REST API calls.
+Use `.opencode/skills/shared-task/scripts/gh-issue.ts` as the shared helper for issue operations. It resolves credentials as above and resolves the repository via native GitHub REST API calls.
 
 Do not require or assume a top-level `scripts/` directory for shared task issue operations.
 

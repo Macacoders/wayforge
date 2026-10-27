@@ -68,8 +68,13 @@ Verify that all required labels exist; lists any missing labels and exits 1 if a
 
 ## Safety minimums
 
-- Authentication uses the GitHub App Device Flow via `gh-app-auth.ts`. First use requires browser authorization; the token is cached for subsequent runs.
-- Set `GITHUB_TOKEN` to bypass app authentication.
+- Credential resolution is `GITHUB_TOKEN`, then `GH_TOKEN`, then an internal
+  `gh auth token` lookup. Use a fine-grained, repository-scoped PAT for the
+  environment variables, or use `gh auth login` only when a machine-wide
+  GitHub CLI credential is appropriate.
+- Agents must not print tokens, put them in files or prompts, or run
+  `gh auth token` directly. The helper performs its private fallback without
+  forwarding credential output.
 - Required labels must already exist:
   - Status: `status:to-do`, `status:doing`, `status:in-review`, `status:blocked`
   - Type: `type:task`, `type:feature`, `type:bug`, `type:docs`, `type:chore`

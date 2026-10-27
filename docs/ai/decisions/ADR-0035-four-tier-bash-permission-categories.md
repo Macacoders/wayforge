@@ -42,7 +42,9 @@ An architect review of the draft plan returned **APPROVE-WITH-CHANGES**: the sca
    - The validation tier executes project-controlled hooks (package-manager scripts, make targets) under all 8 agents.
    - Whether OpenCode splits compound commands before permission matching is undocumented — do not assume protection.
 
-7. The shared-task helpers `gh-issue.ts` / `gh-app-auth.ts` remain exclusive to planner and delivery; no other agent gains them.
+7. At the time of this decision, the shared-task helpers `gh-issue.ts` /
+   `gh-app-auth.ts` were exclusive to planner and delivery; no other agent
+   gained them. `gh-app-auth.ts` was removed on 2026-10-27.
 
 ## Cross-Scanner Parity Evidence
 

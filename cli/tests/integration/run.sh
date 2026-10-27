@@ -23,10 +23,17 @@ run_test() {
 
 	echo "=== Test ${TEST_COUNT}: providers=${providers} runtime=${runtime} ==="
 
+	local output
 	local install_ok=true
-	if ! (cd "$ROOT_DIR" && npx tsx cli/src/index.ts install --repo "$repo" --providers "$providers" --runtime "$runtime" --no-track >/dev/null 2>&1); then
+	local advisory_ok=true
+	if ! output=$(cd "$ROOT_DIR" && npx tsx cli/src/index.ts install --repo "$repo" --providers "$providers" --runtime "$runtime" --no-track 2>&1); then
 		install_ok=false
 	fi
+	[[ "$output" != *"To use /issue, set GITHUB_TOKEN"* ]] || advisory_ok=false
+	if $install_ok && ! output=$(cd "$ROOT_DIR" && npx tsx cli/src/index.ts install --repo "$repo" --providers "$providers" --runtime "$runtime" --no-track 2>&1); then
+		install_ok=false
+	fi
+	[[ "$output" != *"To use /issue, set GITHUB_TOKEN"* ]] || advisory_ok=false
 
 	local config_file="opencode.jsonc"
 	[ "$runtime" = "kilocode" ] && config_file="kilo.jsonc"
@@ -36,13 +43,15 @@ run_test() {
 	[ -f "$repo/$config_file" ] || missing="${missing} $config_file"
 	[ -f "$repo/AGENTS.md" ] || missing="${missing} AGENTS.md"
 	[ -d "$repo/.opencode/agents" ] || missing="${missing} .opencode/agents/"
+	[ ! -e "$repo/.gh-config/app.yml" ] || missing="${missing} unexpected .gh-config/app.yml"
 
-	if $install_ok && [ -z "$missing" ]; then
+	if $install_ok && $advisory_ok && [ -z "$missing" ]; then
 		echo "  PASS"
 		PASS_COUNT=$((PASS_COUNT + 1))
 	else
 		echo "  FAIL"
 		$install_ok || echo "  install command exited non-zero"
+		$advisory_ok || echo "  install command printed auth advisory"
 		[ -z "$missing" ] || echo "  missing expected outputs:${missing}"
 		FAIL_COUNT=$((FAIL_COUNT + 1))
 	fi
