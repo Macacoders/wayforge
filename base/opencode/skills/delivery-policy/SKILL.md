@@ -98,6 +98,28 @@ Reviewers add:
 `delivery` verifies the reviewed revision is the revision being accepted. A later change
 invalidates earlier verdicts for the touched scope; those reviews run again.
 
+## Plan Readiness and Legacy Plans
+
+Readiness comes from the plan, in this order:
+
+1. If the plan declares per-task `**Status:**` (`pending | in-progress | accepted | blocked`), that is
+   authoritative.
+2. If it does not — any plan written before ADR-0048 — derive it from the frontmatter
+   `task: <n>/<total>` cursor: tasks with an index below `<n>` are `accepted`, the task at `<n>` and
+   after are `pending`. With no `task:` field, every task is `pending`.
+3. A task with no `**Depends on:**` field depends on the task before it. That is the legacy
+   sequential order, not permission to run tasks in parallel.
+
+Executing a legacy plan:
+
+- Backfill `**Status:**` and `**Depends on:**` as each task is dispatched. These are progress
+  metadata; task bodies are never rewritten.
+- Legacy tasks may carry `**Step 1..5**` instructions, including a commit step. Use the objective,
+  files, and acceptance criteria; treat the steps as guidance for `code`, drop any commit
+  instruction (you commit), and never send steps to a reviewer.
+- If a legacy task has no verifiable acceptance criteria, that is a `blocked` review condition, not a
+  licence to invent them.
+
 ## Acceptance Gates
 
 **Task acceptance** (`functional_review`) inspects the actual diff and surrounding context, not the

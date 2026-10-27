@@ -147,6 +147,12 @@ per-task memory checks, prescribed coding sequences, and prose-only retry bounds
   every consuming project for no behavioural gain. `ADR-0042` (standing contract) still holds.
 - **Progress state is markdown.** Per-task `**Status:**` plus the legacy `task:` cursor, nothing more.
   A real scheduler, parallel worktrees, and persisted work-order state stay 2.0 work.
+- **Plans written before this ADR stay executable.** They have no per-task `**Status:**` or
+  `**Depends on:**` fields (53 of 63 plans in this repository, 60 missing dependencies), so
+  `delivery-policy` derives readiness from the frontmatter `task: <n>/<total>` cursor, treats a missing
+  dependency as "after the previous task", backfills the fields while dispatching, drops the legacy
+  `**Step 5: Commit**` instruction (17 plans carry it), and refuses to invent missing acceptance
+  criteria. Old plans are not migrated by hand.
 - **Retry budgets live in the conversation**, not in a file, so they reset per run by definition.
   That is deliberate: persisting them would add stateful infrastructure this issue rules out.
 - **`reviewer` shell denies are prefix-based** and therefore bypassable by chained commands

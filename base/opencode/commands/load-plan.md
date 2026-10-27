@@ -18,7 +18,12 @@ report:
 - The tasks that are `pending` with all dependencies `accepted` — the tasks ready to run now.
 - Any task marked `blocked`, or a stale `in-progress` task, with its recorded reason.
 
-Treat the `task: <n>/<total>` frontmatter field as a legacy summary cursor, not as the source of
-readiness. Do not paste task bodies unless asked, do not implement anything, and do not mutate the
-plan in this command. Next: `/deliver-plan` to execute autonomously, or `/implement-task` then
-`/review-task` to drive a single task by hand.
+For a plan written before ADR-0048 — no per-task `**Status:**` or `**Depends on:**` — derive those
+fields from the frontmatter `task: <n>/<total>` cursor using the legacy-plan rules in the
+`delivery-policy` skill, and say that you derived them. Older plans are still executable; do not turn
+reporting into a migration task for the user.
+
+Treat the `task: <n>/<total>` frontmatter field as a summary cursor on current plans and as the
+readiness source only on legacy plans. Do not paste task bodies unless asked, do not implement
+anything, and do not mutate the plan in this command. Next: `/deliver-plan` to execute autonomously,
+or `/implement-task` then `/review-task` to drive a single task by hand.

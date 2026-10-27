@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `delivery` owns the review gate but no longer performs the review, and never accepts a change from its own reading of the diff.
 - Plan tasks are outcome-based contracts (objective, context, acceptance criteria, constraints, dependencies, owned validations). The mandatory five-step task template, the 2–5 minute granularity rule, and the copy-the-Steps handoff are removed.
 - Task readiness now comes from per-task `**Status:**` and `**Depends on:**`; `task: <n>/<total>` is kept as a compatibility cursor.
+- Plans written before this release remain executable: with no per-task status or dependencies, readiness is derived from the `task:` cursor, dependencies default to the previous task, the fields are backfilled during dispatch, legacy commit steps are dropped, and missing acceptance criteria block the review instead of being invented.
 - Retry and escalation are deterministic: bounded repair/review budgets per run replace the prose "ask the user a second time" rule, and exhaustion produces one escalation question with what was tried and the options.
 - `/load-plan`, `/implement-task`, and `/review-task` remain as the manual low-level path and now dispatch work orders and independent review instead of copying plan steps and self-reviewing.
 - `troubleshooter` can hand a confirmed root cause to `/deliver` (or `/plan` for boundary triggers) instead of restarting the planning chain.

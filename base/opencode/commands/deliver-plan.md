@@ -12,7 +12,9 @@ ready. Then stay quiet between successful transitions and keep working.
 Repeat until plan acceptance or a stop condition:
 
 1. Read the plan frontmatter and each task's `**Status:**` line. Task `**Depends on:**` fields decide
-   readiness — not markdown order, not a single cursor.
+   readiness — not markdown order, not a single cursor. For a plan written before ADR-0048 (no
+   per-task status or dependencies), apply the legacy-plan rules in `delivery-policy` and backfill the
+   fields as you dispatch; legacy plans are executable, not a special case for the user to migrate.
 2. Pick the next `pending` task whose dependencies are all `accepted`; mark it `in-progress`.
 3. Dispatch one `implementation` work order to `code` (see `/implement-task` for the work-order shape).
 4. Confirm the agent-owned validations ran. Never run human-owned validations; report them instead.

@@ -162,9 +162,12 @@ when no integration gate is needed]
 
 Frontmatter notes:
 
-- `task:` is a summary progress cursor, kept for compatibility. `delivery` tracks authoritative
-  per-task state in each task's `**Status:**` line (`pending | in-progress | accepted | blocked`).
+- `task:` is a summary progress cursor. `delivery` tracks authoritative per-task state in each task's
+  `**Status:**` line (`pending | in-progress | accepted | blocked`).
 - `required_gates` is optional. Set it at approval time and only for gates the plan actually needs;
   `delivery` checks the gates declared and nothing else.
+- Plans written before ADR-0048 have neither per-task `**Status:**` lines nor `**Depends on:**` fields.
+  Read them, plan on top of them, and leave the older tasks alone; `delivery` derives and backfills
+  those fields at execution time (see `delivery-policy`). Do not migrate historical plans by hand.
 
 **A good plan makes implementation obvious without scripting it.**
