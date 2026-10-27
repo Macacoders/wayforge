@@ -3,6 +3,7 @@
 **Date**: 2026-08-24
 **Status**: Superseded by ADR-0036
 **Superseded**: 2026-08-26 — superseded in full by ADR-0036 ("Simplify agent permissions to coarse allow + deny-list model"). Retained as historical record; superseded in place (not renumbered) because "ADR-0035" collides with ADR-0035 (one-shot CLI installer).
+**Amended**: 2026-10-27 — this is the superseded *Four-Tier Bash Permission Categories* ADR, not the separate one-shot CLI installer ADR-0035. References below to `base/opencode/permissions/agents.yml`, legacy scanners, and their re-run procedure describe the 2026-08 decision only. The path was flattened and the legacy renderers were deleted on 2026-10-26; they are not current maintenance instructions or a parity obligation.
 
 ## Context
 
@@ -10,7 +11,7 @@ Issue #186: agents prompted for approval on benign read-only commands (`git log`
 
 Two hard constraints shaped the solution:
 
-- **Three-scanner parsing contract**: `base/opencode/permissions/agents.yml` is consumed by three dependency-free line-scanners — `cli/src/lib/permissions.ts` (TypeScript CLI) plus the legacy awk/pwsh renderers in `install/legacy/lib/managed_sync-legacy.sh` / `.ps1`. None of them resolves YAML anchors or merge keys, consistent with ADR-0009's dependency-free line-oriented parsing principle. The YAML must stay plain, flat block mappings.
+- **Three-scanner parsing contract (historical)**: the then-current `base/opencode/permissions/agents.yml` was consumed by three dependency-free line-scanners — `cli/src/lib/permissions.ts` (TypeScript CLI) plus legacy awk/pwsh renderers in `install/legacy/lib/managed_sync-legacy.sh` / `.ps1`. None resolved YAML anchors or merge keys, consistent with ADR-0009's dependency-free line-oriented parsing principle. The legacy renderers and this path no longer exist in the repository; this records the constraints that applied when the decision was made.
 - **Security posture**: everything not explicitly allowed must keep falling through to `ask`.
 
 An architect review of the draft plan returned **APPROVE-WITH-CHANGES**: the scanners were verified line-by-line as behaviorally identical on flat reordered maps with indented full-line comments, and the scalar-to-map conversion was confirmed semantics-preserving. The review's required changes were folded into the implementation: comment-placement and rule-ordering constraints enforced by unit guards, a corrected cross-scanner parity criterion (the integration harness strips `permission:` blocks before diffing, so it cannot prove parity), trailing-`*` glob hygiene, and explicit residual-risk recording — which this ADR provides.
@@ -53,14 +54,14 @@ One-shot check performed 2026-08-24 over the refactored `agents.yml`, all 8 agen
 
 The pwsh shift is a pre-existing quirk: `install/legacy/lib/managed_sync-legacy.ps1` line ~521 captures `$line.Substring($targetAgentIndent + 1)`, stripping one leading space more than the TS `line.slice(targetIndent)` / awk `substr(line, indent + 1)` equivalents. The result is structurally valid YAML. It is NOT fixed — the legacy path is deprecated per ADR-0033.
 
-Re-run instructions for future structural changes to `agents.yml`: render each agent block through the three functions (`renderAgentPermissionBlock`, `render_agent_permission_block`, `Get-AgentPermissionBlock`) and compare — TypeScript vs awk must be byte-identical; pwsh vs TypeScript compared modulo leading whitespace — before merging. This is deliberately not a CI harness: permanent tooling on the deprecated legacy path was rejected as overhead.
+Historical re-run instruction: before the legacy renderers were deleted, structural changes to `agents.yml` required rendering each agent block through the three functions (`renderAgentPermissionBlock`, `render_agent_permission_block`, `Get-AgentPermissionBlock`) and comparing them — TypeScript vs awk byte-identically and pwsh vs TypeScript modulo leading whitespace. This was deliberately not a CI harness. It must not be applied to current maintenance: the legacy functions are gone and ADR-0036 supersedes this decision.
 
 ## Consequences
 
 - Approval noise disappears for safe read-only and validation commands across all 8 agents; unknown or dangerous commands still prompt via the catch-all.
-- The file roughly tripled in length (~140 to ~430 lines), dominated by the deliberately duplicated validation tier; the header comment in `agents.yml` is the normative companion documentation and must stay consistent with this ADR.
-- Structural regressions (reordered catch-all, surviving comments, missing tier representatives, helper leakage) are caught by unit tests rather than review alone.
-- Cross-scanner parity relies on the one-shot check above plus the re-run discipline; the integration harness cannot detect permission-block divergence because it normalizes `permission:` blocks away.
+- **Historical only:** the then-current file roughly tripled in length (~140 to ~430 lines), dominated by the deliberately duplicated validation tier; its header comment was the companion documentation for this decision. This does not prescribe documentation or consistency requirements for the current layout.
+- **Historical only:** structural regressions (reordered catch-all, surviving comments, missing tier representatives, helper leakage) were caught by unit tests rather than review alone.
+- **Historical only:** cross-scanner parity was established by the one-shot check above and the former re-run discipline; the integration harness could not detect permission-block divergence because it normalized `permission:` blocks away. No current parity obligation follows from this superseded decision.
 - The `edit` dimension is normalized independently of bash tiers: every agent prompts before file writes (`edit: ask`), only architect/taskanalyst hard-deny; role differentiation lives in bash scope and task delegation, never in write elevation (delivery/quickcode had drifted to `allow` via Issue #181's wholesale copy of quickcode's block).
 
 ## Alternatives Considered

@@ -1,6 +1,6 @@
 # Runtime Compatibility Matrix
 
-Date: 2026-10-26
+Date: 2026-10-27
 
 Scope: wayforge installs content once into `.agents/` and reaches each runtime through runtime-specific directory pointers or generated config paths (ADR-0046). `verified` means the artifact was exercised against the named runtime version on this host. `pending` means the implementation is in place but has not been exercised on the required environment. `n/a` means the runtime does not consume that artifact format.
 
@@ -24,7 +24,14 @@ Per-runtime materialization of the `.agents/` tree into native runtime directori
 
 ## Verification notes
 
-Verified on 2026-10-26 with scratch installs from this checkout:
+The runtime rows marked `verified` below are 2026-10-26 evidence, before the
+final Issue #227 combined revision `b1affb6`. They remain historical evidence,
+not post-fix runtime verification. Fresh OpenCode 1.18.35, Kilo 7.8.17, and Pi
+checks on a disposable install from `b1affb6` remain human-owned and pending;
+record the host, runtime version, and output or an explicit maintainer waiver.
+
+Verified on 2026-10-26 with scratch installs from the pre-final-revision
+checkout, not from `b1affb6`:
 
 ```bash
 # OpenCode
