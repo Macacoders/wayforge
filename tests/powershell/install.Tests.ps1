@@ -167,6 +167,128 @@ exit 0
     }
 }
 
+Describe 'Checksum verification (full install)' {
+    # ponytail: this Describe uses BeforeEach/AfterEach while sibling blocks use
+    # inline try/finally; normalizing the whole file is deferred.
+    BeforeAll {
+        # Stub Invoke-WebRequest: copies fixtures by URI leaf, never hits the
+        # network; throws for the checksum URL when FAKE_MISSING_CHECKSUMS=1.
+        # Defined in BeforeAll so it exists in the run phase, not just discovery.
+        $script:downloadStub = @'
+function Invoke-WebRequest {
+    [CmdletBinding()]
+    param([string]$Uri, [string]$OutFile, [switch]$UseBasicParsing)
+    $leaf = [System.IO.Path]::GetFileName($Uri)
+    if ($leaf -eq 'wayforge-checksums.txt' -and $env:FAKE_MISSING_CHECKSUMS -eq '1') {
+        throw "404: ${Uri}"
+    }
+    $src = Join-Path $env:FIXTURE_DIR $leaf
+    if (-not (Test-Path $src)) { throw "404: ${Uri}" }
+    Copy-Item -Path $src -Destination $OutFile -Force
+}
+'@
+    }
+    BeforeEach {
+        $script:tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
+        $script:fixtureDir = Join-Path $script:tmp 'fixtures'
+        $script:shareSrc = Join-Path $script:tmp 'share-src'
+        New-Item -ItemType Directory -Path $script:fixtureDir | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $script:shareSrc 'base') | Out-Null
+        # Compress-Archive drops empty directories; seed base/ so the fixture
+        # zip actually contains it.
+        Set-Content -Path (Join-Path $script:shareSrc 'base/README.md') -Value 'fixture'
+        Set-Content -Path (Join-Path $script:shareSrc 'VERSION') -Value '9.9.9'
+
+        $script:binaryFixture = Join-Path $script:fixtureDir 'wayforge-win32-x64.exe'
+        $script:shareFixture = Join-Path $script:fixtureDir 'wayforge-share-9.9.9.zip'
+        $script:checksumsFixture = Join-Path $script:fixtureDir 'wayforge-checksums.txt'
+        Set-Content -Path $script:binaryFixture -Value 'fake wayforge binary'
+        Compress-Archive -Path (Join-Path $script:shareSrc '*') -DestinationPath $script:shareFixture
+
+        $script:binaryHash = (Get-FileHash -Path $script:binaryFixture -Algorithm SHA256).Hash.ToLowerInvariant()
+        $script:shareHash = (Get-FileHash -Path $script:shareFixture -Algorithm SHA256).Hash.ToLowerInvariant()
+        $script:originalUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    }
+    AfterEach {
+        [Environment]::SetEnvironmentVariable('Path', $script:originalUserPath, 'User')
+        Remove-Item -Path $script:tmp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'installs when digests match' {
+        # Binary entries carry a dist/ prefix in release checksums; the
+        # installer must normalize by basename.
+        Set-Content -Path $script:checksumsFixture -Value "$($script:binaryHash)  dist/wayforge-win32-x64.exe`n$($script:shareHash)  wayforge-share-9.9.9.zip"
+        $child = @"
+`$env:FIXTURE_DIR = '$script:fixtureDir'
+$script:downloadStub
+try { & '$script:installScript' -SkipNodeCheck -Version 9.9.9 -Prefix '$script:tmp/prefix' *>&1 } catch { `$_; exit 1 }
+exit 0
+"@
+        $combined = (& pwsh -NoProfile -Command $child | Out-String)
+        $LASTEXITCODE | Should -Be 0
+        Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
+        Test-Path (Join-Path $script:tmp 'prefix/share/wayforge/base') -PathType Container | Should -Be $true
+        $combined | Should -Match 'verified wayforge-win32-x64\.exe checksum'
+    }
+
+    It 'aborts without installing when the binary digest mismatches' {
+        Set-Content -Path $script:checksumsFixture -Value "$(('a' * 64))  wayforge-win32-x64.exe`n$($script:shareHash)  wayforge-share-9.9.9.zip"
+        $child = @"
+`$env:FIXTURE_DIR = '$script:fixtureDir'
+$script:downloadStub
+try { & '$script:installScript' -SkipNodeCheck -Version 9.9.9 -Prefix '$script:tmp/prefix' *>&1 } catch { `$_; exit 1 }
+exit 0
+"@
+        $combined = (& pwsh -NoProfile -Command $child | Out-String)
+        $LASTEXITCODE | Should -Not -Be 0
+        $combined | Should -Match 'checksum mismatch'
+        Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
+        Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $false
+    }
+
+    It 'installs with a warning when the checksum asset is missing' {
+        $env:FAKE_MISSING_CHECKSUMS = '1'
+        try {
+            $child = @"
+`$env:FIXTURE_DIR = '$script:fixtureDir'
+`$env:FAKE_MISSING_CHECKSUMS = '1'
+$script:downloadStub
+try { & '$script:installScript' -SkipNodeCheck -Version 9.9.9 -Prefix '$script:tmp/prefix' *>&1 } catch { `$_; exit 1 }
+exit 0
+"@
+            $combined = (& pwsh -NoProfile -Command $child | Out-String)
+            $LASTEXITCODE | Should -Be 0
+            $combined | Should -Match 'wayforge-checksums\.txt is unavailable for 9\.9\.9; skipping checksum verification'
+            Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
+            Test-Path (Join-Path $script:tmp 'prefix/share/wayforge/base') -PathType Container | Should -Be $true
+        }
+        finally {
+            $env:FAKE_MISSING_CHECKSUMS = $null
+        }
+    }
+
+    It 'aborts when the checksum file has no entry for the binary' {
+        Set-Content -Path $script:checksumsFixture -Value "$($script:shareHash)  wayforge-share-9.9.9.zip"
+        $child = @"
+`$env:FIXTURE_DIR = '$script:fixtureDir'
+$script:downloadStub
+try { & '$script:installScript' -SkipNodeCheck -Version 9.9.9 -Prefix '$script:tmp/prefix' *>&1 } catch { `$_; exit 1 }
+exit 0
+"@
+        $combined = (& pwsh -NoProfile -Command $child | Out-String)
+        $LASTEXITCODE | Should -Not -Be 0
+        $combined | Should -Match 'no entry for wayforge-win32-x64\.exe'
+        Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
+        Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $false
+    }
+
+    It 'uses Get-FileHash with SHA256 and references the checksum asset' {
+        $script:scriptContent | Should -Match 'Get-FileHash'
+        $script:scriptContent | Should -Match '-Algorithm SHA256'
+        $script:scriptContent | Should -Match 'wayforge-checksums\.txt'
+    }
+}
+
 Describe 'Uninstall removes provisioned Node' {
     It 'dry-run uninstall mentions the node directory and its PATH entry' {
         $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
