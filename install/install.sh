@@ -213,6 +213,53 @@ download() {
 # ---------------------------------------------------------------------------
 # Checksum verification
 # ---------------------------------------------------------------------------
+# Set by fetch_checksums() when the HTTP status is known, so run_install can
+# include it in the abort message. Empty for transport failures.
+CHECKSUM_HTTP_STATUS=""
+
+# fetch_checksums <url> <dest>
+# Returns 0 when the checksum file was downloaded, 1 when the asset is
+# confirmed absent (HTTP 404), and 2 for every other failure (403/5xx,
+# DNS/TLS/timeout, unknown status). Only the 404 case may fall back to an
+# unverified install; a download failure aborts before any prefix mutation.
+fetch_checksums() {
+	local url="$1"
+	local dest="$2"
+	CHECKSUM_HTTP_STATUS=""
+	detect_downloader
+	case "$DOWNLOADER" in
+	curl)
+		local status
+		# No -f here: its exit code cannot distinguish 404 from other HTTP
+		# errors, and the unverified fallback is only safe for a 404.
+		status=$(curl -sS -L --connect-timeout 30 --max-time 300 -o "$dest" -w '%{http_code}' "$url" 2>/dev/null) || return 2
+		CHECKSUM_HTTP_STATUS="$status"
+		case "$status" in
+		200) return 0 ;;
+		404) return 1 ;;
+		*) return 2 ;;
+		esac
+		;;
+	wget)
+		local headers status
+		headers="$(mktemp)"
+		if wget --server-response -O "$dest" --timeout=300 "$url" 2>"$headers"; then
+			rm -f "$headers"
+			return 0
+		fi
+		# wget exits 8 for every HTTP error; read the last status line to
+		# tell a missing asset (404) from an outage (403/5xx).
+		status=$(awk '/^[[:space:]]*HTTP\// { code=$2 } END { print code }' "$headers")
+		rm -f "$headers"
+		CHECKSUM_HTTP_STATUS="$status"
+		if [ "$status" = "404" ]; then
+			return 1
+		fi
+		return 2
+		;;
+	esac
+}
+
 sha256_file() {
 	if command -v sha256sum >/dev/null 2>&1; then
 		sha256sum "$1" | awk '{print $1}'
@@ -441,16 +488,31 @@ run_install() {
 	TMP_CHECKSUMS="$(mktemp)"
 	download "$binary_url" "$TMP_BINARY"
 	download "$share_url" "$TMP_SHARE"
-	if ! download "$checksum_url" "$TMP_CHECKSUMS"; then
+
+	local checksum_rc
+	checksum_rc=0
+	fetch_checksums "$checksum_url" "$TMP_CHECKSUMS" || checksum_rc=$?
+	case "$checksum_rc" in
+	0)
+		verify_asset "$TMP_BINARY" "$BINARY_NAME"
+		verify_asset "$TMP_SHARE" "$share_name"
+		;;
+	1)
 		rm -f "$TMP_CHECKSUMS"
 		TMP_CHECKSUMS=""
 		echo "warning: wayforge-checksums.txt is unavailable for ${TAG}; skipping checksum verification" >&2
-	fi
-
-	if [ -n "$TMP_CHECKSUMS" ]; then
-		verify_asset "$TMP_BINARY" "$BINARY_NAME"
-		verify_asset "$TMP_SHARE" "$share_name"
-	fi
+		;;
+	*)
+		rm -f "$TMP_CHECKSUMS"
+		TMP_CHECKSUMS=""
+		if [ -n "$CHECKSUM_HTTP_STATUS" ]; then
+			echo "error: failed to download wayforge-checksums.txt for ${TAG} (HTTP ${CHECKSUM_HTTP_STATUS}); aborting without changes" >&2
+		else
+			echo "error: failed to download wayforge-checksums.txt for ${TAG}; aborting without changes" >&2
+		fi
+		exit 1
+		;;
+	esac
 
 	ensure_node
 

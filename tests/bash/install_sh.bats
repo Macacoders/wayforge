@@ -3,8 +3,8 @@
 # Network-free tests for install/install.sh.
 # A controlled PATH with stubs (curl, uname, tr, sha256sum, optional node)
 # keeps the installer from touching the network or the real system.
-
-bats_require_minimum_version 1.5.0
+# Uses only Bats 1.2.1-compatible features; stderr is captured explicitly to
+# a file rather than relying on version-specific run flags.
 
 setup() {
 	REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
@@ -53,15 +53,23 @@ install_env() {
 #!/bin/sh
 dest=""
 url=""
+write_out=""
 prev=""
 for arg in "$@"; do
-	if [ "$prev" = "-o" ]; then
+	case "$prev" in
+	-o)
 		dest="$arg"
 		prev=""
 		continue
-	fi
+		;;
+	-w)
+		write_out="$arg"
+		prev=""
+		continue
+		;;
+	esac
 	case "$arg" in
-	-o) prev="-o"; continue ;;
+	-o | -w) prev="$arg"; continue ;;
 	esac
 	url="$arg"
 done
@@ -69,8 +77,17 @@ case "$url" in
 */wayforge-linux-x64) cp "$TEST_FIXTURES/wayforge-linux-x64" "$dest" ;;
 */wayforge-share-9.9.9.tar.gz) cp "$TEST_FIXTURES/wayforge-share-9.9.9.tar.gz" "$dest" ;;
 *wayforge-checksums.txt)
-	if [ "${FAKE_MISSING_CHECKSUMS:-0}" = "1" ]; then exit 22; fi
-	cp "$TEST_FIXTURES/wayforge-checksums.txt" "$dest"
+	if [ "${FAKE_CHECKSUM_TIMEOUT:-0}" = "1" ]; then
+		# Transport failure: no status line, curl-like exit 28.
+		exit 28
+	fi
+	status="${FAKE_CHECKSUM_STATUS:-200}"
+	if [ -n "$write_out" ]; then
+		printf '%s' "$status"
+	fi
+	if [ "$status" = "200" ]; then
+		cp "$TEST_FIXTURES/wayforge-checksums.txt" "$dest"
+	fi
 	;;
 *)
 	echo "error: unexpected curl URL: $url" >&2
@@ -97,12 +114,23 @@ write_checksums() {
 	} >"$TEST_FIXTURES/wayforge-checksums.txt"
 }
 
+# Runs a real install with stderr captured to a file. Bats 1.2.1's plain
+# `run` merges stderr into $output, so capture it explicitly here; this keeps
+# the stderr assertions working on 1.2.1 and on current Bats.
 run_full_install() {
-	run --separate-stderr env PATH="$STUB_DIR:/usr/bin:/bin" HOME="$TEST_HOME" \
+	if output="$(env PATH="$STUB_DIR:/usr/bin:/bin" HOME="$TEST_HOME" \
 		TEST_FIXTURES="$TEST_FIXTURES" FAKE_DIGEST="$1" "${@:2}" \
 		/bin/sh "$REPO_ROOT/install/install.sh" \
 		--version 9.9.9 --url-base https://fixture.invalid \
-		--skip-node-check --prefix "$TEST_PREFIX"
+		--skip-node-check --prefix "$TEST_PREFIX" 2>"$TEST_TMPDIR/stderr.log")"; then
+		status=0
+	else
+		status=$?
+	fi
+}
+
+run_stderr() {
+	cat "$TEST_TMPDIR/stderr.log"
 }
 
 stub_node() {
@@ -173,7 +201,7 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 	write_checksums "$DIGEST_BAD" "$DIGEST_OK"
 	run_full_install "$DIGEST_OK"
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"checksum mismatch for wayforge-linux-x64"* ]]
+	[[ "$(run_stderr)" == *"checksum mismatch for wayforge-linux-x64"* ]]
 	[ ! -e "$TEST_PREFIX/bin" ]
 	[ ! -e "$TEST_PREFIX/share" ]
 }
@@ -190,12 +218,32 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 
 @test "install.sh warns and continues when checksums file is unavailable" {
 	install_env
-	run_full_install "$DIGEST_OK" FAKE_MISSING_CHECKSUMS=1
+	run_full_install "$DIGEST_OK" FAKE_CHECKSUM_STATUS=404
 	[ "$status" -eq 0 ]
-	[[ "$stderr" == *"warning: wayforge-checksums.txt is unavailable for v9.9.9; skipping checksum verification"* ]]
+	[[ "$(run_stderr)" == *"warning: wayforge-checksums.txt is unavailable for v9.9.9; skipping checksum verification"* ]]
 	[ -f "$TEST_PREFIX/bin/wfg" ]
 	[ "$(cat "$TEST_PREFIX/bin/wfg")" = "binary" ]
 	[ -d "$TEST_PREFIX/share/wayforge/base" ]
+}
+
+@test "install.sh aborts on a non-404 checksum download failure without touching prefix" {
+	install_env
+	run_full_install "$DIGEST_OK" FAKE_CHECKSUM_STATUS=500
+	[ "$status" -eq 1 ]
+	[[ "$(run_stderr)" == *"failed to download wayforge-checksums.txt"* ]]
+	[[ "$(run_stderr)" != *"skipping checksum verification"* ]]
+	[ ! -e "$TEST_PREFIX/bin" ]
+	[ ! -e "$TEST_PREFIX/share" ]
+}
+
+@test "install.sh aborts on a checksum download timeout without touching prefix" {
+	install_env
+	run_full_install "$DIGEST_OK" FAKE_CHECKSUM_TIMEOUT=1
+	[ "$status" -eq 1 ]
+	[[ "$(run_stderr)" == *"failed to download wayforge-checksums.txt"* ]]
+	[[ "$(run_stderr)" != *"skipping checksum verification"* ]]
+	[ ! -e "$TEST_PREFIX/bin" ]
+	[ ! -e "$TEST_PREFIX/share" ]
 }
 
 @test "install.sh aborts when checksum file has no entry for the binary" {
@@ -203,7 +251,7 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 	printf '%s  wayforge-share-9.9.9.tar.gz\n' "$DIGEST_OK" >"$TEST_FIXTURES/wayforge-checksums.txt"
 	run_full_install "$DIGEST_OK"
 	[ "$status" -eq 1 ]
-	[[ "$stderr" == *"no entry for wayforge-linux-x64"* ]]
+	[[ "$(run_stderr)" == *"no entry for wayforge-linux-x64"* ]]
 }
 
 @test "install.sh dry-run prints checksum URL and would-verify plan" {
