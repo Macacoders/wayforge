@@ -1,10 +1,12 @@
 # PR #253 final-review comment draft (not published)
 
-**Revision:** `b1affb6` (parents `36c01dd` and `de381c1`)
+**Revision:** `3d5d3be` (includes merge `b1affb6`, parents `36c01dd` and
+`de381c1`)
 
-This local draft requires maintainer authorization before any GitHub comment,
-push, review request, or other PR action. It is not a review verdict or a
-claim that external acceptance has occurred.
+Push and posting this PR comment are authorized but have not been executed.
+Review requests, approvals, issue closure, and other PR actions remain separate
+unauthorized actions. This local draft is not a review verdict or a claim that
+external acceptance has occurred.
 
 ## Reconciliation of PKCPablo's follow-up items
 
@@ -27,15 +29,22 @@ not decide `b1affb6`. No GitHub checks were reported by that query.
 
 ## Pending human-owned acceptance gates
 
-- From fresh disposable installs at `b1affb6`, run the OpenCode 1.18.35,
-  Kilo 7.8.17, and Pi discovery commands in `docs/compatibility-matrix.md`;
-  record host, versions, and output, or obtain an explicit maintainer waiver.
-- On native Windows, verify junction creation, relocation, recovery, and
-  uninstall removal without deleting targets or user files; run the real-CLI
-  `free-tier` and `openai,github-copilot` provider cases if available.
-- After an authorized push, inspect PR #253 for real mergeability and obtain
-  the required CODEOWNERS approval. Request fresh review only with explicit
-  authorization; `CHANGES_REQUESTED` remains pending until a reviewer updates
-  it.
+- Linux OpenCode 1.18.35 smoke is user-confirmed at `3d5d3be` from a fresh
+  disposable install: dry-run, actual install, agent list, external-skills-
+  disabled skill debug, and config debug had no errors; all six agents,
+  wayforge skills, the `.agents/plugins/ponytail` plugin path, and command
+  entries including `intent` and `load-plan` appeared. The retained config
+  excerpt is partial, so it does not freshly establish the historical
+  15-command count; Linux distribution/host version metadata was not supplied.
+- PKCPablo will test Kilo 7.8.17 on Windows. Native-Windows junction creation,
+  relocation, recovery, and uninstall removal without deleting targets or user
+  files, plus real-CLI `free-tier` and `openai,github-copilot` provider cases,
+  remain pending.
+- Pi discovery remains pending; record its result or obtain an explicit
+  maintainer waiver.
+- After the authorized-but-unexecuted push, inspect PR #253 for real
+  mergeability and obtain the required CODEOWNERS approval. Request fresh
+  review only with separate explicit authorization; `CHANGES_REQUESTED` remains
+  pending until a reviewer updates it.
 
 No external action has been taken from this draft.
