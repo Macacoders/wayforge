@@ -1,7 +1,7 @@
 # ADR-0038: Remove Quick Delivery and Refactor Delivery into a Task Orchestrator
 
 **Date**: 2026-09-11
-**Status**: Accepted
+**Status**: Superseded by ADR-0048 (delivery is now the autonomous, policy-applying orchestrator with a dedicated `reviewer`; the three-command loop remains available as a manual path)
 
 ## Context
 
@@ -10,6 +10,7 @@ ADR-0004 added a second delivery path (`/quick` → `quickcode`) alongside stage
 ## Decision
 
 1. **Remove quick delivery**: delete the `quick` command, the `quickcode` agent, the `quick-delivery` skill, and the quick-code handoff template. Small work is planned as a single task; scope classification becomes `single-task | multi-task | too-large`.
+
 2. **Remove the `staged-delivery` skill**: its phase-economy and progressive-disclosure guidance is folded into the `plan` skill, using tasks rather than phases.
 3. **Thin the `delivery` agent** into an orchestrator entrypoint that delegates to three commands: `/load-plan` (load the plan and identify the current task), `/implement-task` (hand the task to `code`), and `/review-task` (validate and, if insufficient, clarify/redirect then re-handoff before closing).
 4. **Remove the `close` command**: memory close-out is handled by `/memory update`.
@@ -17,6 +18,13 @@ ADR-0004 added a second delivery path (`/quick` → `quickcode`) alongside stage
 ## Supersedes
 
 - ADR-0004 (quick delivery workflow).
+
+## Superseded By
+
+- ADR-0048 (risk-proportionate delivery): `delivery` is no longer a thin three-command
+  orchestrator; it classifies risk, dispatches work orders, and executes approved plans autonomously,
+  with the independent review gate moved to the `reviewer` subagent. The three commands survive as a
+  manual low-level path.
 
 ## Consequences
 

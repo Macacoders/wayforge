@@ -22,5 +22,9 @@
     "architect": {
       "model": "github-copilot/gpt-5.4",
       "steps": 10
+    },
+    "reviewer": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 16
     }
   }

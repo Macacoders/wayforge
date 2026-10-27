@@ -73,6 +73,26 @@ describe("renderAgentPermissionBlock", () => {
     expect(renderAgentPermissionBlock("architect", permissionsFile)).toContain(
       "edit: deny",
     );
+    expect(renderAgentPermissionBlock("reviewer", permissionsFile)).toContain(
+      "edit: deny",
+    );
+  });
+
+  it("denies mutating shell commands for the read-only reviewer", () => {
+    const block = renderAgentPermissionBlock("reviewer", permissionsFile);
+
+    for (const denied of [
+      '"git commit*": deny',
+      '"git push*": deny',
+      '"git checkout*": deny',
+      '"rm *": deny',
+      '"sed -i*": deny',
+    ]) {
+      expect(block).toContain(denied);
+    }
+    // read-only inspection must stay available without prompts
+    expect(block).not.toContain('"git diff*"');
+    expect(block).not.toContain('"git log*"');
   });
 
   it("renders question: allow only for planner, delivery, and troubleshooter", () => {
@@ -81,7 +101,7 @@ describe("renderAgentPermissionBlock", () => {
         "question: allow",
       );
     }
-    for (const agent of ["code", "research", "architect"]) {
+    for (const agent of ["code", "research", "architect", "reviewer"]) {
       expect(renderAgentPermissionBlock(agent, permissionsFile)).not.toContain(
         "question: allow",
       );
@@ -162,6 +182,41 @@ describe("coarse permission guards", () => {
       expect(block).toContain('"*": deny');
       expect(block).toContain('"/tmp/**": allow');
     }
+  });
+
+  it("allows delivery to dispatch every work-order owner it depends on", () => {
+    // Issue #231: work orders are only executable if the dispatching agent may
+    // delegate to the owning subagent. Without this, the independent review gate
+    // is unreachable and delivery must either self-approve or stall.
+    const workOrderOwners = ["code", "reviewer", "architect", "research"];
+    const block = renderAgentPermissionBlock("delivery", permissionsFile);
+    const taskBlock = block.slice(block.indexOf("task:"));
+
+    expect(taskBlock.length).toBeGreaterThan(0);
+    for (const owner of workOrderOwners) {
+      expect(taskBlock).toContain(`${owner}: allow`);
+    }
+    // the wildcard must be denied inside task:, not merely somewhere in the block
+    expect(taskBlock).toContain('"*": deny');
+    expect(taskBlock.indexOf('"*": deny')).toBeLessThan(
+      taskBlock.indexOf('research: allow'),
+    );
+  });
+
+  it("keeps subagent dispatch out of read-only and worker roles", () => {
+    for (const agent of ["code", "reviewer", "architect", "research"]) {
+      expect(renderAgentPermissionBlock(agent, permissionsFile)).toContain(
+        "task: deny",
+      );
+    }
+  });
+
+  it("denies commit, push, and tag for the implementer", () => {
+    const block = renderAgentPermissionBlock("code", permissionsFile);
+
+    expect(block).toContain('"git commit*": deny');
+    expect(block).toContain('"git push*": deny');
+    expect(block).toContain('"git tag*": deny');
   });
 });
 

@@ -59,4 +59,9 @@ Stay inside the repository root (`git rev-parse --show-toplevel` when in a git r
 
 ## Working with wayforge
 
-This repository uses the wayforge workflow. Formalize and plan work with `/intent` then `/plan` (the `planner` agent). Track shared tasks with `/issue`. Implement approved plans with the `delivery` agent (`/load-plan`, `/implement-task`, `/review-task`). Load context progressively: start from this file and `README.md`, then route through `docs/ai/README.md` and load only what the task needs.
+This repository uses the wayforge workflow. Match process to risk:
+
+- **Small, low-risk fix:** `/deliver <request>` — `delivery` classifies it, dispatches implementation to `code`, gets an independent `reviewer` verdict, and commits. No intent or plan artifact needed.
+- **Complex or risky work:** `/intent` then `/plan` (the `planner` agent), then `/deliver-plan` to execute the approved plan autonomously (dispatch → review → repair → integrate), or `/load-plan` + `/implement-task` + `/review-task` to drive one task by hand.
+
+Risk classification, work-order contracts, acceptance gates, and retry/escalation policy live in the `delivery-policy` skill. Track shared tasks with `/issue`. Load context progressively: start from this file and `README.md`, then route through `docs/ai/README.md` and load only what the task needs.

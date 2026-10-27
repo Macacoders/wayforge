@@ -1,15 +1,22 @@
 ---
-description: Hand off the current plan task to the code agent.
+description: Dispatch one plan task to code as an implementation work order.
 agent: delivery
 ---
 
-Hand off the current task from the loaded plan to `code`.
+Load the `delivery-policy` skill. Dispatch the current task from the loaded plan to `code` as a
+single `implementation` work order, then mark that task `in-progress` in the plan.
 
-Build a Code Handoff Brief by copy-pasting the task's description from the plan: use the task's Objective as the goal, its Files list as the relevant files, and its Steps as the atomic steps. Keep the plan's wording; do not rewrite or reinterpret the task.
+Build the work order from the task contract in the plan — task id, objective, context, acceptance
+criteria, constraints, dependencies, validations — plus the repository root. Keep the plan's wording
+for the deliverable: state the outcome and its guardrails, not a coding sequence. Include concrete
+technical requirements only where the plan states them (mandatory interfaces, invariants, known
+regressions, repository conventions).
 
-Invoke one `code` subagent session for the whole task. Do not split the task into new tasks during handoff; `code` will use atomic steps only as implementation checkpoints inside the task. When invoking the agent, start with "The following is your Handoff Brief:", and include the task.
+Add a reuse expectation when the task touches repeatable logic: apply the ponytail ladder and name
+the patterns, utilities, tests, or conventions to inspect, or state why none are expected.
 
-Include these brief fields: Task, Goal, Repository root, Acceptance criteria, Atomic steps, Relevant files, Confirmed decisions, Constraints, References to load. Add a reuse expectation when the task touches repeatable logic: apply the ponytail ladder and name the patterns/utilities/tests/conventions to inspect, or state why none are expected.
+Do not split the task into new tasks, do not prescribe steps the plan does not require, and do not
+ask `code` to approve its own work.
 
 Additional context:
 

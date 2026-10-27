@@ -1,21 +1,31 @@
 ---
-description: Review the completed task against the plan and redirect if changes are insufficient.
+description: Independently review a completed task, apply the verdict, and bound the repair loop.
 agent: delivery
 ---
 
-Review the completed task using git evidence. Inspect changed and added files and compare them against the task's acceptance criteria from the plan.
+Load the `delivery-policy` skill. Dispatch the task just implemented to `reviewer` as a
+`functional_review` work order containing: the task contract and acceptance criteria, the review
+target (working-tree diff or commit range), the agent-owned validations that were reported as run, and
+the expected result format. Do not send implementation instructions, and do not review the change
+yourself.
 
-If the changes are not sufficient, hand the task off again to `code` so it can continue before closing the task. Do not close a task that does not meet its acceptance criteria. If a second review for the same task the changes are not sufficient, ask the user for clarification and redirection with plain english explaining what is the problem, what has been tried and what we're trying to solve.
+Dispatch `architect` with an `architecture_review` work order when the change touches a boundary
+category or the plan's `required_gates.architect_review` is true.
 
-Validation is specified in the plan task and run by `code` as part of implementation; confirm it was actually run and matches the task's acceptance criteria. Some of these validations runs are intended to be executed by the user, and others by the agent.
+Apply the verdict:
 
-If the task touches an architectural boundary (public contract, persistence format, auth/security, deployment topology, data model, or cross-module API), invoke `architect` in `review-only` mode before finalizing.
+- `pass` — commit the accepted change with a conventional message, mark the task `accepted` in the
+  plan, update the frontmatter `task:` cursor, and report the next ready task.
+- `changes_required` — dispatch one bounded `repair` work order containing the findings and evidence,
+  then review the new revision. Repairs and re-reviews share the policy budget and never reset it.
+- `blocked` or exhausted budget — ask the user the policy's escalation question and stop. Do not close
+  a task that does not meet its acceptance criteria.
 
-Update the plan's frontmatter: bump `task:` to the next task and, when all tasks are complete, set `status: completed`. Check only the `required_gates` the plan declares.
+Check only the `required_gates` the plan declares. Keep memory freshness at plan close (`/memory
+check` or `ai-memory close-check`), not after every task.
 
-Include memory freshness in review by running `/memory check`, `memory-maintenance` freshness check, or `ai-memory close-check` (with the companion `ai-memory` skill), then load only routed, task-relevant memory files.
-
-Confirm the active repository root from the handoff or current git repository. Constrain review searches, reads, and git inspection to that root unless the user explicitly approves an external path.
+Confirm the active repository root from the plan or the current git repository, and constrain review
+and git inspection to that root unless the user explicitly approves an external path.
 
 Additional context:
 

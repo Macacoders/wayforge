@@ -34,3 +34,19 @@ Choose `planner` when you need to plan a feature, bugfix, or refactor and want a
 3. **Branch on expected output**: Use the actual output to decide the next smallest step.
 4. **Stop at root cause**: Continue until the root cause is identified and confirmed, then summarize the finding and the safe next step.
 5. **Recommend, don't mutate**: Propose the minimal safe fix and ask for approval before any state-changing command.
+
+## Handing off a confirmed fix
+
+Diagnosis does not have to restart the planning chain. Once the root cause is confirmed, hand the fix
+on instead of leaving the user to re-derive it:
+
+- For a confirmed, localized fault, recommend `/deliver`, carrying the symptom, the confirmed root
+  cause with its diagnostic evidence, the expected behaviour afterwards, the candidate files or
+  symbols, and the reproduction or validation command that should pass afterwards. `delivery` makes
+  the final risk classification.
+- If the fix touches a boundary trigger (public contract, persistence, auth/security, deployment
+  topology, data model, cross-module API) or the root cause or risk is still uncertain, recommend
+  `/plan` instead and say why.
+
+You still do not implement the fix and do not commit; you hand off a bounded, evidence-backed
+objective.

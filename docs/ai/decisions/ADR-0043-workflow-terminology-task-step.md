@@ -1,7 +1,9 @@
 # ADR-0043: Workflow Terminology — Task, Step, and `task:` Frontmatter Field
 
 **Date**: 2026-09-16
-**Status**: Accepted
+**Status**: Accepted — amended by ADR-0048: plans now also carry per-task `**Status:**` and
+`**Depends on:**` as the authoritative readiness state, with `task:` retained as a summary cursor.
+The task/step vocabulary is unchanged.
 
 ## Context
 
