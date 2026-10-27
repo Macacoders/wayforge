@@ -1,6 +1,7 @@
 ---
 status: planned
 created: 2026-10-22
+updated: 2026-10-27
 task: 0/6
 required_gates:
   architect_review: true
@@ -9,84 +10,125 @@ required_gates:
 
 # OpenCode V2 runtime migration implementation plan (Issue #226)
 
-**Goal:** Make `--runtime opencode` emit deterministic, native OpenCode 2 artifacts that validate against the V2 schema, while `--runtime kilocode` keeps producing the V1-shaped artifacts Kilo Code currently accepts.
+**Goal:** Make `--runtime opencode` emit native OpenCode 2.x artifacts into the post-#227 `.agents/` layout while `--runtime kilocode` keeps emitting the V1-shaped artifacts that Kilo Code 1.x accepts, and reject an unsupported OpenCode version before any install mutation.
 
-**Architecture:** Introduce a single runtime descriptor that owns the config filename, schema URL, top-level config key names, plugin entry style, and supported major version. Config generation, permission rendering, and plugin resolution consume that descriptor instead of hardcoded `runtime === 'opencode'` conditionals. A version gate runs before any install mutation and rejects OpenCode 1.x with an actionable message.
+**Architecture:** Extend the single layout declaration introduced by Issue #227 (`cli/src/lib/layout.ts`) into a runtime descriptor that owns the config filename, schema URL, top-level key names, plugin entry shape, and minimum OpenCode major. Config generation, permission rendering, plugin resolution, and install/update consume that descriptor instead of hardcoded `runtime === 'opencode'` conditionals. A preflight version gate runs before `initManagedManifest`. Kilo Code stays on the V1 shape because its current runtime and plugin API are V1.
 
-**Tech Stack:** TypeScript, Node.js >= 18, Commander, fs-extra, vitest, `ajv` + `jsonc-parser` (new dev dependencies), `make check`.
+**Tech Stack:** TypeScript, Node.js >= 18, Commander, fs-extra, vitest, `ajv` 8 (draft 2020-12) as a dev dependency, `make check`.
 
 **Scope classification:** `multi-task`
 
-**Task budget rationale:** six vertical slices because the runtime contract, generated config, agent frontmatter, plugin API, install wiring, and durable documentation are independently reviewable deliverables. Merging them would force unstable intermediate states (for example, a V2 config referencing plugin entrypoints that do not exist yet). No task is split further because all six share the same runtime descriptor API.
+**Task budget rationale:** six vertical slices because the runtime descriptor, generated config, agent permissions, plugin API surface, install wiring, and durable documentation are independently reviewable deliverables. Merging them would create unstable intermediate states (for example, a V2 config that names plugin directories whose V2 entrypoints do not exist yet). All six share the same descriptor API.
 
-## Verified context (2026-10-22)
+## Revision 2026-10-27
+
+This plan was revised after reviewing the open PR queue and re-verifying upstream. Two earlier assumptions are now wrong and are removed below:
+
+1. The plan is no longer based on `.opencode/**` output or `base/opencode/**` source paths. Open PR **#253 (Issue #227)** moves every installed artifact to `.agents/**` and flattens the source tree to `base/**`. That PR is a hard prerequisite.
+2. The old plugin shape `{"package": "./.../ponytail.v2.mjs"}` is invalid in OpenCode V2. V2 ignores a configured local plugin path that names a file; it requires a directory. See "Verified context".
+
+The earlier blocker (#247, laberit `{env:}`) is closed and is no longer a dependency. The repo already enforces the unified `{env:}`-free provider shape and tests it.
+
+## Blocking decisions and required gates
+
+1. **Maintainer dependency decision (2026-10-27): #226 is blocked by #227, #231, and #248** (implemented by PRs #253, #255, and #254). Do not start implementation until all three issues are closed. The GitHub dependency list must be updated to those three issues; the existing link to closed #247 is obsolete. Technically, #227 is the hard prerequisite because it rewrites the layout and paths; #231 and #248 are merge-order gates the maintainer has chosen as hard gates to avoid rebasing the agent/permission fixtures and the integration harness.
+2. **Merge-order gates after the dependency decision.** #253 lands first (layout, config generation, pointers, migration, test helper). #255 lands second (agent set, permissions, plan contract, ADR-0048). #254 lands third (legacy installer and test-harness deletion). Rebase #226 onto the merged result before Task 1. If the order changes, rebase rather than reintroducing `.opencode` paths or the old five-step plan format.
+3. **Kilo Code routing is resolved by #253, not by this issue.** #253 adds `.kilo/agents` and `.kilo/commands` pointers and points the Kilo plugin/skills config at `.agents/**`, verified against Kilo 7.8.17. This issue therefore does not reopen the `.kilo/**` output-root work. If #253 is rejected, #226 must either absorb that routing fix or remain blocked; that is a maintainer decision.
+4. **Plugin strategy: separate V1 and V2 entrypoints plus a directory-resolvable package.** V2 config entries must name plugin directories. Each plugin package keeps `main` for V1 and adds `exports` for V2. The alternative "one module exports both `Plugin.define` and `server`" is rejected because it forces V1 hosts to resolve `@opencode/plugin` at module load.
+5. **Integration coverage is vitest, not `run.sh`.** #253 deletes `cli/tests/integration/run.sh` and removes `check-integration`; #254 also rewrites that script. This plan extends the #253 helper (`cli/tests/helpers/install.ts`) and adds a vitest integration test under `cli/tests/integration/`. Do not resurrect the legacy comparison harness.
+6. **Version is a release-scheduling decision, not a code dependency.** `VERSION` is `1.0.2` on `develop`, `main`, and the working tree. No open PR bumps it to `1.1.0`; #254's `VERSION` diff removes a trailing newline only. If maintainers intend #227 + #226 to ship together as `1.1.0`, #226 must land before release prep updates `VERSION`, `CHANGELOG.md`, and the tag. Otherwise it ships in the next minor. Do not gate implementation on a `VERSION` value; the only version gate in code is the OpenCode major gate.
+7. **Architect review is required before implementation.** It must accept (a) V2-only for `--runtime opencode`, (b) the OpenCode major preflight, (c) the plugin directory + `exports` layout, (d) the `.agents` config paths, and (e) the shape-stale regeneration rule. If the architect rejects the `.agents` pointer approach, re-plan after #253.
+8. **Human validation is required before closure.** Unit and vitest checks cannot prove runtime discovery through symlink/junction pointers or plugin loading. Required: OpenCode `@opencode/cli@2.2.0` on one host (agents, commands, skills, all three plugins) and Kilo `7.8.x` on one host (V1 shape still loads).
+
+## Incoming work and impact
+
+All PR state verified 2026-10-27. Every open PR is `mergeable=true` with `mergeable_state=blocked` (branch protection), so none is guaranteed to land first.
+
+| PR | Issue | What it changes | Impact on #226 | Blocking? |
+|---|---|---|---|---|
+| **#253** | #227 | `.opencode/**` → `.agents/**`; flattens `base/opencode/**` → `base/**`; adds `layout.ts`, `pointers.ts`, migration, `.kilo` pointers; adds `skills` config; deletes `run.sh`/`check-integration`; adds vitest install helper | Invalidates every path and test assumption in the previous plan; supplies the layout declaration this plan extends; resolves Kilo routing | **Yes — dependency** (hard technical prerequisite) |
+| **#255** | #231 | Adds `reviewer` agent and config entries; changes `code.md`, `delivery`, `planner`, `research`, `troubleshooter`; adds `/deliver`, `/deliver-plan`, `delivery-policy`; adds `reviewer` and more denies to `agents.yml`; rewrites `plan` skill contract; claims ADR-0048 | Changes the agent set and permission fixtures; keeps `temperature: 0.1` in `code.md`; requires this plan to use a free ADR number | **Yes — dependency** (merge-order gate; technical severity soft) |
+| **#254** | #248 | Deletes `install/legacy/**`; rewrites `run.sh` to a TS-only smoke test; removes legacy-only tests; `VERSION` newline-only | Confirms `run.sh` is not a stable surface; no code overlap with #226 | **Yes — dependency** (merge-order gate; no code overlap) |
+| **#256** | #243 | Checksum verification in `install.sh` / `install.ps1` | None; release-installer security only | No |
+| **#257** | #234 | Plan closeout and `prclose` docs | None | No |
+| **#246** | #229 | Draft plan for installer convergence (`collectArtifactPlan`, content registry, drift policy) | No code yet. #226 should keep discovery/descriptor logic in `layout.ts` so the later convergence work does not have to undo it | No |
+| **#203** | #202 | `/help` command plus `metadata.workflow` on commands/skills; branch is currently `dirty` | Adds content files only; no runtime shape change | No |
+
+**Issue-dependency decision (2026-10-27):** #226 is blocked by **#227, #231, and #248**, the issues implemented by PRs #253, #255, and #254. GitHub still records only #247, which is closed; the `status:blocked` label is therefore stale in content but correct in intent. The planner cannot mutate work items. A maintainer should replace the #247 dependency with these three and keep the label until all three close. GitHub UI: Issue #226 → Relationships → Blocked by → add #227, #231, #248. GraphQL alternative: three `addBlockedBy` mutations with `issueId` = #226 and `blockingIssueId` = each of the three issue node IDs.
+
+## Verified context (2026-10-27)
 
 Upstream:
 
-- OpenCode V2 exists and ships as `@opencode/cli@2.1.3`; V1 still ships as `opencode-ai@1.19.4`. Plugin APIs are `@opencode/plugin@2.1.3` (V2) and `@opencode-ai/plugin@1.19.4` (V1). Kilo Code plugin package is `@kilocode/plugin@7.8.15`.
-- Kilo CLI 1.0 (`@kilocode/cli@7.8.15`) is a fork of the **OpenCode 1.x line**. Its docs specify V1 artifacts: `kilo.jsonc`, `permission` maps, `plugin` arrays, `@kilocode/plugin`, and a plugin module shaped `export default { id, server }` with `tool()` + zod. V2 `Plugin.define({ id, setup })` does not run there.
-- Kilo CLI 1.0 does **not** read project `.opencode/` directories. Project agents live in `.kilo/agents/`, skills in `.kilo/skills/`, plugins in `.kilo/plugin/`, and tools in `.kilo/tool/`; config is `kilo.json[c]` or `.kilo/` (`https://kilo.ai/docs/code-with-ai/platforms/cli`, `https://kilo.ai/docs/automate/extending/plugins`, `https://kilo.ai/docs/customize/marketplace`, `https://kilo.ai/docs/customize/custom-subagents`). Root `opencode.json[c]` remains a legacy config-file fallback, but `.opencode/` directories are not scanned.
-- History: `.opencode` directory support was removed by PR #11638 (commit `ef9b1dc`, merged 2026-06-29, first released in v7.3.63 on 2026-06-30). Kilo 7.3.8, still installed on this workstation, does read `.opencode/agents` (verified with `kilo agent list`). Current main scans only `.kilocode` and `.kilo` (`packages/opencode/src/config/paths.ts`).
-- Separate, still-open bug: legacy `opencode.json`/`opencode.jsonc` **override** `kilo.jsonc` at global, project-root, and `.kilo/` scopes. Merge is last-wins because `packages/opencode/src/config/config.ts` loads names in the order `["kilo", "opencode"]` (and the config-dir loop uses `ALL_CONFIG_FILES` in the same order). Kilo issue #14294 is open and was confirmed on main on 2026-09-25; #12278 was closed by the inactivity bot without a fix. A leftover `opencode.jsonc` therefore makes `kilo.jsonc` appear ignored. Removing `.opencode/` directories did **not** remove these files (bot confirmation in #12278).
-- `https://app.kilo.ai/config.json` is a hybrid schema that exposes both singular (V1) and plural (V2) keys, so editor/schema acceptance is **not** evidence of runtime support. Kilo's documented runtime and plugin API remain V1. Kilo tracks its V2 port separately (issues tagged `v2-port`, P0 V2).
-- V2 docs: <https://opencode.ai/v2/docs/>. Relevant pages: `config`, `agents`, `commands`, `skills`, `permissions`, `build/plugins/migrate-v1`.
-- V2 native config renames: `agent` → `agents`, `provider` → `providers`, `plugin` → `plugins`, `permission` → `permissions` (ordered rule list). `skills` becomes a discovery-source array; `.opencode/skills/**` auto-discovery is unchanged.
-- V2 permission rules are `{ action, resource, effect }`, last match wins. `bash` becomes `shell`; `task` becomes `subagent`.
-- V2 agents reject legacy frontmatter fields including `temperature`, `top_p`, `permission`, `tools`, `disable`, `maxSteps`. `mode: primary|subagent|all` remains valid.
-- V2 plugin implementations do not run in V1 shape: a V2 plugin default-exports `Plugin.define({ id, setup(ctx) })`; V1 exports `server()`. Local plugins are discovered from `.opencode/plugins/`, and the config entry for a local path is an object `{ "package": "..." }`.
-- V2 reads V1 config by translating it in memory, but V1 cannot read native V2 keys. This is why the runtime shape must be explicit.
+- OpenCode V2 ships as `@opencode/cli@2.2.0` (latest at verification); the V1 line ships as `opencode-ai@1.19.4`. The V2 plugin SDK is `@opencode/plugin@2.2.0`. The local workstation still has `opencode --version` = `1.19.2`, so local installs must set `WAYFORGE_OPENCODE_VERSION` or install the V2 CLI.
+- V2 docs: <https://opencode.ai/v2/docs/>. Relevant pages: `config`, `agents`, `commands`, `skills`, `permissions`, `plugins`, `build/plugins`, `build/plugins/migrate-v1`.
+- V2 native top-level keys: `agents`, `providers`, `plugins`, `permissions`, `commands`, `skills`. The V2 schema still accepts the V1 singular keys as deprecated aliases, so **schema acceptance alone cannot prove the native shape**. Tests must assert key presence/absence explicitly.
+- V2 `enabled_providers` and `small_model` remain accepted but are marked `deprecated: true` in the live schema. They are used today; removing/replacing them is out of scope.
+- V2 permission rules are `{ action, resource, effect }`, last match wins. `bash` becomes `shell`; `task` becomes `subagent`; `permission` becomes `permissions`.
+- V2 agent frontmatter rejects `temperature`, `top_p`, `prompt`, `permission`, `tools`, `disable`, and `maxSteps`. `mode: primary|subagent|all` remains valid; `steps` replaces `maxSteps`.
+- V2 plugin implementations do not run in the V1 shape. A V2 plugin default-exports `Plugin.define({ id, setup(ctx) })`; V1 exports `server()`.
+- **V2 local plugin entries must name directories.** A configured local path that names a single file is skipped. A local plugin directory with `package.json` `name` + `exports` loads through `exports`; without those, V2 falls back to root files named `server` (else `index`) with `.ts`/`.tsx`/`.js`.
+- V2 auto-discovers direct files and immediate package directories under `.opencode/plugins/`. It does **not** auto-discover `.agents/plugins/`. Therefore every shipped plugin must be listed in the V2 `plugins` array when the artifact tree is `.agents/`.
+- V2 discovers project skills from `.opencode/skills` and from compatibility paths `.claude/skills` and `.agents/skills`. Agents and commands are discovered only from `.opencode/agents` and `.opencode/commands` (plus legacy singular dirs), so the `.opencode` directory pointers from #253 are required for V2 as well as V1.
+- V2 reads V1 config by translating it in memory, but V1 cannot read native V2 keys. A stale V1-shaped `opencode.jsonc` can therefore appear to work while still pointing at a V1 plugin entry; the installer must regenerate it.
+- The live V2 schema is `https://opencode.ai/config.json` (66 KB at verification). Its only external `$ref` is `https://models.dev/model-schema.json#/$defs/Model` on `small_model` (382 KB). The test fixture will replace that one ref with `{"type": "string"}` and document the transform.
 
-Repository facts:
+Repository facts expected after #253 lands:
 
-- Runtime is a hardcoded two-value union: `Runtime = 'opencode' | 'kilocode'` (`cli/src/types.ts:4`).
-- Schema URL and config filename are chosen in `cli/src/lib/config-gen.ts:178-181` and `:226`.
-- Generated config hardcodes singular keys and a V1 plugin entry: `"agent"`, `"provider"`, `"plugin": ["./.opencode/plugins/ponytail/ponytail.mjs"]`, `"permission": {...}` (`cli/src/lib/config-gen.ts:199-216`).
-- Agent fragments all start with `"agent": {` (`base/opencode/config/agents/*.jsonc:1`).
-- Permissions are rendered from `base/opencode/permissions/agents.yml` into `permission:` YAML maps by `cli/src/lib/permissions.ts:49` and `:170-174`.
-- `base/opencode/agents/code.md:4` declares `temperature: 0.1`, a legacy V2 field.
-- Shipped plugins: `ponytail` (64 lines), `session-tracker` (244), `token-counter` (118). All use the V1 `server()` entrypoint; two use `@opencode-ai/plugin/tool` and zod-style `tool.schema` arguments.
-- `cli/tests/unit/config-gen.test.ts` and `cli/tests/unit/permissions.test.ts` assert the current V1 shape and must be split into V1 (kilocode) and V2 (opencode) expectations.
-- `cli/tests/integration/run.sh` compares TS output against the deprecated legacy bash installer. The legacy installer cannot emit V2 shape, so the opencode comparison must be replaced with V2 assertions.
-- No JSON-schema validator is currently a dependency (`cli/package.json`).
-- On this workstation `opencode --version` reports `1.19.2`, so the new gate will (correctly) block local installs until OpenCode 2 is installed or `WAYFORGE_OPENCODE_VERSION` is set.
+- `cli/src/lib/layout.ts` declares `ARTIFACT_ROOT = '.agents'`, `LEGACY_ARTIFACT_ROOT = '.opencode'`, `CONTENT_CATEGORIES`, `RUNTIME_POINTER_DIRS`, `CONFIG_FILES`, `RUNTIMES`, `PLUGIN_ENTRY`, `SKILLS_CONFIG_PATH`, `sourceDirFor`, `destRelFor`, `pointerPathsFor`, and `configFileFor`.
+- `cli/src/commands/install.ts` gates on Node, then resolves the source, validates providers/models, builds `GenerateOptions`, calls `initManagedManifest`, and later `syncGeneratedOpenCodeJsonc`, `syncAgentsTreeWithPermissions`, category synchronization, and `ensureRuntimePointers`.
+- `cli/src/lib/config-gen.ts` still emits singular `"agent"`, `"provider"`, `"plugin"`, `"permission"` and now emits `"skills": ["./.agents/skills"]`.
+- `cli/src/lib/permissions.ts` renders only the V1 `permission:` map. `install.ts` calls it for both runtimes.
+- `base/agents/code.md` still declares `temperature: 0.1` (also true in open PR #255).
+- `base/plugins/ponytail/package.json`, `session-tracker/package.json`, and `token-counter/package.json` declare only `main` and the V1 peer `@opencode-ai/plugin`.
+- `cli/package.json` has no `ajv`. Generated config is strict JSON after the single header comment, so tests can strip the header and use `JSON.parse`; `jsonc-parser` is not required.
+- #253 replaces the integration script with `cli/tests/helpers/install.ts` + `cli/tests/integration/install-layout.test.ts`; `Makefile` no longer has `check-integration`.
+- ADR numbers: ADR-0046 is added by #253, ADR-0047 exists, and ADR-0048 is claimed by open PR #255. Use **ADR-0049** for this plan (or ADR-0048 only if #255 is abandoned before implementation).
+- `VERSION` is `1.0.2` everywhere; no branch or PR targets `1.1.0`. GitHub records #226 `blockedBy` #247 (closed).
 
 ## Resolved decisions
 
-1. **V2-only for `--runtime opencode`.** The runtime emits native V2 artifacts. If the installed `opencode` major is `< 2`, install fails before any mutation with an actionable message. V1 config translation is not used as a compatibility path.
-2. **Kilo Code stays V1-shaped.** `--runtime kilocode` keeps `agent`/`provider`/`plugin`/`permission`, the Kilo schema URL, and the V1 plugin entry. No version gate for kilocode. This is necessary but not sufficient: Kilo CLI 1.0 reads `.kilo/**`, while the current installer writes `.opencode/**` for both runtimes. Kilo load verification is blocked on a path-routing fix; see the risk section and the open scope decision.
-3. **Version detection.** Read `WAYFORGE_OPENCODE_VERSION` when set; otherwise run `opencode --version`. Missing or unparsable output logs a warning and assumes V2. Parsed major `< 2` fails. The env override is documented as the offline/CI escape hatch.
+1. **V2-only for `--runtime opencode`.** Native V2 artifacts. If the installed `opencode` major is `< 2`, install fails before mutation with an actionable message. V1 config translation is not a compatibility path.
+2. **Kilo Code stays V1-shaped.** `--runtime kilocode` keeps `agent`/`provider`/`plugin`/`permission`, the Kilo schema URL, and the `.kilo` pointers supplied by #253. No OpenCode version gate for kilocode.
+3. **Version detection.** Read `WAYFORGE_OPENCODE_VERSION` when set; otherwise run `opencode --version`. Missing or unparsable output logs a warning and assumes V2. Parsed major `< 2` fails. The env override is the offline/CI escape hatch. A leading `v` is accepted.
 4. **JSONC stays the output format.** The managed header remains. Schema validation is a test-time concern using a vendored V2 schema snapshot, not a runtime fetch.
-5. **One plugin implementation core, two thin entrypoints per plugin.** Keep `ponytail.mjs`, `session-tracker/index.js`, and `token-counter/index.js` as V1 entrypoints; add `*.v2.*` entrypoints that import `@opencode/plugin` and reuse the existing pure helpers. The descriptor selects the entrypoint written into config.
-6. **Permissions are translated, not duplicated.** Extend the existing YAML reader to emit an ordered V2 rule list for `opencode`, preserving YAML order and mapping `bash → shell`, `task → subagent`.
-7. **Legacy `temperature` is removed.** `code.md` drops `temperature: 0.1`; V2 has no supported equivalent. Kilo Code loses that setting, which is acceptable and must be noted in the ADR.
-8. **Commands and skills need no shape change.** Command frontmatter uses `description`/`agent`, which V2 keeps. No `subtask` usage exists. Skills are auto-discovered and their frontmatter is already V2-compatible.
-9. **No new runtime id.** The product surface remains `--runtime opencode|kilocode`; V2 is the meaning of `opencode` from this release onward.
+5. **One plugin package, two entrypoints.** Keep the V1 entrypoints and add V2 entrypoints that import `@opencode/plugin` and reuse the existing pure helpers. `package.json` keeps `main` for V1 and adds `exports["."]` for V2.
+6. **All three plugins are explicit in both runtime configs.** The #253 layout no longer places plugins under a runtime-discovered `.opencode/plugins/` directory. The config must list `ponytail`, `session-tracker`, and `token-counter` explicitly for both `opencode` and `kilocode`. This also restores Kilo loading for the two plugins that previously relied on auto-discovery.
+7. **Permissions are translated, not duplicated.** Extend the existing YAML reader to emit an ordered V2 rule list for `opencode`, preserving YAML order and mapping `bash → shell`, `task → subagent`. Kilo keeps the V1 map.
+8. **Legacy `temperature` is removed.** `base/agents/code.md` drops `temperature: 0.1`; V2 has no supported equivalent. Kilo loses that setting.
+9. **Commands and skills need no shape change.** Command frontmatter uses `description`/`agent`, which V2 keeps. No `subtask` usage exists. Skills are discovered from `.agents/skills`; V2 accepts the existing `name`/`description`/`compatibility`/`metadata` fields.
+10. **No new runtime id.** The product surface remains `--runtime opencode|kilocode`; V2 is the meaning of `opencode` from this release onward.
+11. **Stale config regeneration is part of the change.** A managed `opencode.jsonc` written by the previous wayforge release (V1 shape, `.agents` paths) must be regenerated on upgrade even without `--force`, because it names a V1 plugin file and singular keys. `isLayoutStaleConfig` from #253 is extended into a runtime-aware `isRuntimeConfigStale(runtime, file)`.
 
 ## Out of scope
 
 - Migrating consuming repositories' already-committed configs in place.
 - Supporting OpenCode 1.x under `--runtime opencode`.
-- Pi runtime (#204/#205) and any new agents, skills, commands, or workflow features.
-- Provider/model semantics beyond the `provider` → `providers` rename.
-- Changing the legacy bash/PowerShell installers to emit V2 artifacts.
+- Pi runtime (#204/#205) and any new agents, skills, commands, or workflow features unrelated to #226.
+- Removing or replacing the deprecated `enabled_providers` / `small_model` keys.
+- Reopening the `.kilo/**` routing work owned by #227.
+- Changing the legacy release installers (`install/install.sh`, `install/install.ps1`).
+- Resurrecting `cli/tests/integration/run.sh`.
 
 ## Tasks
 
-### Task 1: Add runtime descriptors and the OpenCode V2 version gate
+> Paths below assume PR #253 has merged (`base/**`, `.agents/**`, `layout.ts`, vitest helper). If #253 is not merged, stop and re-plan.
 
-**Objective:** Centralize runtime-specific artifact decisions in one descriptor and reject unsupported OpenCode versions before install mutates the repo.
+### Task 1: Extend the layout declaration with runtime shapes and add the OpenCode V2 preflight
+
+**Objective:** Centralize runtime-specific artifact decisions in `layout.ts` and reject unsupported OpenCode versions before install mutates the repo.
 
 **Files:**
-- Create: `cli/src/lib/runtimes.ts`
-- Modify: `cli/src/commands/install.ts:100-115` (gate after provider/model validation)
-- Modify: `cli/src/index.ts:39-40` (help text: opencode = V2)
-- Modify: `cli/src/types.ts` if a shape type is exported
-- Create: `cli/tests/unit/runtimes.test.ts`
-- Validate: `npx vitest run cli/tests/unit/runtimes.test.ts`
+- Modify: `cli/src/lib/layout.ts` (add `RuntimeShape`, `RUNTIME_SHAPES`, `schemaUrlFor`, `pluginEntriesFor`, `minimumOpenCodeMajor`)
+- Create: `cli/src/lib/runtime-version.ts`
+- Modify: `cli/src/commands/install.ts` (gate after provider/model validation, before `initManagedManifest`)
+- Modify: `cli/src/index.ts` (help text: opencode = OpenCode 2.x; kilocode = Kilo Code 1.x-compatible)
+- Create: `cli/tests/unit/runtime-version.test.ts`
+- Validate: `npx vitest run cli/tests/unit/runtime-version.test.ts`
 
 **Step 1: Establish expected behaviour**
 
-Define descriptors with these observable values:
+Descriptor values:
 
 | Field | `opencode` | `kilocode` |
 |---|---|---|
@@ -96,78 +138,98 @@ Define descriptors with these observable values:
 | `keys.providers` | `providers` | `provider` |
 | `keys.plugins` | `plugins` | `plugin` |
 | `keys.permissions` | `permissions` | `permission` |
-| `pluginEntry(path)` | `{ "package": path }` | `path` |
+| `pluginEntries` | `./.agents/plugins/{ponytail,session-tracker,token-counter}` (directories) | `./.agents/plugins/ponytail/ponytail.mjs`, `./.agents/plugins/session-tracker/index.js`, `./.agents/plugins/token-counter/index.js` (files) |
 | `minimumOpenCodeMajor` | `2` | `undefined` |
 
 Version gate behaviour:
 
-- `WAYFORGE_OPENCODE_VERSION=2.1.3` → pass.
-- Detected `2.1.3` → pass.
-- Detected `1.19.4` → exit 1 with a message naming `@opencode/cli` and the detected version.
-- Detected `v1.19.2` (leading `v`) → parse as 1 and fail.
-- Command missing → warn and continue assuming V2.
+- `WAYFORGE_OPENCODE_VERSION=2.2.0` → pass.
+- Detected `2.2.0` → pass.
+- Detected `1.19.4` → exit 1 with a message naming `@opencode/cli`, the detected version, and `WAYFORGE_OPENCODE_VERSION`.
+- Detected `v1.19.2` → parse as 1 and fail.
+- Command missing or output unparsable → warn and continue assuming V2.
 - `--runtime kilocode` → never detects or fails.
+- Dry-run runs the same gate and reports the same incompatibility.
 
 **Step 2: Add or update validation**
 
-Create `cli/tests/unit/runtimes.test.ts` covering each row above. Inject the version runner rather than spawning a real binary. Keep assertions on the exact failure text fragments (`OpenCode 2`, `@opencode/cli`, detected version) so the message stays actionable. Validation owner: `agent`.
+Create `cli/tests/unit/runtime-version.test.ts` covering every row above. Inject the version runner instead of spawning a real binary. Assert exact failure-text fragments (`OpenCode 2`, `@opencode/cli`, detected version, `WAYFORGE_OPENCODE_VERSION`). Validation owner: `agent`.
 
 **Step 3: Write minimal implementation**
 
-Create `cli/src/lib/runtimes.ts` exporting `RuntimeDescriptor`, `RUNTIMES`, `parseMajor`, and `assertRuntimeSupported(runtime, opts?)`. Reuse the `execFileSync` runner pattern from `cli/src/lib/prereq.ts:13-18`. Call the gate from `doInstall` after `validateModelOverride` and before `initManagedManifest`. Do not run detection in dry-run? Run it: a dry-run should report the same incompatibility. Keep the gate side-effect free.
+Add the shape data to `layout.ts` and export `RUNTIME_SHAPES`; do not create a second `RUNTIMES`/`CONFIG_FILES` table. Create `runtime-version.ts` exporting `parseRuntimeMajor`, `detectOpenCodeVersion`, and `assertRuntimeSupported(runtime, opts?)`, reusing the `execFileSync` runner pattern from `cli/src/lib/prereq.ts`. Call the gate in `doInstall` after `validateModelOverride` calls and before `initManagedManifest`. Keep the gate side-effect free. Do not run detection for kilocode.
 
 **Step 4: Run test to verify pass**
 
-Run: `npx vitest run cli/tests/unit/runtimes.test.ts` and `npm run typecheck`
+Run: `npx vitest run cli/tests/unit/runtime-version.test.ts` and `npm run typecheck`
 Expected: all new tests pass; typecheck clean.
 
 **Step 5: Commit**
 
-`git add cli/src/lib/runtimes.ts cli/src/commands/install.ts cli/src/index.ts cli/src/types.ts cli/tests/unit/runtimes.test.ts`
-`git commit -m "feat(cli): add runtime descriptors and OpenCode v2 version gate"`
+`git add cli/src/lib/layout.ts cli/src/lib/runtime-version.ts cli/src/commands/install.ts cli/src/index.ts cli/tests/unit/runtime-version.test.ts`
+`git commit -m "feat(cli): add runtime shapes and OpenCode v2 preflight"`
 
 ### Task 2: Generate native OpenCode V2 config and keep Kilo V1 output
 
-**Objective:** Make `generateOpenCodeJsonc` emit V2-native keys and plugin entries for `opencode`, while producing byte-compatible V1 output for `kilocode`.
+**Objective:** Make config generation emit V2-native keys, directory plugin entries, and V2 permission rules for `opencode`, while producing the expected V1 output for `kilocode`.
 
 **Files:**
-- Modify: `cli/src/lib/config-gen.ts` (`generateOpenCodeJsonc`, `buildAgentBlockJson`, `buildProviderBlockJson` wrapper handling, `syncGeneratedOpenCodeJsonc`)
-- Modify: `cli/package.json` (add `ajv` and `jsonc-parser` to `devDependencies`)
-- Create: `cli/tests/fixtures/opencode-v2-config.schema.json` (vendored from <https://opencode.ai/config.json>, 2026-10-22)
-- Create: `cli/tests/fixtures/README.md` (schema source, date, refresh procedure)
+- Modify: `cli/src/lib/config-gen.ts` (`generateOpenCodeJsonc`, `buildAgentBlockJson`, `syncGeneratedOpenCodeJsonc`, `isLayoutStaleConfig` → `isRuntimeConfigStale`)
+- Modify: `cli/package.json` (add `ajv` to `devDependencies`)
+- Create: `cli/tests/fixtures/opencode-v2-config.schema.json` (vendored from <https://opencode.ai/config.json>, 2026-10-27)
+- Create: `cli/tests/fixtures/README.md` (schema source, date, the one `$ref` transform, refresh procedure)
 - Modify: `cli/tests/unit/config-gen.test.ts`
 - Validate: `npx vitest run cli/tests/unit/config-gen.test.ts`
 
 **Step 1: Establish expected behaviour**
 
-For `opencode`, the generated file must contain only native V2 keys:
+For `opencode`, the generated file contains only native V2 keys:
 
 - `"agents"`, `"providers"`, `"plugins"`, `"permissions"`.
-- `"plugins": [{ "package": "./.opencode/plugins/ponytail/ponytail.v2.mjs" }]`.
+- `"plugins": ["./.agents/plugins/ponytail", "./.agents/plugins/session-tracker", "./.agents/plugins/token-counter"]`.
 - `"permissions": [{ "action": "skill", "resource": "*", "effect": "allow" }]`.
+- `"skills": ["./.agents/skills"]`.
 - No `"agent"`, `"provider"`, `"plugin"`, or top-level `"permission"`.
 - `enabled_providers`, `model`, `small_model`, `default_agent`, and `share` stay unchanged.
 
-For `kilocode`, output stays byte-identical to today (singular keys, string plugin path).
+For `kilocode`, output keeps singular keys, the Kilo schema, `"skills": ["./.agents/skills"]`, and a file-based plugin list with all three plugins:
+
+```jsonc
+"plugin": [
+  "./.agents/plugins/ponytail/ponytail.mjs",
+  "./.agents/plugins/session-tracker/index.js",
+  "./.agents/plugins/token-counter/index.js"
+]
+```
+
+Upgrade rule:
+
+- `isRuntimeConfigStale('opencode', file)` returns true for a managed config that contains `.opencode/`, lacks `"skills"`, lacks any of `"agents"`/`"providers"`/`"plugins"`/`"permissions"`, or contains `"agent"`/`"provider"`/`"plugin"`/`"permission"`.
+- `isRuntimeConfigStale('kilocode', file)` keeps the #253 layout checks only.
+- A stale managed config is regenerated even without `--force`; an unmanaged existing file is still preserved according to the existing skip policy.
 
 **Step 2: Add or update validation**
 
-In `config-gen.test.ts`, parse the generated JSONC with `jsonc-parser` and:
+In `config-gen.test.ts`:
 
-- Validate every `opencode` sample (free-tier, openai, github-copilot, openai+github-copilot, opencode-go, model overrides) against the vendored schema with `ajv` (draft 2020-12).
+- Parse the generated config by stripping the first header line and calling `JSON.parse` (no `jsonc-parser` dependency).
+- Validate every `opencode` sample (free-tier, openai, github-copilot, openai+github-copilot, opencode-go, laberit, openai+github-copilot+laberit+opencode-go, model overrides) against the vendored schema with `ajv/dist/2020`.
 - Assert the native key presence/absence matrix above.
-- Keep the existing kilocode assertions and add a snapshot-style equality check so V1 output does not drift.
+- Assert the plugin entry is a directory for `opencode` and a file list for `kilocode`.
+- Assert `isRuntimeConfigStale` regenerates a V1-shaped `opencode.jsonc` and leaves a kilocode config alone.
+- Keep the existing `{env:}`/`{file:}` absence assertion for both runtimes.
+- Add a snapshot-style equality check for the kilocode V1 shape so it does not drift.
 
-Parsing JSONC instead of substring assertions prevents false positives on comments and fragment indentation. Validation owner: `agent`.
+The vendored schema is derived from the live schema with one documented change: the external `small_model` `$ref` to `https://models.dev/model-schema.json#/$defs/Model` is replaced by `{"type": "string"}` to keep validation offline. Do not silently drop other constraints. Validation owner: `agent`.
 
 **Step 3: Write minimal implementation**
 
-Drive the wrapper keys and schema URL from the descriptor. Keep the six agent fragments unchanged; add a small `rewriteTopLevelKey(fragment, from, to)` helper that replaces only the leading key token (`"agent"` → `"agents"`). Build the plugin section from `descriptor.pluginEntry`. Generate the top-level permission section per shape. Do not change provider/model resolution logic.
+Drive schema URL, wrapper keys, plugin entries, and the permission section from `RUNTIME_SHAPES`. Keep the seven agent fragments unchanged; add a small `rewriteTopLevelKey(fragment, from, to)` helper that replaces only the leading key token (`"agent"` → `"agents"`) for the opencode runtime. Build the plugin section from `pluginEntriesFor(runtime)`. Do not change provider/model resolution logic. Extend `isLayoutStaleConfig` without breaking the #253 migration tests.
 
 **Step 4: Run test to verify pass**
 
 Run: `npx vitest run cli/tests/unit/config-gen.test.ts` and `npm run typecheck`
-Expected: V2 samples validate against the schema; kilocode output unchanged; all tests pass.
+Expected: V2 samples validate against the schema and the key matrix; kilocode output matches the V1 snapshot; all tests pass.
 
 **Step 5: Commit**
 
@@ -181,13 +243,13 @@ Expected: V2 samples validate against the schema; kilocode output unchanged; all
 **Files:**
 - Modify: `cli/src/lib/permissions.ts` (`renderAgentPermissionBlock`, `renderAgentWithCentralPermissions`, `syncAgentsTreeWithPermissions`)
 - Modify: `cli/src/commands/install.ts` (`syncAgentsTreeWithPermissions` and `injectPermissions` call sites)
-- Modify: `base/opencode/agents/code.md` (remove `temperature: 0.1`)
+- Modify: `base/agents/code.md` (remove `temperature: 0.1`)
 - Modify: `cli/tests/unit/permissions.test.ts`
 - Validate: `npx vitest run cli/tests/unit/permissions.test.ts`
 
 **Step 1: Establish expected behaviour**
 
-For `opencode`, each agent frontmatter gets:
+For `opencode`, each agent frontmatter gets an ordered list, for example:
 
 ```yaml
 permissions:
@@ -197,87 +259,122 @@ permissions:
   - action: edit
     resource: "*"
     effect: ask
+  - action: question
+    resource: "*"
+    effect: allow
   - action: shell
     resource: "*"
     effect: allow
   - action: shell
     resource: "sudo*"
     effect: deny
+  - action: external_directory
+    resource: "*"
+    effect: deny
+  - action: external_directory
+    resource: "/tmp/**"
+    effect: allow
+  - action: subagent
+    resource: "*"
+    effect: deny
+  - action: subagent
+    resource: research
+    effect: allow
 ```
 
-Rules must preserve `agents.yml` order (catch-all before deny-list; `external_directory` `*` deny before `/tmp/**` allow). `bash` maps to `shell`; `task` maps to `subagent`. `question: allow` becomes a `question` rule. For `kilocode`, keep the existing `permission:` map.
+Rules must preserve `agents.yml` order (catch-all before deny-list; `external_directory` `*` deny before `/tmp/**` allow). Mapping:
+
+| YAML | V2 action |
+|---|---|
+| `read` / `edit` / `question` | same |
+| `bash` | `shell` |
+| `external_directory` | same |
+| `task` | `subagent` |
+
+Scalar permissions (`edit: ask`, `task: deny`) become one rule with `resource: "*"`. For `kilocode`, keep the existing `permission:` map. The renderer must cover every agent in `agents.yml`, including `reviewer` when #255 lands, without hardcoded agent names.
 
 **Step 2: Add or update validation**
 
 Extend `permissions.test.ts`:
 
-- V2: block starts with `permissions:`, contains ordered `- action:` entries, no `bash:`/`task:`/`permission:` keys.
-- V2: `external_directory` ordering preserves the `/tmp/**` allow.
+- V2: block starts with `permissions:`, contains ordered `- action:` entries, and no `bash:`/`task:`/`permission:` keys.
 - V2: every agent in `agents.yml` renders at least one rule.
-- V1: all existing assertions remain under a `kilocode` describe block.
+- V2: `external_directory` ordering preserves the `/tmp/**` allow.
+- V2: each V1 action name maps to the expected V2 action.
+- V1: all existing `permission:` map assertions remain under a `kilocode` describe block.
 - Frontmatter replacement strips both an old `permission:` map and an old `permissions:` list before inserting the new block.
+- `code.md` contains no `temperature:` field.
 
 Validation owner: `agent`.
 
 **Step 3: Write minimal implementation**
 
-Keep the flat-YAML reader and add a shape parameter. Introduce `renderAgentPermissionRules(agentName, permissionsFile)` returning `{ action, resource, effect }[]`, then serialize either YAML map (V1) or YAML list (V2). Thread the descriptor from `GenerateOptions`/install into the sync and inject paths. Remove `temperature` from `code.md`.
+Keep the flat-YAML reader and add a runtime-shape parameter. Introduce `renderAgentPermissionRules(agentName, permissionsFile)` returning `{ action, resource, effect }[]`, then serialize either the YAML map (V1) or the YAML list (V2). Thread the descriptor from `GenerateOptions`/install into the sync and inject paths. Remove `temperature` from `base/agents/code.md`.
 
 **Step 4: Run test to verify pass**
 
 Run: `npx vitest run cli/tests/unit/permissions.test.ts` and `npm run typecheck`
-Expected: V2 rule ordering matches the YAML source; V1 output unchanged; tests pass.
+Expected: V2 rule ordering matches the YAML source; V1 output unchanged; all tests pass.
 
 **Step 5: Commit**
 
-`git add cli/src/lib/permissions.ts cli/src/commands/install.ts base/opencode/agents/code.md cli/tests/unit/permissions.test.ts`
+`git add cli/src/lib/permissions.ts cli/src/commands/install.ts base/agents/code.md cli/tests/unit/permissions.test.ts`
 `git commit -m "feat(cli): render OpenCode v2 agent permissions"`
 
 ### Task 4: Add V2 entrypoints for the shipped plugins
 
-**Objective:** Make ponytail, session-tracker, and token-counter load and behave under the V2 plugin API, without breaking their V1 entrypoints for Kilo Code.
+**Objective:** Make ponytail, session-tracker, and token-counter load and behave under the V2 plugin API without breaking their V1 entrypoints for Kilo Code.
 
 **Files:**
-- Create: `base/opencode/plugins/ponytail/ponytail.v2.mjs`
-- Create: `base/opencode/plugins/session-tracker/index.v2.js`
-- Create: `base/opencode/plugins/token-counter/index.v2.js`
-- Modify: `base/opencode/plugins/ponytail/package.json`
-- Modify: `base/opencode/plugins/session-tracker/package.json`
-- Modify: `base/opencode/plugins/token-counter/package.json`
+- Create: `base/plugins/ponytail/ponytail.v2.mjs`
+- Create: `base/plugins/session-tracker/index.v2.js`
+- Create: `base/plugins/token-counter/index.v2.js`
+- Modify: `base/plugins/ponytail/package.json`
+- Modify: `base/plugins/session-tracker/package.json`
+- Modify: `base/plugins/token-counter/package.json`
 - Create: `cli/tests/unit/plugin-entries.test.ts`
 - Validate: `npx vitest run cli/tests/unit/plugin-entries.test.ts`
 
 **Step 1: Establish expected behaviour**
 
-Document the V1 → V2 mapping used by the port:
+V1 → V2 mapping used by the port:
 
 | Plugin | V1 | V2 |
 |---|---|---|
 | ponytail | `experimental.chat.system.transform` | `ctx.session.hook("context", e => e.system.push({ type: "text", text }))` |
-| ponytail | `command.execute.before` for `/ponytail <mode>` | `ctx.session.hook("prompt", ...)` inspecting the prompt text, or `ctx.command.transform` if the command is registered by the plugin |
+| ponytail | `command.execute.before` for `/ponytail <mode>` | `ctx.session.hook("prompt", ...)` inspecting prompt text, or a command transform if the command is registered by the plugin |
 | session-tracker | `tool` map + `tool.schema` | `ctx.tool.transform(editor => editor.add({ input: <JSON Schema>, execute }))` |
 | session-tracker | `chat.params` | `ctx.session.hook("context", ...)` to capture the active agent |
 | session-tracker | `tool.execute.after` | `ctx.tool.hook("execute.after", ...)` |
 | session-tracker | `command.execute.before` | `ctx.session.hook("prompt", ...)` |
-| session-tracker | `event` | `ctx.event.subscribe({ signal })` |
+| session-tracker | `event` | `ctx.event.subscribe({ signal })` with cleanup |
 | token-counter | `tool` map + zod args | `ctx.tool.transform` with a JSON Schema object |
+| token-counter | execute `ctx.directory` | captured `ctx.location.directory` in `setup` |
 | all | module `server()` export | default export `Plugin.define({ id, setup })` |
 
-Each V2 entrypoint must have a stable `id` (`wayforge.ponytail`, `wayforge.session-tracker`, `wayforge.token-counter`) and reuse existing helpers (`ponytail-config.js`, `ponytail-instructions.js`, `lib/render-table.js`, `gpt-tokenizer`). V1 entries must not import `@opencode/plugin`.
+Each V2 entrypoint has a stable ID (`wayforge.ponytail`, `wayforge.session-tracker`, `wayforge.token-counter`) and reuses the existing helpers (`ponytail-config.js`, `ponytail-instructions.js`, `lib/render-table.js`, `gpt-tokenizer`). V1 entries must not import `@opencode/plugin`.
+
+Package metadata:
+
+- Keep `main` for V1.
+- Add `exports: { ".": "./<v2-entry>" }` so V2 directory resolution is deterministic.
+- Declare both `@opencode-ai/plugin` and `@opencode/plugin` as peers; note that wayforge copies local plugins and does not install package dependencies.
 
 **Step 2: Add or update validation**
 
 Create `plugin-entries.test.ts` that:
 
-- Reads the generated V2 config and asserts every `plugins[].package` path exists in `base/opencode/**`.
+- Reads the generated V2 and V1 configs and asserts every plugin path exists under `base/plugins/**`.
+- Asserts the V2 entries are directories and the V1 entries are files.
 - Asserts each V2 entrypoint contains `Plugin.define` and a stable `id`.
-- Asserts each `package.json` declares both plugin APIs as optional peers and keeps the existing V1 `main`.
+- Asserts each `package.json` declares both plugin APIs as peers, keeps the existing V1 `main`, and adds `exports`.
+- Asserts no V1 entrypoint imports `@opencode/plugin`.
 
-Interactive plugin behaviour cannot be proven by unit tests. Validation owner for the smoke test: `human`. Exact procedure after Task 5: install into a temp repo with OpenCode 2, run `opencode`, confirm all three plugins appear in the plugin/status list, invoke `/ponytail full`, call `token_summary`, call `count_tokens` with a path, and verify counters increase after a tool call.
+Interactive plugin behaviour cannot be proven by unit tests. Validation owner for the smoke test: `human`. Exact procedure after Task 5: install into a temp repo with OpenCode 2.2.0, run `opencode`, confirm all three plugin IDs appear in the plugin/status list, invoke `/ponytail full`, call `token_summary`, call `count_tokens` with a path, and verify counters increase after a tool call. Repeat the Kilo check on 7.8.x to confirm the V1 entries still load.
 
 **Step 3: Write minimal implementation**
 
-Port ponytail first (smallest, prompt-only), then token-counter (one tool), then session-tracker (state + events). Convert `tool.schema` zod definitions to JSON Schema objects with `type`, `properties`, `required`, and `additionalProperties: false`. Keep the in-memory `Map` state; V2 plugin lifetime matches the process and `setup` runs once. Return cleanup functions only where the plugin owns resources (session-tracker event subscription).
+Port ponytail first (smallest, prompt-only), then token-counter (one tool), then session-tracker (state + events). Convert `tool.schema` zod definitions to JSON Schema objects with `type`, `properties`, `required`, and `additionalProperties: false`. Keep the in-memory `Map` state; V2 plugin lifetime matches the process and `setup` runs once. Return cleanup functions only where the plugin owns resources (session-tracker event subscription). Do not change V1 hook behavior.
 
 **Step 4: Run test to verify pass**
 
@@ -286,61 +383,73 @@ Expected: entrypoint/path assertions pass; no V1 entry imports the V2 package.
 
 **Step 5: Commit**
 
-`git add base/opencode/plugins cli/tests/unit/plugin-entries.test.ts`
+`git add base/plugins cli/tests/unit/plugin-entries.test.ts`
 `git commit -m "feat(plugins): add OpenCode v2 plugin entrypoints"`
 
-### Task 5: Wire the runtime shape through install/update and cover it with integration assertions
+### Task 5: Wire the runtime shape through install/update and cover it with vitest integration tests
 
-**Objective:** Make fresh installs and manifest refreshes use the descriptor end to end, and prove the V2 output with integration coverage.
+**Objective:** Make fresh installs, migrations, and refreshes use the descriptor end to end, and prove the V2 output with the post-#253 vitest harness.
 
 **Files:**
-- Modify: `cli/src/commands/install.ts` (`GenerateOptions`, agent/plugin sync, `injectPermissions`, update path)
+- Modify: `cli/src/commands/install.ts` (`GenerateOptions`, agent/plugin sync, `injectPermissions`, refresh path)
 - Modify: `cli/src/commands/interactive.ts` if it constructs `GenerateOptions`
-- Modify: `cli/tests/integration/run.sh`
-- Validate: `bash cli/tests/integration/run.sh` and `make check`
+- Modify: `cli/tests/helpers/install.ts` (V2 env override and descriptor-aware helpers)
+- Create: `cli/tests/integration/install-v2.test.ts`
+- Modify: `cli/tests/integration/install-layout.test.ts` (from #253) if V1 expectations change
+- Validate: `npx vitest run cli/tests/integration/install-v2.test.ts` and `make check`
 
 **Step 1: Establish expected behaviour**
 
-- A fresh `--runtime opencode` install with `WAYFORGE_OPENCODE_VERSION=2.1.3` writes a V2-valid `opencode.jsonc`, V2 agent frontmatter, and the V2 plugin path.
+- A fresh `--runtime opencode` install with `WAYFORGE_OPENCODE_VERSION=2.2.0` writes:
+  - a V2-valid `opencode.jsonc` with `.agents` paths,
+  - V2 agent frontmatter in `.agents/agents/*.md`,
+  - `.opencode/agents` and `.opencode/commands` pointers,
+  - all three plugin entries as directories.
 - A second identical install produces no changes (idempotent) and keeps the manifest stable.
-- `--runtime kilocode` output matches the pre-change V1 output. Loading it under Kilo CLI 1.0 requires the separate `.kilo/**` routing fix described in Risks; until that exists, only config-shape equality can be asserted.
-- `--runtime opencode` with a detected 1.x exits before writing `.wayforge-managed` or `.opencode/**`.
+- A refresh over a post-#227 V1-shaped `opencode.jsonc` regenerates it to V2 shape without `--force` because `isRuntimeConfigStale` returns true.
+- A refresh over a pre-#227 `.opencode` install still migrates to `.agents` and then writes V2 shape.
+- `--runtime opencode` with a detected or configured 1.x exits before writing `.wayforge-managed`, `.agents/**`, or pointers.
+- `--runtime kilocode` keeps the V1 config shape, writes `.kilo/agents` and `.kilo/commands` pointers (from #253), and lists all three V1 plugin entries.
+- `WAYFORGE_OPENCODE_VERSION` is the only mechanism used by tests; do not depend on the host binary being V2.
 
 **Step 2: Add or update validation**
 
-Update `run.sh`:
+Extend the #253 helper and add `install-v2.test.ts`:
 
-- Export `WAYFORGE_OPENCODE_VERSION=2.1.3` for the TS installs.
-- For the `opencode` runtime, replace the legacy-bash diff with assertions: the config parses, V2 keys exist, the schema fixture validates, agent frontmatter starts with `permissions:`, and the plugin path exists.
-- Keep the legacy comparison only for `kilocode`, where V1 shape is unchanged.
-- Add one negative test: a fake `opencode --version` returning `1.19.4` makes the TS install exit non-zero and leaves the temp repo without `.wayforge-managed`.
+- Use `doInstall(installOptions(...))` or the CLI in a temp repo, with `vi.stubEnv('WAYFORGE_OPENCODE_VERSION', '2.2.0')`.
+- Assert the V2 key matrix, schema validation, agent frontmatter, plugin paths, and pointer existence.
+- Assert idempotency by hashing the generated config and agent files across two installs.
+- Add the negative gate test: `WAYFORGE_OPENCODE_VERSION=1.19.4` makes the install exit non-zero and leaves the temp repo without `.wayforge-managed`.
+- Add the stale-V1-config upgrade test.
+- Keep the #253 migration and pointer tests green.
 
-Validation owner: `human` for the bash script (Windows host may lack bash); `agent` for `make check` and unit tests.
+Validation owner: `agent` for vitest and `make check`; `human` for the real OpenCode 2.2.0 and Kilo 7.8.x load checks.
 
 **Step 3: Write minimal implementation**
 
-Thread the descriptor through `genOpts`, `syncAgentsTreeWithPermissions`, and `injectPermissions`. Ensure the manifest records the V2 plugin entry files (the tree copy already covers `.opencode/plugins/**`). Keep `resolveSourceDir`, provider selection, and model resolution untouched. Do not change the dry-run/force semantics.
+Thread the descriptor through `genOpts`, `syncAgentsTreeWithPermissions`, and `injectPermissions`. Ensure the refresh path regenerates stale configs per runtime and keeps the existing `--force` semantics. Do not change pointer creation, provider selection, model resolution, or #253's migration helpers.
 
 **Step 4: Run test to verify pass**
 
+Run: `npx vitest run cli/tests/integration/install-v2.test.ts`
 Run: `make check`
-Expected: typecheck, lint, format, and duplication pass.
-Run (human): `bash cli/tests/integration/run.sh`
-Expected: all integration tests pass, including the V2 schema assertions and the V1 rejection case.
+Expected: typecheck, lint, format, duplication, and all vitest files pass.
 
 **Step 5: Commit**
 
-`git add cli/src/commands/install.ts cli/src/commands/interactive.ts cli/tests/integration/run.sh`
+`git add cli/src/commands/install.ts cli/src/commands/interactive.ts cli/tests/helpers/install.ts cli/tests/integration/install-v2.test.ts cli/tests/integration/install-layout.test.ts`
 `git commit -m "feat(cli): wire OpenCode v2 runtime shape through install"`
 
-### Task 6: Document the V2 compatibility matrix and the runtime decision
+### Task 6: Document the compatibility matrix, version gate, and runtime decision
 
-**Objective:** Record the supported runtime/version matrix and the migration decision so consumers and future maintainers do not rediscover it.
+**Objective:** Record the supported runtime/version matrix, the `.agents` layout interaction, and the migration decision so consumers and future maintainers do not rediscover it.
 
 **Files:**
-- Create: `docs/ai/decisions/ADR-0048-opencode-v2-runtime-shape.md`
-- Modify: `docs/ai/architecture.md:7-18` (runtime boundary and generated config description)
-- Modify: `README.md:37-59` (runtime requirement, provider key names, plugin entry description)
+- Create: `docs/ai/decisions/ADR-0049-opencode-v2-runtime-shape.md` (ADR-0048 is claimed by open PR #255)
+- Modify: `docs/ai/architecture.md` (runtime boundary, `.agents` layout, generated config description)
+- Modify: `docs/compatibility-matrix.md` (from #253: OpenCode column is V2 2.2.0; Kilo 7.8.x is V1; Pi unchanged)
+- Modify: `README.md` (runtime requirement, version gate, provider key names, plugin entry description)
+- Modify: `CHANGELOG.md` (add a bullet under the merged `[Unreleased]` section)
 - Modify: `docs/ai/logs/2026-10.md`
 - Validate: `make check`
 
@@ -349,19 +458,24 @@ Expected: all integration tests pass, including the V2 schema assertions and the
 The ADR must state:
 
 - `--runtime opencode` targets OpenCode 2.x and validates against the V2 schema.
-- `--runtime kilocode` remains on the V1 shape until Kilo Code ships its own V2.
-- OpenCode 1.x is unsupported for `opencode` and fails with a clear message; `WAYFORGE_OPENCODE_VERSION` exists for offline/CI installs.
-- Plugin entrypoints are shape-specific (`ponytail.v2.mjs` vs `ponytail.mjs`).
-- `temperature` was removed from `code.md` because V2 ignores it.
-- Schema snapshot refresh procedure: fetch <https://opencode.ai/config.json>, replace the fixture, rerun `config-gen` tests, and record the date.
+- `--runtime kilocode` remains on the V1 shape until Kilo Code ships its own V2 runtime/plugin API.
+- OpenCode 1.x is unsupported for `opencode` and fails before mutation; `WAYFORGE_OPENCODE_VERSION` is the offline/CI escape hatch.
+- The installed artifact root is `.agents/`; OpenCode reaches agents/commands through `.opencode` pointers, skills through `.agents/skills`, and plugins through explicit directory entries.
+- Plugin entrypoints are shape-specific (`ponytail.mjs` vs `ponytail.v2.mjs`, etc.).
+- All three plugins are explicit config entries; the old `.opencode/plugins/` auto-discovery assumption no longer holds.
+- `temperature` was removed from `code.md` because V2 ignores/rejects it.
+- Stale V1-shaped `opencode.jsonc` files are regenerated on upgrade.
+- Schema snapshot refresh procedure: fetch <https://opencode.ai/config.json>, replace the external `small_model` ref with `{"type":"string"}`, update the fixture date, rerun config-gen tests, record the date.
+- `enabled_providers` / `small_model` are deprecated in the V2 schema but retained; removing them is a separate decision.
+- Wayforge's own `VERSION` (`1.0.2` at planning time) is unrelated to the OpenCode runtime major; do not conflate them.
 
 **Step 2: Add or update validation**
 
-Cross-check every path and command mentioned in the docs against the repository. Confirm the ADR number does not collide with open PRs (PR #244 reserves ADR-0047). Validation owner: `agent` for path/link existence; `human` for final prose review. `make check` does not lint Markdown, so the human review is required.
+Cross-check every path and command mentioned in the docs against the repository. Confirm the ADR number does not collide with open PRs (#253 uses ADR-0046; #255 claims ADR-0048). Validation owner: `agent` for path/link existence; `human` for final prose review. `make check` does not lint Markdown.
 
 **Step 3: Write minimal implementation**
 
-Write the ADR and update the two docs with the matrix and the new plugin/config key names. Do not rewrite unrelated runtime prose. Add one log entry dated 2026-10-22.
+Write the ADR and update the docs with the matrix and the new plugin/config key names. Do not rewrite unrelated runtime prose. Add one log entry dated the implementation date. If #254/#255 have landed, append to their `[Unreleased]` section rather than creating a second heading.
 
 **Step 4: Run test to verify pass**
 
@@ -370,16 +484,18 @@ Expected: clean. Manually verify each file path quoted in the ADR exists.
 
 **Step 5: Commit**
 
-`git add docs/ai/decisions/ADR-0048-opencode-v2-runtime-shape.md docs/ai/architecture.md README.md docs/ai/logs/2026-10.md`
+`git add docs/ai/decisions/ADR-0049-opencode-v2-runtime-shape.md docs/ai/architecture.md docs/compatibility-matrix.md README.md CHANGELOG.md docs/ai/logs/2026-10.md`
 `git commit -m "docs(ai): record OpenCode v2 runtime compatibility matrix"`
 
 ## Risks and assumptions to verify during implementation
 
-**Blocking tracker:** wayforge issue **#247** documents the Kilo project-config security rejection (`{env:...}`) and the shipped `laberit` fragment that triggers it. #226 is marked `status:blocked` via a GitHub dependency on #247, but only for the **kilocode verification/parity** part; the OpenCode V2 runtime tasks (1–3) can proceed independently.
-
-- **V2 hook payloads for session-tracker.** The migration table gives destinations, not exact payloads. The `context` hook may not expose the active agent ID the way V1 `chat.params` did. If it does not, fall back to deriving the agent from session events and document the limitation. Human smoke validation is mandatory before closing Task 4.
+- **Pointer traversal under V2 is unverified.** #253 verified `.opencode` pointers with OpenCode 1.18.35 only. V2 must discover agents and commands through a symlink or junction. If V2 does not traverse them, the fallback is a generated stub or another runtime-specific pointer, and #227's "no duplication" rule must be revisited. This is a blocking human verification before Task 5 closes.
+- **V2 hook payloads for session-tracker.** The migration table gives destinations, not exact payloads. `ctx.session.hook("context", ...)` may not expose the active agent the way V1 `chat.params` did. Fall back to deriving the agent from session events and document the limitation. Human smoke validation is mandatory.
+- **Ponytail command interception.** V2 `command.execute.before` has no global one-to-one hook. The prompt hook may observe the raw `/ponytail full` prompt before command expansion, or it may not. Verify with the real runtime; if it fails, register a command transform or document the limitation.
 - **Local plugin dependency resolution.** It is unverified whether OpenCode 2 resolves a local plugin's `package.json` peers/dependencies. If it does not, the V2 entrypoints must be dependency-free or document the required global install.
-- **Schema snapshot drift.** The vendored schema is a point-in-time copy. CI validates against it, so a stale snapshot can pass while upstream changes. The ADR refresh procedure mitigates this.
-- **This workstation runs OpenCode 1.19.2.** Task 5 and the Task 4 smoke test require installing `@opencode/cli` or setting `WAYFORGE_OPENCODE_VERSION=2.1.3`; the gate intentionally fails otherwise.
-- **Kilo Code target root and config precedence.** Kilo CLI 1.0 expects `kilo.jsonc` plus `.kilo/agents/`, `.kilo/skills/`, `.kilo/plugin/`, and `.kilo/tool/`; it no longer reads project `.opencode/`. wayforge currently writes `.opencode/**` for both runtimes, so the kilocode runtime likely does not load under Kilo CLI 1.0 even before V2. Additionally, a leftover `opencode.json(c)` at the repo root or in `.kilo/` overrides `kilo.jsonc` (#14294, open), so the kilocode install must detect/remove/rename the legacy file or write `.kilo/kilo.jsonc` and verify with `kilo debug config`. Kilo 7.4.x+ also treats project config as untrusted: `{env:VAR}` throws `environment references are not allowed in project config` and `{file:...}` outside the project root is rejected (Kilo PRs #11886/#12168; still current). The shipped `base/opencode/config/providers/laberit-provider-block.jsonc` emits `{env:OPENAI_BASE_URL}`/`{env:OPENAI_API_KEY}`, so a `--runtime kilocode --providers laberit` install produces a `kilo.jsonc` current Kilo refuses. Any kilocode fix must move those values to trusted/global config, use literals, or drop the env-based fragment for kilocode. This is an independent, pre-existing gap. It must be a separate issue (runtime-specific output roots, manifest paths, uninstall, reconcile) unless the maintainer chooses to fold it into #226. Until it is fixed, the #226 acceptance criterion "kilocode installs and loads" cannot be verified; only V1 config-shape equality can.
-- **Kilo Code V1 shape.** Kilo's schema file accepts both V1 and V2 keys, but its runtime and plugin API are V1. Do not infer V2 compatibility from the schema. When Kilo's `v2-port` ships, switching the descriptor is a focused follow-up, not an assumption to bake in now.
+- **Plugin `exports` may affect V1 discovery.** V1 config entries name files directly, so `exports` should be inert, but verify both OpenCode 1.x and Kilo 7.8.x after adding it.
+- **Schema snapshot drift.** The vendored schema is a point-in-time copy with one documented external-ref substitution. CI validates against the fixture, so a stale fixture can pass while upstream changes. The ADR refresh procedure mitigates this.
+- **This workstation runs OpenCode 1.19.2.** Unit/integration tests use `WAYFORGE_OPENCODE_VERSION=2.2.0`; the gate intentionally fails real local installs until `@opencode/cli` 2.2.0 is installed or the env override is set.
+- **Kilo Code target is V1.** Kilo 7.8.x accepts the V1 shape and the `.kilo` pointers verified by #253. Do not infer V2 support from the hybrid `app.kilo.ai` schema. When Kilo's V2 port ships, switching the descriptor is a focused follow-up.
+- **Merge-train conflicts.** #253, #254, and #255 all touch `base/**`, `Makefile`, `CHANGELOG.md`, and the test harness. The #226 branch must be rebased after they land; do not resolve conflicts by reintroducing `.opencode` paths or the old five-step plan format.
+- **Plan-format drift from #255.** If #255 merges before implementation, normalize this plan to the outcome-based task contract (per-task acceptance criteria, `Depends on`, `Status`). The task boundaries and acceptance criteria above are already compatible.
