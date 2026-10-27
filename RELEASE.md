@@ -205,7 +205,7 @@ The installer performs a complete refresh as if it were a fresh installation: `A
 
 This manifest-driven refresh replaces the earlier per-file sidecar marker approach. Old markers from previous installs are cleaned up during the refresh.
 
-Frozen scripts under `install/legacy/**` still read the pre-flatten source layout; they are deprecated and do not work against the flattened `base/` tree (ADR-0033, ADR-0046).
+The frozen `install/legacy/**` scripts were removed when the flattened layout became canonical; use `install/install.sh`, `install/install.ps1`, or `wfg install --repo` instead (ADR-0033, ADR-0046).
 
 ### Runtime pointers
 

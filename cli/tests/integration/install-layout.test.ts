@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { spawnSync } from 'node:child_process'
 import fs from 'fs-extra'
 import os from 'os'
 import path from 'path'
@@ -17,6 +18,31 @@ import {
 import type { Runtime } from '../../src/types.js'
 
 const RUNTIMES: Runtime[] = ['opencode', 'kilocode']
+
+function installThroughCli(repo: string, providers: string): void {
+	const result = spawnSync(
+		process.execPath,
+		[
+			path.join(sourceDir, 'node_modules', 'tsx', 'dist', 'cli.mjs'),
+			path.join(sourceDir, 'cli', 'src', 'index.ts'),
+			'install',
+			'--repo',
+			repo,
+			'--providers',
+			providers,
+			'--skip-node-check',
+			'--no-track',
+		],
+		{
+			cwd: sourceDir,
+			encoding: 'utf8',
+			env: { ...process.env, WAYFORGE_HOME: sourceDir },
+		},
+	)
+
+	expect(result.error).toBeUndefined()
+	expect(result.status, result.stderr).toBe(0)
+}
 
 describe('install layout integration', () => {
 	let tmpDir: string
@@ -165,6 +191,52 @@ describe('install layout integration', () => {
 			).toHaveLength(1)
 		}
 	})
+
+	it.each([
+		{
+			providers: 'free-tier',
+			enabledProviders: '"enabled_providers": ["opencode"]',
+			providerBlocks: [] as string[],
+		},
+		{
+			providers: 'openai,github-copilot',
+			enabledProviders:
+				'"enabled_providers": ["opencode", "openai", "github-copilot"]',
+			providerBlocks: ['"openai":', '"github-copilot":'],
+		},
+	])(
+		'installs an OpenCode config for $providers providers through the CLI',
+		async ({ providers, enabledProviders, providerBlocks }) => {
+			installThroughCli(repo, providers)
+
+			const config = fs.readFileSync(
+				path.join(repo, configFileFor('opencode')),
+				'utf8',
+			)
+			expect(config).toContain(enabledProviders)
+			expect(fs.pathExistsSync(path.join(repo, '.agents', 'agents'))).toBe(
+				true,
+			)
+			expect(
+				fs.pathExistsSync(path.join(repo, '.agents', 'commands', 'init.md')),
+			).toBe(true)
+			expect(
+				fs.pathExistsSync(
+					path.join(repo, '.agents', 'plugins', 'ponytail', 'ponytail.mjs'),
+				),
+			).toBe(true)
+			expectPointer(repo, '.opencode/agents', '.agents/agents')
+			expectPointer(repo, '.opencode/commands', '.agents/commands')
+
+			const manifest = readManagedManifest(repo)
+			expect(manifest).toContain('.agents/agents/planner.md')
+			expect(manifest).toContain('.opencode/agents')
+			expect(manifest).toContain('.opencode/commands')
+			for (const providerBlock of providerBlocks) {
+				expect(config).toContain(providerBlock)
+			}
+		},
+	)
 
 	it('migrates a seeded legacy install into the .agents layout', async () => {
 		seedLegacyInstall(repo, [

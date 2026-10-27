@@ -1,6 +1,5 @@
 # Parse contract: flat YAML, no anchors/merge keys, full-line comments only.
-# Parsed by the TypeScript CLI (cli/src/lib/permissions.ts) and the legacy bash/ps1
-# managed_sync renderers — see ADR-0009 and ADR-0014.
+# Parsed by the TypeScript CLI (cli/src/lib/permissions.ts) — see ADR-0009 and ADR-0014.
 #
 # Permission model: coarse last-match-wins bash rules. "*": allow is the catch-all
 # (prompting on every benign command such as rg/ls/cat would be too slow); a short
