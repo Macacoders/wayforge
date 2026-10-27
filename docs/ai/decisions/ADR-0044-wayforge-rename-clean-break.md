@@ -2,6 +2,7 @@
 
 Date: 2026-10-15
 Status: Accepted
+Amended: 2026-10-26 — the frozen legacy installers referenced in Consequences were deleted (see ADR-0033); those bullets now describe out-of-tree copies only.
 
 ## Context
 

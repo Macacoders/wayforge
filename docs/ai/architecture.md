@@ -34,7 +34,6 @@ The installer surface is a TypeScript CLI under `cli/src/`, distributed as a pre
   - Layout: `bin/wfg` (`wfg.exe` on Windows), `node/` (provisioned Node.js, when installed), `share/wayforge/base/**`, `share/wayforge/VERSION`, and `installed-projects.json`
 - **Release workflow**: `.github/workflows/release.yml` builds binaries for linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64, produces share archives (`wayforge-share-<version>.tar.gz` / `.zip`), generates `wayforge-checksums.txt` (SHA-256 over every binary and both share archives), and uploads `install.sh` / `install.ps1` as release assets
 - **Update and upgrade**: `wfg update` reports the current and latest versions without downloading or writing anything; `wfg update` is reserved for the CLI release check (#238's managed-project refresh must adopt a different verb). `wfg upgrade` (installed binaries only) resolves the latest release, prompts unless `--yes`, downloads the platform binary, share archive, and `wayforge-checksums.txt`, verifies both SHA-256 hashes before changing the installed binary or `share/wayforge` contents, then replaces `share/wayforge` and `bin/wfg[.exe]` with `*.old-<pid>` backups and rollback; stale backup/temp artifacts are cleaned only after verification on the replacement path (older than 7 days). Commands other than `update`/`upgrade` never check for releases, and there is no automatic notice or cache. From a source checkout `wfg upgrade` refuses and points at `git pull` or the one-shot installer.
-- **Legacy references**: `install/legacy/bootstrap-legacy.sh` and `install/legacy/bootstrap-legacy.ps1` preserve the original full installers; `install/legacy/bootstrap-thin.sh` and `install/legacy/bootstrap-thin.ps1` preserve the retired thin entrypoints. All legacy scripts are frozen.
 
 Reusable versioned source lives in this repository under `base/opencode/**`.
 
@@ -93,7 +92,7 @@ Portable workflow helpers used by shared commands should be packaged under `.ope
 
 ### Bootstrap Scripts
 
-The canonical install surface is the one-shot installer (`install/install.sh` / `install/install.ps1`) plus the `wfg install --repo <path>` command. The retired thin entrypoints `install/bootstrap.sh` and `install/bootstrap.ps1` have been moved to `install/legacy/bootstrap-thin.{sh,ps1}` as frozen reference.
+The canonical install surface is the one-shot installer (`install/install.sh` / `install/install.ps1`) plus the `wfg install --repo <path>` command. The former frozen legacy installers were removed after ADR-0033's deletion trigger was executed; no legacy bootstrap entrypoints remain.
 
 - **No Administrator privileges required** (PowerShell): The one-shot installer uses file writes and updates the User PATH — no symbolic link creation and no elevation.
 - **Managed sync**: Deployed by the TS CLI — agents, commands, and skill files are synced with `.wayforge-managed` markers for safe refresh without clobbering local additions.
