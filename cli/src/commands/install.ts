@@ -50,7 +50,13 @@ import {
 	posixPath,
 	sourceDirFor,
 } from '../lib/layout.js'
-import { ensureRuntimePointers, isPointerPath } from '../lib/pointers.js'
+import {
+	ensureRuntimePointers,
+	isLinkedDirectory,
+	isPointerPath,
+	isValidRuntimePointer,
+} from '../lib/pointers.js'
+import { isCleanupEligibleLegacyPath } from '../lib/legacy-cleanup.js'
 import type { InstallOptions, Runtime } from '../types.js'
 
 export async function installCommand(options: InstallOptions): Promise<void> {
@@ -178,9 +184,8 @@ export async function doInstall(
 
 			for (const relPath of manifestPaths) {
 				if (isPointerPath(relPath)) {
-					const pointer = path.join(repo, relPath)
-					if (fs.pathExistsSync(pointer)) {
-						managedTrackFile(pointer, ctx)
+					if (isValidRuntimePointer(repo, relPath)) {
+						managedTrackFile(path.join(repo, relPath), ctx)
 					}
 					continue
 				}
@@ -338,7 +343,9 @@ function failCorruptManifest(
 	cleanupFn: (() => void) | undefined,
 ): void {
 	const manifest = path.join(repo, MANAGED_DIR_MARKER)
-	fs.removeSync(path.join(repo, `${MANAGED_DIR_MARKER}.tmp`))
+	if (!ctx.dryRun) {
+		fs.removeSync(path.join(repo, `${MANAGED_DIR_MARKER}.tmp`))
+	}
 	ctx.log(`error: corrupt or truncated managed manifest: ${manifest}`)
 	ctx.log(
 		'  repair or remove the manifest, or remove .opencode content manually',
@@ -387,20 +394,10 @@ function removeManagedLegacyPaths(
 	ctx: ManifestContext,
 ): void {
 	for (const relPath of manifestPaths) {
-		if (!isLegacyManagedPath(relPath) || isPointerPath(relPath)) {
+		if (!isCleanupEligibleLegacyPath(repo, relPath, manifestPaths)) {
 			continue
 		}
 		const absolute = path.join(repo, relPath)
-		if (!fs.pathExistsSync(absolute)) {
-			continue
-		}
-		const lstat = fs.lstatSync(absolute)
-		if (!lstat.isFile() && !lstat.isSymbolicLink()) {
-			continue
-		}
-		if (!isManagedFile(absolute)) {
-			continue
-		}
 		rm(absolute, ctx)
 		if (ctx.dryRun) {
 			ctx.log(`DRY-RUN: would remove legacy managed path: ${relPath}`)
@@ -412,6 +409,9 @@ function removeManagedLegacyPaths(
 
 /** Remove empty directories bottom-up, including the directory itself. */
 function pruneEmptyDirs(dir: string, ctx: ManifestContext): void {
+	if (isLinkedDirectory(dir)) {
+		return
+	}
 	if (!fs.pathExistsSync(dir)) {
 		return
 	}
@@ -440,12 +440,23 @@ function pruneEmptyDirs(dir: string, ctx: ManifestContext): void {
  */
 function collectLegacyResiduals(repo: string, runtime: Runtime): string[] {
 	const root = legacyArtifactRoot(repo)
+	if (isLinkedDirectory(root)) {
+		return []
+	}
 	if (!fs.pathExistsSync(root)) {
 		return []
 	}
 	const pointerPrefixes = pointerPathsFor(runtime).map((p) => `${p}/`)
+	const manifestPaths = readManagedManifest(repo)
 	return walkFiles(root)
-		.filter((file) => !isManagedFile(file))
+		.filter(
+			(file) =>
+				!isCleanupEligibleLegacyPath(
+					repo,
+					posixPath(path.relative(repo, file)),
+					manifestPaths,
+				),
+		)
 		.map((file) => posixPath(path.relative(repo, file)))
 		.filter(
 			(relPath) =>

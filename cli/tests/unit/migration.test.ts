@@ -3,6 +3,7 @@ import fs from 'fs-extra'
 import os from 'os'
 import path from 'path'
 import { doInstall } from '../../src/commands/install.js'
+import { uninstallCommand } from '../../src/commands/uninstall.js'
 import { destRelForManagedPath, sourceForDest } from '../../src/lib/layout.js'
 import { readManagedManifest } from '../../src/lib/manifest.js'
 import {
@@ -389,6 +390,122 @@ describe('legacy .opencode migration', () => {
 		).toBe(true)
 	})
 
+	it('matches real pointer blocks without hiding managed files under .kilo', async () => {
+		seedLegacyInstall(repo, [
+			'.opencode/agents/planner.md',
+			'.kilo/agents/managed.md',
+		])
+		fs.writeFileSync(
+			path.join(repo, '.kilo', 'agents', 'managed.md'),
+			'# retained managed file\n',
+		)
+		const logs = captureLogs()
+
+		await doInstall({ ...installOptions(repo, 'kilocode'), dryRun: true })
+		const dryRunLogs = [...logs]
+		mockExit()
+		await expect(
+			doInstall(installOptions(repo, 'kilocode')),
+		).rejects.toThrow('process.exit:1')
+		const realLogs = logs.slice(dryRunLogs.length)
+		const blockLine = '[wayforge]   - .kilo/agents/managed.md'
+
+		expect(dryRunLogs.filter((line) => line === blockLine)).toEqual([
+			blockLine,
+		])
+		expect(realLogs.filter((line) => line === blockLine)).toEqual([blockLine])
+		expect(
+			dryRunLogs.some((line) =>
+				line.includes('DRY-RUN: install would fail - 1 path(s)'),
+			),
+		).toBe(true)
+		expect(
+			realLogs.some((line) =>
+				line.includes('repo bootstrap complete'),
+			),
+		).toBe(false)
+	})
+
+	it('does not track an ordinary manifest-listed pointer directory', async () => {
+		fs.mkdirpSync(path.join(repo, '.opencode', 'agents'))
+		fs.writeFileSync(
+			path.join(repo, '.wayforge-managed'),
+			'project_id: legacy-project\nmanaged_paths:\n- .opencode/agents\n',
+		)
+		fs.writeFileSync(
+			path.join(repo, '.opencode', 'agents', 'local.md'),
+			'# local agent\n',
+		)
+		mockExit()
+
+		await expect(
+			doInstall(installOptions(repo, 'opencode')),
+		).rejects.toThrow('process.exit:1')
+
+		expect(
+			fs.readFileSync(path.join(repo, '.opencode', 'agents', 'local.md'), 'utf8'),
+		).toBe('# local agent\n')
+		expect(readManagedManifest(repo)).not.toContain('.opencode/agents')
+		uninstallCommand({ repo, dryRun: false })
+		expect(
+			fs.readFileSync(path.join(repo, '.opencode', 'agents', 'local.md'), 'utf8'),
+		).toBe('# local agent\n')
+	})
+
+	it.skipIf(!symlinks)(
+		'does not remove canonical content through a legacy symlink parent',
+		async () => {
+			const canonical = path.join(repo, '.agents', 'agents', 'planner.md')
+			fs.mkdirpSync(path.dirname(canonical))
+			fs.writeFileSync(canonical, '# canonical planner\n')
+			fs.mkdirpSync(path.join(repo, '.opencode'))
+			fs.symlinkSync(
+				path.join('..', '.agents', 'agents'),
+				path.join(repo, '.opencode', 'agents'),
+				'dir',
+			)
+			seedLegacyInstall(repo, ['.opencode/agents/planner.md'])
+			captureLogs()
+
+			await doInstall(installOptions(repo, 'opencode'))
+
+			expect(fs.readFileSync(canonical, 'utf8')).not.toBe('')
+			expect(fs.pathExistsSync(canonical)).toBe(true)
+		},
+	)
+
+	it.skipIf(!symlinks)(
+		'blocks a linked legacy root without traversing its target in real or dry runs',
+		async () => {
+			seedLegacyInstall(repo, ['.opencode/agents/planner.md'])
+			fs.removeSync(path.join(repo, '.opencode'))
+			const target = path.join(tmpDir, 'linked-opencode')
+			fs.mkdirpSync(path.join(target, 'agents', 'empty'))
+			fs.writeFileSync(
+				path.join(target, 'agents', 'planner.md'),
+				'# linked legacy planner\n',
+			)
+			fs.symlinkSync(target, path.join(repo, '.opencode'), 'dir')
+			const logs = captureLogs()
+
+			await doInstall({ ...installOptions(repo, 'opencode'), dryRun: true })
+			const dryRunLogs = [...logs]
+			mockExit()
+			await expect(
+				doInstall(installOptions(repo, 'opencode')),
+			).rejects.toThrow('process.exit:1')
+			const realLogs = logs.slice(dryRunLogs.length)
+
+			const blocker = '[wayforge]   - .opencode'
+			expect(dryRunLogs.filter((line) => line === blocker)).toEqual([blocker])
+			expect(realLogs.filter((line) => line === blocker)).toEqual([blocker])
+			expect(
+				fs.readFileSync(path.join(target, 'agents', 'planner.md'), 'utf8'),
+			).toBe('# linked legacy planner\n')
+			expect(fs.pathExistsSync(path.join(target, 'agents', 'empty'))).toBe(true)
+		},
+	)
+
 	it('fails fast on a corrupt managed manifest', async () => {
 		seedLegacyInstall(repo, ['.opencode/agents/planner.md'])
 		const manifestFile = path.join(repo, '.wayforge-managed')
@@ -425,5 +542,22 @@ describe('legacy .opencode migration', () => {
 				line.includes('--force cannot classify those files'),
 			),
 		).toBe(true)
+	})
+
+	it('does not remove a temporary manifest in a corrupt-manifest dry-run', async () => {
+		seedLegacyInstall(repo, ['.opencode/agents/planner.md'])
+		fs.writeFileSync(
+			path.join(repo, '.wayforge-managed'),
+			'project_id: legacy-project\nmanaged_paths:\n',
+		)
+		const temporary = path.join(repo, '.wayforge-managed.tmp')
+		fs.writeFileSync(temporary, 'preserve me\n')
+		mockExit()
+
+		await expect(
+			doInstall({ ...installOptions(repo, 'opencode'), dryRun: true }),
+		).rejects.toThrow('process.exit:1')
+
+		expect(fs.readFileSync(temporary, 'utf8')).toBe('preserve me\n')
 	})
 })

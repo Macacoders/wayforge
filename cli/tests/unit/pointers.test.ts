@@ -205,7 +205,7 @@ describe('ensureRuntimePointers', () => {
 		)
 	}
 
-	it('dry-run residual collection ignores managed files', () => {
+	it('dry-run residual collection skips only cleanup-eligible legacy files', () => {
 		seedLegacyPointerDir()
 		const ctx = makeCtx(true)
 
@@ -214,7 +214,18 @@ describe('ensureRuntimePointers', () => {
 		expect(blocked).toEqual(['.opencode/agents/local.md'])
 	})
 
-	it.skipIf(!symlinks)('real runs still report every residual file', () => {
+	it('does not probe or create target-repository artifacts in dry-run', () => {
+		const ctx = makeCtx(true)
+		const probeSpy = vi.spyOn(fs, 'mkdtempSync')
+
+		const blocked = track('opencode', ctx)
+
+		expect(blocked).toEqual([])
+		expect(probeSpy).not.toHaveBeenCalled()
+		expect(fs.readdirSync(repo)).toEqual(['.agents'])
+	})
+
+	it.skipIf(!symlinks)('real runs inspect legacy files that remain on disk', () => {
 		seedLegacyPointerDir()
 
 		const blocked = track('opencode')
@@ -257,10 +268,31 @@ describe('ensureRuntimePointers', () => {
 		expect(fs.pathExistsSync(path.join(repo, '.opencode'))).toBe(false)
 		expect(
 			logSpy.mock.calls.some(([message]) =>
-				String(message).includes('DRY-RUN: would create'),
+				String(message).includes('DRY-RUN: would create runtime pointer'),
 			),
 		).toBe(true)
 	})
+
+	it.skipIf(!symlinks)(
+		'blocks a linked runtime root without reading or creating through it',
+		() => {
+			const target = path.join(tmpDir, 'linked-opencode')
+			fs.mkdirpSync(path.join(target, 'agents', 'empty'))
+			fs.writeFileSync(path.join(target, 'agents', 'local.md'), '# local')
+			fs.symlinkSync(target, path.join(repo, '.opencode'), 'dir')
+
+			const dryBlocked = track('opencode', makeCtx(true))
+			const realBlocked = track('opencode')
+
+			expect(dryBlocked).toEqual(['.opencode'])
+			expect(realBlocked).toEqual(dryBlocked)
+			expect(fs.readFileSync(path.join(target, 'agents', 'local.md'), 'utf8')).toBe(
+				'# local',
+			)
+			expect(fs.pathExistsSync(path.join(target, 'agents', 'empty'))).toBe(true)
+			expect(fs.pathExistsSync(path.join(target, 'commands'))).toBe(false)
+		},
+	)
 
 	it('reports a residual instead of crashing when the filesystem rejects both mechanisms', () => {
 		const original = fs.symlinkSync.bind(fs)

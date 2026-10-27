@@ -10,7 +10,8 @@ import {
 	RUNTIME_POINTER_DIRS,
 	posixPath,
 } from './layout.js'
-import { isManagedFile, managedTrackFile } from './manifest.js'
+import { managedTrackFile, readManagedManifest } from './manifest.js'
+import { isCleanupEligibleLegacyPath } from './legacy-cleanup.js'
 import type { Runtime } from '../types.js'
 
 /**
@@ -50,6 +51,24 @@ function lstatIfExists(target: string): fs.Stats | null {
 }
 
 /**
+ * Whether a path is a directory link, including a Windows junction. `lstat`
+ * identifies POSIX links, while `readlink` also recognizes junctions without
+ * entering their targets.
+ */
+export function isLinkedDirectory(target: string): boolean {
+	const stat = lstatIfExists(target)
+	if (!stat) return false
+	if (stat.isSymbolicLink()) return true
+	if (!stat.isDirectory()) return false
+	try {
+		fs.readlinkSync(target)
+		return true
+	} catch {
+		return false
+	}
+}
+
+/**
  * Files under a pointer directory that would remain after a real run. A
  * dry-run keeps managed legacy files on disk, so skip them here to report the
  * same residual set the real run leaves behind.
@@ -58,20 +77,49 @@ function lstatIfExists(target: string): fs.Stats | null {
  * because the install prunes empty directories before linking. Symlinks are
  * leaves (never descended into), so their targets are never reported or read.
  */
-function collectResiduals(root: string, ctx: ManifestContext): string[] {
+function collectResiduals(
+	root: string,
+	repo: string,
+	manifestPaths: readonly string[],
+	ctx: ManifestContext,
+): string[] {
 	const found: string[] = []
 	for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
 		const full = path.join(root, entry.name)
-		if (ctx.dryRun && isManagedFile(full)) {
+		const relPath = posixPath(path.relative(repo, full))
+		// Only dry-runs retain files that the preceding real cleanup removes.
+		// In a real run, inspect what is actually present rather than assuming
+		// cleanup succeeded before this function was called.
+		if (
+			ctx.dryRun &&
+			isCleanupEligibleLegacyPath(repo, relPath, manifestPaths)
+		) {
 			continue
 		}
 		if (entry.isDirectory() && !entry.isSymbolicLink()) {
-			found.push(...collectResiduals(full, ctx))
+			found.push(...collectResiduals(full, repo, manifestPaths, ctx))
 			continue
 		}
 		found.push(full)
 	}
 	return found
+}
+
+/** True when a runtime pointer is a link to its canonical `.agents` target. */
+export function isValidRuntimePointer(repo: string, relPath: string): boolean {
+	if (!isPointerPath(relPath)) return false
+	const link = path.join(repo, relPath)
+	if (isLinkedDirectory(path.dirname(link))) return false
+	const existing = lstatIfExists(link)
+	if (!existing || (!existing.isSymbolicLink() && !existing.isDirectory())) {
+		return false
+	}
+	const category = path.basename(relPath)
+	try {
+		return pointsAt(link, posixPath(path.join('..', ARTIFACT_ROOT, category)))
+	} catch {
+		return false
+	}
 }
 
 function pointsAt(link: string, relativeTarget: string): boolean {
@@ -145,11 +193,19 @@ export function ensureRuntimePointers(
 	runtime: Runtime,
 	ctx: ManifestContext,
 ): string[] {
-	const symlinks = canSymlink(repo)
+	const symlinks = ctx.dryRun ? undefined : canSymlink(repo)
+	const manifestPaths = readManagedManifest(repo)
 	const pointerRoot = RUNTIME_POINTER_DIRS[runtime]
 	const residuals: string[] = []
+	const runtimeRoot = path.join(repo, pointerRoot)
 
-	for (const category of POINTER_CATEGORIES) {
+	// Never inspect or create children through a linked runtime root: that root
+	// may point outside the repository, including to user-owned content.
+	if (isLinkedDirectory(runtimeRoot)) {
+		residuals.push(pointerRoot)
+	}
+
+	for (const category of residuals.length === 0 ? POINTER_CATEGORIES : []) {
 		const link = path.join(repo, pointerRoot, category)
 		const managedRel = posixPath(path.relative(repo, link))
 		const relativeTarget = posixPath(
@@ -168,7 +224,7 @@ export function ensureRuntimePointers(
 				continue
 			}
 			if (existing.isDirectory()) {
-				const entries = collectResiduals(link, ctx)
+				const entries = collectResiduals(link, repo, manifestPaths, ctx)
 				if (entries.length > 0) {
 					residuals.push(
 						...entries.map((entry) =>
@@ -200,7 +256,7 @@ export function ensureRuntimePointers(
 
 		if (ctx.dryRun) {
 			ctx.log(
-				`DRY-RUN: would create ${type} pointer: ${managedRel} -> ${target}`,
+				`DRY-RUN: would create runtime pointer: ${managedRel} -> ${relativeTarget}`,
 			)
 			continue
 		}
