@@ -74,14 +74,18 @@ Describe 'Node detection and provisioning (-DryRun)' {
     It 'detects Node >= 18 when a stub node reports v18.20.0' {
         $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path (Join-Path $tmp 'stubbin') | Out-Null
-        # Stub node: a shell script printing v18.20.0; the child pwsh on Linux
-        # resolves it via PATH like any other executable.
+        # Stub node: a shell script for Linux/macOS and a .cmd batch file for
+        # Windows, both printing v18.20.0; the child pwsh resolves them via PATH.
         $stub = Join-Path $tmp 'stubbin' 'node'
         Set-Content -Path $stub -Value "#!/bin/sh`necho v18.20.0`n"
-        & chmod +x $stub
+        if (Get-Command chmod -ErrorAction SilentlyContinue) {
+            & chmod +x $stub
+        }
+        $stubCmd = Join-Path $tmp 'stubbin' 'node.cmd'
+        Set-Content -Path $stubCmd -Value "@echo v18.20.0`r`n"
         try {
             $output = & pwsh -NoProfile -Command "
-                `$env:PATH = '$(Join-Path $tmp 'stubbin'):' + `$env:PATH
+                `$env:PATH = '$(Join-Path $tmp 'stubbin')' + [System.IO.Path]::PathSeparator + `$env:PATH
                 & '$script:installScript' -DryRun -Version 9.9.9 -Prefix '$tmp/prefix' 2>&1
                 exit 0
             "

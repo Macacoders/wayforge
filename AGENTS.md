@@ -10,7 +10,7 @@
 - `base/AGENTS.md` — generic skeleton with `[FILL IN]` placeholders for consuming repos
 - `cli/src/**` — TypeScript installer CLI
 - `cli/tests/` — CLI integration and unit tests
-- `install/` — one-shot installer scripts (`install.sh`, `install.ps1`) + frozen legacy
+- `install/` — one-shot installer scripts (`install.sh`, `install.ps1`)
 - `scripts/` — release helper (`release.ts`)
 - `qa/` — QA scripts (lint runners, dependency installer, coverage)
 - `tests/` — unit tests (bash, powershell, typescript subdirs)
