@@ -87,12 +87,12 @@ EOF
 	chmod +x "$STUB_DIR/sha256sum"
 }
 
-# write_checksums <binary-digest> <share-digest> [include-binary-entry]
+# write_checksums <binary-digest> <share-digest>
+# Always writes both lines: the binary entry (with dist/ prefix) and the
+# share entry.
 write_checksums() {
 	{
-		if [ "${3:-1}" = "1" ]; then
-			printf '%s  dist/wayforge-linux-x64\n' "$1"
-		fi
+		printf '%s  dist/wayforge-linux-x64\n' "$1"
 		printf '%s  wayforge-share-9.9.9.tar.gz\n' "$2"
 	} >"$TEST_FIXTURES/wayforge-checksums.txt"
 }
@@ -200,7 +200,7 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 
 @test "install.sh aborts when checksum file has no entry for the binary" {
 	install_env
-	write_checksums "" "$DIGEST_OK" 0
+	printf '%s  wayforge-share-9.9.9.tar.gz\n' "$DIGEST_OK" >"$TEST_FIXTURES/wayforge-checksums.txt"
 	run_full_install "$DIGEST_OK"
 	[ "$status" -eq 1 ]
 	[[ "$stderr" == *"no entry for wayforge-linux-x64"* ]]

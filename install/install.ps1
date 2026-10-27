@@ -295,14 +295,14 @@ function Assert-Checksum {
         [Parameter(Mandatory)][hashtable]$Expected
     )
 
-    if (-not $Expected.ContainsKey($name)) {
-        Write-Error "error: checksum file has no entry for ${name}; aborting without changes" -ErrorAction Stop
+    if (-not $Expected.ContainsKey($Name)) {
+        Write-Error "error: checksum file has no entry for ${Name}; aborting without changes" -ErrorAction Stop
     }
     $actual = (Get-FileHash -Path $Path -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($actual -ne $Expected[$name]) {
-        Write-Error "error: checksum mismatch for ${name}: expected $($Expected[$name]), got ${actual}" -ErrorAction Stop
+    if ($actual -ne $Expected[$Name]) {
+        Write-Error "error: checksum mismatch for ${Name}: expected $($Expected[$Name]), got ${actual}" -ErrorAction Stop
     }
-    Write-Host "verified ${name} checksum"
+    Write-Host "verified ${Name} checksum"
 }
 
 # ---------------------------------------------------------------------------

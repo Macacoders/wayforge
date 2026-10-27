@@ -1,5 +1,8 @@
 #Requires -Modules Pester
 
+# ponytail: two Describes use BeforeEach/AfterEach while the rest use inline
+# try/finally; normalizing this file is deferred.
+
 BeforeAll {
     $script:repoRoot = Resolve-Path "$PSScriptRoot/../.." | Select-Object -ExpandProperty Path
     $script:installScript = Join-Path $script:repoRoot 'install/install.ps1'
@@ -113,8 +116,6 @@ Describe 'Release URL construction (-DryRun)' {
 }
 
 Describe 'Latest release resolution (-DryRun, no -Version)' {
-    # ponytail: this Describe uses BeforeEach/AfterEach while sibling blocks use
-    # inline try/finally; normalizing the whole file is deferred.
     BeforeEach {
         $script:tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $script:tmp | Out-Null
@@ -168,9 +169,9 @@ exit 0
 }
 
 Describe 'Checksum verification (full install)' {
-    # ponytail: this Describe uses BeforeEach/AfterEach while sibling blocks use
-    # inline try/finally; normalizing the whole file is deferred.
     BeforeAll {
+        # ponytail: three Invoke-WebRequest stubs live in this file; consolidate when
+        # the older Describes are next touched.
         # Stub Invoke-WebRequest: copies fixtures by URI leaf, never hits the
         # network; throws for the checksum URL when FAKE_MISSING_CHECKSUMS=1.
         # Defined in BeforeAll so it exists in the run phase, not just discovery.
@@ -187,6 +188,19 @@ function Invoke-WebRequest {
     Copy-Item -Path $src -Destination $OutFile -Force
 }
 '@
+        # Helper for child pwsh runs; a $script: scriptblock because Pester 6
+        # does not expose file-scope functions to It blocks.
+        $script:installChild = {
+            param([string]$ExtraEnv = '')
+            $child = @"
+`$env:FIXTURE_DIR = '$script:fixtureDir'
+$ExtraEnv
+$script:downloadStub
+try { & '$script:installScript' -SkipNodeCheck -Version 9.9.9 -Prefix '$script:tmp/prefix' *>&1 } catch { `$_; exit 1 }
+exit 0
+"@
+            return (& pwsh -NoProfile -Command $child | Out-String)
+        }
     }
     BeforeEach {
         $script:tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
@@ -218,13 +232,7 @@ function Invoke-WebRequest {
         # Binary entries carry a dist/ prefix in release checksums; the
         # installer must normalize by basename.
         Set-Content -Path $script:checksumsFixture -Value "$($script:binaryHash)  dist/wayforge-win32-x64.exe`n$($script:shareHash)  wayforge-share-9.9.9.zip"
-        $child = @"
-`$env:FIXTURE_DIR = '$script:fixtureDir'
-$script:downloadStub
-try { & '$script:installScript' -SkipNodeCheck -Version 9.9.9 -Prefix '$script:tmp/prefix' *>&1 } catch { `$_; exit 1 }
-exit 0
-"@
-        $combined = (& pwsh -NoProfile -Command $child | Out-String)
+        $combined = & $script:installChild
         $LASTEXITCODE | Should -Be 0
         Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
         Test-Path (Join-Path $script:tmp 'prefix/share/wayforge/base') -PathType Container | Should -Be $true
@@ -233,13 +241,7 @@ exit 0
 
     It 'aborts without installing when the binary digest mismatches' {
         Set-Content -Path $script:checksumsFixture -Value "$(('a' * 64))  wayforge-win32-x64.exe`n$($script:shareHash)  wayforge-share-9.9.9.zip"
-        $child = @"
-`$env:FIXTURE_DIR = '$script:fixtureDir'
-$script:downloadStub
-try { & '$script:installScript' -SkipNodeCheck -Version 9.9.9 -Prefix '$script:tmp/prefix' *>&1 } catch { `$_; exit 1 }
-exit 0
-"@
-        $combined = (& pwsh -NoProfile -Command $child | Out-String)
+        $combined = & $script:installChild
         $LASTEXITCODE | Should -Not -Be 0
         $combined | Should -Match 'checksum mismatch'
         Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
@@ -249,14 +251,7 @@ exit 0
     It 'installs with a warning when the checksum asset is missing' {
         $env:FAKE_MISSING_CHECKSUMS = '1'
         try {
-            $child = @"
-`$env:FIXTURE_DIR = '$script:fixtureDir'
-`$env:FAKE_MISSING_CHECKSUMS = '1'
-$script:downloadStub
-try { & '$script:installScript' -SkipNodeCheck -Version 9.9.9 -Prefix '$script:tmp/prefix' *>&1 } catch { `$_; exit 1 }
-exit 0
-"@
-            $combined = (& pwsh -NoProfile -Command $child | Out-String)
+            $combined = & $script:installChild -ExtraEnv "`$env:FAKE_MISSING_CHECKSUMS = '1'"
             $LASTEXITCODE | Should -Be 0
             $combined | Should -Match 'wayforge-checksums\.txt is unavailable for 9\.9\.9; skipping checksum verification'
             Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
@@ -269,13 +264,7 @@ exit 0
 
     It 'aborts when the checksum file has no entry for the binary' {
         Set-Content -Path $script:checksumsFixture -Value "$($script:shareHash)  wayforge-share-9.9.9.zip"
-        $child = @"
-`$env:FIXTURE_DIR = '$script:fixtureDir'
-$script:downloadStub
-try { & '$script:installScript' -SkipNodeCheck -Version 9.9.9 -Prefix '$script:tmp/prefix' *>&1 } catch { `$_; exit 1 }
-exit 0
-"@
-        $combined = (& pwsh -NoProfile -Command $child | Out-String)
+        $combined = & $script:installChild
         $LASTEXITCODE | Should -Not -Be 0
         $combined | Should -Match 'no entry for wayforge-win32-x64\.exe'
         Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
