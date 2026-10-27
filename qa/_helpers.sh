@@ -6,20 +6,19 @@
 
 # ponytail: top-level helper; extracted from duplicated definitions in consumers
 run_pwsh_heredoc() {
-	local tmp_base
+	local tmp_dir
 	local tmp_ps
 	local status
 	# pwsh -File requires a .ps1 extension; mktemp alone does not provide one.
-	tmp_base="$(mktemp)"
-	tmp_ps="${tmp_base}.ps1"
-	rm -f "$tmp_base"
+	tmp_dir="$(mktemp -d)" || return $?
+	tmp_ps="${tmp_dir}/script.ps1"
 	cat >"$tmp_ps"
 	if pwsh -NoProfile -NonInteractive -File "$tmp_ps"; then
 		status=0
 	else
 		status=$?
 	fi
-	rm -f "$tmp_ps"
+	rm -rf "$tmp_dir"
 	return "$status"
 }
 
