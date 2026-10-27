@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: completed
 created: 2026-10-27
 task: 2/2
 required_gates:
@@ -63,7 +63,7 @@ required_gates:
 
 ### Task 2: Decouple diagnosis from delivery classification and reconcile the ADR
 
-**Status:** pending
+**Status:** accepted
 **Depends on:** Task 1
 
 **Objective:** Remove `troubleshooter`'s policy-loading dependency and record the agreed loading boundary in ADR-0048 while keeping routing conservative and delivery classification authoritative.

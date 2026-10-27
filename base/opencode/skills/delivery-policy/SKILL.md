@@ -10,8 +10,9 @@ metadata:
 # Delivery Policy
 
 The single owning location for how work enters the workflow, how it is dispatched, how it is
-verified, and when an agent stops and asks the user. `delivery` applies this policy; `planner`,
-`troubleshooter`, and the delivery commands reference it instead of restating it.
+verified, and when an agent stops and asks the user. `delivery` applies this policy; `planner` may
+consult it for classification. Other roles receive relevant work-order information or concise
+diagnostic routing guidance instead of loading it.
 
 ## Risk Classification
 

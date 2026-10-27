@@ -33,12 +33,13 @@ Answer these four questions explicitly:
 
 End with exactly one of:
 
-- `/deliver` — a small, low-risk correction: confirmed or obvious cause, bounded blast radius, no
-  boundary trigger (see `delivery-policy` risk classification).
-- `/plan` — work that needs discovery, planning, or architectural decisions.
+- `/deliver` — a confirmed, localized correction with a bounded blast radius. `delivery` makes the
+  final risk classification.
+- `/plan` — work that needs discovery, planning, architectural, authentication, or public-contract
+  decisions; any known boundary-affecting fix; or uncertain risk.
 - **Backlog / not worth fixing now** — with a one-sentence rationale
 
-The command that runs the fix is `/deliver`, not the triage skill; this skill only classifies.
+The command that runs the fix is `/deliver`, not the triage skill; this skill only recommends routing.
 
 ## Progressive disclosure
 

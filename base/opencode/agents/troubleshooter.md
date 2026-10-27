@@ -40,14 +40,13 @@ Choose `planner` when you need to plan a feature, bugfix, or refactor and want a
 Diagnosis does not have to restart the planning chain. Once the root cause is confirmed, hand the fix
 on instead of leaving the user to re-derive it:
 
-- Read the risk classification rules in the `delivery-policy` skill.
-- Default: a localized fix with a confirmed root cause is a `direct`-path change. Hand it to
-  `delivery` via `/deliver`, carrying the symptom, the confirmed root cause with its diagnostic
-  evidence, the expected behaviour afterwards, the candidate files or symbols, and the reproduction
-  or validation command that should pass afterwards.
+- For a confirmed, localized fault, recommend `/deliver`, carrying the symptom, the confirmed root
+  cause with its diagnostic evidence, the expected behaviour afterwards, the candidate files or
+  symbols, and the reproduction or validation command that should pass afterwards. `delivery` makes
+  the final risk classification.
 - If the fix touches a boundary trigger (public contract, persistence, auth/security, deployment
-  topology, data model, cross-module API) or the root cause is still uncertain, route to `/plan`
-  instead and say why.
+  topology, data model, cross-module API) or the root cause or risk is still uncertain, recommend
+  `/plan` instead and say why.
 
 You still do not implement the fix and do not commit; you hand off a bounded, evidence-backed
 objective.

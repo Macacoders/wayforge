@@ -31,8 +31,8 @@ orchestrator was also the reviewer; `review-task.md` re-ran a memory close-check
    dispatches, applies policy, integrates, and escalates; `code` implements and repairs; `reviewer`
    verifies independently; `research` investigates; `architect` reviews boundaries. Work orders
    (`implementation`, `repair`, `functional_review`, `integration_review`, `architecture_review`,
-   `research`) and the worker result format are defined once in `delivery-policy` and referenced
-   everywhere else.
+   `research`) and the worker result format are defined once in `delivery-policy`; dispatchers send
+   recipients the relevant work-order fields and expected result.
 
 3. **Delivery owns the review gate but not the review.** Review moves out of `delivery` into the new
    read-only `reviewer` subagent. `delivery` never accepts a change from its own reading of the diff;
@@ -63,10 +63,10 @@ orchestrator was also the reviewer; `review-task.md` re-ran a memory close-check
 
 8. **One owning location per policy.** Risk tiers, work orders, result format, acceptance gates,
    retry budget, and commit authority live in `skills/delivery-policy/SKILL.md`. Task/phase craft
-   lives in `skills/plan/SKILL.md`. Agent files state role, write authority, boundary, and
-   stop/escalate condition and point at the policy for the rules themselves. The exceptions that are
-   still restated are enumerated under "Deliberate Duplication" below, so they read as decisions
-   rather than drift.
+   lives in `skills/plan/SKILL.md`. `delivery` loads the policy and `planner` may consult it for
+   classification; other roles receive the relevant work-order information or concise diagnostic
+   routing guidance. The exceptions that are still restated are enumerated under "Deliberate
+   Duplication" below, so they read as decisions rather than drift.
 
 ## Current Loop: Evidence and Classification
 
@@ -171,7 +171,8 @@ per-task memory checks, prescribed coding sequences, and prose-only retry bounds
 ## Deliberate Duplication
 
 Three rules remain stated in more than one file. Each is intentional; anything else that duplicates
-is drift to be collapsed back into `delivery-policy`.
+is drift to be collapsed back into `delivery-policy`. Receiving the relevant work-order fields is not
+a duplicate policy definition or a requirement for a worker to load the policy.
 
 1. **Human-owned validations are never executed by agents** — `delivery-policy` states the rule;
    `plan` (ownership model), `code` (what it must not run), `/deliver`, and `/deliver-plan` restate it
@@ -187,6 +188,18 @@ is drift to be collapsed back into `delivery-policy`.
 
 The stop-condition list, by contrast, is *not* duplicated: it lives only in `delivery-policy`, and
 `delivery.md`, `docs/ai/architecture.md`, and the commands reference it.
+
+## Amendment (2026-10-27)
+
+The original decision used "referenced everywhere" and said agent files point at the policy. That
+wording was intended to preserve one owner for the shared protocol, but it overextended policy loading
+to workers and diagnostic roles that only need a bounded handoff. The policy remains its single owner:
+`delivery` loads it, and `planner` may consult it for classification. Dispatchers instead provide
+workers the relevant work-order information and expected result; diagnostic roles use concise,
+advisory routing guidance. A troubleshooter or triager can recommend `/deliver` for a confirmed local
+fault or `/plan` for a known boundary or uncertain risk, while `/deliver` retains authoritative risk
+classification. This amendment does not change independent review, acceptance gates, or the shared
+work-order protocol.
 
 ## Supersedes and Amends
 
