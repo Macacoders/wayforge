@@ -38,6 +38,7 @@ build/
 tmp/
 temp/
 .test-tracking/
+.test-upgrade/
 
 .devcontainer
 .gh-config

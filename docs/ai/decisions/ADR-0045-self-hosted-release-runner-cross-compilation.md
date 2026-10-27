@@ -24,7 +24,7 @@ Moving release builds onto a persistent self-hosted runner changes deployment to
 
 4. Windows and macOS binaries are **compile-only** verified on the runner (they cannot be executed on Linux). Execution on the target platform remains a human validation step.
 
-5. The runner must carry the default labels `[self-hosted, linux, x64]` and host prerequisites `git`, `curl`, `unzip`, `tar`, `ca-certificates`, `python3`, `gawk`, and `gh`.
+5. The runner must carry the default labels `[self-hosted, linux, x64]` and host prerequisites `git`, `curl`, `unzip`, `tar`, `ca-certificates`, `coreutils` (`sha256sum`, used to generate the release `wayforge-checksums.txt`), `python3`, `gawk`, and `gh`.
 
 ## Alternatives considered
 

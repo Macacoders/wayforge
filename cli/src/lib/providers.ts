@@ -92,6 +92,13 @@ export function resolveDefaultModels(selected: Provider[]): {
 		}
 	}
 
+	if (selected.includes('opencode-go') && selected.includes('laberit')) {
+		return {
+			model: 'opencode-go/deepseek-v4.1-flash',
+			smallModel: 'opencode-go/muse-spark-1.3-contributor',
+		}
+	}
+
 	if (selected.length === 1 && selected[0] === 'laberit') {
 		return {
 			model: 'laberit/laberit-ai-preview',

@@ -3,7 +3,11 @@
 import { Command } from 'commander'
 import { installCommand } from './commands/install.js'
 import { uninstallCommand } from './commands/uninstall.js'
+import { updateCommand } from './commands/update.js'
+import { upgradeCommand } from './commands/upgrade.js'
 import { interactiveCommand } from './commands/interactive.js'
+import { errorMessage } from './lib/errors.js'
+import { getCurrentVersion } from './lib/version.js'
 import type { InstallOptions, Runtime } from './types.js'
 
 const program = new Command('wayforge')
@@ -11,7 +15,7 @@ const program = new Command('wayforge')
 program
 	.name('wayforge')
 	.description('Cross-platform CLI installer for wayforge')
-	.version(process.env.WAYFORGE_VERSION || '0.1.0', '-v, --version')
+	.version(getCurrentVersion(), '-v, --version')
 
 program
 	.command('install')
@@ -102,6 +106,23 @@ program
 	})
 
 program
+	.command('update')
+	.description('Check for a newer wayforge CLI release without installing it')
+	.action(async () => {
+		await updateCommand()
+	})
+
+program
+	.command('upgrade')
+	.description(
+		'Download, verify, and install the latest wayforge CLI release',
+	)
+	.option('--yes', 'Skip the confirmation prompt', false)
+	.action(async (options: { yes: boolean }) => {
+		await upgradeCommand(options)
+	})
+
+program
 	.command('interactive')
 	.description(
 		'Guided interactive installer that collects safe preset choices',
@@ -111,6 +132,6 @@ program
 	})
 
 program.parseAsync(process.argv).catch((error: unknown) => {
-	console.error(error instanceof Error ? error.message : String(error))
+	console.error(errorMessage(error))
 	process.exit(1)
 })

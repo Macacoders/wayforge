@@ -116,6 +116,14 @@ export function buildAgentBlockJson(
 			sourceDir,
 			'agents/balanced-openai-github-copilot-agent-block.jsonc',
 		)
+	} else if (
+		selected.includes('opencode-go') &&
+		selected.includes('laberit')
+	) {
+		fragment = readFragment(
+			sourceDir,
+			'agents/balanced-opencode-go-laberit-agent-block.jsonc',
+		)
 	} else if (selected.length === 1 && selected[0] === 'github-copilot') {
 		fragment = readFragment(
 			sourceDir,

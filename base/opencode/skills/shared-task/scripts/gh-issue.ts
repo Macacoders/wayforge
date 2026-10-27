@@ -348,7 +348,12 @@ async function ensureLabelAbsent(ctx: GhContext, issue: GitHubIssue, labelName: 
   }
 }
 
-async function ensureOpenIssue(issue: GitHubIssue): Promise<void> {
+/** Reject targets that must never be mutated. GET /issues/{n} returns pull
+ * requests too, and only open issues can be claimed/assigned/released/closed. */
+async function ensureMutableIssue(issue: GitHubIssue): Promise<void> {
+  if (issue.pull_request) {
+    throw new Error(`#${issue.number} is a pull request, not an issue.`);
+  }
   const state = getIssueState(issue);
   if (state !== 'open') {  // GitHub REST API always returns lowercase "open"
     throw new Error(`issue #${issue.number} is not open.`);
@@ -538,12 +543,21 @@ function splitFlagArg(arg: string): string[] {
   return eq > 0 ? [arg.slice(0, eq), arg.slice(eq + 1)] : [arg];
 }
 
-/** Resolve a `--body-file` path relative to cwd, rejecting empty paths up front. */
-function resolveBodyFile(bodyFile: string): string {
-  if (bodyFile.trim() === '') {
-    console.error('Error: --body-file requires a non-empty path.');
+/** Reject empty/whitespace-only values for flags that must be non-empty. */
+function requireNonEmptyValue(
+  flag: string,
+  value: string,
+  message = `${flag} requires a non-empty value.`,
+): void {
+  if (value.trim() === '') {
+    console.error(`Error: ${message}`);
     throw new Error();
   }
+}
+
+/** Resolve a `--body-file` path relative to cwd, rejecting empty paths up front. */
+function resolveBodyFile(bodyFile: string): string {
+  requireNonEmptyValue('--body-file', bodyFile, '--body-file requires a non-empty path.');
   return path.isAbsolute(bodyFile) ? bodyFile : path.resolve(process.cwd(), bodyFile);
 }
 
@@ -648,10 +662,19 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
       throw new Error();
     }
     i++;
+    if (flag !== '--body-file') requireNonEmptyValue(flag, value);
     if (flag === '--title') title = value;
     else if (flag === '--body-file') bodyFile = value;
     else if (flag === '--add-label') addLabels.add(value);
     else removeLabels.add(value);
+  }
+
+  const conflicting = [...addLabels].filter((l) => removeLabels.has(l));
+  if (conflicting.length > 0) {
+    console.error(
+      `Error: cannot add and remove the same label(s): ${conflicting.join(', ')}.`,
+    );
+    throw new Error();
   }
 
   const resolvedBodyFile =
@@ -682,10 +705,7 @@ async function cmdEdit(ctx: GhContext, args: string[]): Promise<void> {
   const repoLabels =
     addLabels.size > 0 ? await ensureRequiredLabels(ctx) : new Set<string>();
   const issue = await getIssue(ctx, issueNumber);
-  if (issue.pull_request) {
-    throw new Error(`#${issueNumber} is a pull request, not an issue.`);
-  }
-  await ensureOpenIssue(issue);
+  await ensureMutableIssue(issue);
   preflightLabelEdits(issue, repoLabels, addLabels, removeLabels);
 
   const patch: { title?: string; body?: string } = {};
@@ -739,7 +759,7 @@ async function cmdClaim(ctx: GhContext, args: string[]): Promise<void> {
 
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
-  await ensureOpenIssue(issue);
+  await ensureMutableIssue(issue);
 
   if (getIssueAssigneeCount(issue) !== 0) {
     const assignee = getIssueFirstAssignee(issue);
@@ -782,7 +802,7 @@ async function cmdAssign(ctx: GhContext, args: string[]): Promise<void> {
 
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
-  await ensureOpenIssue(issue);
+  await ensureMutableIssue(issue);
 
   if (getIssueAssigneeCount(issue) !== 0) {
     const assignee = getIssueFirstAssignee(issue);
@@ -838,7 +858,7 @@ async function cmdRelease(ctx: GhContext, args: string[]): Promise<void> {
 
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
-  await ensureOpenIssue(issue);
+  await ensureMutableIssue(issue);
 
   const me = await getCurrentUser(ctx);
   const assignee = getIssueFirstAssignee(issue);
@@ -892,7 +912,7 @@ async function cmdClose(ctx: GhContext, args: string[]): Promise<void> {
 
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
-  await ensureOpenIssue(issue);
+  await ensureMutableIssue(issue);
 
   await addComment(ctx, issueNumber, summary);
   await ensureLabelAbsent(ctx, issue, 'status:doing');
@@ -999,10 +1019,10 @@ async function cmdPrclose(ctx: GhContext, args: string[]): Promise<void> {
     }
   }
 
-  // ── Validate before dry-run guard ───────────────────────────────────────
+  // ── Target validation before any mutation ───────────────────────────────
   await ensureRequiredLabels(ctx);
   const issue = await getIssue(ctx, issueNumber);
-  await ensureOpenIssue(issue);
+  await ensureMutableIssue(issue);
 
   // ── API calls ───────────────────────────────────────────────────────────
 
@@ -1186,7 +1206,7 @@ export async function main(
 
 export {
   addAssignee, addComment, addLabel, api, apiGet, apiPost, buildPRBody, closeIssue, cmdAssign, cmdCheck, cmdClaim, cmdClose, cmdCreate, cmdEdit, cmdLabelsCheck,
-  cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureOpenIssue, ensureRequiredLabels, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
+  cmdList, cmdPrclose, cmdRelease, cmdShow, ensureLabelAbsent, ensureLabelPresent, ensureMutableIssue, ensureRequiredLabels, extractRepoFromUrl, getCurrentUser, getDefaultBranch, getIssue, getIssueAssigneeCount,
   getIssueFirstAssignee, getIssueState, getRepoLabels, issueHasLabel, output,
   outputJson, PR_REVIEW_TEAM, prBodyScratchPath, printUsage, removeAssignee, removeLabel, requestTeamReview, REQUIRED_LABELS, resolveRepo, resolveToken, slugify
 };

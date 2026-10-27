@@ -8,15 +8,15 @@ This repository provides reusable OpenCode source configuration and installs gen
 
 - OpenCode (default) and Kilo Code are supported AI runtimes, selectable at install time via the `--runtime` parameter.
 - Guided interactive installs are handled by the TypeScript CLI only (`wfg interactive`); non-interactive installs use `wfg install --repo <path>`. Users first install the CLI via the one-shot installer (`curl | sh` / `irm | iex`), then install configuration into each target repository. `wfg install --repo` requires Node.js >= 18 on PATH (the one-shot installer provisions it user-locally when missing).
-- Supported provider sets during installation include `free-tier` (default for opencode), `openai`, `github-copilot`, `laberit`, `opencode-go`, and comma-separated combinations of those providers. `free-tier` is only available for the opencode runtime and installs the default OpenCode structure without configuring an external provider.
+- Supported provider sets during installation include `free-tier` (default for opencode), `openai`, `github-copilot`, `laberit`, `opencode-go`, and comma-separated combinations of those providers (e.g. `openai,laberit`, `opencode-go,laberit`). `free-tier` is only available for the opencode runtime and installs the default OpenCode structure without configuring an external provider.
 - OpenAI authentication is handled in OpenCode with `/connect` (ChatGPT Plus/Pro or Azure credentials).
 - GitHub Copilot authentication is handled in OpenCode with `/connect` (device login flow).
-- laberit is configured via environment variables (`OPENAI_BASE_URL`, `OPENAI_API_KEY`).
+- laberit is configured via `OPENAI_BASE_URL` and `OPENAI_API_KEY`, both required in the process environment before launch (a project `.env` file is not picked up). Both runtimes emit the same unified provider shape — `env: ["OPENAI_API_KEY"]` + `options.baseURL: "${OPENAI_BASE_URL}"` — and generated project config never emits `{env:}`/`{file:}` references (invariant, candidate for a future ADR). This avoids Kilo's trusted-config guard: project-level `kilo.jsonc` is untrusted and rejects active `{env:VAR}` references. Fallback if Kilo stops honoring project-level `provider.env`: move `options` with `{env:...}` into the trusted global `~/.config/kilo/kilo.jsonc` (manual; the installer never writes it). A missing variable leaves `${VAR}` literal and the request fails loudly; see README for setup.
 - Model IDs are recommendations and may need adjustment with `/models` depending on account availability.
 - The default OpenAI model policy uses the current configured OpenAI model set (`openai/gpt-6-sol` plus lightweight `openai/gpt-5.6-luna`) and keeps installer defaults aligned with the provider fragment.
 - Generated `opencode.jsonc` (or `kilo.jsonc` for Kilo Code) is the provider/model brain for each target repository and centralizes per-agent model assignments under `agent`.
 - Generated runtime config includes `enabled_providers` based on installer provider selection. Agent presets (`balanced`, `fast`, `thorough`) were removed (ADR-0015); the interactive installer instead offers a model preset choice (installer defaults vs faster responses).
-- Users can switch providers interactively: `/model openai/gpt-6-sol`, `/model github-copilot/gpt-5.4`, `/model laberit/laberit-ai-preview`, or `/model opencode-go/deepseek-v4.1-flash`.
+- Users can switch providers interactively: `/model openai/gpt-6-sol`, `/model github-copilot/gpt-5.4`, `/model laberit/laberit-ai-preview`, `/model laberit/laberit-kimi-k2.7-code`, or `/model opencode-go/deepseek-v4.1-flash`.
 
 ## Installed Surface
 
@@ -25,14 +25,15 @@ This repository provides reusable OpenCode source configuration and installs gen
 The installer surface is a TypeScript CLI under `cli/src/`, distributed as a prebuilt binary plus a static source snapshot.
 
 - **Framework**: TypeScript + Commander for argument parsing
-- **Source**: `cli/src/index.ts` (entrypoint), `cli/src/commands/` (install, uninstall, interactive), `cli/src/lib/` (shared libraries)
+- **Source**: `cli/src/index.ts` (entrypoint), `cli/src/commands/` (install, uninstall, update, upgrade, interactive), `cli/src/lib/` (shared libraries)
 - **Binary compilation**: `make cli-binary` produces a standalone executable via `bun build --compile` (~100MB)
 - **One-shot installer**: `install/install.sh` (POSIX) and `install/install.ps1` (PowerShell 5.1+) download the compiled binary and share archive into a dedicated prefix and register `bin` on the user PATH. When Node.js >= 18 is absent (or too old), the installer provisions a pinned user-local Node.js into the prefix (`node/`) and adds it to PATH; `--skip-node-check` / `-SkipNodeCheck` bypasses this. No administrator privileges are required.
 - **Dedicated prefix / layout**:
   - Linux / macOS: `~/.wayforge`
   - Windows: `%LOCALAPPDATA%\wayforge`
   - Layout: `bin/wfg` (`wfg.exe` on Windows), `node/` (provisioned Node.js, when installed), `share/wayforge/base/**`, `share/wayforge/VERSION`, and `installed-projects.json`
-- **Release workflow**: `.github/workflows/release.yml` builds binaries for linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64, produces share archives (`wayforge-share-<version>.tar.gz` / `.zip`), and uploads `install.sh` / `install.ps1` as release assets
+- **Release workflow**: `.github/workflows/release.yml` builds binaries for linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64, produces share archives (`wayforge-share-<version>.tar.gz` / `.zip`), generates `wayforge-checksums.txt` (SHA-256 over every binary and both share archives), and uploads `install.sh` / `install.ps1` as release assets
+- **Update and upgrade**: `wfg update` reports the current and latest versions without downloading or writing anything; `wfg update` is reserved for the CLI release check (#238's managed-project refresh must adopt a different verb). `wfg upgrade` (installed binaries only) resolves the latest release, prompts unless `--yes`, downloads the platform binary, share archive, and `wayforge-checksums.txt`, verifies both SHA-256 hashes before changing the installed binary or `share/wayforge` contents, then replaces `share/wayforge` and `bin/wfg[.exe]` with `*.old-<pid>` backups and rollback; stale backup/temp artifacts are cleaned only after verification on the replacement path (older than 7 days). Commands other than `update`/`upgrade` never check for releases, and there is no automatic notice or cache. From a source checkout `wfg upgrade` refuses and points at `git pull` or the one-shot installer.
 - **Legacy references**: `install/legacy/bootstrap-legacy.sh` and `install/legacy/bootstrap-legacy.ps1` preserve the original full installers; `install/legacy/bootstrap-thin.sh` and `install/legacy/bootstrap-thin.ps1` preserve the retired thin entrypoints. All legacy scripts are frozen.
 
 Reusable versioned source lives in this repository under `base/opencode/**`.
