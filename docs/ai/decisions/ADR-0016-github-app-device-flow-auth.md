@@ -1,7 +1,7 @@
-# ADR-0016: Authenticate gh-issue via GitHub App Device Flow
+# ADR-0016: Authenticate gh-issue via GitHub App Device Flow (superseded)
 
-Date: 2026-06-22 (amended 2026-06-26)
-Status: Accepted
+Date: 2026-06-22 (amended 2026-06-26; superseded 2026-10-27)
+Status: Superseded
 
 ## Context
 
@@ -39,3 +39,13 @@ Token resolution order:
 - **Keep PAT**: rejected — broad permissions, manual provisioning, token rotation burden.
 - **GitHub App installation token** (JWT + private key): rejected — requires private key management; the Device Flow achieves the same scoped access with only the Client ID.
 - **`gh auth login`**: rejected — `gh` CLI on github.com does not support custom OAuth Client IDs.
+
+## Supersession (2026-10-27)
+
+This ADR records the historical Device Flow decision; it is superseded by the
+delegated credential contract. `gh-issue.ts` now resolves `GITHUB_TOKEN`, then
+`GH_TOKEN`, then performs an internal `gh auth token` lookup. It does not read,
+refresh, delete, or migrate the Device Flow cache. Fine-grained,
+repository-scoped PATs are suitable for the environment variables; `gh auth
+login` is the machine-wide alternative. The former cache and app configuration
+files remain a manual migration concern, not an automatic cleanup action.

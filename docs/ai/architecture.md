@@ -69,6 +69,27 @@ The installer must not overwrite unmanaged existing files by default and support
 
 Portable workflow helpers used by shared commands should be packaged under `.opencode/skills/**` so they are available through the installed surface; consuming repositories should not require a top-level `scripts/` directory for those helpers.
 
+### GitHub shared-task credentials
+
+`/issue` keeps GitHub API calls in the TypeScript helper and resolves its
+credential in this order: `GITHUB_TOKEN`, `GH_TOKEN`, then an internal
+`gh auth token` lookup. A fine-grained, repository-scoped PAT needs Issues and
+Pull requests read/write plus Contents read access for PR operations; `gh auth
+login` is the alternative for a machine-wide CLI credential. Inject either
+environment variable through a secret manager, direnv, or keyring-backed
+environment integration, never through versioned files or agent prompts.
+
+```bash
+gh auth login
+npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts check
+```
+
+The helper alone invokes `gh auth token` and never emits its credential output.
+Existing `.gh-config/github-token.json` and `.gh-config/app.yml` files are
+legacy artifacts: the helper neither reads nor cleans them up, so users migrate
+by configuring one of the supported credential sources and validating with the
+helper's `check` operation.
+
 ### Installed Projects Tracking
 
 `installed-projects.json` lives in the per-user wayforge prefix (`~/.wayforge/installed-projects.json` on Linux/macOS, `%LOCALAPPDATA%\wayforge\installed-projects.json` on Windows). It is excluded from version control via `.gitignore`.
