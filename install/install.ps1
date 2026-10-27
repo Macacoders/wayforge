@@ -203,7 +203,7 @@ function Install-LocalNode {
     # The Node zip contains a top-level node-v<ver>-win-<arch>\ folder; expand
     # to a temp dir and move its contents so node.exe lands at nodeDir\node.exe.
     $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("wayforge-node-" + [System.Guid]::NewGuid().ToString("N"))
-    $tmpZip = Join-Path $env:TEMP $archive
+    $tmpZip = Join-Path ([System.IO.Path]::GetTempPath()) $archive
     try {
         Invoke-WebRequest -Uri $url -OutFile $tmpZip -UseBasicParsing
         Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force
@@ -272,6 +272,25 @@ function Ensure-Node {
 # ---------------------------------------------------------------------------
 # Checksum verification
 # ---------------------------------------------------------------------------
+# Returns the HTTP status code carried by an Invoke-WebRequest failure, or
+# $null for transport failures (timeout/TLS/DNS) where no response exists.
+# PS 5.1 exposes HttpWebResponse.StatusCode; PS 7 exposes
+# HttpResponseMessage.StatusCode; both cast to [int].
+function Get-HttpStatusCode {
+    param($ErrorRecord)
+
+    $response = $ErrorRecord.Exception.Response
+    if (-not $response) {
+        return $null
+    }
+    try {
+        return [int]$response.StatusCode
+    }
+    catch {
+        return $null
+    }
+}
+
 # Parses a sha256sum-format checksum file into a hashtable keyed by bare asset
 # name (release entries carry a dist/ prefix; GetFileName normalizes, mirroring
 # parseChecksums in cli/src/lib/upgrade.ts).
@@ -343,22 +362,30 @@ function Install-Wayforge {
         return
     }
 
-    $tmpBinary = Join-Path $env:TEMP ("wayforge-binary-" + [System.Guid]::NewGuid().ToString("N"))
-    $tmpShare = Join-Path $env:TEMP ("wayforge-share-" + [System.Guid]::NewGuid().ToString("N") + ".zip")
-    $tmpChecksums = Join-Path $env:TEMP ("wayforge-checksums-" + [System.Guid]::NewGuid().ToString("N") + ".txt")
+    $tmpBinary = Join-Path ([System.IO.Path]::GetTempPath()) ("wayforge-binary-" + [System.Guid]::NewGuid().ToString("N"))
+    $tmpShare = Join-Path ([System.IO.Path]::GetTempPath()) ("wayforge-share-" + [System.Guid]::NewGuid().ToString("N") + ".zip")
+    $tmpChecksums = Join-Path ([System.IO.Path]::GetTempPath()) ("wayforge-checksums-" + [System.Guid]::NewGuid().ToString("N") + ".txt")
     try {
         Invoke-WebRequest -Uri $binaryUrl -OutFile $tmpBinary -UseBasicParsing
         Invoke-WebRequest -Uri $shareUrl -OutFile $tmpShare -UseBasicParsing
 
-        # Older releases predate wayforge-checksums.txt; a failed download for
-        # that one URL falls back to an unverified install with a warning.
+        # Older releases predate wayforge-checksums.txt; only a confirmed
+        # 404 may fall back to an unverified install. Every other failure
+        # (403/5xx, timeout, TLS) aborts before any prefix change.
         $skipChecksums = $false
         try {
             Invoke-WebRequest -Uri $checksumUrl -OutFile $tmpChecksums -UseBasicParsing
         }
         catch {
-            $skipChecksums = $true
-            Write-Warning "wayforge-checksums.txt is unavailable for ${resolvedVersion}; skipping checksum verification"
+            $statusCode = Get-HttpStatusCode $_
+            if ($statusCode -eq 404) {
+                $skipChecksums = $true
+                Write-Warning "wayforge-checksums.txt is unavailable for ${resolvedVersion}; skipping checksum verification"
+            }
+            else {
+                $detail = if ($statusCode) { " (HTTP ${statusCode})" } else { "" }
+                Write-Error "error: failed to download wayforge-checksums.txt for ${resolvedVersion}${detail}: $($_.Exception.Message); aborting without changes" -ErrorAction Stop
+            }
         }
         if (-not $skipChecksums) {
             $expected = Get-ExpectedChecksum -ChecksumFile $tmpChecksums

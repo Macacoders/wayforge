@@ -177,15 +177,23 @@ Describe 'Checksum verification (full install)' {
         # ponytail: three Invoke-WebRequest stubs live in this file; consolidate when
         # the older Describes are next touched.
         # Stub Invoke-WebRequest: copies fixtures by URI leaf, never hits the
-        # network; throws for the checksum URL when FAKE_MISSING_CHECKSUMS=1.
-        # Defined in BeforeAll so it exists in the run phase, not just discovery.
+        # network. The checksum URL can fail with an HTTP status
+        # (FAKE_CHECKSUM_STATUS) or as a transport timeout
+        # (FAKE_CHECKSUM_TIMEOUT). Defined in BeforeAll so it exists in the run
+        # phase, not just discovery.
         $script:downloadStub = @'
 function Invoke-WebRequest {
     [CmdletBinding()]
     param([string]$Uri, [string]$OutFile, [switch]$UseBasicParsing)
     $leaf = [System.IO.Path]::GetFileName($Uri)
-    if ($leaf -eq 'wayforge-checksums.txt' -and $env:FAKE_MISSING_CHECKSUMS -eq '1') {
-        throw "404: ${Uri}"
+    if ($leaf -eq 'wayforge-checksums.txt' -and $env:FAKE_CHECKSUM_STATUS) {
+        $status = [int]$env:FAKE_CHECKSUM_STATUS
+        $ex = [System.Exception]::new("The remote server returned an error: (${status}).")
+        $ex | Add-Member -NotePropertyName Response -NotePropertyValue ([pscustomobject]@{ StatusCode = $status }) -Force
+        throw $ex
+    }
+    if ($leaf -eq 'wayforge-checksums.txt' -and $env:FAKE_CHECKSUM_TIMEOUT -eq '1') {
+        throw [System.TimeoutException]::new('The operation has timed out.')
     }
     $src = Join-Path $env:FIXTURE_DIR $leaf
     if (-not (Test-Path $src)) { throw "404: ${Uri}" }
@@ -253,17 +261,25 @@ exit 0
     }
 
     It 'installs with a warning when the checksum asset is missing' {
-        $env:FAKE_MISSING_CHECKSUMS = '1'
-        try {
-            $combined = & $script:installChild -ExtraEnv "`$env:FAKE_MISSING_CHECKSUMS = '1'"
-            $LASTEXITCODE | Should -Be 0
-            $combined | Should -Match 'wayforge-checksums\.txt is unavailable for 9\.9\.9; skipping checksum verification'
-            Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
-            Test-Path (Join-Path $script:tmp 'prefix/share/wayforge/base') -PathType Container | Should -Be $true
-        }
-        finally {
-            $env:FAKE_MISSING_CHECKSUMS = $null
-        }
+        $combined = & $script:installChild -ExtraEnv "`$env:FAKE_CHECKSUM_STATUS = '404'"
+        $LASTEXITCODE | Should -Be 0
+        $combined | Should -Match 'wayforge-checksums\.txt is unavailable for 9\.9\.9; skipping checksum verification'
+        Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
+        Test-Path (Join-Path $script:tmp 'prefix/share/wayforge/base') -PathType Container | Should -Be $true
+    }
+
+    It 'aborts without installing when the checksum download fails for a non-404 reason' {
+        $combined = & $script:installChild -ExtraEnv "`$env:FAKE_CHECKSUM_STATUS = '500'"
+        $LASTEXITCODE | Should -Not -Be 0
+        $combined | Should -Match 'failed to download wayforge-checksums\.txt'
+        Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
+    }
+
+    It 'aborts without installing when the checksum download has no HTTP response' {
+        $combined = & $script:installChild -ExtraEnv "`$env:FAKE_CHECKSUM_TIMEOUT = '1'"
+        $LASTEXITCODE | Should -Not -Be 0
+        $combined | Should -Match 'failed to download wayforge-checksums\.txt'
+        Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
     }
 
     It 'aborts when the checksum file has no entry for the binary' {
