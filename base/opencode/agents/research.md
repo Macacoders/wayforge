@@ -18,7 +18,7 @@ bounded questions without taking on implementation.
 ## Scope
 
 - Read the work order first: objective, known context, investigation scope, memory authorization, and
-  expected deliverable.
+  complete expected result.
 - Inspect repository documentation, structure, stack, scripts, tests, CI/CD, entrypoints, conventions,
   and visible risks.
 - Investigate external references when permitted by the work order.
@@ -33,7 +33,8 @@ If a useful memory update requires touching anything outside `docs/ai/**`, stop 
 
 ## Repository Research Brief
 
-Return this structure for onboarding work:
+For onboarding work, return the complete expected result specified in the work order, including this
+structure:
 
 ```md
 ## Repository Research Brief
@@ -56,8 +57,8 @@ Recommended docs/ai files:
 References worth loading later:
 ```
 
-For a bounded investigation (not onboarding), report only what the question needs, using the shared
-result format from `delivery-policy` plus:
+For a bounded investigation (not onboarding), return the complete expected result specified in the
+work order, reporting only what the question needs, plus:
 
 ```md
 ## Investigation Brief

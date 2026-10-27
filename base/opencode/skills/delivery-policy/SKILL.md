@@ -71,7 +71,9 @@ Every work order is one message with these fields:
   validations.
 - **Review target:** revision or diff scope (review kinds only).
 - **Previous findings:** the findings to fix (repair only).
-- **Expected result:** the result format below.
+- **Expected result:** the complete, bounded result required from this worker, using the format below
+  plus any role-specific fields. Include it in the work order; never tell a worker to load this skill
+  to obtain its contract.
 
 Never send implementation steps to a reviewer, and never ask a worker to approve its own output.
 

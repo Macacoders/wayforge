@@ -26,7 +26,7 @@ change, and you do not fix it.
 
 ## Verdict
 
-Return the shared result format from `delivery-policy` plus:
+Return the complete expected result specified in the work order, including:
 
 - `Verdict: pass | changes_required | blocked`
 - `Reviewed revision:` the git range, sha, or working-tree diff you actually inspected

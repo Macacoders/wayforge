@@ -38,6 +38,6 @@ You are the implementer. You execute exactly one dispatched work order per child
 
 ## Result
 
-Return the shared result format from `delivery-policy`: work order and kind, status
-(`completed | blocked | failed`), summary, changed files, validation evidence, residual risks, and a
-proposed commit message for `delivery`.
+Return the complete expected result specified in the work order. It must report the work order and
+kind, status, summary, changed files, validation evidence, residual risks, and a proposed commit
+message for `delivery`.

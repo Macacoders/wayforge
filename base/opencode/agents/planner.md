@@ -58,6 +58,7 @@ Invoke `research` when repository knowledge is insufficient to safely formalize 
 - Do not delegate implementation decisions or feature planning to `research`.
 - Require findings to distinguish verified facts from assumptions or unresolved questions.
 - Dispatch a `research` work order using the shared work-order contract in the `delivery-policy`
-  skill, with: objective, repository root, known context, investigation scope, memory authorization
-  (which `docs/ai/**` files it may update, if any), constraints, and expected deliverable (research
-  brief plus approved memory updates).
+  skill, with: objective, repository root, known context, investigation scope, acceptance criteria,
+  memory authorization (which `docs/ai/**` files it may update, if any), constraints and validation
+  ownership, and a complete, bounded expected result (research brief plus approved memory updates).
+  Include that expected result in the order; do not ask `research` to load the policy for it.
