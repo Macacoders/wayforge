@@ -28,12 +28,14 @@ NODE_BIN_DIR=""
 # ---------------------------------------------------------------------------
 TMP_BINARY=""
 TMP_SHARE=""
+TMP_CHECKSUMS=""
 TMP_PATH_BLOCK=""
 TMP_NODE=""
 
 cleanup() {
 	if [ -n "${TMP_BINARY:-}" ]; then rm -f "$TMP_BINARY"; fi
 	if [ -n "${TMP_SHARE:-}" ]; then rm -f "$TMP_SHARE"; fi
+	if [ -n "${TMP_CHECKSUMS:-}" ]; then rm -f "$TMP_CHECKSUMS"; fi
 	if [ -n "${TMP_PATH_BLOCK:-}" ]; then rm -f "$TMP_PATH_BLOCK"; fi
 	if [ -n "${TMP_NODE:-}" ]; then rm -f "$TMP_NODE"; fi
 }
@@ -209,6 +211,51 @@ download() {
 }
 
 # ---------------------------------------------------------------------------
+# Checksum verification
+# ---------------------------------------------------------------------------
+sha256_file() {
+	if command -v sha256sum >/dev/null 2>&1; then
+		sha256sum "$1" | awk '{print $1}'
+	elif command -v shasum >/dev/null 2>&1; then
+		shasum -a 256 "$1" | awk '{print $1}'
+	else
+		echo "error: cannot verify checksums: sha256sum or shasum is required" >&2
+		return 1
+	fi
+}
+
+# checksum_for <asset-name>
+# Looks up the digest for an asset in $TMP_CHECKSUMS. Release checksums are
+# generated with paths ("dist/wayforge-*"), so entries are matched by
+# basename; mirrors parseChecksums in cli/src/lib/upgrade.ts (intentional
+# duplication: the installer is a standalone POSIX sh file).
+checksum_for() {
+	awk -v name="$1" \
+		'{ f=$2; sub(/^\*/, "", f); sub(/^.*\//, "", f); if (f == name) { print tolower($1); exit } }' \
+		"$TMP_CHECKSUMS"
+}
+
+# verify_asset <file> <asset-name>
+# Aborts before any install mutation on a missing entry or digest mismatch.
+verify_asset() {
+	local file="$1"
+	local name="$2"
+	local expected
+	expected="$(checksum_for "$name")"
+	if [ -z "$expected" ]; then
+		echo "error: checksum file has no entry for ${name}; aborting without changes" >&2
+		exit 1
+	fi
+	local actual
+	actual="$(sha256_file "$file")" || exit 1
+	if [ "$actual" != "$expected" ]; then
+		echo "error: checksum mismatch for ${name}: expected ${expected}, got ${actual}" >&2
+		exit 1
+	fi
+	echo "verified ${name} checksum"
+}
+
+# ---------------------------------------------------------------------------
 # Node.js provisioning
 # ---------------------------------------------------------------------------
 node_major() {
@@ -342,7 +389,6 @@ build_url_base() {
 # ---------------------------------------------------------------------------
 run_install() {
 	detect_downloader
-	ensure_node
 
 	if [ -n "$VERSION" ]; then
 		case "$VERSION" in
@@ -363,17 +409,21 @@ run_install() {
 	local share_name="wayforge-share-${TAG#v}.tar.gz"
 	local binary_url="${base_url}/${BINARY_NAME}"
 	local share_url="${base_url}/${share_name}"
+	local checksum_url="${base_url}/wayforge-checksums.txt"
 
 	local bin_dir="${PREFIX}/bin"
 	local share_dir="${PREFIX}/share/wayforge"
 	local binary_path="${bin_dir}/wfg"
 
 	if [ "$DRY_RUN" -eq 1 ]; then
+		ensure_node
 		echo "[dry-run] OS: ${OS}, ARCH: ${ARCH}"
 		echo "[dry-run] prefix: ${PREFIX}"
 		echo "[dry-run] version: ${TAG#v}"
 		echo "[dry-run] binary URL: ${binary_url}"
 		echo "[dry-run] share URL: ${share_url}"
+		echo "[dry-run] checksum URL: ${checksum_url}"
+		echo "[dry-run] would verify: ${BINARY_NAME}, ${share_name}"
 		echo "[dry-run] would create directory: ${bin_dir}"
 		echo "[dry-run] would create directory: ${share_dir}"
 		echo "[dry-run] would download: ${binary_url} -> ${binary_path}"
@@ -386,17 +436,30 @@ run_install() {
 		return 0
 	fi
 
+	TMP_BINARY="$(mktemp)"
+	TMP_SHARE="$(mktemp)"
+	TMP_CHECKSUMS="$(mktemp)"
+	download "$binary_url" "$TMP_BINARY"
+	download "$share_url" "$TMP_SHARE"
+	if ! download "$checksum_url" "$TMP_CHECKSUMS"; then
+		rm -f "$TMP_CHECKSUMS"
+		TMP_CHECKSUMS=""
+		echo "warning: wayforge-checksums.txt is unavailable for ${TAG}; skipping checksum verification" >&2
+	fi
+
+	if [ -n "$TMP_CHECKSUMS" ]; then
+		verify_asset "$TMP_BINARY" "$BINARY_NAME"
+		verify_asset "$TMP_SHARE" "$share_name"
+	fi
+
+	ensure_node
+
 	mkdir -p "$bin_dir"
 	mkdir -p "$share_dir"
 
-	TMP_BINARY="${binary_path}.tmp.$$"
-	download "$binary_url" "$TMP_BINARY"
 	chmod +x "$TMP_BINARY"
 	mv "$TMP_BINARY" "$binary_path"
 	TMP_BINARY=""
-
-	TMP_SHARE="$(mktemp)"
-	download "$share_url" "$TMP_SHARE"
 
 	rm -rf "$share_dir"
 	mkdir -p "$share_dir"
