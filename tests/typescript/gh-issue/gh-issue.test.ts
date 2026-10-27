@@ -4,7 +4,7 @@
 // Strategy:
 //   - Mock child_process.execFileSync globally (git commands)
 //   - Mock global fetch (GitHub API)
-//   - Set GITHUB_TOKEN env to bypass auth module
+//   - Set GITHUB_TOKEN env to bypass credential fallback
 //   - Use exported functions from gh-issue.ts directly
 
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -13,7 +13,7 @@ import * as path from 'node:path';
 // ── Module-level mocks (hoisted by vitest) ──────────────────────────────────
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
-vi.mock('child_process', () => ({ execFileSync: mockExecFileSync }));
+vi.mock('node:child_process', () => ({ execFileSync: mockExecFileSync }));
 
 const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -22,9 +22,6 @@ vi.mock('node:fs', () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
   unlinkSync: mockUnlinkSync,
-}));
-vi.mock('../../../base/opencode/skills/shared-task/scripts/gh-app-auth.ts', () => ({
-  getValidToken: vi.fn().mockRejectedValue(new Error('auth mock')),
 }));
 
 // ── Stub globals before imports ─────────────────────────────────────────────
@@ -307,31 +304,50 @@ describe('api retry behavior', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('resolveToken', () => {
-  it('returns GITHUB_TOKEN env var', async () => {
-    process.env.GITHUB_TOKEN = 'from-env';
-    process.env.GH_TOKEN = 'should-be-ignored';
-    const token = await gh.resolveToken();
-    expect(token).toBe('from-env');
-  });
+	it('returns GITHUB_TOKEN env var', async () => {
+		process.env.GITHUB_TOKEN = 'from-env';
+		process.env.GH_TOKEN = 'should-be-ignored';
+		const token = await gh.resolveToken();
+		expect(token).toBe('from-env');
+		expect(mockExecFileSync).not.toHaveBeenCalled();
+	});
 
   it('falls back to GH_TOKEN env var', async () => {
     delete process.env.GITHUB_TOKEN;
-    process.env.GH_TOKEN = 'from-gh-env';
-    const token = await gh.resolveToken();
-    expect(token).toBe('from-gh-env');
-  });
+		process.env.GH_TOKEN = 'from-gh-env';
+		const token = await gh.resolveToken();
+		expect(token).toBe('from-gh-env');
+		expect(mockExecFileSync).not.toHaveBeenCalled();
+	});
 
-  it('throws when no env vars set and auth fails', async () => {
-    delete process.env.GITHUB_TOKEN;
-    delete process.env.GH_TOKEN;
-    await expect(gh.resolveToken()).rejects.toThrow();
-  });
+	it('uses a token from gh when no environment token is set', async () => {
+		delete process.env.GITHUB_TOKEN;
+		delete process.env.GH_TOKEN;
+		mockExecFileSync.mockReturnValue('from-gh-cli\n');
 
-  it('propagates expired-token/device-flow failure from gh-app-auth', async () => {
-    delete process.env.GITHUB_TOKEN;
-    delete process.env.GH_TOKEN;
-    await expect(gh.resolveToken()).rejects.toThrow('auth mock');
-  });
+		await expect(gh.resolveToken()).resolves.toBe('from-gh-cli');
+		expect(mockExecFileSync).toHaveBeenCalledWith('gh', ['auth', 'token'], {
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'ignore'],
+			timeout: 5000,
+		});
+	});
+
+	it.each([
+		['gh is unavailable', () => { throw new Error('credential-bearing subprocess output'); }],
+		['gh returns an empty token', () => '   \n'],
+	])('fails safely when %s', async (_caseName, result) => {
+		delete process.env.GITHUB_TOKEN;
+		delete process.env.GH_TOKEN;
+		mockExecFileSync.mockImplementation(result);
+
+		const error = await gh.resolveToken().catch((err: unknown) => err as Error);
+		expect(error.message).toContain(
+			'GITHUB_TOKEN to a fine-grained personal access token for this repository',
+		);
+		expect(error.message).toContain('gh auth login');
+		expect(error.message).not.toContain('credential-bearing subprocess output');
+	});
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

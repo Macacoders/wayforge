@@ -6,7 +6,6 @@ import { createRequire } from 'node:module';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../../..');
-const AUTH_SCRIPT = path.join(REPO_ROOT, 'base/opencode/skills/shared-task/scripts/gh-app-auth.ts');
 const ISSUE_SCRIPT = path.join(REPO_ROOT, 'base/opencode/skills/shared-task/scripts/gh-issue.ts');
 
 const require = createRequire(import.meta.url);
@@ -25,29 +24,12 @@ function run(args: string[], opts?: { env?: Record<string, string> }): { stdout:
   };
 }
 
-describe('gh-app-auth.ts E2E', () => {
-  it('shows help and exits 0', () => {
-    const r = run([AUTH_SCRIPT, '--help']);
-    expect(r.status).toBe(0);
-    expect(r.stdout).toContain('Usage:');
-  });
-
-  it('without credentials exits 1', () => {
-    const r = run([AUTH_SCRIPT], { env: { GH_APP_CLIENT_ID: '', GH_CONFIG_DIR: '/tmp/nonexistent-gh-config' } });
-    expect(r.status).toBe(1);
-    expect(r.stderr).toContain('No GitHub App Client ID');
-  });
-});
-
 describe('gh-issue.ts help', () => {
-  // Credential-hostile env: if --help/help reached token resolution, the
-  // device flow would fail (missing client id / no cache) with exit != 0.
-  const hostileEnv = {
-    GITHUB_TOKEN: '',
-    GH_TOKEN: '',
-    GH_APP_CLIENT_ID: '',
-    GH_CONFIG_DIR: '/tmp/nonexistent-gh-config',
-  };
+  // Credential-hostile env: help must return before credential resolution.
+	const hostileEnv = {
+		GITHUB_TOKEN: '',
+		GH_TOKEN: '',
+	};
 
   it('--help prints usage and exits 0 without credentials', () => {
     const r = run([ISSUE_SCRIPT, '--help'], { env: hostileEnv });
@@ -116,14 +98,16 @@ describe('gh-issue.ts dry-run lifecycle', () => {
 });
 
 describe('gh-issue.ts auth integration', () => {
-  it('no token or git remote fails', () => {
-    const r = run([ISSUE_SCRIPT, '--repo', 'test/repo', 'check'], {
-      env: { GITHUB_TOKEN: '', GH_TOKEN: '', GH_REPO: '' },
-    });
-    expect(r.status).not.toBe(0);
-  });
+	it('fails with setup guidance when gh is unavailable', () => {
+		const r = run([ISSUE_SCRIPT, '--repo', 'test/repo', 'check'], {
+			env: { GITHUB_TOKEN: '', GH_TOKEN: '', PATH: '' },
+		});
+		expect(r.status).toBe(1);
+		expect(r.stderr).toContain('GITHUB_TOKEN to a fine-grained personal access token');
+		expect(r.stderr).toContain('gh auth login');
+	});
 
-  it('fake token reaches API and gets 401', () => {
+	it('fake token reaches API and gets 401', () => {
     const r = run([ISSUE_SCRIPT, '--repo', 'test/repo', 'check'], {
       env: { GITHUB_TOKEN: 'fake_token' },
     });
