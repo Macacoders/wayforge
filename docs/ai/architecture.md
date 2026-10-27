@@ -27,7 +27,7 @@ The installer surface is a TypeScript CLI under `cli/src/`, distributed as a pre
 - **Framework**: TypeScript + Commander for argument parsing
 - **Source**: `cli/src/index.ts` (entrypoint), `cli/src/commands/` (install, uninstall, update, upgrade, interactive), `cli/src/lib/` (shared libraries)
 - **Binary compilation**: `make cli-binary` produces a standalone executable via `bun build --compile` (~100MB)
-- **One-shot installer**: `install/install.sh` (POSIX) and `install/install.ps1` (PowerShell 5.1+) download the compiled binary and share archive into a dedicated prefix and register `bin` on the user PATH. When Node.js >= 18 is absent (or too old), the installer provisions a pinned user-local Node.js into the prefix (`node/`) and adds it to PATH; `--skip-node-check` / `-SkipNodeCheck` bypasses this. No administrator privileges are required.
+- **One-shot installer**: `install/install.sh` (POSIX) and `install/install.ps1` (PowerShell 5.1+) download the compiled binary and share archive into a dedicated prefix and register `bin` on the user PATH. Both installers verify the platform binary and share archive SHA-256 against the release's `wayforge-checksums.txt` before any prefix mutation; a mismatch or missing entry aborts with the prefix untouched, while releases predating the checksum asset (HTTP 404 only) warn and install unverified; any other checksum download failure aborts. When Node.js >= 18 is absent (or too old), the installer provisions a pinned user-local Node.js into the prefix (`node/`) and adds it to PATH; `--skip-node-check` / `-SkipNodeCheck` bypasses this. No administrator privileges are required.
 - **Dedicated prefix / layout**:
   - Linux / macOS: `~/.wayforge`
   - Windows: `%LOCALAPPDATA%\wayforge`
