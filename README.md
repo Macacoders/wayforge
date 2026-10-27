@@ -24,6 +24,8 @@ powershell -c "irm https://github.com/Macacoders/wayforge/releases/latest/downlo
 
 Default prefix: `~/.wayforge` (Linux/macOS) or `%LOCALAPPDATA%\wayforge` (Windows).
 
+The installer downloads the platform binary and share archive together with the release's `wayforge-checksums.txt` and verifies both SHA-256 hashes before installing anything; a mismatch aborts with no changes. Releases that predate the checksum asset install unverified with a warning instead.
+
 ### Requirements
 
 - **Node.js >= 18** is required to run the installed workflow (skills and commands execute via `npx tsx`).

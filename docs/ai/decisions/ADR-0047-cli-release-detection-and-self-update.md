@@ -2,6 +2,7 @@
 
 Date: 2026-10-21
 Amended: 2026-10-23
+Amended: 2026-10-27
 Status: Accepted
 
 ## Context
@@ -38,6 +39,7 @@ Before that design was released, the direction changed to two explicit commands 
 - **Tracking isolation and orphan-cache acceptance.** `installed-projects.json` and `tracking.resolveStateDir()` are unaffected: no migration and no code change. Leftover `update-check.json` files from test or maintainer installs are accepted disposable residue with no cleanup code.
 - The first release containing `upgrade` must publish `wayforge-checksums.txt`; earlier releases cannot be `wfg upgrade` targets. Users upgrade to that release with the existing one-shot installer.
 - The checksum file is strictly additive: existing artifact names are never renamed, preserving installer download contracts.
+- The one-shot installers (`install.sh` / `install.ps1`) now perform the same same-origin checksum verification as `wfg upgrade`, before any install-prefix mutation. The installer path is **fail-open** on an unavailable checksum asset (warn-and-continue, for releases predating it) while `wfg upgrade` remains **fail-closed**; the trust model of Decision 1 is unchanged for both.
 - No downgrade path is provided; a newer installed version stays put even if the latest tag is older.
 - Real running-exe replacement on Windows and Unix, checksum-mismatch abort on a real install, and checksum publication are human-validated on the next release.
 
