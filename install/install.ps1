@@ -203,7 +203,7 @@ function Install-LocalNode {
     # The Node zip contains a top-level node-v<ver>-win-<arch>\ folder; expand
     # to a temp dir and move its contents so node.exe lands at nodeDir\node.exe.
     $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("wayforge-node-" + [System.Guid]::NewGuid().ToString("N"))
-    $tmpZip = Join-Path $env:TEMP $archive
+    $tmpZip = Join-Path ([System.IO.Path]::GetTempPath()) $archive
     try {
         Invoke-WebRequest -Uri $url -OutFile $tmpZip -UseBasicParsing
         Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force
@@ -270,6 +270,61 @@ function Ensure-Node {
 }
 
 # ---------------------------------------------------------------------------
+# Checksum verification
+# ---------------------------------------------------------------------------
+# Returns the HTTP status code carried by an Invoke-WebRequest failure, or
+# $null for transport failures (timeout/TLS/DNS) where no response exists.
+# PS 5.1 exposes HttpWebResponse.StatusCode; PS 7 exposes
+# HttpResponseMessage.StatusCode; both cast to [int].
+function Get-HttpStatusCode {
+    param($ErrorRecord)
+
+    $response = $ErrorRecord.Exception.Response
+    if (-not $response) {
+        return $null
+    }
+    try {
+        return [int]$response.StatusCode
+    }
+    catch {
+        return $null
+    }
+}
+
+# Parses a sha256sum-format checksum file into a hashtable keyed by bare asset
+# name (release entries carry a dist/ prefix; GetFileName normalizes, mirroring
+# parseChecksums in cli/src/lib/upgrade.ts).
+function Get-ExpectedChecksum {
+    param([Parameter(Mandatory)][string]$ChecksumFile)
+
+    $expected = @{}
+    foreach ($line in Get-Content -Path $ChecksumFile) {
+        if ($line -match '^([0-9a-fA-F]{64})\s+\*?(.+)$') {
+            $name = [System.IO.Path]::GetFileName($Matches[2].Trim())
+            $expected[$name] = $Matches[1].ToLowerInvariant()
+        }
+    }
+    return $expected
+}
+
+function Assert-Checksum {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][hashtable]$Expected
+    )
+
+    if (-not $Expected.ContainsKey($Name)) {
+        Write-Error "error: checksum file has no entry for ${Name}; aborting without changes" -ErrorAction Stop
+    }
+    $actual = (Get-FileHash -Path $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actual -ne $Expected[$Name]) {
+        Write-Error "error: checksum mismatch for ${Name}: expected $($Expected[$Name]), got ${actual}" -ErrorAction Stop
+    }
+    Write-Host "verified ${Name} checksum"
+}
+
+# ---------------------------------------------------------------------------
 # Install path
 # ---------------------------------------------------------------------------
 function Install-Wayforge {
@@ -278,12 +333,11 @@ function Install-Wayforge {
         Write-Error "error: version could not be determined" -ErrorAction Stop
     }
 
-    Ensure-Node
-
     $baseUrl = Build-UrlBase -ResolvedVersion $resolvedVersion
     $shareName = "wayforge-share-${resolvedVersion}.zip"
     $binaryUrl = "${baseUrl}/${BinaryName}"
     $shareUrl = "${baseUrl}/${shareName}"
+    $checksumUrl = "${baseUrl}/wayforge-checksums.txt"
 
     $binDir = Join-Path $Prefix "bin"
     $shareDir = Join-Path $Prefix (Join-Path "share" "wayforge")
@@ -291,11 +345,14 @@ function Install-Wayforge {
 
     if ($DryRun) {
         $baseCheck = Join-Path $shareDir "base"
+        Ensure-Node
         Write-Host "[dry-run] ARCH: ${Arch}"
         Write-Host "[dry-run] prefix: ${Prefix}"
         Write-Host "[dry-run] version: ${resolvedVersion}"
         Write-Host "[dry-run] binary URL: ${binaryUrl}"
         Write-Host "[dry-run] share URL: ${shareUrl}"
+        Write-Host "[dry-run] checksum URL: ${checksumUrl}"
+        Write-Host "[dry-run] would verify: ${BinaryName}, ${shareName}"
         Write-Host "[dry-run] would create directory: ${binDir}"
         Write-Host "[dry-run] would create directory: ${shareDir}"
         Write-Host "[dry-run] would download: ${binaryUrl} -> ${binaryPath}"
@@ -305,32 +362,68 @@ function Install-Wayforge {
         return
     }
 
-    New-Item -ItemType Directory -Force -Path $binDir | Out-Null
-    New-Item -ItemType Directory -Force -Path $shareDir | Out-Null
+    $tmpBinary = Join-Path ([System.IO.Path]::GetTempPath()) ("wayforge-binary-" + [System.Guid]::NewGuid().ToString("N"))
+    $tmpShare = Join-Path ([System.IO.Path]::GetTempPath()) ("wayforge-share-" + [System.Guid]::NewGuid().ToString("N") + ".zip")
+    $tmpChecksums = Join-Path ([System.IO.Path]::GetTempPath()) ("wayforge-checksums-" + [System.Guid]::NewGuid().ToString("N") + ".txt")
+    try {
+        Invoke-WebRequest -Uri $binaryUrl -OutFile $tmpBinary -UseBasicParsing
+        Invoke-WebRequest -Uri $shareUrl -OutFile $tmpShare -UseBasicParsing
 
-    $tmpBinary = "${binaryPath}.tmp"
-    Invoke-WebRequest -Uri $binaryUrl -OutFile $tmpBinary -UseBasicParsing
-    Move-Item -Path $tmpBinary -Destination $binaryPath -Force
+        # Older releases predate wayforge-checksums.txt; only a confirmed
+        # 404 may fall back to an unverified install. Every other failure
+        # (403/5xx, timeout, TLS) aborts before any prefix change.
+        $skipChecksums = $false
+        try {
+            Invoke-WebRequest -Uri $checksumUrl -OutFile $tmpChecksums -UseBasicParsing
+        }
+        catch {
+            $statusCode = Get-HttpStatusCode $_
+            if ($statusCode -eq 404) {
+                $skipChecksums = $true
+                Write-Warning "wayforge-checksums.txt is unavailable for ${resolvedVersion}; skipping checksum verification"
+            }
+            else {
+                $detail = if ($statusCode) { " (HTTP ${statusCode})" } else { "" }
+                Write-Error "error: failed to download wayforge-checksums.txt for ${resolvedVersion}${detail}: $($_.Exception.Message); aborting without changes" -ErrorAction Stop
+            }
+        }
+        if (-not $skipChecksums) {
+            $expected = Get-ExpectedChecksum -ChecksumFile $tmpChecksums
+            Assert-Checksum -Path $tmpBinary -Name $BinaryName -Expected $expected
+            Assert-Checksum -Path $tmpShare -Name $shareName -Expected $expected
+        }
 
-    $tmpShare = Join-Path $env:TEMP "wayforge-share-${resolvedVersion}.zip"
-    Invoke-WebRequest -Uri $shareUrl -OutFile $tmpShare -UseBasicParsing
+        Ensure-Node
 
-    if (Test-Path $shareDir) {
-        Remove-Item -Path $shareDir -Recurse -Force
+        New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+        New-Item -ItemType Directory -Force -Path $shareDir | Out-Null
+
+        Move-Item -Path $tmpBinary -Destination $binaryPath -Force
+        $tmpBinary = $null
+
+        if (Test-Path $shareDir) {
+            Remove-Item -Path $shareDir -Recurse -Force
+        }
+        New-Item -ItemType Directory -Force -Path $shareDir | Out-Null
+        Expand-Archive -Path $tmpShare -DestinationPath $shareDir -Force
+
+        $baseCheck = Join-Path $shareDir "base"
+        if (-not (Test-Path $baseCheck -PathType Container)) {
+            Write-Error "error: share archive did not create ${baseCheck}" -ErrorAction Stop
+        }
+
+        Add-UserPathEntry $binDir
+
+        Write-Host "wayforge ${resolvedVersion} installed to ${binaryPath}"
+        Write-Host "${binDir} added to your User PATH."
     }
-    New-Item -ItemType Directory -Force -Path $shareDir | Out-Null
-    Expand-Archive -Path $tmpShare -DestinationPath $shareDir -Force
-    Remove-Item -Path $tmpShare -Force
-
-    $baseCheck = Join-Path $shareDir "base"
-    if (-not (Test-Path $baseCheck -PathType Container)) {
-        Write-Error "error: share archive did not create ${baseCheck}" -ErrorAction Stop
+    finally {
+        foreach ($tmp in @($tmpBinary, $tmpShare, $tmpChecksums)) {
+            if ($tmp -and (Test-Path $tmp)) {
+                Remove-Item -Path $tmp -Force
+            }
+        }
     }
-
-    Add-UserPathEntry $binDir
-
-    Write-Host "wayforge ${resolvedVersion} installed to ${binaryPath}"
-    Write-Host "${binDir} added to your User PATH."
 }
 
 # ---------------------------------------------------------------------------
