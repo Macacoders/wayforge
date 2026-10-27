@@ -53,9 +53,8 @@ function doUninstall(options: UninstallOptions): void {
 	for (const relPath of manifestPaths) {
 		const absPath = path.join(repo, relPath)
 		let dir = path.dirname(absPath)
-		const resolvedRepo = path.resolve(repo)
 
-		while (dir !== resolvedRepo) {
+		while (dir !== repo) {
 			if (ctx.dryRun) {
 				if (
 					fs.pathExistsSync(dir) &&

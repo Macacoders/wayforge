@@ -348,7 +348,7 @@ function failCorruptManifest(
 	}
 	ctx.log(`error: corrupt or truncated managed manifest: ${manifest}`)
 	ctx.log(
-		'  repair or remove the manifest, or remove .opencode content manually',
+		`  repair or remove the manifest, or remove ${LEGACY_ARTIFACT_ROOT} content manually`,
 	)
 	ctx.log(
 		'  --force cannot classify those files: the manifest no longer traces them',

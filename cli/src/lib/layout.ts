@@ -27,7 +27,7 @@ export const RUNTIME_POINTER_DIRS: Record<Runtime, string> = {
 }
 
 /** Generated runtime config filename. */
-export const CONFIG_FILES: Record<Runtime, string> = {
+const CONFIG_FILES: Record<Runtime, string> = {
 	opencode: 'opencode.jsonc',
 	kilocode: 'kilo.jsonc',
 }

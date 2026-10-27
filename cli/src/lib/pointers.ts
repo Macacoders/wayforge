@@ -116,7 +116,10 @@ export function isValidRuntimePointer(repo: string, relPath: string): boolean {
 	}
 	const category = path.basename(relPath)
 	try {
-		return pointsAt(link, posixPath(path.join('..', ARTIFACT_ROOT, category)))
+		return pointsAt(
+			link,
+			posixPath(path.join('..', ARTIFACT_ROOT, category)),
+		)
 	} catch {
 		return false
 	}
@@ -249,9 +252,6 @@ export function ensureRuntimePointers(
 			}
 		}
 
-		const target = symlinks
-			? relativeTarget
-			: path.resolve(path.dirname(link), relativeTarget)
 		const type = symlinks ? 'dir' : 'junction'
 
 		if (ctx.dryRun) {
