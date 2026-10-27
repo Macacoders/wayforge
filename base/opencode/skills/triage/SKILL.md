@@ -1,6 +1,6 @@
 ---
 name: triage
-description: Classify pasted errors and logs with context-hygiene questions, then recommend /plan or backlog.
+description: Classify pasted errors and logs with context-hygiene questions, then recommend /deliver, /plan, or backlog.
 compatibility: opencode
 metadata:
   workflow: error-triage
@@ -33,9 +33,12 @@ Answer these four questions explicitly:
 
 End with exactly one of:
 
-- `/plan` — for work that needs discovery, planning, or review
-- New small correction/redirection.
+- `/deliver` — a small, low-risk correction: confirmed or obvious cause, bounded blast radius, no
+  boundary trigger (see `delivery-policy` risk classification).
+- `/plan` — work that needs discovery, planning, or architectural decisions.
 - **Backlog / not worth fixing now** — with a one-sentence rationale
+
+The command that runs the fix is `/deliver`, not the triage skill; this skill only classifies.
 
 ## Progressive disclosure
 

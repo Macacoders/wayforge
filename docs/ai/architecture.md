@@ -52,7 +52,7 @@ Target projects receive generated/local runtime output:
 
 ### AGENTS.md vs docs/ai/README.md Relationship
 
-- **AGENTS.md**: Practical repo-specific entrypoint for AI agents. Installed as a managed file (customizable per repository). Contains project-specific guidance, build/test commands, and conventions. Workflow and engineering rules are delegated to the `planner` agent (single source of truth). Read this first when starting work in a repository.
+- **AGENTS.md**: Practical repo-specific entrypoint for AI agents. Installed as a managed file (customizable per repository). Contains project-specific guidance, build/test commands, and conventions. Workflow rules are not restated here: risk classification, work orders, acceptance gates, and retry policy live in the `delivery-policy` skill, task/phase craft in the `plan` skill, and intent in the `intent` skill. Read this file first when starting work in a repository.
 - **docs/ai/README.md**: Durable AI memory index. Persistent across work sessions. Contains architecture, decisions, plans, and logs. Load when the task touches structure, boundaries, or historical decisions.
 - **Relationship**: AGENTS.md is the "how to work in this repo" guide; docs/ai/README.md is the "what we've decided and built" memory. Both use progressive disclosure.
 
@@ -110,12 +110,17 @@ If no source tree is found, `install` raises a clear error rather than silently 
 
 ## Agent Topology
 
-- `planner` is the default primary agent. It uses a non-native id to avoid colliding with OpenCode's built-in `plan` agent. It formalizes intent (via the `intent` skill) and produces task-based implementation plans (via the `plan` skill).
-- `delivery` is a primary orchestration gate that reads an approved plan from disk and drives it through three commands: `/load-plan` (identify the current task), `/implement-task` (handoff to `code`), and `/review-task` (validate and redirect). It does not implement code or own memory.
-- `research` is a subagent used for onboarding existing repositories before implementation planning.
-- `code` is a conservative implementation subagent used once per approved task, with medium reasoning effort and low temperature.
-- `architect` is a read-only review subagent that flags architectural-boundary conflicts against ADRs and proposes new ADRs.
-- `troubleshooter` is a `mode: primary` chat agent reachable via `/troubleshooter` that provides command-first, safe, non-destructive diagnostic troubleshooting guidance. It is opt-in (not the default agent; default stays `planner`) and is distinct from `planner` and `code` — it diagnoses problems but does not plan features or implement changes.
+Logical roles are separated from agent files. `delivery` owns the review gate but does not perform the
+review; specialized workers produce evidence and verdicts, and `delivery` applies workflow policy
+(ADR-0048).
+
+- `planner` is the default primary agent. It uses a non-native id to avoid colliding with OpenCode's built-in `plan` agent. It formalizes intent (via the `intent` skill) and produces plans of outcome-based task contracts (via the `plan` skill). It can decline to plan `direct`-path work and route the user to `/deliver` instead.
+- `delivery` is the primary orchestration gate. It classifies risk (`delivery-policy` skill), dispatches work orders (`implementation`/`repair` to `code`, `functional_review`/`integration_review` to `reviewer`, `architecture_review` to `architect`, `research` to `research`), applies acceptance policy, commits and integrates accepted work, and escalates to the user only when policy says to stop. It does not implement code, does not review its own diff, and does not own memory.
+- `research` is a read-only-in-practice subagent for repository onboarding and for one bounded investigation question during planning, diagnosis, or repair.
+- `code` is the implementer subagent: it executes exactly one dispatched `implementation` or `repair` work order, reports evidence, and never approves or commits its own work. The role name is *implementer*; the agent id stays `code` for compatibility (ADR-0048).
+- `reviewer` is a read-only subagent that independently verifies a review work order against its acceptance criteria and returns `pass | changes_required | blocked` with actionable findings. It never repairs findings and has no source-editing authority.
+- `architect` is a read-only review subagent that flags architectural-boundary conflicts against ADRs and proposes new ADRs. It is dispatched as an `architecture_review` work order.
+- `troubleshooter` is a `mode: primary` chat agent reachable via `/troubleshooter` that provides command-first, safe, non-destructive diagnostic troubleshooting guidance. It is opt-in (not the default agent; default stays `planner`) and does not implement changes, but it can hand a confirmed root cause to `/deliver` instead of restarting the planning chain.
 
 ## Context Strategy
 
@@ -135,16 +140,29 @@ The system uses progressive disclosure:
 
 ## Workflow Boundaries
 
-The delivery workflow is:
+Work carries process proportionate to risk, as classified by the `delivery-policy` skill (ADR-0048).
+
+**Direct path** — small, localized, low-risk corrections with no boundary trigger:
+
+1. Classify the request as `direct` and state the bounded objective and observable acceptance criteria.
+2. `delivery` dispatches one `implementation` work order to `code` (`/deliver`).
+3. Agent-owned validations run; human-owned validations are reported, never executed.
+4. `reviewer` verifies the working-tree diff and returns a verdict.
+5. On `pass`, `delivery` commits and reports. On `changes_required`, one bounded `repair` work order, then re-review. On `blocked` or an exhausted budget, `delivery` asks the user and stops.
+
+No intent document, plan artifact, or per-step approval is required on this path.
+
+**Full path** — ambiguous, multi-deliverable, or boundary-affecting work:
 
 1. Onboard unfamiliar repositories through `research` and create initial `docs/ai/` memory.
-2. Formalize intent (`intent` skill) and plan task-based work with acceptance criteria (`plan` skill).
-3. Apply task economy before implementation: 1 task for simple work, justification above 3 tasks, explicit confirmation for 6-8 tasks, and splitting above 8 tasks.
-4. `delivery` loads the approved plan (`/load-plan`) and hands each task to `code` (`/implement-task`).
-5. Check reasonable existing patterns, utilities, scripts, helpers, commands, tests, and conventions before creating new repeatable logic.
-6. Pause after each atomic step for manual validation.
-7. Review the completed task with git evidence (`/review-task`).
-8. Update docs, decisions, and logs at close via `/memory`.
+2. Formalize intent (`intent` skill) and plan outcome-based task contracts with acceptance criteria (`plan` skill).
+3. Apply task economy before implementation: one task for a single coherent outcome, justification above 3 tasks, explicit confirmation for 6-8 tasks, and splitting above 8 tasks.
+4. The approved plan is the approval artifact. `delivery` executes it autonomously with `/deliver-plan`: dependencies determine readiness, tasks are dispatched, reviewed, repaired, and committed without routine user prompts.
+5. `/load-plan` + `/implement-task` + `/review-task` remain available to drive one task at a time by hand.
+6. Check reasonable existing patterns, utilities, scripts, helpers, commands, tests, and conventions before creating new repeatable logic.
+7. Update docs, decisions, and logs at plan close via `/memory`.
+
+Both paths stop only for the stop conditions defined in `delivery-policy`. Retry budgets live with the run and never reset silently.
 
 The shared issue creation workflow is:
 
@@ -157,11 +175,13 @@ The shared issue creation workflow is:
 
 - Keep installation project-local.
 - Keep all operations inside the active repository root unless the user explicitly approves an external path.
-- Keep subagent handoffs compact.
+- Keep subagent handoffs compact, in the shared work-order shape from `delivery-policy`.
 - Keep repository onboarding separate from feature planning.
-- Keep tasks as reviewable deliverables, not technical microtasks.
+- Keep tasks as coherent, independently reviewable outcomes, not technical microtasks.
 - Keep plans above 8 apparent tasks out of single-task planning; split them into smaller tasks first.
-- Keep manual validation checkpoints between atomic steps.
+- Keep independent review: the implementer never approves its own work, and `delivery` never substitutes its own reading of the diff for a verdict.
+- Keep write authority narrow: `code` writes product code under a work order; `planner` writes plans; `delivery` writes plan progress and commits; `reviewer`, `architect`, and `research` do not write product code.
+- Keep retries bounded and escalations concrete; no workflow step may repeat without a user-facing decision.
 - Keep durable memory under `docs/ai/`.
 - Keep GitHub Issues as the operational shared source of truth for team tasks.
 - Keep shared tasks in GitHub Issues rather than a local JSONL backlog.

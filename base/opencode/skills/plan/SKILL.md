@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Investigate a repository and produce a grounded, executable implementation plan through task-based delivery. Use when an approved intent needs to be turned into concrete, bite-sized tasks.
+description: Investigate a repository and produce a grounded, executable implementation plan of outcome-based task contracts. Use when an approved intent needs concrete, independently reviewable tasks.
 compatibility: opencode
 metadata:
   workflow: plan
@@ -9,14 +9,15 @@ metadata:
 
 # Plan
 
-Use this skill to investigate a repository and produce a grounded, executable implementation plan through task-based delivery.
+Use this skill to turn an approved intent into an implementation plan made of outcome-based task
+contracts.
 
 ## Planning
 
 For this turn, you are planning only.
 
 - Do not implement code.
-- Do not edit project files except the plan markdown file.
+- Do not edit project files except the plan markdown file under `docs/ai/plans/`.
 - Do not run mutating terminal commands, commit, push, or perform external actions.
 - You may inspect the repo or other context with read-only commands/tools when needed.
 
@@ -24,120 +25,146 @@ For this turn, you are planning only.
 
 # Writing the Plan Well
 
-The rest of this skill is the craft of authoring a *good* implementation plan — the content that goes inside the markdown file above.
+The rest of this skill is the craft of authoring a *good* implementation plan — the content that goes
+inside the markdown file.
 
-Assume the implementer is a skilled developer but knows almost nothing about the toolset or problem domain. Assume they don't know good test design very well.
-
-**Core principle:** A good plan makes implementation obvious. If someone has to guess, the plan is incomplete.
+Assume the implementer is a skilled developer who knows almost nothing about the toolset or problem
+domain. A good plan makes implementation obvious; it does not script it.
 
 ## Task Economy
 
 Classify scope as `single-task`, `multi-task`, `too-large`.
 
-- Prefer 1 task for simple or single-outcome work; 2–3 tasks for meaningfully separable deliverables.
-- Tasks are reviewable deliverables, not technical steps. Keep related files, helpers, validation, and docs within their owning task.
+- Prefer 1 task for a single coherent outcome; add tasks only when deliverables are genuinely
+  separable.
+- A task is a coherent, independently reviewable outcome that one focused agent execution can
+  reasonably complete. It is not a file-count or minute-count rule, and it is not a multi-feature
+  epic.
 - Prefer vertical slices over horizontal layers unless architecture requires otherwise.
 - More than 3 tasks requires a Task budget rationale.
 - 6–8 tasks requires user confirmation before implementation handoff.
-- More than 8 tasks is too-large: do not create an implementation plan; propose a split into smaller independently plannable tasks.
+- More than 8 tasks is `too-large`: do not create one plan; propose a split into independently
+  plannable pieces.
 
-## Bite-Sized Task Granularity
+**Too fine** — three tasks for one deliverable:
 
-**Each task = 2-5 minutes of focused work.**
-
-Every step is one action:
-- "Establish expected behaviour" — step
-- "Add or update validation" — step
-- "Write minimal implementation" — step
-- "Run test to verify pass" — step
-- "Commit" — step
-
-**Too big:**
 ```markdown
-### Task 1: Build authentication system
-[50 lines of code across 5 files]
-```
-
-**Right size:**
-```markdown
-### Task 1: Create User model with email field
-[10 lines, 1 file]
-
-### Task 2: Add password hash field to User
-[8 lines, 1 file]
-
+### Task 1: Create User model
+### Task 2: Add password hash field
 ### Task 3: Create password hashing utility
-[15 lines, 1 file]
 ```
+
+**Right** — one reviewable outcome:
+
+```markdown
+### Task 1: Password login works end to end
+(model field, hashing utility, endpoint, and tests)
+```
+
+## Task Contracts
+
+Each task states a deliverable and how it is judged. The implementer decides the coding steps; the
+planner decides the outcome and the guardrails.
+
+Required fields:
+
+- **ID** — stable (`Task 1`, `Task 2`). Never renumber after implementation starts.
+- **Objective** — the single outcome the task delivers, in one or two sentences.
+- **Context** — the repository facts an implementer needs and does not have: relevant paths and
+  symbols, existing patterns, utilities, or tests to reuse, and prior decisions.
+- **Acceptance criteria** — observable conditions a reviewer can verify against the diff and the
+  tests. Write "X behaves like Y when Z", not "implement X".
+- **Constraints** — scope limits, invariants, what must not change, and the reuse expectation.
+- **Depends on** — task IDs that must be `accepted` first, or `none`.
+- **Validations** — commands with an owner (`agent` or `human`), only where the task needs something
+  beyond the repository default.
+
+Do **not** prescribe a fixed step sequence, a test-first order, or the commit command — `delivery`
+commits. Do keep concrete technical detail where it genuinely matters: mandatory interfaces,
+architectural invariants, known regressions, repository conventions, and the exact files for
+boundary-sensitive changes.
 
 ## Validation Ownership
 
-Every planned validation must have an owner: `agent` or `human`.
+Every planned validation has an owner: `agent` or `human`.
 
-- `agent`: bounded, non-interactive, safe validations that terminate on their own, such as targeted tests, linting, static analysis, type checks, and ordinary local builds.
-- `human`: validations involving containers, long-running processes, external infrastructure, deployment, interactive/manual verification, or commands that may block or require supervision.
+- `agent`: bounded, non-interactive, safe validations that terminate on their own — targeted tests,
+  linting, static analysis, type checks, ordinary local builds.
+- `human`: containers, long-running processes, external infrastructure, deployment,
+  interactive/manual verification, or commands that may block or need supervision.
 
-Agents MUST NOT execute human validations. They must provide the exact command/procedure and expected result for the user to run.
+Agents MUST NOT execute human validations; they report the exact command and expected result. If
+ownership is uncertain, classify as `human`.
 
-If ownership is uncertain, classify the validation as `human`.
+## Phases (optional)
+
+- A phase is a logical milestone that groups related tasks and, when needed, declares integration
+  acceptance criteria.
+- A phase is not an execution barrier: task dependencies control scheduling, and only an explicit
+  integration gate blocks progression.
+- Do not create phases for simple plans where they add nothing.
 
 ## Plan Document Structure
 
-Once Discovery is confirmed, propose a task-based plan using this structure, and save it under `./docs/ai/plans/YYYY-MM-DD_HHMMSS-<slug>.md`:
+Save the plan under `./docs/ai/plans/YYYY-MM-DD_HHMMSS-<slug>.md`:
 
-```md
+```markdown
 ---
 status: planned | in-progress | completed | superseded
 created: YYYY-MM-DD
-task: <n>/<total>        # current task / total tasks
-required_gates:            # optional; set at plan-approval time
+task: 0/<total>
+required_gates:
   architect_review: true | false
   memory_update: true | false
 ---
 
 # [Feature name] Implementation plan
 
-**Goal:** [One sentence describing what this builds]
+**Goal:** [One sentence describing what this delivers]
 
 **Architecture:** [2-3 sentences about approach]
 
 **Tech Stack:** [Key technologies/libraries]
 
-**Scope classification:** [`single-task` | `multi-task` | `too-large`]
+**Scope classification:** [`single-task` | `multi-task`]
 
-## Tasks
+**Plan acceptance criteria:**
+- [What must be true when the whole plan is delivered]
 
-### Task N: [Descriptive Name]
+## Phase 1: [Milestone name] (optional)
 
-**Objective:** What this task accomplishes (one sentence)
+**Integration acceptance criteria:** [What must hold across this phase's tasks, or omit the section
+when no integration gate is needed]
 
-**Files:**
-- Create: `path/to/file` 
-- Modify: `path/to/file[:location]` 
-- Validate: `path/to/test-or-validation-target`
+### Task 1: [Descriptive name]
 
-**Step 1: Establish expected behaviour**
+**Status:** pending
+**Depends on:** none
 
-Describe the behavior, invariant, acceptance condition, or regression being addressed.
+**Objective:** [One or two sentences]
 
-**Step 2: Add or update validation**
+**Context:**
+- `path/to/file` — [why it matters]
+- Reuse: [existing pattern, utility, or test to follow]
 
-Specify the appropriate test, check, build, lint, type-check, manual verification, or existing validation path.
+**Acceptance criteria:**
+- [Observable condition]
 
-**Step 3: Write minimal implementation**
+**Constraints:**
+- [Invariant, scope limit, or thing that must not change]
 
-Describe the minimal code/configuration/documentation changes required, including relevant symbols or components.
+**Validations:**
+- `agent`: `npx vitest run path/to/test` — expected: passes
+- `human`: [command or procedure] — expected: [observable result]
 
-**Step 4: Run test to verify pass**
-
-Run: `<command(s)>` 
-Expected: `<passing checks and observable behavior>`
-
-**Step 5: Commit**
-
-`git add [files]`
-`git commit -m "type: description"`
-
+**Proposed commit message:** `type: description`
 ```
 
-**A good plan makes implementation obvious.**
+Frontmatter notes:
+
+- `task:` is a summary progress cursor, kept for compatibility. `delivery` tracks authoritative
+  per-task state in each task's `**Status:**` line (`pending | in-progress | accepted | blocked`).
+- `required_gates` is optional. Set it at approval time and only for gates the plan actually needs;
+  `delivery` checks the gates declared and nothing else.
+
+**A good plan makes implementation obvious without scripting it.**

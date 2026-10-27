@@ -37,6 +37,7 @@ Do **not** load all `docs/ai/**` by default.
 
 ## Ownership
 
+- `delivery` owns plan progress state (`status:`, `task:`, per-task `**Status:**`) and acceptance evidence within a run; it does not persist worker results as memory files.
 - `planner` is the final memory owner.
 - Other agents may propose updates, but `planner` decides what gets persisted.
 

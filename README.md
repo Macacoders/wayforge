@@ -118,9 +118,36 @@ Exit codes: `wfg update` exits `0` whether a newer release is available or not, 
 
 ## Use
 
-Work flows through five workflows: formalize intent, plan approved intent, track via issues, deliver task by task, and keep durable memory current.
+Work flows through six workflows: deliver a small fix directly, formalize intent, plan approved intent, track via issues, deliver an approved plan, and keep durable memory current. Process matches risk: a localized fix needs no intent or plan artifact, while boundary-affecting work keeps the full rigour.
 
-Node colors: gray = you · blue = `planner` · orange = `delivery` · green = `code` · purple = `research`.
+Node colors: gray = you · blue = `planner` · orange = `delivery` · green = `code` · teal = `reviewer` · purple = `research`.
+
+### `/deliver`
+
+Deliver a small, low-risk change end to end: classify, dispatch implementation, verify independently, commit.
+
+```mermaid
+flowchart LR
+    A["Small fix request"] --> B{"Risk classification"}
+    B -- "full path" --> C["/intent or /plan"]
+    B -- "direct" --> D["Bounded objective + criteria"]
+    D -- "work order" --> E["code implements"]
+    E --> F["reviewer verifies diff"]
+    F -- "pass" --> G["delivery commits"]
+    F -- "changes_required" --> H["repair work order"] --> F
+    F -- "blocked / budget spent" --> I["escalate: what failed, what was tried, decision needed"]
+
+    classDef user fill:#1f2937,stroke:#6b7280,color:#e5e7eb
+    classDef delivery fill:#7c2d12,stroke:#fb923c,color:#ffedd5
+    classDef code fill:#14532d,stroke:#4ade80,color:#dcfce7
+    classDef reviewer fill:#134e4a,stroke:#2dd4bf,color:#ccfbf1
+    classDef planner fill:#1e3a8a,stroke:#60a5fa,color:#dbeafe
+    class A,I user
+    class B,D,G delivery
+    class C planner
+    class E,H code
+    class F reviewer
+```
 
 ### `/intent`
 
@@ -149,9 +176,9 @@ flowchart LR
     A["Approved intent"] --> B["Investigate repo gaps"]
     B -- "delegates" --> C["research subagent scouts repo"]
     C -- "reports back" --> B
-    B --> D["Task plan + acceptance criteria"]
+    B --> D["Task contracts + acceptance criteria"]
     D --> E["Save to docs/ai/plans/"]
-    E --> F["Approve"] --> G["/load-plan"]
+    E --> F["Approve"] --> G["/deliver-plan"]
 
     classDef user fill:#1f2937,stroke:#6b7280,color:#e5e7eb
     classDef planner fill:#1e3a8a,stroke:#60a5fa,color:#dbeafe
@@ -203,28 +230,64 @@ flowchart LR
     class B,C,D,E planner
 ```
 
-### Delivery loop
+### `/deliver-plan`
 
-Load an approved plan and implement it task by task, reviewing each step.
+Execute an approved plan autonomously: dependency-driven task readiness, dispatch, independent review, bounded repair, integration, and plan-level acceptance. Stops only on completion, a blocker, or a decision only you can make.
+
+```mermaid
+flowchart LR
+    A["Approved plan"] --> B["/deliver-plan"]
+    B --> C["Ready tasks = pending + dependencies accepted"]
+    C -- "work order" --> D["code implements"]
+    D --> E["reviewer verdict"]
+    E -- "changes_required" --> F["repair work order"] --> E
+    E -- "pass" --> G["delivery commits + marks accepted"]
+    G -- "more ready tasks" --> C
+    G -- "gate declared" --> H["integration_review"]
+    H --> C
+    C -- "all accepted" --> I["plan acceptance + /memory"]
+    E -- "blocked / budget spent" --> J["escalate and stop"]
+
+    classDef user fill:#1f2937,stroke:#6b7280,color:#e5e7eb
+    classDef delivery fill:#7c2d12,stroke:#fb923c,color:#ffedd5
+    classDef code fill:#14532d,stroke:#4ade80,color:#dcfce7
+    classDef reviewer fill:#134e4a,stroke:#2dd4bf,color:#ccfbf1
+    classDef planner fill:#1e3a8a,stroke:#60a5fa,color:#dbeafe
+    class A,J user
+    class B,C,G,H delivery
+    class D,F code
+    class E reviewer
+    class I planner
+```
+
+The manual steps below stay available when you want to drive one task at a time.
+
+### Delivery loop (manual)
+
+Load an approved plan and implement it task by task, reviewing each step yourself.
 
 ```mermaid
 flowchart LR
     A["Approved plan"] --> B["/load-plan"]
     B --> C["/implement-task"]
-    C -- "handoff" --> D["code subagent implements"]
-    D --> E["Pause for review"]
-    E --> F["/review-task git evidence"]
-    F -- "more tasks" --> B
-    F -- "done" --> G["/memory"]
+    C -- "work order" --> D["code implements"]
+    D --> E["/review-task"]
+    E -- "reviewer verdict" --> F{"Verdict"}
+    F -- "pass" --> G["commit + next ready task"]
+    F -- "changes_required" --> H["repair work order"] --> E
+    F -- "blocked" --> I["ask the user and stop"]
+    G -- "more tasks" --> B
+    G -- "done" --> J["/memory"]
 
     classDef user fill:#1f2937,stroke:#6b7280,color:#e5e7eb
     classDef delivery fill:#7c2d12,stroke:#fb923c,color:#ffedd5
     classDef code fill:#14532d,stroke:#4ade80,color:#dcfce7
+    classDef reviewer fill:#134e4a,stroke:#2dd4bf,color:#ccfbf1
     classDef planner fill:#1e3a8a,stroke:#60a5fa,color:#dbeafe
-    class A,E user
-    class B,C,F delivery
-    class D code
-    class G planner
+    class A,I user
+    class B,C,E,F,G delivery
+    class D,H code
+    class J planner
 ```
 
 ### `/memory`

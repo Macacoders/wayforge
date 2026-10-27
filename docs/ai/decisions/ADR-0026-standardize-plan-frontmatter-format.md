@@ -1,7 +1,9 @@
 # ADR-0026: Standardize Plan Frontmatter as YAML Format
 
 Date: 2026-07-07
-Status: Accepted
+Status: Accepted — amended by ADR-0043 (`phase:` → `task:`) and ADR-0048 (per-task
+`**Status:**` and `**Depends on:**` become the readiness source; `task:` survives as a compatibility
+cursor; `required_gates` is optional and only declared gates are checked).
 
 ## Context
 

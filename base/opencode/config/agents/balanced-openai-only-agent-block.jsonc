@@ -22,5 +22,9 @@
     "architect": {
       "model": "openai/gpt-6-sol",
       "steps": 10
+    },
+    "reviewer": {
+      "model": "openai/gpt-6-sol",
+      "steps": 20
     }
   }

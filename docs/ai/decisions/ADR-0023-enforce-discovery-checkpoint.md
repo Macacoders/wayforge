@@ -1,7 +1,8 @@
 # ADR-0023: Enforce Discovery checkpoint before Plan Proposal
 
 ## Status
-Accepted
+Accepted — amended by ADR-0048: the checkpoint still governs planning, but `direct`-path
+work no longer enters planning and therefore never reaches it.
 
 ## Date
 2026-07-07

@@ -17,5 +17,8 @@
     },
     "architect": {
       "model": "laberit/laberit-ai-preview"
+    },
+    "reviewer": {
+      "model": "laberit/laberit-ai-preview"
     }
   }

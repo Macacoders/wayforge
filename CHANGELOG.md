@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `/deliver` — delivers a small, low-risk change end to end: risk classification, one bounded implementation work order, independent review, and commit. No intent or plan artifact required.
+- `/deliver-plan` — executes an approved plan autonomously: dependency-driven task readiness, dispatch, independent review, bounded repair, optional integration review, and plan-level acceptance. Stops only on completion, a blocker, or a decision only the user can make.
+- `reviewer` subagent — read-only independent verification (`edit: deny`, mutating shell prefixes denied) returning `pass | changes_required | blocked` with actionable findings and the reviewed revision.
+- `delivery-policy` skill — the single owning location for risk classification, work-order kinds and contracts, worker result format, acceptance gates, retry/escalation budgets, and commit authority.
+
+### Changed
+
+- The workflow is now proportionate to risk: small localized fixes take the `direct` path without intent or plan artifacts, while boundary-affecting or ambiguous work keeps intent, planning, and boundary review. Risk defaults to the full path when unknown, and a user-declared low-risk classification cannot cross a hard safety boundary.
+- `delivery` owns the review gate but no longer performs the review, and never accepts a change from its own reading of the diff.
+- Plan tasks are outcome-based contracts (objective, context, acceptance criteria, constraints, dependencies, owned validations). The mandatory five-step task template, the 2–5 minute granularity rule, and the copy-the-Steps handoff are removed.
+- Task readiness now comes from per-task `**Status:**` and `**Depends on:**`; `task: <n>/<total>` is kept as a compatibility cursor.
+- Retry and escalation are deterministic: bounded repair/review budgets per run replace the prose "ask the user a second time" rule, and exhaustion produces one escalation question with what was tried and the options.
+- `/load-plan`, `/implement-task`, and `/review-task` remain as the manual low-level path and now dispatch work orders and independent review instead of copying plan steps and self-reviewing.
+- `troubleshooter` can hand a confirmed root cause to `/deliver` (or `/plan` for boundary triggers) instead of restarting the planning chain.
+- `research` now covers bounded investigation work orders in addition to repository onboarding.
+- Workflow policy lives in one owning location; duplicated rules were removed from `delivery`, `review-task`, and `docs/ai/architecture.md`. The remaining restatements are enumerated as deliberate in ADR-0048.
+
+### Removed
+
+- The mandatory five-step plan task template (establish behaviour → add validation → minimal implementation → run test → commit) and the "2–5 minutes of focused work" task granularity rule. Tasks are now coherent, independently reviewable outcomes.
+- The per-atomic-step manual validation pause and the Step Loop in the `code` agent.
+- `delivery`'s self-review of the work it dispatched; verification is now exclusively `reviewer` (plus `architect` for boundary changes).
+- The per-task memory freshness pass and per-task gate sweep in `/review-task`; both move to plan close and to the gates a plan actually declares.
+- The prose retry rule ("ask the user a second time") and the copy-the-Steps handoff brief.
+
 ## [1.0.2] - 2026-10-16
 
 ### Fixed

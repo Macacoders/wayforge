@@ -44,6 +44,7 @@ agents:
       research: allow
       code: allow
       architect: allow
+      reviewer: allow
 
   research:
     read: allow
@@ -68,6 +69,46 @@ agents:
       "rm -rf*": deny
       "git push --force*": deny
       "git push -f*": deny
+      "git commit*": deny
+      "git push*": deny
+      "git tag*": deny
+    external_directory:
+      "*": deny
+      "/tmp/**": allow
+    task: deny
+
+  # reviewer is the independent verification agent: it must be able to inspect git evidence
+  # and run read-only checks, but never modify product code. edit: deny is the primary control;
+  # the extra bash denies cover the common shell write paths (see ADR-0036 and ADR-0048's
+  # residual-risk notes).
+  reviewer:
+    read: allow
+    edit: deny
+    bash:
+      "*": allow
+      "sudo*": deny
+      "rm -rf*": deny
+      "rm *": deny
+      "mv *": deny
+      "cp *": deny
+      "tee*": deny
+      "truncate*": deny
+      "sed -i*": deny
+      "git add*": deny
+      "git commit*": deny
+      "git push*": deny
+      "git push --force*": deny
+      "git push -f*": deny
+      "git merge*": deny
+      "git rebase*": deny
+      "git reset*": deny
+      "git checkout*": deny
+      "git switch*": deny
+      "git restore*": deny
+      "git stash*": deny
+      "git apply*": deny
+      "git rm*": deny
+      "git tag*": deny
     external_directory:
       "*": deny
       "/tmp/**": allow

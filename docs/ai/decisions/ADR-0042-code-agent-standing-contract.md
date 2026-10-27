@@ -1,7 +1,10 @@
 # ADR-0042: Code Agent File Holds Only Its Standing Operating Contract
 
 **Date**: 2026-09-16
-**Status**: Accepted
+**Status**: Accepted — amended by ADR-0048: `code.md` keeps the standing-contract shape, but
+the Step Loop, the manual per-step validation pauses, and the "wait for explicit approval" contract
+are removed in favour of one dispatched work order (`implementation` or `repair`) returning the
+shared result format. Per-task specifics still come from the dispatch, not from `code.md`.
 
 ## Context
 
