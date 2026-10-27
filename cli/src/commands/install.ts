@@ -156,7 +156,10 @@ export async function doInstall(
 				const selectedRuntime = runtime === options.runtime
 				// Never create a config for a runtime this repo did not install.
 				if (!selectedRuntime && !exists) continue
-				if (savedForce || !exists || isLayoutStaleConfig(configPath)) {
+				const shouldRegenerate = selectedRuntime
+					? savedForce || !exists || isLayoutStaleConfig(configPath)
+					: isLayoutStaleConfig(configPath)
+				if (shouldRegenerate) {
 					syncGeneratedOpenCodeJsonc(
 						repo,
 						runtime,
