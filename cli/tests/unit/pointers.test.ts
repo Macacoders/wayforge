@@ -11,8 +11,8 @@ import {
 import {
 	canSymlink,
 	ensureRuntimePointers,
-	isPointerPath,
 } from '../../src/lib/pointers.js'
+import { isPointerPath } from '../../src/lib/layout.js'
 import type { Runtime } from '../../src/types.js'
 
 const symlinks = canSymlink()

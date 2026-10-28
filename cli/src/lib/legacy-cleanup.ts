@@ -1,7 +1,7 @@
 import fs from 'fs-extra'
 import path from 'path'
 import { isManagedFile } from './manifest.js'
-import { isLegacyManagedPath, POINTER_PATHS, posixPath } from './layout.js'
+import { isLegacyManagedPath, isPointerPath, posixPath } from './layout.js'
 
 /** Whether a manifest entry is a legacy file a refresh may safely remove. */
 export function isCleanupEligibleLegacyPath(
@@ -12,7 +12,7 @@ export function isCleanupEligibleLegacyPath(
 	if (
 		!manifestPaths.includes(relPath) ||
 		!isLegacyManagedPath(relPath) ||
-		POINTER_PATHS.includes(posixPath(relPath))
+		isPointerPath(relPath)
 	) {
 		return false
 	}

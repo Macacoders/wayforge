@@ -46,6 +46,7 @@ import {
 	destRelFor,
 	destRelForManagedPath,
 	isLegacyManagedPath,
+	isPointerPath,
 	pointerPathsFor,
 	posixPath,
 	sourceDirFor,
@@ -53,7 +54,6 @@ import {
 import {
 	ensureRuntimePointers,
 	isLinkedDirectory,
-	isPointerPath,
 	isValidRuntimePointer,
 } from '../lib/pointers.js'
 import { isCleanupEligibleLegacyPath } from '../lib/legacy-cleanup.js'
@@ -241,7 +241,7 @@ export async function doInstall(
 			)
 			removeManagedLegacyPaths(repo, manifestPaths, ctx)
 			if (hadLegacyPaths) {
-				pruneEmptyDirs(legacyArtifactRoot(repo), ctx)
+				pruneEmptyDirs(path.join(repo, LEGACY_ARTIFACT_ROOT), ctx)
 			}
 			reportLegacyResiduals(
 				collectLegacyResiduals(repo, options.runtime),
@@ -381,10 +381,6 @@ function finalizeBlocked(
 	process.exit(1)
 }
 
-function legacyArtifactRoot(repo: string): string {
-	return path.join(repo, LEGACY_ARTIFACT_ROOT)
-}
-
 // ponytail: temporal — the legacy `.opencode` migration helpers below are
 // removable once installs made before the `.agents/` layout have upgraded.
 /** Remove legacy managed files that were synced into the canonical tree. */
@@ -439,7 +435,7 @@ function pruneEmptyDirs(dir: string, ctx: ManifestContext): void {
  * both share the pointer list declared in `layout.ts`).
  */
 function collectLegacyResiduals(repo: string, runtime: Runtime): string[] {
-	const root = legacyArtifactRoot(repo)
+	const root = path.join(repo, LEGACY_ARTIFACT_ROOT)
 	if (isLinkedDirectory(root)) {
 		return []
 	}

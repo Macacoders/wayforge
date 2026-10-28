@@ -6,8 +6,8 @@ import { ensureDir } from './files.js'
 import {
 	ARTIFACT_ROOT,
 	POINTER_CATEGORIES,
-	POINTER_PATHS,
 	RUNTIME_POINTER_DIRS,
+	isPointerPath,
 	posixPath,
 } from './layout.js'
 import { managedTrackFile, readManagedManifest } from './manifest.js'
@@ -35,11 +35,6 @@ export function canSymlink(dir: string = os.tmpdir()): boolean {
 	} catch {
 		return false
 	}
-}
-
-/** True when a manifest path is a runtime pointer directory. */
-export function isPointerPath(relPath: string): boolean {
-	return POINTER_PATHS.includes(posixPath(relPath))
 }
 
 function lstatIfExists(target: string): fs.Stats | null {
@@ -197,7 +192,9 @@ export function ensureRuntimePointers(
 	ctx: ManifestContext,
 ): string[] {
 	const symlinks = ctx.dryRun ? undefined : canSymlink(repo)
-	const manifestPaths = readManagedManifest(repo)
+	// Only dry-runs retain files that a real cleanup removes, so only they
+	// consult the manifest; real runs inspect what is actually present.
+	const manifestPaths = ctx.dryRun ? readManagedManifest(repo) : []
 	const pointerRoot = RUNTIME_POINTER_DIRS[runtime]
 	const residuals: string[] = []
 	const runtimeRoot = path.join(repo, pointerRoot)
@@ -217,13 +214,9 @@ export function ensureRuntimePointers(
 		const existing = lstatIfExists(link)
 
 		if (existing) {
-			if (existing.isSymbolicLink()) {
-				if (pointsAt(link, relativeTarget)) {
-					managedTrackFile(link, ctx)
-					ctx.log(`runtime pointer already present: ${managedRel}`)
-					continue
-				}
-				residuals.push(managedRel)
+			if (isValidRuntimePointer(repo, managedRel)) {
+				managedTrackFile(link, ctx)
+				ctx.log(`runtime pointer already present: ${managedRel}`)
 				continue
 			}
 			if (existing.isDirectory()) {
@@ -252,14 +245,14 @@ export function ensureRuntimePointers(
 			}
 		}
 
-		const type = symlinks ? 'dir' : 'junction'
-
 		if (ctx.dryRun) {
 			ctx.log(
 				`DRY-RUN: would create runtime pointer: ${managedRel} -> ${relativeTarget}`,
 			)
 			continue
 		}
+
+		const type = symlinks ? 'dir' : 'junction'
 
 		ensureDir(path.dirname(link), ctx)
 		if (!createPointer(link, managedRel, relativeTarget, type, ctx)) {

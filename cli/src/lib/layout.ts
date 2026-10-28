@@ -59,6 +59,11 @@ export function posixPath(p: string): string {
 	return p.replace(/\\/g, '/')
 }
 
+/** True when a manifest path is a runtime pointer directory. */
+export function isPointerPath(relPath: string): boolean {
+	return POINTER_PATHS.includes(posixPath(relPath))
+}
+
 /** Generated config entry for the bundled plugin. */
 export const PLUGIN_ENTRY = `./${ARTIFACT_ROOT}/plugins/ponytail/ponytail.mjs`
 

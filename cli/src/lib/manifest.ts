@@ -206,6 +206,8 @@ export function isManagedPath(repo: string, relativePath: string): boolean {
 	return false
 }
 
+// ponytail: debt - isManagedFile/isManagedDir share the same ancestor walk;
+// merge only with a dedicated refactor and tests.
 export function isManagedFile(absolutePath: string): boolean {
 	if (fs.pathExistsSync(`${absolutePath}${MANAGED_DIR_MARKER}`)) {
 		return true
