@@ -1,14 +1,13 @@
 import path from 'path'
 import fs from 'fs-extra'
-import { ManifestContext } from '../lib/context.js'
-import { ensureDir, readFileOrDefault } from '../lib/files.js'
+import { MANAGED_DIR_MARKER, ManifestContext } from '../lib/context.js'
+import { ensureDir, readFileOrDefault, rm } from '../lib/files.js'
 import {
 	initManagedManifest,
 	finalizeManagedManifest,
 	readManagedManifest,
 	isManagedFile,
 	managedTrackFile,
-	posixPath,
 	syncManagedFile,
 	syncManagedTree,
 	syncManagedPathFromManifest,
@@ -31,13 +30,34 @@ import {
 } from '../lib/providers.js'
 import {
 	syncGeneratedOpenCodeJsonc,
+	isLayoutStaleConfig,
 	GenerateOptions,
 } from '../lib/config-gen.js'
 import { trackInstalledProject } from '../lib/tracking.js'
 import { cloneRef } from '../lib/git.js'
 import { resolveSourceDir } from '../lib/source-dir.js'
 import { checkNode } from '../lib/prereq.js'
-import type { InstallOptions } from '../types.js'
+import {
+	ARTIFACT_ROOT,
+	CONTENT_CATEGORIES,
+	LEGACY_ARTIFACT_ROOT,
+	RUNTIMES,
+	configFileFor,
+	destRelFor,
+	destRelForManagedPath,
+	isLegacyManagedPath,
+	isPointerPath,
+	pointerPathsFor,
+	posixPath,
+	sourceDirFor,
+} from '../lib/layout.js'
+import {
+	ensureRuntimePointers,
+	isLinkedDirectory,
+	isValidRuntimePointer,
+} from '../lib/pointers.js'
+import { isCleanupEligibleLegacyPath } from '../lib/legacy-cleanup.js'
+import type { InstallOptions, Runtime } from '../types.js'
 
 export async function installCommand(options: InstallOptions): Promise<void> {
 	await doInstall(options)
@@ -75,8 +95,6 @@ export async function doInstall(
 			process.exit(1)
 		}
 	}
-
-	ensureDir(path.join(repo, '.opencode'), ctx)
 
 	let sourceDir = resolveSourceDir()
 	let version = readFileOrDefault(sourceDir, 'VERSION', '0.0.0')
@@ -131,28 +149,53 @@ export async function doInstall(
 
 		const manifestPaths = readManagedManifest(repo)
 		if (manifestPaths.length === 0) {
-			ctx.force = savedForce
-			ctx.log(
-				'note: could not read existing manifest, falling back to full sync',
-			)
+			failCorruptManifest(repo, ctx, cleanupFn)
 		} else {
-			const configFile =
-				options.runtime === 'opencode' ? 'opencode.jsonc' : 'kilo.jsonc'
-			if (savedForce) {
-				syncGeneratedOpenCodeJsonc(repo, options.runtime, genOpts, ctx)
-			} else {
-				ctx.log(
-					`kept existing ${configFile} (use --force to regenerate)`,
-				)
+			// Refresh every generated config whose paths the migration invalidated.
+			// A mixed install holds one config per runtime, and Kilo also merges a
+			// root `opencode.jsonc`, so a stale sibling config would keep pointing
+			// at plugin/skills paths the migration just deleted.
+			for (const runtime of RUNTIMES) {
+				const configFile = configFileFor(runtime)
+				const configPath = path.join(repo, configFile)
+				const exists = fs.pathExistsSync(configPath)
+				const selectedRuntime = runtime === options.runtime
+				// Never create a config for a runtime this repo did not install.
+				if (!selectedRuntime && !exists) continue
+				const shouldRegenerate = selectedRuntime
+					? savedForce || !exists || isLayoutStaleConfig(configPath)
+					: isLayoutStaleConfig(configPath)
+				if (shouldRegenerate) {
+					syncGeneratedOpenCodeJsonc(
+						repo,
+						runtime,
+						{
+							...genOpts,
+							runtime,
+						},
+						ctx,
+					)
+				} else if (selectedRuntime) {
+					ctx.log(
+						`kept existing ${configFile} (use --force to regenerate)`,
+					)
+				}
 			}
 
 			for (const relPath of manifestPaths) {
+				if (isPointerPath(relPath)) {
+					if (isValidRuntimePointer(repo, relPath)) {
+						managedTrackFile(path.join(repo, relPath), ctx)
+					}
+					continue
+				}
 				if (relPath === 'AGENTS.md' && !savedForce) {
 					managedTrackFile(path.join(repo, 'AGENTS.md'), ctx)
 					ctx.log('kept existing AGENTS.md (use --force to refresh)')
 					continue
 				}
-				syncManagedPathFromManifest(repo, relPath, sourceDir, ctx)
+				const destRel = destRelForManagedPath(relPath) ?? relPath
+				syncManagedPathFromManifest(repo, destRel, sourceDir, ctx)
 			}
 
 			if (!manifestPaths.includes('AGENTS.md')) {
@@ -164,146 +207,56 @@ export async function doInstall(
 				)
 			}
 
-			// ponytail: debt — 4 discovery blocks below duplicate walk/relPath/guard/
-			// ensureDir/syncManagedFile; extract syncNewDiscoveryDir(base, relPrefix,
-			// ctx) — rung 2 — medium
-			const agentsBase = path.join(
-				sourceDir,
-				'base',
-				'opencode',
-				'agents',
-			)
-			const agentFiles = fs.pathExistsSync(agentsBase)
-				? walkFiles(agentsBase).map((f) =>
-						posixPath(path.relative(agentsBase, f)),
-					)
-				: []
-			for (const subpath of agentFiles) {
-				const relPath = `.opencode/agents/${subpath}`
-				if (!manifestPaths.includes(relPath)) {
+			for (const category of CONTENT_CATEGORIES) {
+				const categoryBase = sourceDirFor(sourceDir, category)
+				const files = fs.pathExistsSync(categoryBase)
+					? walkFiles(categoryBase).map((f) =>
+							posixPath(path.relative(categoryBase, f)),
+						)
+					: []
+				for (const subpath of files) {
+					if (category === 'commands' && !subpath.endsWith('.md')) {
+						continue
+					}
+					const relPath = destRelFor(category, subpath)
+					if (manifestPaths.includes(relPath)) continue
 					ctx.log(`new managed path discovered: ${relPath}`)
-					ensureDir(path.dirname(path.join(repo, relPath)), ctx)
 					syncManagedFile(
-						path.join(
-							sourceDir,
-							'base',
-							'opencode',
-							'agents',
-							subpath,
-						),
+						path.join(categoryBase, subpath),
 						path.join(repo, relPath),
 						ctx,
 					)
 				}
 			}
 
-			const commandsBase = path.join(
-				sourceDir,
-				'base',
-				'opencode',
-				'commands',
-			)
-			const commandFiles = fs.pathExistsSync(commandsBase)
-				? walkFiles(commandsBase).map((f) =>
-						posixPath(path.relative(commandsBase, f)),
-					)
-				: []
-			for (const subpath of commandFiles) {
-				if (!subpath.endsWith('.md')) continue
-				const relPath = `.opencode/commands/${subpath}`
-				if (!manifestPaths.includes(relPath)) {
-					ctx.log(`new managed path discovered: ${relPath}`)
-					syncManagedFile(
-						path.join(
-							sourceDir,
-							'base',
-							'opencode',
-							'commands',
-							subpath,
-						),
-						path.join(repo, relPath),
-						ctx,
-					)
-				}
-			}
-
-			const skillsBase = path.join(
-				sourceDir,
-				'base',
-				'opencode',
-				'skills',
-			)
-			const skillFiles = fs.pathExistsSync(skillsBase)
-				? walkFiles(skillsBase).map((f) =>
-						posixPath(path.relative(skillsBase, f)),
-					)
-				: []
-			for (const subpath of skillFiles) {
-				const relPath = `.opencode/skills/${subpath}`
-				if (!manifestPaths.includes(relPath)) {
-					ctx.log(`new managed path discovered: ${relPath}`)
-					ensureDir(path.dirname(path.join(repo, relPath)), ctx)
-					syncManagedFile(
-						path.join(
-							sourceDir,
-							'base',
-							'opencode',
-							'skills',
-							subpath,
-						),
-						path.join(repo, relPath),
-						ctx,
-					)
-				}
-			}
-
-			const pluginsBase = path.join(
-				sourceDir,
-				'base',
-				'opencode',
-				'plugins',
-			)
-			const pluginFiles = fs.pathExistsSync(pluginsBase)
-				? walkFiles(pluginsBase).map((f) =>
-						posixPath(path.relative(pluginsBase, f)),
-					)
-				: []
-			for (const subpath of pluginFiles) {
-				const relPath = `.opencode/plugins/${subpath}`
-				if (!manifestPaths.includes(relPath)) {
-					ctx.log(`new managed path discovered: ${relPath}`)
-					ensureDir(path.dirname(path.join(repo, relPath)), ctx)
-					syncManagedFile(
-						path.join(
-							sourceDir,
-							'base',
-							'opencode',
-							'plugins',
-							subpath,
-						),
-						path.join(repo, relPath),
-						ctx,
-					)
-				}
-			}
-
-			rewriteAgentPaths(repo, ctx)
 			injectPermissions(
 				repo,
-				path.join(
-					sourceDir,
-					'base',
-					'opencode',
-					'permissions',
-					'agents.yml',
-				),
+				path.join(sourceDirFor(sourceDir, 'permissions'), 'agents.yml'),
+				ctx,
+			)
+
+			const hadLegacyPaths = manifestPaths.some(
+				(relPath) =>
+					isLegacyManagedPath(relPath) && !isPointerPath(relPath),
+			)
+			removeManagedLegacyPaths(repo, manifestPaths, ctx)
+			if (hadLegacyPaths) {
+				pruneEmptyDirs(path.join(repo, LEGACY_ARTIFACT_ROOT), ctx)
+			}
+			reportLegacyResiduals(
+				collectLegacyResiduals(repo, options.runtime),
+				ctx,
+			)
+			const blockedPointers = ensureRuntimePointers(
+				repo,
+				options.runtime,
 				ctx,
 			)
 
 			ctx.force = savedForce
 			finalizeManagedManifest(repo, ctx)
 			trackInstalledProject(repo, version, installRef, ctx)
-			ctx.log(`repo bootstrap complete for: ${repo}`)
+			finalizeBlocked(repo, blockedPointers, ctx, cleanupFn)
 			if (cleanupFn) cleanupFn()
 			return
 		}
@@ -316,27 +269,21 @@ export async function doInstall(
 		ctx,
 	)
 	syncAgentsTreeWithPermissions(
-		path.join(sourceDir, 'base', 'opencode', 'agents'),
-		path.join(repo, '.opencode', 'agents'),
-		path.join(sourceDir, 'base', 'opencode', 'permissions', 'agents.yml'),
+		sourceDirFor(sourceDir, 'agents'),
+		path.join(repo, destRelFor('agents')),
+		path.join(sourceDirFor(sourceDir, 'permissions'), 'agents.yml'),
 		ctx,
 	)
-	rewriteAgentPaths(repo, ctx)
-	syncManagedTree(
-		path.join(sourceDir, 'base', 'opencode', 'commands'),
-		path.join(repo, '.opencode', 'commands'),
-		ctx,
-	)
-	syncManagedTree(
-		path.join(sourceDir, 'base', 'opencode', 'skills'),
-		path.join(repo, '.opencode', 'skills'),
-		ctx,
-	)
-	syncManagedTree(
-		path.join(sourceDir, 'base', 'opencode', 'plugins'),
-		path.join(repo, '.opencode', 'plugins'),
-		ctx,
-	)
+	for (const category of CONTENT_CATEGORIES) {
+		if (category === 'agents') continue
+		syncManagedTree(
+			sourceDirFor(sourceDir, category),
+			path.join(repo, destRelFor(category)),
+			ctx,
+		)
+	}
+
+	const blockedPointers = ensureRuntimePointers(repo, options.runtime, ctx)
 
 	const appYml = path.join(repo, '.gh-config', 'app.yml')
 	ensureDir(path.dirname(appYml), ctx)
@@ -382,27 +329,154 @@ export async function doInstall(
 
 	trackInstalledProject(repo, version, installRef, ctx)
 	finalizeManagedManifest(repo, ctx)
-	ctx.log(`repo bootstrap complete for: ${repo}`)
+	finalizeBlocked(repo, blockedPointers, ctx, cleanupFn)
 	if (cleanupFn) cleanupFn()
 }
 
-function rewriteAgentPaths(repo: string, ctx: ManifestContext): void {
-	const agentsDir = path.join(repo, '.opencode', 'agents')
-	if (!fs.pathExistsSync(agentsDir)) return
-	const files = walkFiles(agentsDir).filter((f) => f.endsWith('.md'))
-	for (const file of files) {
-		const content = fs.readFileSync(file, 'utf8')
-		if (content.includes('base/opencode/')) {
-			const updated = content.replaceAll('base/opencode/', '.opencode/')
-			if (ctx.dryRun) {
-				ctx.log(
-					`DRY-RUN: would rewrite paths in ${path.relative(repo, file)}`,
-				)
-			} else {
-				fs.writeFileSync(file, updated)
-			}
+/**
+ * A manifest that exists but lists no paths cannot classify legacy files, so a
+ * full sync would strand them behind pointers it can never unblock.
+ */
+function failCorruptManifest(
+	repo: string,
+	ctx: ManifestContext,
+	cleanupFn: (() => void) | undefined,
+): void {
+	const manifest = path.join(repo, MANAGED_DIR_MARKER)
+	if (!ctx.dryRun) {
+		fs.removeSync(path.join(repo, `${MANAGED_DIR_MARKER}.tmp`))
+	}
+	ctx.log(`error: corrupt or truncated managed manifest: ${manifest}`)
+	ctx.log(
+		`  repair or remove the manifest, or remove ${LEGACY_ARTIFACT_ROOT} content manually`,
+	)
+	ctx.log(
+		'  --force cannot classify those files: the manifest no longer traces them',
+	)
+	if (cleanupFn) cleanupFn()
+	process.exit(1)
+}
+
+/**
+ * Report the install outcome, or the dry-run prediction of a blocked install,
+ * instead of claiming success when pointers stay blocked.
+ */
+function finalizeBlocked(
+	repo: string,
+	blockedPointers: string[],
+	ctx: ManifestContext,
+	cleanupFn: (() => void) | undefined,
+): void {
+	if (blockedPointers.length === 0) {
+		ctx.log(`repo bootstrap complete for: ${repo}`)
+		return
+	}
+	if (ctx.dryRun) {
+		ctx.log(
+			`DRY-RUN: install would fail - ${String(blockedPointers.length)} path(s) block the runtime pointer(s)`,
+		)
+		return
+	}
+	if (cleanupFn) cleanupFn()
+	process.exit(1)
+}
+
+// ponytail: temporal — the legacy `.opencode` migration helpers below are
+// removable once installs made before the `.agents/` layout have upgraded.
+/** Remove legacy managed files that were synced into the canonical tree. */
+function removeManagedLegacyPaths(
+	repo: string,
+	manifestPaths: string[],
+	ctx: ManifestContext,
+): void {
+	for (const relPath of manifestPaths) {
+		if (!isCleanupEligibleLegacyPath(repo, relPath, manifestPaths)) {
+			continue
+		}
+		const absolute = path.join(repo, relPath)
+		rm(absolute, ctx)
+		if (ctx.dryRun) {
+			ctx.log(`DRY-RUN: would remove legacy managed path: ${relPath}`)
+		} else {
+			ctx.log(`removed legacy managed path: ${relPath}`)
 		}
 	}
+}
+
+/** Remove empty directories bottom-up, including the directory itself. */
+function pruneEmptyDirs(dir: string, ctx: ManifestContext): void {
+	if (isLinkedDirectory(dir)) {
+		return
+	}
+	if (!fs.pathExistsSync(dir)) {
+		return
+	}
+	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+		if (entry.isDirectory() && !entry.isSymbolicLink()) {
+			pruneEmptyDirs(path.join(dir, entry.name), ctx)
+		}
+	}
+	if (fs.readdirSync(dir).length > 0) {
+		return
+	}
+	if (ctx.dryRun) {
+		ctx.log(`DRY-RUN: would remove empty directory: ${dir}`)
+		return
+	}
+	fs.rmdirSync(dir)
+	ctx.log(`removed empty directory: ${dir}`)
+}
+
+/**
+ * Non-managed files still under the legacy tree. Managed files are excluded so
+ * a dry-run reports the same residuals it would leave after a real cleanup.
+ * Paths under this runtime's pointer directories are excluded too, because
+ * `ensureRuntimePointers` already reports them (ponytail: resolved rung 2 —
+ * both share the pointer list declared in `layout.ts`).
+ */
+function collectLegacyResiduals(repo: string, runtime: Runtime): string[] {
+	const root = path.join(repo, LEGACY_ARTIFACT_ROOT)
+	if (isLinkedDirectory(root)) {
+		return []
+	}
+	if (!fs.pathExistsSync(root)) {
+		return []
+	}
+	const pointerPrefixes = pointerPathsFor(runtime).map((p) => `${p}/`)
+	const manifestPaths = readManagedManifest(repo)
+	return walkFiles(root)
+		.filter(
+			(file) =>
+				!isCleanupEligibleLegacyPath(
+					repo,
+					posixPath(path.relative(repo, file)),
+					manifestPaths,
+				),
+		)
+		.map((file) => posixPath(path.relative(repo, file)))
+		.filter(
+			(relPath) =>
+				!pointerPrefixes.some((prefix) => relPath.startsWith(prefix)),
+		)
+}
+
+function reportLegacyResiduals(
+	residuals: string[],
+	ctx: ManifestContext,
+): void {
+	if (residuals.length === 0) {
+		return
+	}
+	ctx.log(
+		`warning: legacy ${LEGACY_ARTIFACT_ROOT} content is not managed by wayforge:`,
+	)
+	for (const residual of residuals) {
+		ctx.log(`  - ${residual}`)
+	}
+	ctx.log(
+		`  move these paths into ${ARTIFACT_ROOT}/ or remove them; ` +
+			`managed ${LEGACY_ARTIFACT_ROOT} files were migrated automatically`,
+	)
 }
 
 function injectPermissions(
@@ -410,7 +484,7 @@ function injectPermissions(
 	permissionsFile: string,
 	ctx: ManifestContext,
 ): void {
-	const agentsDir = path.join(repo, '.opencode', 'agents')
+	const agentsDir = path.join(repo, destRelFor('agents'))
 	if (!fs.pathExistsSync(agentsDir)) return
 	const entries = fs.readdirSync(agentsDir, { withFileTypes: true })
 	for (const entry of entries) {

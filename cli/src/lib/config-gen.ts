@@ -4,6 +4,14 @@ import { ManifestContext, MANAGED_OPENCODE_HEADER } from './context.js'
 import { ensureDir, rm, writeFile } from './files.js'
 import type { Provider, Runtime } from '../types.js'
 import { validateFreeTierRuntime, resolveDefaultModels } from './providers.js'
+import {
+	LEGACY_ARTIFACT_ROOT,
+	PLUGIN_ENTRY,
+	SKILLS_CONFIG_PATH,
+	configFileFor,
+	sourceDirFor,
+} from './layout.js'
+import { isManagedOpenCodeFile } from './manifest.js'
 
 export interface GenerateOptions {
 	runtime: Runtime
@@ -14,7 +22,7 @@ export interface GenerateOptions {
 }
 
 export function readFragment(sourceDir: string, subPath: string): string {
-	const file = path.join(sourceDir, 'base', 'opencode', 'config', subPath)
+	const file = path.join(sourceDirFor(sourceDir, 'config'), subPath)
 	if (!fs.pathExistsSync(file)) {
 		console.error(`error: missing config fragment: ${file}`)
 		process.exit(1)
@@ -215,7 +223,8 @@ export function generateOpenCodeJsonc(opts: GenerateOptions): string {
   ${agentSection}"provider": {
 ${providerBlock}
   },
-  "plugin": ["./.opencode/plugins/ponytail/ponytail.mjs"],
+  "plugin": ["${PLUGIN_ENTRY}"],
+  "skills": ["${SKILLS_CONFIG_PATH}"],
   "permission": {
     "skill": {
       "*": "allow"
@@ -225,13 +234,29 @@ ${providerBlock}
 `
 }
 
+/**
+ * True when a wayforge-owned config still describes the legacy `.opencode`
+ * layout (a migrated install deletes those plugins/skills), so it must be
+ * regenerated instead of kept.
+ */
+export function isLayoutStaleConfig(filePath: string): boolean {
+	if (!isManagedOpenCodeFile(filePath)) {
+		return false
+	}
+	const content = fs.readFileSync(filePath, 'utf8')
+	return (
+		content.includes(`${LEGACY_ARTIFACT_ROOT}/`) ||
+		!content.includes('"skills"')
+	)
+}
+
 export function syncGeneratedOpenCodeJsonc(
 	repo: string,
 	runtime: Runtime,
 	opts: GenerateOptions,
 	ctx: ManifestContext,
 ): void {
-	const configFile = runtime === 'opencode' ? 'opencode.jsonc' : 'kilo.jsonc'
+	const configFile = configFileFor(runtime)
 	const dst = path.join(repo, configFile)
 	const parent = path.dirname(dst)
 

@@ -23,7 +23,7 @@ vi.mock('node:fs', () => ({
   readFileSync: mockReadFileSync,
   unlinkSync: mockUnlinkSync,
 }));
-vi.mock('../../../base/opencode/skills/shared-task/scripts/gh-app-auth.ts', () => ({
+vi.mock('../../../base/skills/shared-task/scripts/gh-app-auth.ts', () => ({
   getValidToken: vi.fn().mockRejectedValue(new Error('auth mock')),
 }));
 
@@ -37,7 +37,7 @@ process.env.GITHUB_TOKEN = 'test-token-value';
 
 // ── Module under test ──────────────────────────────────────────────────────
 
-import * as gh from '../../../base/opencode/skills/shared-task/scripts/gh-issue.ts';
+import * as gh from '../../../base/skills/shared-task/scripts/gh-issue.ts';
 
 // ── Test helpers ────────────────────────────────────────────────────────────
 

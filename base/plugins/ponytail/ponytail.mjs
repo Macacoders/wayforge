@@ -8,7 +8,7 @@ export async function server(input) {
     config: async () => {
       try {
         return {
-          skillsDir: "./.opencode/skills",
+          skillsDir: "./.agents/skills",
         };
       } catch {
         return {};

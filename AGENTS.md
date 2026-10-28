@@ -2,11 +2,12 @@
 
 ## Project overview
 
-`wayforge` ships a reusable AI-assisted development workflow for OpenCode: three primary agents (`planner`, `delivery`, `troubleshooter`), three subagents (`research`, `code`, `architect`), skills, commands, plugins, and a persistent `docs/ai/` memory convention. Users are this repo's maintainers and maintainers of consuming repos that install it. Agents most often touch `base/opencode/**` (source templates), `cli/src/**` (installer), and `docs/ai/**` (memory). See [README.md](README.md) for usage and [docs/ai/architecture.md](docs/ai/architecture.md) for architecture.
+`wayforge` ships a reusable AI-assisted development workflow for OpenCode: three primary agents (`planner`, `delivery`, `troubleshooter`), three subagents (`research`, `code`, `architect`), skills, commands, plugins, and a persistent `docs/ai/` memory convention. Users are this repo's maintainers and maintainers of consuming repos that install it. Agents most often touch `base/**` (source templates), `cli/src/**` (installer), and `docs/ai/**` (memory). See [README.md](README.md) for usage and [docs/ai/architecture.md](docs/ai/architecture.md) for architecture.
 
 ## Project structure
 
-- `base/opencode/**` — reusable source templates (the source of truth; edit here, not generated output)
+- `base/{agents,commands,skills,plugins}/**` — reusable source templates installed into `.agents/` (the source of truth; edit here, not generated output)
+- `base/{config,permissions}/**` — installer generation inputs; read but never installed
 - `base/AGENTS.md` — generic skeleton with `[FILL IN]` placeholders for consuming repos
 - `cli/src/**` — TypeScript installer CLI
 - `cli/tests/` — CLI integration and unit tests
@@ -16,7 +17,7 @@
 - `tests/` — unit tests (bash, powershell, typescript subdirs)
 - `docs/` + `docs/ai/` — contributor docs + durable AI memory (plans, ADRs, logs)
 - `.github/` — release workflow, PR/issue templates
-- `.opencode/` + `opencode.jsonc` — gitignored generated artifacts (do not edit directly)
+- `.agents/`, `.opencode/`, `.kilo/agents`, `.kilo/commands`, `opencode.jsonc`, `kilo.jsonc` — gitignored generated artifacts (do not edit directly)
 - `profiles/` — provider/model profile definitions
 
 ## Setup & build
@@ -34,7 +35,7 @@
 - Typecheck: `npm run typecheck` or `cd cli && npx tsc --noEmit`
 - Lint: `cd cli && npx eslint src/` — auto-fix with `make fix-node`
 - Format: `cd cli && npx prettier --check src/`
-- Integration: `cli/tests/integration/run.sh`
+- Integration: `npx vitest run cli/tests/integration`
 - Duplication: `make check-duplication` (jscpd, 8% threshold)
 - Deprecated (legacy shell/PowerShell scripts): `make check-bash`, `make check-powershell`
 
@@ -48,7 +49,7 @@ TypeScript (CLI): Prettier via `.prettierrc` — no semicolons, single quotes, t
 
 ## Boundaries
 
-1. **Source vs generated** — edit `base/opencode/**`, never the gitignored `.opencode/` or `opencode.jsonc`.
+1. **Source vs generated** — edit `base/**`, never the gitignored `.agents/`, runtime pointer directories (`.opencode/agents`, `.opencode/commands`, `.kilo/agents`, `.kilo/commands`), or generated configs (`opencode.jsonc`, `kilo.jsonc`).
 2. **Template preservation** — keep `base/AGENTS.md` generic with placeholders; root `AGENTS.md` is this repo's curated guidance.
 3. **Secrets** — never commit `.env*`, `.gh-config/`, tokens, or auth state.
 4. **Installer safety** — always `--dry-run` first; `--force` overwrites managed output deliberately.

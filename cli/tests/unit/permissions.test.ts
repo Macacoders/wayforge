@@ -12,7 +12,6 @@ const permissionsFile = path.resolve(
   __dirname,
   '../../..',
   "base",
-  "opencode",
   "permissions",
   "agents.yml",
 );
@@ -21,7 +20,6 @@ const agentsDir = path.resolve(
   __dirname,
   "../../..",
   "base",
-  "opencode",
   "agents",
 );
 

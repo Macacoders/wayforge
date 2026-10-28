@@ -49,7 +49,7 @@ vi.stubGlobal('fetch', mockFetch);
 
 // ── Module under test (top-level import for most tests) ─────────────────────
 
-import * as authModule from '../../../base/opencode/skills/shared-task/scripts/gh-app-auth.ts';
+import * as authModule from '../../../base/skills/shared-task/scripts/gh-app-auth.ts';
 
 // Re-exported as a let so getClientId tests can load a fresh instance
 let auth: typeof authModule = authModule;
@@ -119,7 +119,7 @@ describe('getClientId', () => {
     // Clear module evaluation cache and re-load a fresh instance
     vi.resetModules();
     auth = await import(
-      '../../../base/opencode/skills/shared-task/scripts/gh-app-auth.ts'
+      '../../../base/skills/shared-task/scripts/gh-app-auth.ts'
     );
   });
 
