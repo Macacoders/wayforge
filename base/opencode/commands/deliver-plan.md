@@ -20,8 +20,10 @@ Repeat until plan acceptance or a stop condition:
 4. Confirm the agent-owned validations ran with evidence. If one failed or evidence is missing, do not
    dispatch review; report the blocked result. Never run human-owned validations; report them instead.
 5. Dispatch a `functional_review` work order to `reviewer` against the resulting revision (see
-   `/review-task`). Dispatch `architecture_review` to `architect` when the task touches a boundary
-   category or the plan's `required_gates.architect_review` is true.
+   `/review-task`). When the task affects a shared contract, include its focused compatibility
+   context and available counterpart or documented contract. Dispatch `architecture_review` to
+   `architect` when the task touches a boundary category or the plan's
+   `required_gates.architect_review` is true.
 6. Apply the reconciled review outcome under `delivery-policy`: accept only current compatible
    functional and required architecture evidence; `changes_required` → one bounded `repair` work
    order with current/prior finding IDs, dispositions, prior decisions, affected boundary, and tally,
@@ -29,7 +31,8 @@ Repeat until plan acceptance or a stop condition:
    findings independently; an earlier pass does not suppress a demonstrated new defect. `blocked`,
    unresolved conflict, validation failure, or exhausted budget → stop with the policy's consolidated
    diagnosis. Do not treat clarification as a repair or extra-review authorization.
-7. Run `integration_review` after a phase whose integration gate the plan declares.
+7. Run `integration_review` after a phase whose integration gate the plan declares; a focused task
+   compatibility check does not accept that phase or replace its gate.
 8. At the end, run plan acceptance checks (all required tasks accepted, plan acceptance criteria,
    declared gates, human-owned validations reported), set `status: completed`, and report a plan-level
    summary: accepted tasks, commits, validations, findings resolved, and anything deliberately left

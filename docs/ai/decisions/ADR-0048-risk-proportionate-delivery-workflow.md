@@ -215,6 +215,17 @@ approved plan. Clarification is not a repair dispatch or a budget extension; mat
 architecture changes require the authorized owner and a current independent review. This preserves the
 existing verdict vocabulary, retry limits, role separation, and conversational-only retry state.
 
+## Amendment (2026-10-29, shared-contract evidence)
+
+Task acceptance now includes focused compatibility evidence when a change affects a shared
+configuration constraint, resource budget, API schema, serialization format, or integration
+assumption. The existing functional-review work order names the available counterpart or explicitly
+documented contract; a concrete mismatch identifies both sides and the violated contract. Missing
+future-component evidence is reported as an integration risk rather than an inferred pass or failure,
+and underspecification follows the existing owner-resolution route. This is not a new global or
+integration gate: unaffected tasks retain ordinary independent review, and declared phase integration
+reviews remain the only phase-acceptance mechanism.
+
 ## Supersedes and Amends
 
 - Supersedes ADR-0038: `delivery` is no longer a thin three-command task orchestrator; it is the

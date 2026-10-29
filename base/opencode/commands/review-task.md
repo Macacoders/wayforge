@@ -9,6 +9,11 @@ target (working-tree diff or commit range), the agent-owned validations that wer
 their evidence, and the expected result format. Do not dispatch when required validation failed or its
 evidence is missing. Do not send implementation instructions, and do not review the change yourself.
 
+When the task affects a shared configuration constraint, resource budget, API schema, serialization
+format, or integration assumption, include the affected contract and available counterpart in that
+existing review work order; when a counterpart is unavailable, include the explicitly documented
+contract instead. This is focused task evidence, not an integration-review dispatch.
+
 Dispatch `architect` with an `architecture_review` work order when the change touches a boundary
 category or the plan's `required_gates.architect_review` is true.
 

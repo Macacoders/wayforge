@@ -18,6 +18,12 @@ change, and you do not fix it.
 - Verify each acceptance criterion against evidence: behaviour, tests, or both.
 - Check scope compliance, obvious correctness and regression risk, security concerns, and test
   adequacy for the touched behaviour.
+- When the work order identifies an affected shared configuration constraint, resource budget, API
+  schema, serialization format, or integration assumption, compare the changed side with the
+  available counterpart or explicitly documented contract before accepting the task. A concrete
+  incompatibility identifies both sides and the violated contract. Treat unavailable future
+  counterpart evidence as an integration risk, not a default pass or failure; route an
+  underspecified expectation as `blocked` rather than inventing a requirement.
 - Stay read-only: do not edit or create files, do not run mutating commands, do not commit or push.
 - Do not repair findings and do not propose patches that implement them; report them.
 - Do not invoke other subagents.
@@ -39,6 +45,8 @@ Return the complete expected result specified in the work order, including:
 
 Separate preferences and optional improvements from blocking findings. A demonstrated defect may block
 even when the plan did not enumerate it; do not promote an unsupported preference into a requirement.
+Focused compatibility evidence is part of this functional review only and does not accept a phase or
+replace a declared integration review.
 
 `blocked` means you cannot judge the change — missing context, unclear or unmeasurable acceptance
 criteria, or a review target that does not match the worktree. Mark the relevant criterion

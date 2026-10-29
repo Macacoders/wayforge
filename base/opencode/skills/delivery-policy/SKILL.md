@@ -144,6 +144,32 @@ implementer's report:
 - required agent-owned validations actually ran, with matching evidence
 - obvious correctness, regression, and security concerns
 
+When the touched task affects a shared configuration constraint, resource budget, API schema,
+serialization format, or integration assumption, the functional review also includes a focused
+compatibility check before task acceptance. The work order identifies the affected shared contract
+and the available component to compare, or cites the explicitly documented contract when no
+counterpart is available. The reviewer records the two sides and the contract in any concrete
+incompatibility finding. A documented-contract violation or demonstrable defect is
+`changes_required`; an underspecified expectation is `blocked` and follows the finding-resolution
+route rather than becoming an invented requirement. Missing evidence from a future component is an
+identified integration risk, not an inferred pass or failure.
+
+This is evidence within the existing task-review gate, not a new worker, global gate, or full-suite
+integration review. Tasks without that shared-contract risk use ordinary independent review.
+
+Focused-check walkthroughs:
+
+- A shared configuration change is compared with its available consumer; a changed constraint the
+  consumer cannot satisfy is a blocking finding only when both sides and their contract show it.
+- A resource-limit change is compared with the scheduler or documented budget; incompatible limits
+  are a documented-contract violation or demonstrable defect, not a preference.
+- A schema or serialization change is compared with its producer/consumer or wire-format contract;
+  an evidenced mismatch blocks, while an unspecified expectation follows the `blocked` route.
+- With no future counterpart available, the reviewer checks the explicit contract and reports the
+  remaining integration risk without inferring a pass or failure from absence.
+- An unrelated task receives no focused check or extra integration gate. If its phase declares an
+  integration gate, that gate still runs after the phase; an earlier task check never accepts it.
+
 **Phase acceptance** (`integration_review`) runs only when the plan declares an integration gate
 for the phase or cross-task interaction risk is real:
 

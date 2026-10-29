@@ -80,6 +80,11 @@ Required fields:
 - **Validations** — commands with an owner (`agent` or `human`), only where the task needs something
   beyond the repository default.
 
+When a task affects a shared configuration constraint, resource budget, API schema, serialization
+format, or integration assumption, identify the affected documented contract and available counterpart
+in its context. This supplies focused task-review evidence; it does not add a phase gate. Declare a
+phase integration gate separately only when cross-task integration acceptance is actually needed.
+
 Do **not** prescribe a fixed step sequence, a test-first order, or the commit command — `delivery`
 commits. Do keep concrete technical detail where it genuinely matters: mandatory interfaces,
 architectural invariants, known regressions, repository conventions, and the exact files for

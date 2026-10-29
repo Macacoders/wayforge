@@ -1,7 +1,7 @@
 ---
 status: in-progress
 created: 2026-10-29
-task: 2/3
+task: 3/3
 required_gates:
   architect_review: true
   memory_update: true
@@ -105,7 +105,7 @@ Keep worker verdicts `pass | changes_required | blocked` and revision-specific e
 
 ### Task 3: Risk-selected shared-contract evidence before acceptance (P1, #265)
 
-**Status:** pending
+**Status:** accepted
 **Depends on:** Task 1
 
 **Objective:** Include focused compatibility evidence at task acceptance when an affected shared contract exists, without requiring unrelated tasks to undergo a full integration gate.
