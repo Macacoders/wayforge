@@ -27,17 +27,14 @@ function extractAgentValue(file: string): string | undefined {
 }
 
 describe('base/commands frontmatter agent', () => {
-    it('parses at least one command', () => {
-        const commands = fs
-            .readdirSync(COMMANDS_DIR)
-            .filter((f) => f.endsWith('.md'));
-        expect(commands.length).toBeGreaterThan(0);
-    });
-
     it('declares a single known agent id when agent: is present', () => {
         const commands = fs
             .readdirSync(COMMANDS_DIR)
             .filter((f) => f.endsWith('.md'));
+        expect(
+            commands.length,
+            'no commands parsed — check COMMANDS_DIR',
+        ).toBeGreaterThan(0);
         for (const name of commands) {
             const value = extractAgentValue(
                 path.join(COMMANDS_DIR, name),
