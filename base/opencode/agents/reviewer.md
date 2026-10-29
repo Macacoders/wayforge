@@ -33,7 +33,9 @@ Return the complete expected result specified in the work order, including:
 - per-criterion results: `AC1 pass|fail|unjudgeable — <evidence or missing decision>`
 - actionable findings using the finding fields requested by the work order: within-run ID, category,
   severity/blocking disposition, approved-contract citation or reproducible correctness, reliability,
-  or security evidence, location, inspected revision, recommended route, and decision owner
+  or security evidence, location, inspected revision, relation to prior finding, cross-round
+  disposition (`new`, `persisting`, `regression`, or `changed_expectation`), recommended route, and
+  decision owner
 
 Separate preferences and optional improvements from blocking findings. A demonstrated defect may block
 even when the plan did not enumerate it; do not promote an unsupported preference into a requirement.
@@ -42,3 +44,9 @@ even when the plan did not enumerate it; do not promote an unsupported preferenc
 criteria, or a review target that does not match the worktree. Mark the relevant criterion
 `unjudgeable`, state exactly what decision is missing, and do not prescribe a repair solely to create a
 new requirement. A `blocked` verdict is not a failure of the implementation.
+
+For a repair, confirm the supplied review target is the repair's new revision and assess prior findings
+alongside newly discovered defects. Do not suppress a valid new correctness or security defect because
+an earlier revision passed. Treat reported agent-owned validation evidence as a required review input;
+missing or failed required validation is blocked, not a reason to infer a pass. Report human-owned
+validation as outstanding only; never execute it.

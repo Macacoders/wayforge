@@ -1,7 +1,7 @@
 ---
 status: in-progress
 created: 2026-10-29
-task: 1/3
+task: 2/3
 required_gates:
   architect_review: true
   memory_update: true
@@ -81,7 +81,7 @@ Keep worker verdicts `pass | changes_required | blocked` and revision-specific e
 
 ### Task 2: Boundary-complete repairs and bounded convergence (P0, #264)
 
-**Status:** pending
+**Status:** accepted
 **Depends on:** Task 1
 
 **Objective:** Extend the existing repair cycle so related trust-boundary failures are assessed together, findings remain identifiable across rounds, and exhaustion produces one actionable diagnosis with no unauthorized additional repair.

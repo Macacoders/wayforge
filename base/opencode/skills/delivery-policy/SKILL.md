@@ -99,7 +99,8 @@ Reviewers add:
   `unjudgeable`, not `fail`, when the approved contract cannot decide the criterion
 - actionable findings, each with a stable within-run ID; review kind, task, inspected revision/diff,
   affected contract or validation boundary, category, severity/blocking disposition, evidence and
-  location, relation to a prior finding when applicable, recommended route, and decision owner
+  location, relation to a prior finding when applicable, cross-round disposition (`new`,
+  `persisting`, `regression`, or `changed_expectation`), recommended route, and decision owner
 
 Finding categories are `explicit_requirement`, `demonstrable_defect`,
 `underspecified_requirement`, `architectural_conflict`, `architectural_preference`, and
@@ -198,6 +199,23 @@ new guarantee. This example does not determine any consumer artifact's actual or
 
 ## Retry and Escalation
 
+### Repair handoff and review
+
+For each repair, `delivery` carries a compact within-run handoff: current and prior finding IDs,
+their cross-round dispositions and relevant decisions, the affected contract or validation boundary,
+the implementation/repair tally, and the review target that produced the findings. The implementer
+reports the finding-by-finding disposition and evidence. For parsing, validation, authentication, or
+an analogous trust-sensitive boundary, it also reports a bounded audit of adjacent failure modes,
+adversarial regression coverage (or why it was omitted), and whether evidence shows an incorrect
+test expectation rather than a code defect.
+
+Before dispatching independent review, `delivery` confirms every required agent-owned validation ran
+and has evidence. A failed validation or missing evidence stops dispatch and is reported as a blocked
+result; human-owned validation is reported only. Every repair receives a functional review of its new
+revision. Reconcile each finding across rounds: a valid `new` correctness or security defect remains
+actionable even if a prior review passed; `persisting`, `regression`, and `changed_expectation` each
+receive an evidence-backed disposition rather than being merged into an old pass.
+
 Budget, per task or direct-path change, for the whole run:
 
 - `implementation`: **1** dispatch, plus up to **2** `repair` dispatches. The second repair failing
@@ -207,7 +225,18 @@ Budget, per task or direct-path change, for the whole run:
 - `architecture_review`: **1** per boundary category per revision.
 
 Budgets live with the run (the conversation), not in a file, and they do not reset when the same
-task re-enters the loop.
+task re-enters the loop. A recovery handoff carries known used counts. If counts are missing, stop for
+the owner; a new run is not authorization to repeat an exhausted repair budget.
+
+At exhaustion, stop with one consolidated diagnosis for the affected boundary: classify each blocker
+as an implementation defect, external dependency, architectural conflict, or contract ambiguity;
+state evidence, affected scope, complexity, attempts used, and one recommended owner or decision.
+Consolidate repeated requests for the same boundary and preserve the original tally. Only an explicit
+user authorization may extend a small local implementation defect, and it must name the task, bounded
+scope, and finite extra dispatch count. It does not authorize another architecture or integration
+review beyond its separate budget. An external blocker may be deferred only when plan dependencies and
+approved gates leave other work ready; it never accepts the blocked task. Material scope or
+architectural conflicts return to the owner for plan or ADR approval.
 
 Stop and ask the user when:
 

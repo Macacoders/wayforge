@@ -17,14 +17,18 @@ Repeat until plan acceptance or a stop condition:
    fields as you dispatch; legacy plans are executable, not a special case for the user to migrate.
 2. Pick the next `pending` task whose dependencies are all `accepted`; mark it `in-progress`.
 3. Dispatch one `implementation` work order to `code` (see `/implement-task` for the work-order shape).
-4. Confirm the agent-owned validations ran. Never run human-owned validations; report them instead.
+4. Confirm the agent-owned validations ran with evidence. If one failed or evidence is missing, do not
+   dispatch review; report the blocked result. Never run human-owned validations; report them instead.
 5. Dispatch a `functional_review` work order to `reviewer` against the resulting revision (see
    `/review-task`). Dispatch `architecture_review` to `architect` when the task touches a boundary
    category or the plan's `required_gates.architect_review` is true.
 6. Apply the reconciled review outcome under `delivery-policy`: accept only current compatible
    functional and required architecture evidence; `changes_required` → one bounded `repair` work
-   order with the findings, then review the new revision; `blocked`, unresolved conflict, or exhausted
-   budget → escalate and stop. Do not treat clarification as a repair or extra-review authorization.
+   order with current/prior finding IDs, dispositions, prior decisions, affected boundary, and tally,
+   then review the repair's new revision. Reconcile new, persisting, regression, and changed-expectation
+   findings independently; an earlier pass does not suppress a demonstrated new defect. `blocked`,
+   unresolved conflict, validation failure, or exhausted budget → stop with the policy's consolidated
+   diagnosis. Do not treat clarification as a repair or extra-review authorization.
 7. Run `integration_review` after a phase whose integration gate the plan declares.
 8. At the end, run plan acceptance checks (all required tasks accepted, plan acceptance criteria,
    declared gates, human-owned validations reported), set `status: completed`, and report a plan-level

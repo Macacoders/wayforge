@@ -153,8 +153,12 @@ per-task memory checks, prescribed coding sequences, and prose-only retry bounds
   dependency as "after the previous task", backfills the fields while dispatching, drops the legacy
   `**Step 5: Commit**` instruction (17 plans carry it), and refuses to invent missing acceptance
   criteria. Old plans are not migrated by hand.
-- **Retry budgets live in the conversation**, not in a file, so they reset per run by definition.
-  That is deliberate: persisting them would add stateful infrastructure this issue rules out.
+- **Retry budgets live in the conversation**, not in a file; no persistent retry-state
+  infrastructure is introduced. A new, unrelated run starts its own budget, but resuming a paused
+  task requires an authorized recovery handoff to carry any known used counts. A new session does
+  not reset an exhausted paused-task budget: missing count evidence stops for the owner, and any
+  extension must be explicitly authorized and finite. The operational handoff and budget rules stay
+  in `delivery-policy`.
 - **`reviewer` shell denies are prefix-based** and therefore bypassable by chained commands
   (`cat x && sed -i ...`), exactly as recorded for the rest of the matrix in ADR-0036. `edit: deny`
   is the primary control; the deny list reduces the obvious paths.
