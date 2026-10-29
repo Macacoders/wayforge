@@ -20,8 +20,7 @@
         },
         "glm-5.3-flash": {
           "options": {
-            "reasoningEffort": "medium",
-            "textVerbosity": "low"
+            "reasoningEffort": "medium"
           }
         }
       }
