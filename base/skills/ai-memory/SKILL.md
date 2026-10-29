@@ -12,14 +12,14 @@ Use this skill for deterministic `docs/ai/**` bookkeeping — listing plans/ADRs
 
 ## Subcommands
 
-All subcommands are provided by `scripts/ai-memory.ts`:
+All subcommands are provided by `.agents/skills/ai-memory/scripts/ai-memory.ts`:
 
 ```
-npx tsx scripts/ai-memory.ts status [--json]
-npx tsx scripts/ai-memory.ts list-plans
-npx tsx scripts/ai-memory.ts list-adrs
-npx tsx scripts/ai-memory.ts close-check
-npx tsx scripts/ai-memory.ts init [--dry-run]
+npx tsx .agents/skills/ai-memory/scripts/ai-memory.ts status [--json]
+npx tsx .agents/skills/ai-memory/scripts/ai-memory.ts list-plans
+npx tsx .agents/skills/ai-memory/scripts/ai-memory.ts list-adrs
+npx tsx .agents/skills/ai-memory/scripts/ai-memory.ts close-check
+npx tsx .agents/skills/ai-memory/scripts/ai-memory.ts init [--dry-run]
 ```
 
 - `status` — report whether `docs/ai/` exists and summarize key memory files/directories. With `--json`, outputs structured JSON.
