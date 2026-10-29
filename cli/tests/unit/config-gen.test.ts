@@ -312,6 +312,21 @@ describe("buildProviderBlockJson", () => {
     // Boundary between fragments: "},\n    " (closing brace + comma + newline + indent)
     expect(block.match(/},\n    "/g)?.length).toBeGreaterThanOrEqual(2);
   });
+
+  it("omits textVerbosity for opencode-go glm-5.3-flash but keeps other model options", () => {
+    const block = buildProviderBlockJson(["opencode-go"], "opencode", sourceDir);
+    const opencodeGo = JSON.parse(`{${block}}`)["opencode-go"];
+
+    expect(opencodeGo.models["glm-5.3-flash"].options).toEqual({
+      reasoningEffort: "medium",
+    });
+    expect(
+      opencodeGo.models["deepseek-v4.1-flash"].options.textVerbosity,
+    ).toBe("medium");
+    expect(opencodeGo.models["mimo-v2.6-flash"].options.textVerbosity).toBe(
+      "low",
+    );
+  });
 });
 
 describe("buildAgentBlockJson", () => {
