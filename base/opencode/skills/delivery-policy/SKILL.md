@@ -225,6 +225,116 @@ new guarantee. This example does not determine any consumer artifact's actual or
 
 ## Retry and Escalation
 
+### Paused-task recovery
+
+On every `/deliver-plan` entry, inventory each `in-progress` task before selecting a fresh pending
+task. Record the task status; implementation and repair counts; latest validation and functional,
+architecture, and integration-review outcomes and their revisions; pending repair, review,
+clarification, or authorization; and whether uncommitted worktree changes belong to that task. Use
+the plan, the active conversation/recovery handoff, logs, and repository evidence; these are
+inspection inputs, not persistent retry state.
+
+Do not rewrite an `in-progress` task to `pending`, reset a tally, discard changes, or send a fresh
+`implementation` merely because delivery restarted. Incomplete, contradictory, or missing history,
+counts, review/revision evidence, validation evidence, or worktree ownership fails closed: preserve
+the task and ask the owner for a recovery decision. A blocked task remains blocked until its recorded
+decision or authorization is supplied. External blockers may be deferred only when dependency
+readiness and approved gates leave another pending task ready.
+
+| Recovered state | Delivery action |
+| --- | --- |
+| Incomplete existing implementation; scope and authority are clear | Resume that already-authorized implementation only; retain its implementation tally and changes. |
+| Validation pending or failed | Obtain/repair the required validation evidence; do not review or accept first. |
+| Current validation passed; functional review pending | Dispatch only `functional_review` against the current revision; do not implement again. |
+| Current validation passed; functional review passed and required architecture review pending | Dispatch only `architecture_review` against the current revision; do not repeat functional review. |
+| Current validation passed; all required reviews passed and commit/acceptance pending | Confirm criteria and required gates, then commit and mark the task accepted; do not re-review. |
+| `changes_required` with repair capacity | Dispatch the bounded repair with the preserved tally and findings, then fresh review. |
+| Ambiguous or blocked finding, pending clarification/authorization | Stop for the named owner decision; do not dispatch a repair. |
+| Repair capacity exhausted | Stop with the consolidated exhaustion diagnosis unless a finite, task-scoped user extension exists. |
+| All task gates passed and the change is committed | Keep the task `accepted`; never reimplement or rereview solely on resume. |
+
+For every row, first require complete, non-contradictory evidence for the current revision: implementation
+and repair counts; validation outcome; required functional and architecture verdicts; criteria/gate status;
+commit status; and ownership of uncommitted changes. A review `pass` is usable only for the exact
+unchanged revision and touched scope. A known, authorized task-owned change with consistent history moves
+the task to validation and then the required fresh touched reviews for that new revision; it never permits
+use of an old pass. Only unexplained, missing, or contradictory revision ownership/history selects the
+owner stop. External deferral is available only for an evidenced external blocker, never for absent or
+inconsistent recovery evidence.
+
+The next-action selection is exhaustive for a recovered task: implementation `pending` selects the one
+authorized implementation; implementation `completed` with validation `pending` selects validation;
+validation `failed` selects its evidenced correction/re-run before review; validation `passed` with
+functional review `pending` selects functional review; functional `pass` with required architecture
+review `pending` selects architecture review; functional or architecture `changes_required` selects an
+authorized repair or the exhaustion stop; either review `blocked` selects its named owner decision;
+both required reviews `pass` with task acceptance/commit `pending` selects criteria/gate confirmation,
+commit, and acceptance; a committed accepted task selects nothing. An architecture gate not required is
+already satisfied, not a review dispatch. These labels are revision-specific: a known authorized change
+moves the task back to validation and the required touched reviews, while missing, unexplained, or
+contradictory revision evidence selects the owner stop.
+
+Declared phase gates are not general task scheduling barriers. Continue eligible recovered work or
+dependency-ready pending tasks even when an earlier declared gate is pending. Before plan completion,
+when no eligible task work remains, route each declared phase gate whose tasks are all accepted: integration
+`pending` selects its one integration review; integration `pass` on the exact unchanged accepted revisions
+is retained; integration `changes_required` or `blocked` follows its approved finding-resolution or owner
+route, otherwise stops. Do not silently accept the phase or dispatch another integration review beyond the
+one-per-phase budget. A repair that changes an accepted task invalidates the phase gate; a further
+integration review requires the policy's explicit authorization.
+
+For a declared gate, integration `pending` after all its phase tasks are accepted selects the one
+integration review before plan completion; integration `pass` on the exact unchanged accepted revisions
+is retained; integration `changes_required` selects the finding-resolution/exhaustion route; integration
+`blocked` selects its named owner decision or an evidenced allowed external deferral. The plan gate is
+`pending` until all required tasks and declared phase gates pass, then selects
+the plan acceptance checks. No phase or plan state may be inferred from a missing or contradictory
+checkpoint.
+
+Dependencies still govern all fresh work: only `pending` tasks whose dependencies are `accepted` are
+ready. An in-progress recovery never bypasses a dependency; a pending phase gate does not block eligible
+task work. An external blocked task does not prevent an independent ready task from advancing.
+
+Paused-delivery walkthroughs:
+
+1. A fresh pending task with accepted dependencies is marked in progress and receives its one implementation dispatch.
+2. An in-progress task with passed validation and functional review pending receives only functional review; with functional pass and architecture pending, it receives only architecture review.
+3. An in-progress task with failed or missing validation remains blocked until validation evidence is supplied; no review runs.
+4. An in-progress task with two repairs used and `changes_required` stops with the exhaustion diagnosis.
+5. A task with its normal repairs used and a user-authorized finite additional repair carries that authorization and tally into that one repair; it does not reset either count.
+6. An in-progress task with uncommitted changes proceeds only after evidence identifies the changes as its owned authorized work; otherwise delivery stops for the owner.
+7. An accepted task with its reviewed change committed stays accepted on resume.
+8. Missing or contradictory dispatch, count, review, validation, or revision history stops for an owner recovery decision.
+9. A task blocked by an external dependency is deferred while a different pending task with accepted dependencies advances; the blocked task is not accepted or reset.
+10. An unresolved reviewer ambiguity remains blocked for the authorized owner; it cannot become a repair or acceptance, while unrelated dependency-ready work may advance.
+11. A review-passed, commit-pending task confirms criteria and gates, commits, and becomes accepted without redispatching either review; an accepted task is never redispatched.
+12. Once every task is accepted, each declared pending integration gate is selected before plan completion. A current passed gate is retained; a blocked gate stops or follows its approved route, and changed accepted work needs explicit authority for another gate review.
+
+`/deliver-plan` next-action regression traces (the numbered command branch is the action that must be
+selected, not an aspirational policy statement):
+
+| Case | Recovery / plan input | Selected command branch and next action |
+| --- | --- | --- |
+| 1. Pending, no implementation | Ready task is `pending`; dependencies accepted; no recovered action | Step 3 marks it `in-progress` and dispatches its one `implementation`. |
+| 2. In progress, validation awaited | Implementation completed on revision R; validation `pending` | Step 2 selects validation; step 5 obtains evidence and dispatches no review. |
+| 3. Functional pass, architecture pending | Validation and functional `pass` on R; required architecture review `pending` | Step 2 selects only `architecture_review(R)`; steps 5–6 do not redispatch functional review. |
+| 4. Both passes, commit pending | Validation, functional, and required architecture `pass` on R; criteria/gates met; commit pending | Step 2 selects commit/accept; step 5 commits and marks accepted without either review. |
+| 5. Review failure with capacity | Current functional or architecture verdict is `changes_required`; repair count below 2 (or named finite extension available) | Step 2 selects the bounded `repair`; step 6 carries findings/tally, then the changed revision follows validation and fresh touched review. |
+| 6. Exhausted review failure | `changes_required`; two regular repairs used and no applicable finite authorization | Step 2 selects the consolidated exhaustion stop; steps 5–6 dispatch neither repair nor review. |
+| 7. Accepted task | Committed task is `accepted`, with current recorded gates | Step 2 selects nothing for it; steps 3–4 never redispatch implementation or review. |
+| 8. In-progress later work, earlier gate pending | An earlier declared phase integration is `pending`; a later in-progress task has an eligible recovery action | Step 2 continues that recovery action; the pending gate remains pending. |
+| 9. Earlier gate pending, later task ready | Every task in an earlier declared phase accepted; its integration is `pending`; a later task is dependency-ready `pending` | Step 3 dispatches the later task's implementation; the pending gate remains pending. |
+| 10. All tasks accepted, integration pending | Every required task is accepted; a declared phase integration is `pending` | Step 4 dispatches the one `integration_review` before plan completion. |
+| 11. Integration passed, plan completion | Every required task is accepted; every declared integration gate `pass`es on unchanged accepted revisions | Step 4 retains each pass, then step 8 runs plan acceptance checks. |
+| 12. Integration blocked | All tasks accepted; declared integration verdict `blocked` with evidenced external blocker | Step 4 selects its named owner decision or permitted external deferral; it neither accepts the phase nor dispatches another integration review. |
+| 13. Missing or contradictory checkpoint | Recovered R has absent validation, unexplained revision mismatch, or incompatible pass/fail records | Step 2 fails closed to the owner; no step 3–6 dispatch or external deferral occurs. |
+| 14. Known changed revision invalidates verdicts | Validation/reviews passed on R, but authorized task-owned work with consistent history produced R2 in their touched scope | Step 2 selects validation for R2, then only the required fresh touched reviews; it cannot commit from R's passes. |
+
+These traces retain the earlier recovery cases: incomplete authorized implementation resumes rather than
+restarts; failed/missing validation prevents review; normal and finite-authorized exhaustion preserve the
+tally; owned-worktree evidence is required; reviewer ambiguity stops; and only an evidenced external
+blocker may be deferred while independent ready work advances.
+
 ### Repair handoff and review
 
 For each repair, `delivery` carries a compact within-run handoff: current and prior finding IDs,

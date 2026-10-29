@@ -226,6 +226,31 @@ and underspecification follows the existing owner-resolution route. This is not 
 integration gate: unaffected tasks retain ordinary independent review, and declared phase integration
 reviews remain the only phase-acceptance mechanism.
 
+## Amendment (2026-10-29, paused delivery recovery)
+
+Re-entering `/deliver-plan` inventories every in-progress task's preserved dispatch tally, validation
+and revision-specific review evidence, pending decision, and ownership of uncommitted work before any
+fresh dispatch. Delivery resumes only the already-authorized next action; it never rewrites the task to
+pending, resets a budget, discards changes, or treats restart as authority for another implementation.
+Incomplete or contradictory recovery evidence stops for the owner. Dependencies still select fresh
+pending work, so an externally blocked task may be deferred only while independent ready work remains.
+This is conversational recovery evidence, not a database, scheduler, or persistent retry state, and
+does not change independent review, integration gates, or delivery-only commit authority.
+
+## Amendment (2026-10-29, recovery next-action and phase-gate ordering)
+
+Recovery selects one evidenced next action rather than restarting the ordinary task sequence: pending
+or failed validation precedes review; a current functional pass plus pending architecture gate dispatches
+only architecture review; current required passes plus pending commit commit and accept without another
+review. A known authorized task-owned revision change with consistent history invalidates touched verdicts
+and receives validation plus fresh touched reviews; only unexplained or contradictory revision history
+fails closed and is never labelled an external deferral. A declared pending phase integration gate is not
+a general scheduling barrier: eligible recovered or dependency-ready task work continues. Before plan
+completion, every pending declared gate is routed with its preserved count; its current pass is retained,
+while `changes_required` or `blocked` follows the bounded approved route or stops and does not authorize
+another integration review. This clarifies command ordering only; review independence, delivery-only
+commit authority, conversational history, and all existing budgets remain unchanged.
+
 ## Supersedes and Amends
 
 - Supersedes ADR-0038: `delivery` is no longer a thin three-command task orchestrator; it is the
