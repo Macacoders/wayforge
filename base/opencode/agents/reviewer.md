@@ -30,9 +30,15 @@ Return the complete expected result specified in the work order, including:
 
 - `Verdict: pass | changes_required | blocked`
 - `Reviewed revision:` the git range, sha, or working-tree diff you actually inspected
-- per-criterion results: `AC1 pass|fail — <evidence>`
-- actionable findings: severity, evidence, and location for each
+- per-criterion results: `AC1 pass|fail|unjudgeable — <evidence or missing decision>`
+- actionable findings using the finding fields requested by the work order: within-run ID, category,
+  severity/blocking disposition, approved-contract citation or reproducible correctness, reliability,
+  or security evidence, location, inspected revision, recommended route, and decision owner
+
+Separate preferences and optional improvements from blocking findings. A demonstrated defect may block
+even when the plan did not enumerate it; do not promote an unsupported preference into a requirement.
 
 `blocked` means you cannot judge the change — missing context, unclear or unmeasurable acceptance
-criteria, or a review target that does not match the worktree. State exactly what is missing. A
-`blocked` verdict is not a failure of the implementation.
+criteria, or a review target that does not match the worktree. Mark the relevant criterion
+`unjudgeable`, state exactly what decision is missing, and do not prescribe a repair solely to create a
+new requirement. A `blocked` verdict is not a failure of the implementation.

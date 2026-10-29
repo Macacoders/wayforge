@@ -95,8 +95,18 @@ Reviewers add:
 
 - `Verdict: pass | changes_required | blocked`
 - `Reviewed revision:` the git range, sha, or working-tree diff actually inspected
-- per-criterion results: `AC1 pass|fail — <evidence>`
-- actionable findings: severity, evidence, location
+- per-criterion results: `AC1 pass|fail|unjudgeable — <evidence or missing decision>`; use
+  `unjudgeable`, not `fail`, when the approved contract cannot decide the criterion
+- actionable findings, each with a stable within-run ID; review kind, task, inspected revision/diff,
+  affected contract or validation boundary, category, severity/blocking disposition, evidence and
+  location, relation to a prior finding when applicable, recommended route, and decision owner
+
+Finding categories are `explicit_requirement`, `demonstrable_defect`,
+`underspecified_requirement`, `architectural_conflict`, `architectural_preference`, and
+`optional_improvement`. A blocking finding must cite an approved criterion or documented contract, or
+provide reproducible correctness, reliability, or security impact and evidence. Category alone does
+not determine severity. Keep preferences, suggestions, unrelated pre-existing issues, and optional
+improvements separate from blocking findings; avoid exposing unnecessary sensitive artifact content.
 
 `delivery` verifies the reviewed revision is the revision being accepted. A later change
 invalidates earlier verdicts for the touched scope; those reviews run again.
@@ -149,6 +159,42 @@ for the phase or cross-task interaction risk is real:
 - human-owned validations reported (and confirmed, or explicitly waived by the user)
 
 Agents never execute human-owned validations; they report the exact command and expected result.
+
+## Finding Resolution and Conflicting Verdicts
+
+`delivery` records compact finding IDs and dispositions in the within-run handoff; this is not a
+persistent ledger, new authority, or permission to rewrite a plan. Use these routes:
+
+| Finding | Outcome and authority |
+| --- | --- |
+| Approved criterion or documented contract violation with evidence | `changes_required`; the independent functional reviewer identifies it and `delivery` routes a bounded repair and fresh review. |
+| Demonstrable correctness, reliability, or security defect, including one not enumerated by the plan | `changes_required`; the independent functional reviewer identifies it. When the task touches an ADR-0025 boundary category or its plan declares an architecture gate, an architecture review assesses boundary implications; the owner approves any material scope change. A prior pass does not dismiss new evidence. |
+| Underspecified requirement or two materially equivalent implementations with no demonstrated defect | `blocked` if a new product requirement is needed; no repair for preference. The authorized project owner chooses behaviour, and the planner revises an approved intent/plan when material. A minor choice within approved architecture remains the implementer's discretion. |
+| Architectural conflict with an ADR/invariant, or missing architectural decision | `changes_required` for a demonstrated conflict; `blocked` for missing facts or a required decision. The architect supplies independent boundary evidence; the owner approves a material plan/ADR change. |
+| Optional improvement, unsupported preference, or unrelated pre-existing issue | Non-blocking and outside the verdict; report separately and track only with authorization. |
+
+Before accepting, reconcile functional and architecture conclusions that conflict, a finding that
+contradicts a recorded decision, a changed expectation, or results for different revisions. Hold
+acceptance; compare the approved criterion, impact, inspected revisions, and prior decision. A stale
+result requires current independent review of the touched scope. Neither reviewer is automatically
+favored: `delivery` coordinates evidence but does not overrule a substantiated finding or invent a
+criterion. The relevant owner resolves product or material architectural/plan changes, and the
+affected revision receives required validation and a current independent verdict. An architecture pass
+does not negate a substantiated functional defect; a disputed blocking finding remains unresolved until
+the independent reviewer reclassifies it on evidence or the authorized owner resolves the contract.
+
+Clarification itself consumes neither a repair dispatch nor an additional review authorization. Record
+the decision and authority in the approved plan or ADR before treating a material change as an
+acceptance expectation; then obtain a current independent review. Existing budgets still apply:
+ordinary fresh reviews after a repair, or of a stale touched scope, remain authorized within their
+applicable policy budget. Explicit authorization is required only for a review dispatch beyond that
+budget; clarification never grants one.
+
+**Identity/digest example:** when both identity and embedded digest are invalid, inspect the approved
+artifact contract and security rationale. Enforce documented precedence or an order with demonstrated
+security/correctness impact as an evidence-backed finding. If the contract leaves both materially
+equivalent, do not block for a preferred order; obtain owner-approved clarification before judging a
+new guarantee. This example does not determine any consumer artifact's actual order.
 
 ## Retry and Escalation
 

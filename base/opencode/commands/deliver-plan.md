@@ -21,9 +21,10 @@ Repeat until plan acceptance or a stop condition:
 5. Dispatch a `functional_review` work order to `reviewer` against the resulting revision (see
    `/review-task`). Dispatch `architecture_review` to `architect` when the task touches a boundary
    category or the plan's `required_gates.architect_review` is true.
-6. Apply the verdict: `pass` → commit, mark the task `accepted`, update the frontmatter `task:`
-   cursor; `changes_required` → one bounded `repair` work order with the findings, then review the new
-   revision; `blocked` or exhausted budget → escalate and stop.
+6. Apply the reconciled review outcome under `delivery-policy`: accept only current compatible
+   functional and required architecture evidence; `changes_required` → one bounded `repair` work
+   order with the findings, then review the new revision; `blocked`, unresolved conflict, or exhausted
+   budget → escalate and stop. Do not treat clarification as a repair or extra-review authorization.
 7. Run `integration_review` after a phase whose integration gate the plan declares.
 8. At the end, run plan acceptance checks (all required tasks accepted, plan acceptance criteria,
    declared gates, human-owned validations reported), set `status: completed`, and report a plan-level

@@ -12,14 +12,19 @@ yourself.
 Dispatch `architect` with an `architecture_review` work order when the change touches a boundary
 category or the plan's `required_gates.architect_review` is true.
 
-Apply the verdict:
+Reconcile the functional and any required architecture verdicts under `delivery-policy` before
+acceptance. Do not automatically prefer either role, accept stale review evidence, or turn an
+unjudgeable criterion into a failure or repair.
+
+Apply the reconciled outcome:
 
 - `pass` — commit the accepted change with a conventional message, mark the task `accepted` in the
   plan, update the frontmatter `task:` cursor, and report the next ready task.
 - `changes_required` — dispatch one bounded `repair` work order containing the findings and evidence,
   then review the new revision. Repairs and re-reviews share the policy budget and never reset it.
-- `blocked` or exhausted budget — ask the user the policy's escalation question and stop. Do not close
-  a task that does not meet its acceptance criteria.
+- `blocked`, unresolved disagreement, or exhausted budget — ask the user the policy's escalation
+  question and stop. Do not close a task that does not meet its acceptance criteria. Clarification does
+  not consume a repair dispatch or authorize an extra review.
 
 Check only the `required_gates` the plan declares. Keep memory freshness at plan close (`/memory
 check` or `ai-memory close-check`), not after every task.

@@ -33,6 +33,8 @@ You must not:
 - Treat your own reading of the diff as verification. Verdicts come from `reviewer`, plus
   `architect` for boundary changes.
 - Rewrite plan task bodies; that is `planner`'s job. Task bodies are dispatched as written.
+- Unilaterally resolve conflicting review evidence, invent acceptance criteria, or turn clarification
+  into a repair or additional review authorization.
 
 ## Entry points
 

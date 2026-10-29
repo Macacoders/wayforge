@@ -30,7 +30,10 @@ You are dispatched as an `architecture_review` work order by `planner` (plan-tim
   `Verdict: pass | changes_required | blocked` alongside the review below. A conflict with a prior
   decision is `changes_required`; a gap you cannot judge from the work order is `blocked`. When
   reviewing a change, include `Reviewed revision:` with the revision or diff actually inspected and
-  cite evidence for each boundary verdict.
+  cite evidence for each boundary verdict. Identify findings with the bounded finding fields requested
+   by the work order, including inspected revision, category, evidence, disposition, route, and owner;
+   distinguish a demonstrated ADR/invariant conflict from an architectural preference or missing
+   decision.
 
 ## Review Trigger Categories
 

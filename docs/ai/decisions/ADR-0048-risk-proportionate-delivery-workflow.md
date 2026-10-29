@@ -201,6 +201,16 @@ fault or `/plan` for a known boundary or uncertain risk, while `/deliver` retain
 classification. This amendment does not change independent review, acceptance gates, or the shared
 work-order protocol.
 
+## Amendment (2026-10-29)
+
+The shared protocol now requires revision-specific, evidence-backed finding records and represents an
+unjudgeable criterion without falsely marking it failed. `delivery-policy` remains the sole owner of
+finding classification and reconciliation: delivery coordinates conflicting functional and architecture
+evidence but cannot overrule an independent substantiated finding, invent a criterion, or rewrite an
+approved plan. Clarification is not a repair dispatch or a budget extension; material contract or
+architecture changes require the authorized owner and a current independent review. This preserves the
+existing verdict vocabulary, retry limits, role separation, and conversational-only retry state.
+
 ## Supersedes and Amends
 
 - Supersedes ADR-0038: `delivery` is no longer a thin three-command task orchestrator; it is the

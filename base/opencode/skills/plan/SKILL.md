@@ -73,7 +73,8 @@ Required fields:
 - **Context** — the repository facts an implementer needs and does not have: relevant paths and
   symbols, existing patterns, utilities, or tests to reuse, and prior decisions.
 - **Acceptance criteria** — observable conditions a reviewer can verify against the diff and the
-  tests. Write "X behaves like Y when Z", not "implement X".
+  tests. Write "X behaves like Y when Z", not "implement X". Do not manufacture a criterion for an
+  unresolved product or architectural choice; identify the decision and its approval authority instead.
 - **Constraints** — scope limits, invariants, what must not change, and the reuse expectation.
 - **Depends on** — task IDs that must be `accepted` first, or `none`.
 - **Validations** — commands with an owner (`agent` or `human`), only where the task needs something
