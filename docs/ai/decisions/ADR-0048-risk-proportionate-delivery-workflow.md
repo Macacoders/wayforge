@@ -28,16 +28,17 @@ orchestrator was also the reviewer; `review-task.md` re-ran a memory close-check
    trigger, and upward reclassification allowed at any time.
 
 2. **Specialized roles with one shared protocol.** `planner` formalizes intent and plans; `delivery`
-   dispatches, applies policy, integrates, and escalates; `code` implements and repairs; `reviewer`
-   verifies independently; `research` investigates; `architect` reviews boundaries. Work orders
-   (`implementation`, `repair`, `functional_review`, `integration_review`, `architecture_review`,
-   `research`) and the worker result format are defined once in `delivery-policy`; dispatchers send
-   recipients the relevant work-order fields and expected result.
+   dispatches, applies policy, integrates, and escalates; `code` implements; `reviewer` verifies
+   criteria against evidence; `research` investigates; `architect` reviews boundaries at plan time.
+   Work orders (`implementation`, `verification`, `architecture_review`, `research`) and the worker
+   result format are defined once in `delivery-policy`; dispatchers send recipients the relevant
+   work-order fields and expected result.
 
 3. **Delivery owns the review gate but not the review.** Review moves out of `delivery` into the new
    read-only `reviewer` subagent. `delivery` never accepts a change from its own reading of the diff;
-   a verdict (`pass | changes_required | blocked`) plus the reviewed revision is required. A later
-   change invalidates verdicts for the touched scope.
+   the acceptance criteria are the contract, and each one must come back `pass` with the evidence that
+   proves it, against a stated reviewed revision. A later change invalidates the evidence for the
+   criteria it touches.
 
 4. **Outcome-based task contracts replace procedural steps.** Plan tasks now carry ID, objective,
    context, acceptance criteria, constraints, dependencies, and validations. The five-step template,
@@ -48,25 +49,26 @@ orchestrator was also the reviewer; `review-task.md` re-ran a memory close-check
    integration gate is explicit — never a scheduling barrier.
 
 5. **Autonomous plan execution.** `/deliver-plan` runs the approved plan: eligible tasks by
-   dependency, dispatch, verify, repair, commit, integration review where declared, plan-level
+   dependency, dispatch, verify criteria, commit, verify a phase gate where declared, plan-level
    acceptance. Routine successful transitions are not approval prompts. `/load-plan`,
    `/implement-task`, and `/review-task` remain as manual low-level steps.
 
-6. **Deterministic retry and escalation.** Numeric budgets per run (1 implementation dispatch plus up to 2 repairs per task, 1 integration
-   review per phase gate, 1 architecture review per boundary category per revision) replace the
-   "ask a second time" prose. Exhaustion stops the
-   loop with a fixed escalation shape: what was attempted, what failed with evidence, what was
-   tried, the decision needed, and the options. Budgets never reset silently.
+6. **The loop stops on progress, not on a count.** A failing criterion is dispatched back as the same
+   criterion with the evidence returned. A criterion that fails twice, or a round with no change in
+   evidence, stops the loop with both rounds of evidence side by side plus the decision needed and the
+   options. Evidence outside the criteria is recorded as a follow-up and never dispatched, so nothing
+   can reopen an accepted task. (Amendment 2 replaced the original numeric budget.)
 
 7. **Troubleshooter can hand off, not implement.** A confirmed root cause goes to `/deliver` as a
    bounded handoff; `troubleshooter` still does not edit or commit.
 
-8. **One owning location per policy.** Risk tiers, work orders, result format, acceptance gates,
-   retry budget, and commit authority live in `skills/delivery-policy/SKILL.md`. Task/phase craft
-   lives in `skills/plan/SKILL.md`. `delivery` loads the policy and `planner` may consult it for
-   classification; other roles receive the relevant work-order information or concise diagnostic
-   routing guidance. The exceptions that are still restated are enumerated under "Deliberate
-   Duplication" below, so they read as decisions rather than drift.
+8. **One owning location per policy.** Risk tiers, work orders, result format, the verification
+   contract, acceptance, the loop's stop rule, and commit authority live in
+   `skills/delivery-policy/SKILL.md`. Task/phase craft lives in `skills/plan/SKILL.md`. `delivery`
+   loads the policy and `planner` may consult it for classification; other roles receive the relevant
+   work-order information or concise diagnostic routing guidance. The exceptions that are still
+   restated are enumerated under "Deliberate Duplication" below, so they read as decisions rather
+   than drift.
 
 ## Current Loop: Evidence and Classification
 
@@ -81,11 +83,11 @@ Verified against the pre-change files; used to decide what to keep, relax, or re
 | 5 | Implement one task | `code` child session; "exactly one approved task" | every task | `agents/code.md:9` | **keep** one bounded work order per child |
 | 6 | Per-step manual pause | Step Loop + architecture rule | every atomic step | `agents/code.md:23-31`, `architecture.md` "Pause after each atomic step" | **remove** — evidence at work-order end |
 | 7 | Task review by the orchestrator | `/review-task`; git evidence; `delivery` judges its own dispatched work | every task | `commands/review-task.md:6`, `agents/delivery.md:12` | **remove** the self-review; **keep** independent verification via `reviewer` |
-| 8 | Boundary review | `architect` on 6 boundary categories | boundary changes | `agents/architect.md:26-35`, ADR-0025 | **keep** — reused as `architecture_review` |
+| 8 | Boundary review | `architect` on 6 boundary categories | boundary changes | `agents/architect.md:26-35`, ADR-0025 | **keep**, moved to plan time as `architecture_review` |
 | 9 | Gate checks + progress bump | `required_gates`, frontmatter `task:` | every task | `commands/review-task.md:14` | **relax** — at plan close, and per task only for gates the plan declares |
 | 10 | Memory freshness | `/memory check` or `ai-memory close-check` | every task | `commands/review-task.md:16` | **relax** — plan close (`required_gates.memory_update`) |
 | 11 | Commit | `delivery` commits accepted work | every task | `agents/delivery.md:17`, `agents/code.md:17` | **keep** — sole commit authority |
-| 12 | Retry | prose: ask the user "a second time" | failing tasks | `agents/delivery.md:18`, `commands/review-task.md:8` | **remove** prose → numeric budget + escalation shape |
+| 12 | Retry | prose: ask the user "a second time" | failing tasks | `agents/delivery.md:18`, `commands/review-task.md:8` | **remove** prose → progress-based stop rule (Amendment 2) |
 | 13 | Edit/bash/external-directory permissions | `permissions/agents.yml` | always | `permissions/agents.yml:1-9`, ADR-0036 | **keep** — extended for `reviewer`; `code` gains commit/push/tag denies |
 | 14 | Human-owned validations | plan-declared owner | always | `skills/plan/SKILL.md` "Validation Ownership" | **keep** |
 | 15 | Duplicated rule copies | `delivery.md`, `review-task.md`, `architecture.md`, `plan` skill | — | grep across the four files | **remove** → one owning location per policy |
@@ -98,9 +100,9 @@ per-task memory checks, prescribed coding sequences, and prose-only retry bounds
 ## Scenario Walkthroughs
 
 1. **Trivial fix** — `/deliver "fix the off-by-one in parseRange"`. Classification `direct` (one
-   localized defect, existing tests cover it). Bounded objective + criteria, `implementation` work
-   order, `npx vitest run path` evidence, `functional_review` on the working-tree diff, `pass`,
-   commit. No intent, no plan, no approval prompt.
+   localized defect, existing tests cover it). Bounded objective + numbered criteria (`C1` = the
+   existing test command passes for the new case), `implementation` work order, `verification` on the
+   working-tree diff, every criterion evidenced, commit. No intent, no plan, no approval prompt.
 2. **Ambiguous request** — `/deliver "make installs faster"`. No concrete defect; classification
    `full` with trigger "requirements ambiguous". `delivery` stops and routes to `/intent`, which asks
    one clarifying question at a time before anything is implemented.
@@ -109,36 +111,51 @@ per-task memory checks, prescribed coding sequences, and prose-only retry bounds
    command that must pass — no restart of the planning chain. If the cause turns out to sit in
    authentication or persistence, the handoff goes to `/plan` instead.
 4. **Boundary-affecting change** — a schema/auth/public-contract change classifies `full` on the
-   boundary trigger, so `/intent` → `/plan` runs, and the plan's `required_gates.architect_review`
-   dispatches `architect` before the task is accepted.
-5. **Review failure** — `reviewer` returns `changes_required` with severity/evidence/location;
-   `delivery` dispatches one `repair` work order carrying those findings; `code` reports which
-   findings are resolved; `reviewer` reviews the new revision (verdicts carry the reviewed revision).
-6. **Repeated failure** — the second repair still fails review. Budget is exhausted, so `delivery`
-   stops and asks one question: what was attempted, what failed with evidence, what was tried, the
-   decision needed, the options. No further round is dispatched.
+   boundary trigger, so `/intent` → `/plan` runs and `planner` dispatches `architect` before the plan
+   is approved. Contradictions are settled while changing them is still cheap, and the plan records
+   any new decision. `delivery` reaches `architect` only for a `required_gates.architect_review` the
+   plan declares.
+5. **Review failure** — `reviewer` answers the criteria: `C1 pass — <evidence>`, `C2 fail — expected
+   X, got Y at file:line`. `delivery` dispatches the same criteria back with that evidence; `code`
+   changes only what `C2` needs and re-runs the named command; `reviewer` re-verifies `C2` and any
+   criterion whose evidence the new diff touches.
+6. **Repeated failure** — `C2` fails a second time, or the second round's evidence is unchanged.
+   `delivery` stops with both rounds of evidence side by side, states whether the obstacle is the
+   implementation, a missing dependency, or the approved scope, and asks for the decision. No third
+   round is dispatched. The loop ends on lack of progress, not on a spent counter.
 7. **Multi-task plan** — `/deliver-plan` reports state once, then works through tasks whose
-   dependencies are `accepted`, committing and marking each `accepted`, running `integration_review`
-   after a phase that declares an integration gate, and finishing with plan acceptance checks and a
-   plan-level summary. The user is not asked anything on the happy path.
-8. **Independent review** — `reviewer` is a separate read-only subagent (`edit: deny`, no commit,
-   mutating shell prefixes denied) with the implementer's report as supporting information only.
-   `delivery` cannot substitute its own diff reading for a verdict, and `code` cannot approve its own
-   work.
+   dependencies are `accepted`, committing and marking each `accepted`, verifying a phase's declared
+   gate criteria once, recording follow-ups, and finishing with plan acceptance and a plan-level
+   summary. The user is not asked anything on the happy path.
+8. **Independent verification** — `reviewer` is a separate read-only subagent (`edit: deny`, no
+   commit, mutating shell prefixes denied) that produces the evidence itself and answers criteria only.
+   `delivery` cannot substitute its own diff reading for that evidence, and `code` cannot approve its
+   own work.
+9. **Reviewer keeps finding new things** — round 2 raises a defect outside the criteria. `reviewer`
+   reports it as an `Outside the criteria:` note, `delivery` records it in the plan's `**Follow-ups:**`
+   list, the task is accepted on its criteria, and the note is not dispatched. The optional finding
+   costs one line instead of a repair round.
+10. **Shared contract mismatch** — a task changes a generated config key another component consumes.
+    The plan wrote that contract as `C3` with the command that proves compatibility, so the mismatch
+    fails `C3` at task level with evidence instead of surfacing at the phase gate.
 
 ## Consequences
 
 - A straightforward fix is delivered and independently validated in one command; risky work keeps
   intent, planning, and boundary review.
-- Review is genuinely independent: the orchestrator no longer grades its own dispatch, and the
-  reviewer holds no write authority.
-- No step can repeat without bound; escalation is a concrete user-facing question with options.
+- Review is genuinely independent: the orchestrator no longer grades its own dispatch, the reviewer
+  holds no write authority, and the reviewer's judgement is bounded by the criteria instead of by its
+  own standard of quality.
+- The loop terminates on evidence rather than on a counter: a criterion that will not move escalates
+  on its second failure with both rounds of evidence, and a note outside the criteria is recorded as a
+  follow-up instead of costing a round.
 - Duplicated workflow prose collapses into `delivery-policy`, so policy changes touch one file.
 - Plans are cheaper to write (no step scripts) but carry more structure (dependencies, per-task
-  status, validations), which is the state `/deliver-plan` needs to schedule work.
-- Terminology (`work order`, `kind`, `status`, `verdict`, `reviewed revision`) is stable enough to
-  become the machine-readable contract of the planned 2.0 deterministic orchestrator. No queue,
-  database, or scheduler is introduced now.
+  status, criteria with evidence, validations), which is the state `/deliver-plan` needs to schedule
+  work.
+- Terminology (`work order`, `kind`, `status`, `criterion`, `evidence`, `reviewed revision`) is stable
+  enough to become the machine-readable contract of the planned 2.0 deterministic orchestrator. No
+  queue, database, or scheduler is introduced now.
 
 ## Deliberate Compromises and Deferred Work
 
@@ -153,12 +170,7 @@ per-task memory checks, prescribed coding sequences, and prose-only retry bounds
   dependency as "after the previous task", backfills the fields while dispatching, drops the legacy
   `**Step 5: Commit**` instruction (17 plans carry it), and refuses to invent missing acceptance
   criteria. Old plans are not migrated by hand.
-- **Retry budgets live in the conversation**, not in a file; no persistent retry-state
-  infrastructure is introduced. A new, unrelated run starts its own budget, but resuming a paused
-  task requires an authorized recovery handoff to carry any known used counts. A new session does
-  not reset an exhausted paused-task budget: missing count evidence stops for the owner, and any
-  extension must be explicitly authorized and finite. The operational handoff and budget rules stay
-  in `delivery-policy`.
+- **Retry budgets live in the conversation**, not in a file; no persistent retry-state infrastructure is introduced. A new, unrelated run starts its own budget, but resuming a paused task requires an authorized recovery handoff to carry any known used counts. A new session does not reset an exhausted paused-task budget: missing count evidence stops for the owner, and any extension must be explicitly authorized and finite. The operational handoff and budget rules stay in `delivery-policy`.
 - **`reviewer` shell denies are prefix-based** and therefore bypassable by chained commands
   (`cat x && sed -i ...`), exactly as recorded for the rest of the matrix in ADR-0036. `edit: deny`
   is the primary control; the deny list reduces the obvious paths.
@@ -184,9 +196,9 @@ a duplicate policy definition or a requirement for a worker to load the policy.
    omission, and the cost of the restatement is one clause.
 2. **The reviewer's output fields** — the receiver's expectation lives in `delivery-policy`; the
    producer's contract lives in `agents/reviewer.md`. Constraint (AC5) requires each agent definition to
-   be self-sufficient, so a reviewer that cannot see the policy still returns a usable verdict. Any
-   future change must update both, and the shared vocabulary (`verdict`, `reviewed revision`) is what
-   the 2.0 contract will formalise.
+   be self-sufficient, so a reviewer that cannot see the policy still returns usable evidence. Any
+   future change must update both, and the shared vocabulary (`criterion`, `evidence`,
+   `reviewed revision`) is what the 2.0 contract will formalise.
 3. **Commit authority** — `delivery-policy` owns the rule; `delivery.md` states its own authority and
    `/review-task` says who commits. This is the one boundary a reader cannot infer from context.
 
@@ -205,51 +217,95 @@ fault or `/plan` for a known boundary or uncertain risk, while `/deliver` retain
 classification. This amendment does not change independent review, acceptance gates, or the shared
 work-order protocol.
 
-## Amendment (2026-10-29)
+## Amendment (2026-10-29): Evidence-Based Review and Delivery Recovery
 
-The shared protocol now requires revision-specific, evidence-backed finding records and represents an
-unjudgeable criterion without falsely marking it failed. `delivery-policy` remains the sole owner of
-finding classification and reconciliation: delivery coordinates conflicting functional and architecture
-evidence but cannot overrule an independent substantiated finding, invent a criterion, or rewrite an
-approved plan. Clarification is not a repair dispatch or a budget extension; material contract or
-architecture changes require the authorized owner and a current independent review. This preserves the
-existing verdict vocabulary, retry limits, role separation, and conversational-only retry state.
+This amendment clarifies independent review, finding resolution, shared-contract verification, and paused-delivery recovery while preserving the existing role separation, retry budgets, and conversational-only retry state established by ADR-0048.
 
-## Amendment (2026-10-29, shared-contract evidence)
+### 1. Evidence-based findings and ambiguity resolution
 
-Task acceptance now includes focused compatibility evidence when a change affects a shared
-configuration constraint, resource budget, API schema, serialization format, or integration
-assumption. The existing functional-review work order names the available counterpart or explicitly
-documented contract; a concrete mismatch identifies both sides and the violated contract. Missing
-future-component evidence is reported as an integration risk rather than an inferred pass or failure,
-and underspecification follows the existing owner-resolution route. This is not a new global or
-integration gate: unaffected tasks retain ordinary independent review, and declared phase integration
-reviews remain the only phase-acceptance mechanism.
+Independent reviews must report the inspected revision and provide evidence for each blocking finding.
 
-## Amendment (2026-10-29, paused delivery recovery)
+Findings distinguish violations of approved criteria or invariants, demonstrable correctness/reliability/security defects, underspecified requirements, architectural conflicts, preferences, and optional improvements.
 
-Re-entering `/deliver-plan` inventories every in-progress task's preserved dispatch tally, validation
-and revision-specific review evidence, pending decision, and ownership of uncommitted work before any
-fresh dispatch. Delivery resumes only the already-authorized next action; it never rewrites the task to
-pending, resets a budget, discards changes, or treats restart as authority for another implementation.
-Incomplete or contradictory recovery evidence stops for the owner. Dependencies still select fresh
-pending work, so an externally blocked task may be deferred only while independent ready work remains.
-This is conversational recovery evidence, not a database, scheduler, or persistent retry state, and
-does not change independent review, integration gates, or delivery-only commit authority.
+A criterion that cannot be reliably judged is reported as `unverifiable` rather than incorrectly marked as failed.
 
-## Amendment (2026-10-29, recovery next-action and phase-gate ordering)
+`delivery-policy` remains the authoritative source for finding classification and resolution.
 
-Recovery selects one evidenced next action rather than restarting the ordinary task sequence: pending
-or failed validation precedes review; a current functional pass plus pending architecture gate dispatches
-only architecture review; current required passes plus pending commit commit and accept without another
-review. A known authorized task-owned revision change with consistent history invalidates touched verdicts
-and receives validation plus fresh touched reviews; only unexplained or contradictory revision history
-fails closed and is never labelled an external deferral. A declared pending phase integration gate is not
-a general scheduling barrier: eligible recovered or dependency-ready task work continues. Before plan
-completion, every pending declared gate is routed with its preserved count; its current pass is retained,
-while `changes_required` or `blocked` follows the bounded approved route or stops and does not authorize
-another integration review. This clarifies command ordering only; review independence, delivery-only
-commit authority, conversational history, and all existing budgets remain unchanged.
+`delivery` coordinates conflicting functional and architecture reviews but cannot override substantiated independent findings, invent acceptance criteria, or change approved plans.
+
+Missing product or architectural decisions follow the authorized clarification process. Clarification is not a repair dispatch and does not extend review or repair budgets.
+
+Material changes to approved contracts or architecture require owner approval and appropriate current independent verification.
+
+### 2. Early shared-contract compatibility
+
+When a task affects a shared configuration constraint, resource budget, API schema, serialization format, or integration assumption, the existing functional review includes focused compatibility evidence.
+
+The work order identifies the available counterpart or explicitly documented contract.
+
+Concrete incompatibilities must identify both sides and the violated contract. Unavailable future components are reported as integration risks, not presumed passes or failures.
+
+Underspecified expectations follow the clarification process rather than becoming invented requirements.
+
+This introduces no additional global or task-level review gate. Unaffected tasks retain normal independent review, and declared phase integration reviews remain mandatory.
+
+### 3. Paused-delivery recovery
+
+Re-entering `/deliver-plan` first reconstructs the state of every `in-progress` task, including:
+
+- Implementation and repair dispatch counts.
+- Validation results and inspected revisions.
+- Functional and architecture review outcomes.
+- Outstanding decisions and authorizations.
+- Ownership of uncommitted changes.
+- Commit and acceptance status.
+
+Delivery resumes from the next authorized action rather than restarting implementation.
+
+Previously completed gates remain valid only for their applicable unchanged revision.
+
+A task must never be rewritten to `pending`, receive a reset repair budget, or lose uncommitted work merely because the workflow restarted.
+
+Missing, inconsistent, or contradictory recovery evidence requires an explicit owner decision.
+
+This recovery uses existing conversation context, handoffs, repository evidence, and delivery logs. It does not introduce persistent retry infrastructure.
+
+### 4. Resume ordering and phase integration gates
+
+Recovery follows the established gate order:
+
+1. Complete or resume the already-authorized implementation.
+2. Obtain required validation evidence.
+3. Complete pending functional review.
+4. Complete required architecture review.
+5. Commit and accept the task once all applicable gates pass.
+
+A current functional pass with architecture review pending resumes at architecture review, not functional review.
+
+A task with all required reviews passed and commit pending proceeds directly to acceptance and commit.
+
+An authorized implementation revision change invalidates affected validation and review evidence, requiring appropriate revalidation and fresh review.
+
+Unexplained revision changes or contradictory evidence fail closed.
+
+Pending phase integration reviews do not block otherwise eligible independent task work. However, every declared phase integration gate must be satisfied before plan completion.
+
+A previously passed phase gate remains valid for unchanged accepted revisions. Failed or blocked gates follow the approved bounded resolution process; additional reviews beyond the authorized budget require explicit approval.
+
+### 5. Preserved invariants
+
+This amendment does not change:
+
+- Independent functional and architecture review responsibilities.
+- Delivery-only commit and integration authority.
+- Existing task and phase acceptance requirements.
+- One implementation plus two normal repairs per task.
+- Existing architecture and integration review budgets.
+- Requirement for explicit authorization of additional repairs or reviews.
+- Conversational-only retry state under ADR-0048.
+- The prohibition on silently changing approved scope or acceptance criteria.
+
+Detailed paused-delivery transition scenarios and cross-component compatibility examples belong in harness regression documentation rather than this ADR.
 
 ## Supersedes and Amends
 
@@ -265,7 +321,7 @@ commit authority, conversational history, and all existing budgets remain unchan
 
 ## Related
 
-- Issue #231.
+- Issues #231, #264, #265.
 - Skills: `base/opencode/skills/delivery-policy/SKILL.md`, `base/opencode/skills/plan/SKILL.md`.
 - Agents: `delivery`, `reviewer`, `code`, `planner`, `troubleshooter`, `research`, `architect`.
 - Commands: `/deliver`, `/deliver-plan`, `/load-plan`, `/implement-task`, `/review-task`.

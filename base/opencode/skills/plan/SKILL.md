@@ -72,9 +72,7 @@ Required fields:
 - **Objective** — the single outcome the task delivers, in one or two sentences.
 - **Context** — the repository facts an implementer needs and does not have: relevant paths and
   symbols, existing patterns, utilities, or tests to reuse, and prior decisions.
-- **Acceptance criteria** — observable conditions a reviewer can verify against the diff and the
-  tests. Write "X behaves like Y when Z", not "implement X". Do not manufacture a criterion for an
-  unresolved product or architectural choice; identify the decision and its approval authority instead.
+- **Acceptance criteria** — a finite list of observable conditions a reviewer can verify against the implementation and applicable contracts, each naming the evidence that proves it (a command, a test, a diff fact, or a `human` check). Write "X behaves like Y when Z", not "implement X". Criteria must be verifiable; missing evidence or unresolved requirements must be identified explicitly rather than assumed satisfied. Do not manufacture criteria for unresolved product or architectural choices; document the required decision and its approval authority instead. Demonstrable correctness, reliability, or security defects within the affected boundary remain reviewable even when not explicitly enumerated in the acceptance criteria.
 - **Constraints** — scope limits, invariants, what must not change, and the reuse expectation.
 - **Depends on** — task IDs that must be `accepted` first, or `none`.
 - **Validations** — commands with an owner (`agent` or `human`), only where the task needs something
@@ -89,6 +87,13 @@ Do **not** prescribe a fixed step sequence, a test-first order, or the commit co
 commits. Do keep concrete technical detail where it genuinely matters: mandatory interfaces,
 architectural invariants, known regressions, repository conventions, and the exact files for
 boundary-sensitive changes.
+
+**Shared contracts are criteria.** A configuration key, schema, serialized shape, resource budget, or
+wire format another component depends on belongs in the criteria, naming both components and the
+check that proves compatibility — otherwise it surfaces at integration, as a round and a stop.
+
+**Follow-ups are not criteria.** Work worth doing that this task does not require belongs in the
+plan's `**Follow-ups:**` list or a later task.
 
 ## Validation Ownership
 
@@ -137,6 +142,9 @@ required_gates:
 **Plan acceptance criteria:**
 - [What must be true when the whole plan is delivered]
 
+**Follow-ups:**
+- [Known, non-blocking work recorded for later, or omit the section when empty]
+
 ## Phase 1: [Milestone name] (optional)
 
 **Integration acceptance criteria:** [What must hold across this phase's tasks, or omit the section
@@ -154,7 +162,7 @@ when no integration gate is needed]
 - Reuse: [existing pattern, utility, or test to follow]
 
 **Acceptance criteria:**
-- [Observable condition]
+- [Observable condition] — evidence: [command and expected result, test name, diff fact, or `human` check]
 
 **Constraints:**
 - [Invariant, scope limit, or thing that must not change]

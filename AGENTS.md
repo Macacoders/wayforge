@@ -61,7 +61,7 @@ Stay inside the repository root (`git rev-parse --show-toplevel` when in a git r
 
 This repository uses the wayforge workflow. Match process to risk:
 
-- **Small, low-risk fix:** `/deliver <request>` — `delivery` classifies it, dispatches implementation to `code`, gets an independent `reviewer` verdict, and commits. No intent or plan artifact needed.
-- **Complex or risky work:** `/intent` then `/plan` (the `planner` agent), then `/deliver-plan` to execute the approved plan autonomously (dispatch → review → repair → integrate), or `/load-plan` + `/implement-task` + `/review-task` to drive one task by hand.
+- **Small, low-risk fix:** `/deliver <request>` — `delivery` classifies it, dispatches implementation to `code`, verifies each acceptance criterion with the `reviewer`, and commits. No intent or plan artifact needed.
+- **Complex or risky work:** `/intent` then `/plan` (the `planner` agent, which also obtains boundary review), then `/deliver-plan` to execute the approved plan autonomously (dispatch → verify criteria → integrate), or `/load-plan` + `/implement-task` + `/review-task` to drive one task by hand.
 
-Risk classification, work-order contracts, acceptance gates, and retry/escalation policy live in the `delivery-policy` skill. Track shared tasks with `/issue`. Load context progressively: start from this file and `README.md`, then route through `docs/ai/README.md` and load only what the task needs.
+Risk classification, work-order and verification contracts, acceptance, and the loop's stop rule live in the `delivery-policy` skill. Track shared tasks with `/issue`. Load context progressively: start from this file and `README.md`, then route through `docs/ai/README.md` and load only what the task needs.
