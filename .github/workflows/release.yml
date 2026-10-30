@@ -72,6 +72,10 @@ jobs:
   release:
     runs-on: [self-hosted, linux, x64]
     needs: build-binaries
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -101,8 +105,24 @@ jobs:
           python3 -m zipfile -c "wayforge-share-${VERSION}.zip" base VERSION
 
       - name: Generate checksums
+        shell: bash
         run: |
-          sha256sum dist/wayforge-* wayforge-share-*.tar.gz wayforge-share-*.zip > wayforge-checksums.txt
+          {
+            sha256sum dist/wayforge-* wayforge-share-*.tar.gz wayforge-share-*.zip
+            (cd install && sha256sum install.sh install.ps1)
+          } > wayforge-checksums.txt
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v4.1.0
+        with:
+          cosign-release: 'v3.1.4'
+
+      - name: Sign checksum manifest (keyless)
+        shell: bash
+        run: |
+          cosign sign-blob --yes \
+            --bundle wayforge-checksums.txt.sigstore.json \
+            wayforge-checksums.txt
 
       - name: Create Release
         run: |
@@ -116,6 +136,6 @@ jobs:
             --title "$TAG" \
             --notes-file "${{ steps.changelog.outputs.body_file }}" \
             --repo ${{ github.repository }}
-          gh release upload "$TAG" dist/wayforge-* wayforge-share-${{ steps.version.outputs.version }}.tar.gz wayforge-share-${{ steps.version.outputs.version }}.zip wayforge-checksums.txt install/install.sh install/install.ps1 --repo ${{ github.repository }}
+          gh release upload "$TAG" dist/wayforge-* wayforge-share-${{ steps.version.outputs.version }}.tar.gz wayforge-share-${{ steps.version.outputs.version }}.zip wayforge-checksums.txt wayforge-checksums.txt.sigstore.json install/install.sh install/install.ps1 --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ github.token }}
