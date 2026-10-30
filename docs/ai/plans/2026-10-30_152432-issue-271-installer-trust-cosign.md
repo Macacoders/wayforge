@@ -27,7 +27,7 @@ required_gates:
 4. **`--no-modify-path` / `-NoModifyPath` suppresses persistent PATH mutation in both directions.** This matches the common installer convention (`rustup`, `deno`, and the `*_NO_MODIFY_PATH` env vars used by `uv` / `cargo-dist`) and supersedes the issue's shorter `--no-path` / `-NoPath`. Install: no `~/.bashrc` / `~/.zshrc` marker block and no User PATH `Add-UserPathEntry`; still print the manual export line. Uninstall: no marker/PATH removal. Dry-run prints the opt-out instead of the would-mutate lines. It does not change where files are installed.
 5. **`install.ps1` does not execute cosign.** It keeps hash verification and documents manual `cosign verify-blob --bundle` for users who have it. No new PowerShell dependency.
 6. **No Authenticode enforcement in this task.** `docs/security/installer-trust.md` records the unsigned-until-SignPath status and EDR allow-list guidance. SignPath integration stays in #240.
-7. **Create amendments, not a new ADR.** Use the repo's existing convention: `**Amended**: 2026-10-30 — ...` entries on ADR-0035, ADR-0047, and ADR-0045, preserving `Status: Accepted`. Only supersede a whole ADR if a decision is replaced rather than extended; the architect gate can require ADR-0048 if it treats keyless signing as a new trust anchor.
+7. **Create ADR-0048 plus surgical amendments.** The Task 1 architect gate required a dedicated ADR-0048 for the keyless signing trust anchor, with `**Amended**: 2026-10-30` entries on ADR-0035, ADR-0047, and ADR-0045 preserving `Status: Accepted`. ADR-0048 and the amendments must land in the same PR merge as the Task 1 code; supersede a whole ADR only if a decision is replaced rather than extended.
 8. **`wfg upgrade` is unchanged.** It keeps hash-only verification in this task (the issue scopes cosign verification to `install.sh`); record that gap explicitly in ADR-0047 and the log rather than silently implying `wfg upgrade` verifies signatures.
 9. **Historical references stay historical.** `CHANGELOG.md` and `docs/ai/logs/**` may keep old `irm | iex` / `curl | sh` text as history; only live recommended-path docs (README, RELEASE, architecture, ADR-0035 Decision 1) are rewritten.
 10. **Issue #271 acceptance criteria must be updated before implementation.** Replace `.sig` / `.pem` with `.sigstore.json` and `--no-path` / `-NoPath` with `--no-modify-path` / `-NoModifyPath`; this requires explicit authorization to edit the GitHub issue (for example via `/issue edit`).
@@ -278,18 +278,19 @@ git add install/install.sh install/install.ps1 tests/bash/install_sh.bats tests/
 git commit -m "feat(install): add --no-modify-path / -NoModifyPath opt-out (Issue #271)"
 ```
 
-### Task 4: Document the signed-install trust model, harden the recommended path, and amend the ADRs
+### Task 4: Document the signed-install trust model, harden the recommended path, add ADR-0048, and amend the ADRs
 
-**Objective:** README/RELEASE no longer recommend `irm | iex` / `curl | sh`; `docs/security/installer-trust.md` documents hashes, cosign bundle verification, EDR allow-listing, Authenticode status, and the 2026-10-21 AMSI context; ADR-0035/0045/0047 receive `**Amended**` entries.
+**Objective:** README/RELEASE no longer recommend `irm | iex` / `curl | sh`; `docs/security/installer-trust.md` documents hashes, cosign bundle verification, EDR allow-listing, Authenticode status, and the 2026-10-21 AMSI context; ADR-0048 records the keyless signing trust anchor and ADR-0035/0045/0047 receive `**Amended**` entries.
 
 **Files:**
 - Create: `docs/security/installer-trust.md`
+- Create: `docs/ai/decisions/ADR-0048-cosign-keyless-checksum-bundle.md` (trust anchor: workflow identity, Fulcio/Rekor, `.sigstore.json` policy)
 - Modify: `README.md` (install section, lines 9-27)
 - Modify: `RELEASE.md` (consuming-repo install block lines 117-129; release asset/checksum contract lines 276-285)
 - Modify: `docs/ai/architecture.md` (line 10 runtime boundary, line 30 installer bullet, line 35 release-workflow bullet)
 - Modify: `docs/ai/decisions/ADR-0035-one-shot-cli-installer.md` (amendment header, Decisions 1, 8, 13; new Decisions 14-15)
-- Modify: `docs/ai/decisions/ADR-0047-cli-release-detection-and-self-update.md` (Decision 1, Consequences)
-- Modify: `docs/ai/decisions/ADR-0045-self-hosted-release-runner-cross-compilation.md` (Consequences: OIDC/Sigstore dependency and runner prerequisites)
+- Modify: `docs/ai/decisions/ADR-0047-cli-release-detection-and-self-update.md` (Decision 1, Consequences, cross-reference ADR-0048)
+- Modify: `docs/ai/decisions/ADR-0045-self-hosted-release-runner-cross-compilation.md` (Consequences: `id-token: write` / OIDC-minting implication, Sigstore egress, cosign prerequisite, `actions: read` narrowing, cross-reference ADR-0048)
 - Modify: `CHANGELOG.md` (`[Unreleased]` Added/Changed)
 - Modify: `docs/ai/logs/2026-10.md` (2026-10-30 closure entry; `memory_update` gate)
 
@@ -303,13 +304,17 @@ The live docs must match the code exactly:
 - Authenticode is **not** currently applied; signing is conditional on SignPath (#240). Do not claim the binary is signed.
 - The 2026-10-21 detection (`Trojan:PowerShell/AmsiBypazz.E!MTB`, AMSI, `pwsh.exe`) and the `irm | iex` cradle are recorded as context; the new flow avoids piping a remote script to `Invoke-Expression`.
 - The PATH opt-out is documented as `--no-modify-path` / `-NoModifyPath`.
+- ADR-0048 records the signed-manifest trust anchor exactly as implemented: the GitHub Actions workflow identity `release.yml@refs/heads/main` via cosign keyless (Fulcio + Rekor), materialized as `wayforge-checksums.txt.sigstore.json`; the verification policy matrix (present + valid → proceed; present + invalid or non-404 fetch failure → abort; absent/404 → warn); identity/issuer pins must change in the same commit as any trigger change; `wfg upgrade` remains hash-only until a follow-up.
+- ADR-0045 records that `id-token: write` lets code in the persistent runner mint the `release.yml@refs/heads/main` OIDC identity; this is acceptable only under Decision 3's `push: main`-only trigger. Record the Sigstore/Fulcio/Rekor/TUF/OIDC egress dependency, the pinned cosign prerequisite, and the `actions: read` least-privilege narrowing.
+- ADR-0047 records that the one-shot installer now verifies the bundle while `wfg upgrade` remains hash-only (explicit gap), and cross-references ADR-0048.
 
 **Step 2: Add or update validation**
 
 Documentation checks (owner: agent):
 - `Select-String -Path README.md,RELEASE.md -Pattern 'irm .*\\| *iex|curl .*\\| *sh'` returns no live recommended-path commands (historical code fences in other docs/logs are allowed).
 - `docs/security/installer-trust.md` contains sections for downloads/writes, SHA-256, cosign bundle verification, Authenticode status, EDR allow-list guidance, the 2026-10-21 AMSI context, and false-positive reporting.
-- ADR-0035 has a `**Amended**: 2026-10-30` line and Decisions 14-15; ADR-0047 Decision 1 no longer says signing is out of scope; ADR-0045 Consequences mention `id-token: write` and Sigstore network access.
+- `docs/ai/decisions/ADR-0048-cosign-keyless-checksum-bundle.md` exists and covers the workflow-identity trust anchor, keyless Fulcio/Rekor flow, `.sigstore.json` bundle, verification policy matrix, identity/issuer pins, and `wfg upgrade` hash-only scope.
+- ADR-0035 has a `**Amended**: 2026-10-30` line and Decisions 14-15; ADR-0047 Decision 1 no longer says signing is out of scope and cross-references ADR-0048; ADR-0045 Consequences mention `id-token: write`, the OIDC-minting implication, Sigstore network access, cosign, and `actions: read`.
 - `docs/ai/architecture.md` line 10 no longer says `curl | sh` / `irm | iex`.
 - `make check` is green.
 - The acceptance-criteria traceability table below has no unowned row.
@@ -336,9 +341,10 @@ Documentation checks (owner: agent):
   Keep the existing checksum paragraph and add a sentence that the manifest is cosign-signed into a `.sigstore.json` bundle and `install.sh` verifies it when cosign is present.
 - **RELEASE.md**: mirror the README install blocks; add `wayforge-checksums.txt.sigstore.json` to the release asset list; extend the checksum bullet to say the manifest includes the installers and is signed with cosign keyless; record the pinned identity and issuer; update the local-validation note to mention cosign fixture tests.
 - **docs/security/installer-trust.md**: create the sections in Step 2. Include the exact verification commands for POSIX and Windows, the identity pin, the Authenticode-unsigned status, EDR allow-list guidance (allow the prefix `bin/wfg[.exe]` and the installer script hash, not the whole shell), the AMSI detection context, and a false-positive reporting path (Microsoft Defender submission plus a GitHub issue with the detection name/hash). Use `cosign verify-blob --bundle wayforge-checksums.txt.sigstore.json ...` everywhere.
-- **ADR-0035**: add `**Amended**: 2026-10-30 — signed checksum bundle and `--no-modify-path` (Decisions 14-15).`; rewrite Decision 1's commands to the download/verify/dry-run/run flow; update Decision 8 to say the recommended flow avoids the cradle; amend Decision 13's contract with bundle verification; add Decision 14 (cosign keyless `.sigstore.json` bundle, pinned identity, `install.sh` policy, `install.ps1` manual verification) and Decision 15 (`--no-modify-path` / `-NoModifyPath` semantics). Keep the nodejs.org accepted-risk sentence.
-- **ADR-0047**: amend Decision 1 to say the checksum manifest is now signed with cosign keyless into a bundle, the one-shot installer verifies it when cosign is present, and `wfg upgrade` remains hash-only in this task (follow-up). Update Consequences accordingly; keep the same-origin trust discussion and the fail-open/fail-closed split.
-- **ADR-0045**: add a consequence that the `release` job now needs `id-token: write` and outbound access to Sigstore/Fulcio/Rekor, installs a pinned cosign, and that self-hosted-runner compatibility of `cosign-installer` must be verified in the Task 5 release rehearsal (fallback: direct pinned binary download).
+- **ADR-0035**: add `**Amended**: 2026-10-30 — signed checksum bundle and `--no-modify-path` (Decisions 14-15; see ADR-0048).`; rewrite Decision 1's commands to the download/verify/dry-run/run flow; update Decision 8 to say the recommended flow avoids the cradle; amend Decision 13's contract with bundle verification; add Decision 14 (cosign keyless `.sigstore.json` bundle, pinned identity, `install.sh` policy, `install.ps1` manual verification, cross-reference ADR-0048) and Decision 15 (`--no-modify-path` / `-NoModifyPath` semantics). Keep the nodejs.org accepted-risk sentence.
+- **ADR-0048**: create `docs/ai/decisions/ADR-0048-cosign-keyless-checksum-bundle.md` with the trust-anchor decision, the GitHub Actions identity pin (`release.yml@refs/heads/main`), the keyless Fulcio/Rekor flow, the `.sigstore.json` bundle over `wayforge-checksums.txt`, the verification policy matrix, the identity/issuer pin maintenance rule, and the explicit `wfg upgrade` hash-only scope.
+- **ADR-0047**: amend Decision 1 to say the checksum manifest is now signed with cosign keyless into a bundle, the one-shot installer verifies it when cosign is present, and `wfg upgrade` remains hash-only in this task (follow-up), cross-referencing ADR-0048. Update Consequences accordingly; keep the same-origin trust discussion and the fail-open/fail-closed split.
+- **ADR-0045**: add a consequence that the `release` job now needs `id-token: write` and outbound access to Sigstore/Fulcio/Rekor/TUF/OIDC, installs a pinned cosign, and narrows inherited `actions: write` to `actions: read`. Record explicitly that `id-token: write` lets code in the persistent runner mint the `release.yml@refs/heads/main` OIDC identity, acceptable only while Decision 3's `push: main`-only trigger holds. Note that self-hosted-runner compatibility of `cosign-installer` must be verified in the Task 5 release rehearsal (fallback: direct pinned binary download).
 - **CHANGELOG.md**: add `### Added` (cosign-signed `.sigstore.json` checksum bundle; installers included in checksums; `--no-modify-path` / `-NoModifyPath`) and `### Changed` (recommended install path no longer uses `irm | iex` / `curl | sh`; `install.sh` verifies the bundle when cosign is present) under `[Unreleased]`.
 - **docs/ai/logs/2026-10.md**: add a 2026-10-30 entry with tasks, validation results, architect/memory gates, and the human validations still outstanding (Task 5 release rehearsal, real macOS/Linux/Windows installs, cosign present/absent, EDR check).
 
@@ -353,7 +359,7 @@ Expected: Vitest, `tsc --noEmit`, ESLint, Prettier, and jscpd (<8%) all green. T
 **Step 5: Commit**
 
 ```bash
-git add README.md RELEASE.md CHANGELOG.md docs/security/installer-trust.md docs/ai/architecture.md docs/ai/decisions/ADR-0035-one-shot-cli-installer.md docs/ai/decisions/ADR-0047-cli-release-detection-and-self-update.md docs/ai/decisions/ADR-0045-self-hosted-release-runner-cross-compilation.md docs/ai/logs/2026-10.md
+git add README.md RELEASE.md CHANGELOG.md docs/security/installer-trust.md docs/ai/architecture.md docs/ai/decisions/ADR-0048-cosign-keyless-checksum-bundle.md docs/ai/decisions/ADR-0035-one-shot-cli-installer.md docs/ai/decisions/ADR-0047-cli-release-detection-and-self-update.md docs/ai/decisions/ADR-0045-self-hosted-release-runner-cross-compilation.md docs/ai/logs/2026-10.md
 git commit -m "docs: record signed installer trust model and hardened install path (Issue #271)"
 ```
 
@@ -419,6 +425,8 @@ gh release view "v$(cat VERSION)" --repo Macacoders/wayforge --json assets \
 ```
 
 Expected assets include `wayforge-checksums.txt` and `wayforge-checksums.txt.sigstore.json`, plus the binaries, share archives, `install.sh`, and `install.ps1`. The signing step must appear after `Generate checksums` and before `Create Release` in the run log.
+
+If the release already exists but the bundle asset is missing, treat it as a partial release: `skip-if-exists` does not heal it. Record the gap and open a follow-up for a re-upload/reheal path; do not silently accept a hash-only release.
 
 **Step 4: Verify the published release**
 
@@ -511,6 +519,7 @@ Add to the PR description a checklist explicitly addressed to `@PabloBen`:
 - [ ] `cosign-installer@v4.1.0` installs cosign v3.1.4 on the self-hosted runner (or the pinned direct-download fallback is used)
 - [ ] `cosign sign-blob --bundle wayforge-checksums.txt.sigstore.json` succeeds
 - [ ] `wayforge-checksums.txt.sigstore.json` is uploaded to the release
+- [ ] The bundle asset is present on the existing release (no partial `skip-if-exists` release)
 - [ ] `cosign verify-blob --bundle` passes with the pinned identity
 - [ ] `install.sh` verifies the bundle when cosign is present and warns when absent
 - [ ] Tampered manifest fails verification and aborts before prefix mutation
@@ -519,7 +528,7 @@ Add to the PR description a checklist explicitly addressed to `@PabloBen`:
 - [ ] `--no-modify-path` / `-NoModifyPath` leaves the shell profile / User PATH unchanged
 ```
 
-Record the run id, release tag, cosign version, action-vs-fallback choice, command outputs, and any failures in `docs/ai/logs/2026-10.md`. If any check fails, do not close #271; open a follow-up issue with the exact failing command and logs.
+Record the run id, release tag, cosign version, action-vs-fallback choice, command outputs, and any failures in `docs/ai/logs/2026-10.md`. If any check fails, do not close #271; open a follow-up issue with the exact failing command and logs. If the bundle is missing from an existing release, open a follow-up for a re-upload/reheal path in addition to the failing check.
 
 ## Acceptance criteria mapping
 
@@ -532,6 +541,7 @@ Record the run id, release tag, cosign version, action-vs-fallback choice, comma
 | `wayforge-checksums.txt` includes the installer scripts and all release assets | 1, 5 | workflow static test; Task 5 asset inspection (human) |
 | No Authenticode enforcement is added | 1, 4 | diff review; docs state unsigned-until-SignPath |
 | `docs/security/installer-trust.md` exists and covers hashes, cosign bundle, EDR allow-list, detection context | 4 | agent section grep |
+| ADR-0048 records the keyless signing trust anchor; ADR-0035/0045/0047 are amended and cross-reference it | 4 | agent ADR grep; ADR-0048 and amendments merge in the same PR as Task 1 |
 | `make check`, `make check-bats`, and `make check-pester` (or recorded skips) pass | 1-4 | agent runs; skips recorded |
 | Self-hosted release rehearsal is documented for @PabloBen with commands and configuration | 5 | PR checklist; monthly log entry |
 
@@ -544,6 +554,7 @@ Record the run id, release tag, cosign version, action-vs-fallback choice, comma
 | `make check-pester` scoped to `install.Tests.ps1` (no-modify-path cases) | agent (skip recorded if `pwsh`/Pester absent) |
 | `bash -n install/install.sh` and the PowerShell parse check | agent |
 | `make check` (Vitest, typecheck, ESLint, Prettier, jscpd) | agent |
+| ADR-0048 content plus ADR-0035/0045/0047 amendment and cross-reference grep | agent |
 | `actionlint .github/workflows/release.yml` | agent if installed, otherwise human/record skip |
 | Self-hosted release rehearsal: `id-token: write`, `cosign-installer` or fallback, `cosign sign-blob --bundle`, `.sigstore.json` upload | human — @PabloBen |
 | Real `cosign verify-blob --bundle` against the published release with the pinned identity | human — @PabloBen |
@@ -555,9 +566,9 @@ Record the run id, release tag, cosign version, action-vs-fallback choice, comma
 
 1. **Issue #271 criteria update (required before implementation).** The issue currently requires `.sig` / `.pem` and `--no-path` / `-NoPath`. The approved direction is cosign v3 + `wayforge-checksums.txt.sigstore.json` and `--no-modify-path` / `-NoModifyPath`. Update the issue acceptance criteria (requires `/issue edit` authorization) so the issue, plan, tests, and docs describe the same contract.
 2. **Self-hosted `cosign-installer` (resolved: keep self-hosted, verify in Task 5).** The action may not work on self-hosted runners. Task 5 includes the exact fallback: direct download of `cosign-linux-amd64` v3.1.4, SHA-256 verification, and `cosign version`. The signing command does not change.
-3. **ADR strategy (resolved: amendments, not supersession).** ADR-0035, ADR-0045, and ADR-0047 receive `**Amended**: 2026-10-30` entries. Do not mark them `Superseded`; that convention is reserved for whole-ADR replacement (for example ADR-0004 → ADR-0038, ADR-0006 → ADR-0039, ADR-0035 four-tier → ADR-0036). If the architect treats keyless signing as a new trust anchor, create ADR-0048 and mark only ADR-0047 Decision 1 as superseded/amended, not the whole ADR.
+3. **ADR strategy (resolved by the Task 1 architect review: ADR-0048 + amendments).** Create `docs/ai/decisions/ADR-0048-cosign-keyless-checksum-bundle.md` for the keyless signing trust anchor and add `**Amended**: 2026-10-30` entries to ADR-0035, ADR-0045, and ADR-0047, each cross-referencing ADR-0048. Do not mark any whole ADR `Superseded`; that convention is reserved for whole-ADR replacement (for example ADR-0004 → ADR-0038, ADR-0006 → ADR-0039, ADR-0035 four-tier → ADR-0036). ADR-0048 and the amendments must land in the same PR merge as the Task 1 code; the workflow signs on push to `main`, so docs must not trail the code across that merge.
 4. **Signature fetch policy (resolved).** Non-404 bundle fetch failures with cosign present abort; 404 and cosign-absent warn and continue.
 5. **`--no-modify-path` naming (resolved).** Use `--no-modify-path` / `-NoModifyPath`; do not add `--no-path` / `-NoPath` aliases unless the maintainer asks.
-6. **Gates.** `architect_review: true` — the change reverses ADR-0047 Decision 1's "asset signing out of scope" posture and touches the install trust boundary; run it after Task 1 (or Task 2) and before docs closure, amending the ADRs if it objects. `memory_update: true` — Task 4 closes the monthly log, architecture, CHANGELOG, and ADR record.
+6. **Gates.** `architect_review: true` — completed for Task 1: **approve with conditions** (ADR-0048 required; ADR-0045/0047 conditions above; ADR-0048 and amendments must land in the same PR merge). Task 4 must satisfy those conditions before merge. `memory_update: true` — Task 4 closes the monthly log, architecture, CHANGELOG, and ADR record.
 7. **Release prerequisite (blocking for end-to-end validation, owned by Task 5).** A release produced by the new workflow is required to exercise real cosign signing/verification and the `.sigstore.json` upload. @PabloBen runs the rehearsal and records the result.
 8. **No Authenticode enforcement.** Authenticode remains conditional on SignPath (#240); this task must not add enforcement or claim the binary is signed.
