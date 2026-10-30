@@ -14,6 +14,7 @@ TAG=""
 UNINSTALL=0
 DRY_RUN=0
 SKIP_NODE=0
+NO_MODIFY_PATH=0
 URL_BASE=""
 
 # Node.js provisioning: pinned LTS version, minimum major, and download base
@@ -61,6 +62,8 @@ Options:
   --uninstall       Remove wayforge from the prefix.
   --dry-run         Print actions without performing them.
   --skip-node-check Skip Node.js detection and provisioning.
+  --no-modify-path  Do not write wayforge PATH blocks to ~/.bashrc or
+                    ~/.zshrc (install) or remove them (uninstall).
   --url-base <base> Test override for the download base URL.
   -h, --help        Show this help message.
 EOF
@@ -97,6 +100,10 @@ while [ $# -gt 0 ]; do
 		;;
 	--skip-node-check)
 		SKIP_NODE=1
+		shift
+		;;
+	--no-modify-path)
+		NO_MODIFY_PATH=1
 		shift
 		;;
 	--url-base)
@@ -533,8 +540,12 @@ run_install() {
 		echo "[dry-run] would download and extract: ${share_url} -> ${share_dir}"
 		echo "[dry-run] would verify directory exists: ${share_dir}/base"
 		echo "[dry-run] PATH export: export PATH=\"${bin_dir}:\$PATH\""
-		echo "[dry-run] would append wayforge PATH block to: ${HOME}/.bashrc"
-		echo "[dry-run] would append wayforge PATH block to: ${HOME}/.zshrc"
+		if [ "$NO_MODIFY_PATH" -eq 1 ]; then
+			echo "[dry-run] would skip PATH modification (--no-modify-path)"
+		else
+			echo "[dry-run] would append wayforge PATH block to: ${HOME}/.bashrc"
+			echo "[dry-run] would append wayforge PATH block to: ${HOME}/.zshrc"
+		fi
 		return 0
 	fi
 
@@ -595,16 +606,22 @@ run_install() {
 	local path_prefix="$bin_dir"
 	if [ -n "${NODE_BIN_DIR:-}" ]; then
 		path_prefix="${NODE_BIN_DIR}:${bin_dir}"
-		remove_path_block "${HOME}/.bashrc"
-		remove_path_block "${HOME}/.zshrc"
+		if [ "$NO_MODIFY_PATH" -eq 0 ]; then
+			remove_path_block "${HOME}/.bashrc"
+			remove_path_block "${HOME}/.zshrc"
+		fi
 	fi
 
 	echo "wayforge ${TAG#v} installed to ${binary_path}"
 	echo "Add to your PATH:"
 	echo "  export PATH=\"${path_prefix}:\$PATH\""
 
-	append_path_block "${HOME}/.bashrc" "$path_prefix"
-	append_path_block "${HOME}/.zshrc" "$path_prefix"
+	if [ "$NO_MODIFY_PATH" -eq 1 ]; then
+		echo "PATH modification skipped (--no-modify-path); add the export above manually."
+	else
+		append_path_block "${HOME}/.bashrc" "$path_prefix"
+		append_path_block "${HOME}/.zshrc" "$path_prefix"
+	fi
 }
 
 # ---------------------------------------------------------------------------
@@ -625,8 +642,12 @@ run_uninstall() {
 		echo "[dry-run] would remove: ${share_dir}"
 		echo "[dry-run] would remove: ${node_dir}"
 		echo "[dry-run] would remove: ${tracking_file}"
-		echo "[dry-run] would remove wayforge PATH block from: ${bashrc}"
-		echo "[dry-run] would remove wayforge PATH block from: ${zshrc}"
+		if [ "$NO_MODIFY_PATH" -eq 1 ]; then
+			echo "[dry-run] would skip PATH modification (--no-modify-path)"
+		else
+			echo "[dry-run] would remove wayforge PATH block from: ${bashrc}"
+			echo "[dry-run] would remove wayforge PATH block from: ${zshrc}"
+		fi
 		return 0
 	fi
 
@@ -635,8 +656,10 @@ run_uninstall() {
 	rm -rf "$node_dir"
 	rm -f "$tracking_file"
 
-	remove_path_block "$bashrc"
-	remove_path_block "$zshrc"
+	if [ "$NO_MODIFY_PATH" -eq 0 ]; then
+		remove_path_block "$bashrc"
+		remove_path_block "$zshrc"
+	fi
 
 	if [ -d "$PREFIX" ] && [ -z "$(ls -A "$PREFIX" 2>/dev/null)" ]; then
 		rmdir "$PREFIX"

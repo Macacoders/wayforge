@@ -133,12 +133,26 @@ write_checksums() {
 # `run` merges stderr into $output, so capture it explicitly here; this keeps
 # the stderr assertions working on 1.2.1 and on current Bats.
 run_full_install() {
+	local digest="$1"
+	shift
+	# Split extras: --flags go to the installer, NAME=value pairs stay env
+	# assignments for `env` (e.g. FAKE_CHECKSUM_STATUS=404).
+	local env_args=()
+	local installer_args=()
+	local arg
+	for arg in "$@"; do
+		case "$arg" in
+		--*) installer_args+=("$arg") ;;
+		*) env_args+=("$arg") ;;
+		esac
+	done
 	if output="$(env PATH="$STUB_DIR:/usr/bin:/bin" HOME="$TEST_HOME" \
-		TEST_FIXTURES="$TEST_FIXTURES" FAKE_DIGEST="$1" \
-		COSIGN_ARGS_LOG="$COSIGN_ARGS_LOG" "${@:2}" \
+		TEST_FIXTURES="$TEST_FIXTURES" FAKE_DIGEST="$digest" \
+		COSIGN_ARGS_LOG="$COSIGN_ARGS_LOG" "${env_args[@]}" \
 		/bin/sh "$REPO_ROOT/install/install.sh" \
 		--version 9.9.9 --url-base https://fixture.invalid \
-		--skip-node-check --prefix "$TEST_PREFIX" 2>"$TEST_TMPDIR/stderr.log")"; then
+		--skip-node-check --prefix "$TEST_PREFIX" "${installer_args[@]}" \
+		2>"$TEST_TMPDIR/stderr.log")"; then
 		status=0
 	else
 		status=$?
@@ -287,6 +301,32 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"https://fixture.invalid/wayforge-checksums.txt"* ]]
 	[[ "$output" == *"[dry-run] would verify"* ]]
+}
+
+@test "install.sh dry-run with --no-modify-path plans to skip PATH modification" {
+	run_installer --skip-node-check --no-modify-path
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"[dry-run] would skip PATH modification (--no-modify-path)"* ]]
+	[[ "$output" != *"would append wayforge PATH block"* ]]
+	[[ "$output" != *"would remove wayforge PATH block"* ]]
+}
+
+@test "install.sh --no-modify-path installs without touching shell profiles" {
+	install_env
+	write_checksums "$DIGEST_OK" "$DIGEST_OK"
+	run_full_install "$DIGEST_OK" --no-modify-path
+	[ "$status" -eq 0 ]
+	[ -f "$TEST_PREFIX/bin/wfg" ]
+	[ "$(cat "$TEST_PREFIX/bin/wfg")" = "binary" ]
+	[ ! -e "$TEST_HOME/.bashrc" ]
+	[ ! -e "$TEST_HOME/.zshrc" ]
+}
+
+@test "install.sh --uninstall --dry-run --no-modify-path plans to skip PATH removal" {
+	run env PATH="$STUB_DIR" HOME="$TEST_HOME" /bin/sh "$REPO_ROOT/install/install.sh" --uninstall --dry-run --no-modify-path --prefix "$TEST_PREFIX"
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"[dry-run] would skip PATH modification (--no-modify-path)"* ]]
+	[[ "$output" != *"would remove wayforge PATH block"* ]]
 }
 
 @test "install.sh contains both sha256sum and shasum fallback" {

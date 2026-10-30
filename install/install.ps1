@@ -25,6 +25,10 @@
 .PARAMETER SkipNodeCheck
     Skip Node.js detection and provisioning.
 
+.PARAMETER NoModifyPath
+    Do not add wayforge to the User PATH (install) or remove it
+    (uninstall). Print manual PATH instructions instead.
+
 .PARAMETER UrlBase
     Test override for the download base URL.
 #>
@@ -36,6 +40,7 @@ param(
     [switch]$Uninstall,
     [switch]$DryRun,
     [switch]$SkipNodeCheck,
+    [switch]$NoModifyPath,
     [string]$UrlBase = ""
 )
 
@@ -226,7 +231,9 @@ function Install-LocalNode {
         Write-Error "error: Node.js archive did not contain ${nodeDir}\node.exe" -ErrorAction Stop
     }
 
-    Add-UserPathEntry $nodeDir
+    if (-not $NoModifyPath) {
+        Add-UserPathEntry $nodeDir
+    }
     $env:Path = "${nodeDir};$env:Path"
 }
 
@@ -358,7 +365,12 @@ function Install-Wayforge {
         Write-Host "[dry-run] would download: ${binaryUrl} -> ${binaryPath}"
         Write-Host "[dry-run] would download and extract: ${shareUrl} -> ${shareDir}"
         Write-Host "[dry-run] would verify directory exists: ${baseCheck}"
-        Write-Host "[dry-run] would add to User PATH: ${binDir}"
+        if ($NoModifyPath) {
+            Write-Host "[dry-run] would skip User PATH update (-NoModifyPath)"
+        }
+        else {
+            Write-Host "[dry-run] would add to User PATH: ${binDir}"
+        }
         return
     }
 
@@ -412,10 +424,20 @@ function Install-Wayforge {
             Write-Error "error: share archive did not create ${baseCheck}" -ErrorAction Stop
         }
 
-        Add-UserPathEntry $binDir
-
         Write-Host "wayforge ${resolvedVersion} installed to ${binaryPath}"
-        Write-Host "${binDir} added to your User PATH."
+        if ($NoModifyPath) {
+            $nodeDir = Join-Path $Prefix "node"
+            if (Test-Path $nodeDir) {
+                Write-Host "User PATH update skipped (-NoModifyPath); add '${nodeDir}' and '${binDir}' to your User PATH manually."
+            }
+            else {
+                Write-Host "User PATH update skipped (-NoModifyPath); add '${binDir}' to your User PATH manually."
+            }
+        }
+        else {
+            Add-UserPathEntry $binDir
+            Write-Host "${binDir} added to your User PATH."
+        }
     }
     finally {
         foreach ($tmp in @($tmpBinary, $tmpShare, $tmpChecksums)) {
@@ -442,8 +464,13 @@ function Uninstall-Wayforge {
         Write-Host "[dry-run] would remove: ${shareDir}"
         Write-Host "[dry-run] would remove: ${nodeDir}"
         Write-Host "[dry-run] would remove: ${trackingFile}"
-        Write-Host "[dry-run] would remove from User PATH: ${binDir}"
-        Write-Host "[dry-run] would remove from User PATH: ${nodeDir}"
+        if ($NoModifyPath) {
+            Write-Host "[dry-run] would skip User PATH update (-NoModifyPath)"
+        }
+        else {
+            Write-Host "[dry-run] would remove from User PATH: ${binDir}"
+            Write-Host "[dry-run] would remove from User PATH: ${nodeDir}"
+        }
         return
     }
 
@@ -460,8 +487,10 @@ function Uninstall-Wayforge {
         Remove-Item -Path $trackingFile -Force
     }
 
-    Remove-UserPathEntry $binDir
-    Remove-UserPathEntry $nodeDir
+    if (-not $NoModifyPath) {
+        Remove-UserPathEntry $binDir
+        Remove-UserPathEntry $nodeDir
+    }
 
     if (Test-Path $Prefix) {
         $children = Get-ChildItem -Path $Prefix -Force -ErrorAction SilentlyContinue

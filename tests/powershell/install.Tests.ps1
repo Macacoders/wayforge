@@ -7,6 +7,30 @@ BeforeAll {
     $script:repoRoot = Resolve-Path "$PSScriptRoot/../.." | Select-Object -ExpandProperty Path
     $script:installScript = Join-Path $script:repoRoot 'install/install.ps1'
     $script:scriptContent = Get-Content -Path $script:installScript -Raw
+    # Stub Invoke-WebRequest: copies fixtures by URI leaf, never hits the
+    # network. The checksum URL can fail with an HTTP status
+    # (FAKE_CHECKSUM_STATUS) or as a transport timeout
+    # (FAKE_CHECKSUM_TIMEOUT). Defined at file scope so multiple Describes
+    # (checksum verification, PATH opt-out) reuse it.
+    $script:downloadStub = @'
+function Invoke-WebRequest {
+    [CmdletBinding()]
+    param([string]$Uri, [string]$OutFile, [switch]$UseBasicParsing)
+    $leaf = [System.IO.Path]::GetFileName($Uri)
+    if ($leaf -eq 'wayforge-checksums.txt' -and $env:FAKE_CHECKSUM_STATUS) {
+        $status = [int]$env:FAKE_CHECKSUM_STATUS
+        $ex = [System.Exception]::new("The remote server returned an error: (${status}).")
+        $ex | Add-Member -NotePropertyName Response -NotePropertyValue ([pscustomobject]@{ StatusCode = $status }) -Force
+        throw $ex
+    }
+    if ($leaf -eq 'wayforge-checksums.txt' -and $env:FAKE_CHECKSUM_TIMEOUT -eq '1') {
+        throw [System.TimeoutException]::new('The operation has timed out.')
+    }
+    $src = Join-Path $env:FIXTURE_DIR $leaf
+    if (-not (Test-Path $src)) { throw "404: ${Uri}" }
+    Copy-Item -Path $src -Destination $OutFile -Force
+}
+'@
 }
 
 Describe 'install.ps1 file structure' {
@@ -176,30 +200,7 @@ Describe 'Checksum verification (full install)' {
     BeforeAll {
         # ponytail: three Invoke-WebRequest stubs live in this file; consolidate when
         # the older Describes are next touched.
-        # Stub Invoke-WebRequest: copies fixtures by URI leaf, never hits the
-        # network. The checksum URL can fail with an HTTP status
-        # (FAKE_CHECKSUM_STATUS) or as a transport timeout
-        # (FAKE_CHECKSUM_TIMEOUT). Defined in BeforeAll so it exists in the run
-        # phase, not just discovery.
-        $script:downloadStub = @'
-function Invoke-WebRequest {
-    [CmdletBinding()]
-    param([string]$Uri, [string]$OutFile, [switch]$UseBasicParsing)
-    $leaf = [System.IO.Path]::GetFileName($Uri)
-    if ($leaf -eq 'wayforge-checksums.txt' -and $env:FAKE_CHECKSUM_STATUS) {
-        $status = [int]$env:FAKE_CHECKSUM_STATUS
-        $ex = [System.Exception]::new("The remote server returned an error: (${status}).")
-        $ex | Add-Member -NotePropertyName Response -NotePropertyValue ([pscustomobject]@{ StatusCode = $status }) -Force
-        throw $ex
-    }
-    if ($leaf -eq 'wayforge-checksums.txt' -and $env:FAKE_CHECKSUM_TIMEOUT -eq '1') {
-        throw [System.TimeoutException]::new('The operation has timed out.')
-    }
-    $src = Join-Path $env:FIXTURE_DIR $leaf
-    if (-not (Test-Path $src)) { throw "404: ${Uri}" }
-    Copy-Item -Path $src -Destination $OutFile -Force
-}
-'@
+        # $script:downloadStub is defined in the file-level BeforeAll above.
         # Helper for child pwsh runs; a $script: scriptblock because Pester 6
         # does not expose file-scope functions to It blocks.
         $script:installChild = {
@@ -314,5 +315,69 @@ Describe 'Uninstall removes provisioned Node' {
         finally {
             Remove-Item -Path $tmp -Recurse -Force -ErrorAction SilentlyContinue
         }
+    }
+}
+
+Describe 'PATH opt-out (-NoModifyPath)' {
+    BeforeEach {
+        $script:tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
+        $script:fixtureDir = Join-Path $script:tmp 'fixtures'
+        $script:shareSrc = Join-Path $script:tmp 'share-src'
+        New-Item -ItemType Directory -Path $script:fixtureDir | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $script:shareSrc 'base') | Out-Null
+        Set-Content -Path (Join-Path $script:shareSrc 'base/README.md') -Value 'fixture'
+        Set-Content -Path (Join-Path $script:shareSrc 'VERSION') -Value '9.9.9'
+
+        $script:binaryFixture = Join-Path $script:fixtureDir 'wayforge-win32-x64.exe'
+        $script:shareFixture = Join-Path $script:fixtureDir 'wayforge-share-9.9.9.zip'
+        $script:checksumsFixture = Join-Path $script:fixtureDir 'wayforge-checksums.txt'
+        Set-Content -Path $script:binaryFixture -Value 'fake wayforge binary'
+        Compress-Archive -Path (Join-Path $script:shareSrc '*') -DestinationPath $script:shareFixture
+
+        $script:binaryHash = (Get-FileHash -Path $script:binaryFixture -Algorithm SHA256).Hash.ToLowerInvariant()
+        $script:shareHash = (Get-FileHash -Path $script:shareFixture -Algorithm SHA256).Hash.ToLowerInvariant()
+        $script:originalUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    }
+    AfterEach {
+        [Environment]::SetEnvironmentVariable('Path', $script:originalUserPath, 'User')
+        Remove-Item -Path $script:tmp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'dry-run install prints the User PATH skip line' {
+        $output = & pwsh -NoProfile -Command "
+            `$env:PATH = '$script:tmp'
+            & '$script:installScript' -DryRun -SkipNodeCheck -NoModifyPath -Version 9.9.9 -Prefix '$script:tmp/prefix' 2>&1
+            exit 0
+        "
+        $combined = ($output | Out-String)
+        $combined | Should -Match '\[dry-run\] would skip User PATH update \(-NoModifyPath\)'
+        $combined | Should -Not -Match 'would add to User PATH'
+    }
+
+    It 'full install leaves the User PATH unchanged' {
+        Set-Content -Path $script:checksumsFixture -Value "$($script:binaryHash)  dist/wayforge-win32-x64.exe`n$($script:shareHash)  wayforge-share-9.9.9.zip"
+        $before = [Environment]::GetEnvironmentVariable('Path', 'User')
+        $child = @"
+`$env:FIXTURE_DIR = '$script:fixtureDir'
+$script:downloadStub
+try { & '$script:installScript' -SkipNodeCheck -NoModifyPath -Version 9.9.9 -Prefix '$script:tmp/prefix' *>&1 } catch { `$_; exit 1 }
+exit 0
+"@
+        $combined = (& pwsh -NoProfile -Command $child | Out-String)
+        $LASTEXITCODE | Should -Be 0
+        Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
+        Test-Path (Join-Path $script:tmp 'prefix/share/wayforge/base') -PathType Container | Should -Be $true
+        $combined | Should -Match 'User PATH update skipped \(-NoModifyPath\)'
+        [Environment]::GetEnvironmentVariable('Path', 'User') | Should -Be $before
+    }
+
+    It 'dry-run uninstall prints the User PATH skip line' {
+        $output = & pwsh -NoProfile -Command "
+            & '$script:installScript' -Uninstall -DryRun -NoModifyPath -Prefix '$script:tmp/prefix' 2>&1
+            exit 0
+        "
+        $combined = ($output | Out-String)
+        $combined | Should -Match '\[dry-run\] would skip User PATH update \(-NoModifyPath\)'
+        $combined | Should -Not -Match 'would remove from User PATH'
     }
 }
