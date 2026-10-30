@@ -13,17 +13,14 @@ Load the `delivery-policy` skill.
 2. For `direct`, state the bounded objective, 1-3 numbered criteria, and the evidence that proves each
    one. A criterion with no evidence source is not a criterion: narrow the request or route it to
    `full`.
-3. Dispatch one `implementation` work order to `code` carrying those criteria.
-4. Confirm the agent-owned validations ran and passed. Never run human-owned validations; report them.
-5. Dispatch one `verification` work order to `reviewer` with the same criteria, the evidence each one
-   requires, and the working-tree diff.
-6. Apply the result:
-   - every criterion passes — commit with a conventional message and report the change, the evidence,
-     and the commit.
-   - a criterion fails — dispatch the same criteria back with the evidence. A criterion that fails
-     twice, or a round with no change in evidence, is the policy stop: ask the user the escalation
-     question with both rounds of evidence.
-7. Record anything outside the criteria as a follow-up. Never dispatch a follow-up.
+3. Dispatch an `implementation` work order to `code` carrying those criteria.
+4. Confirm required agent-owned validations passed. Never run human-owned validations; report them.
+5. Dispatch a `functional_review` work order to `reviewer` against the working-tree diff, including
+   the criteria, required evidence, and applicable shared contracts.
+6. Apply the policy's verdict, revision, repair budget, and stop rules: commit on a current `pass`;
+   dispatch only evidenced `changes_required` findings as bounded `repair`; route `blocked` to the
+   decision or evidence owner. Report attempts and the decision needed on escalation.
+7. Record non-blocking follow-ups without dispatching them.
 
 Do not write the code yourself, and do not accept a change whose criteria are not evidenced.
 

@@ -54,7 +54,7 @@ prompts.
 ## Rules
 
 - Keep parent-session context compact: work orders carry context in, results carry evidence out.
-- Record what falls outside the criteria as follow-ups in the plan. Never dispatch a follow-up as a
-  round of work, and never let one reopen an accepted task.
+- Record only non-blocking observations as follow-ups in the plan. Route demonstrated material
+  in-scope defects under the policy, even without an enumerated criterion; never dispatch a follow-up.
 - Do not steer workers toward speculative abstraction; require new duplication to be justified or
   flagged as debt or risk.

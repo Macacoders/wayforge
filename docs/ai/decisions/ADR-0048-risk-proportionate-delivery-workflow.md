@@ -307,6 +307,17 @@ This amendment does not change:
 
 Detailed paused-delivery transition scenarios and cross-component compatibility examples belong in harness regression documentation rather than this ADR.
 
+## Amendment (2026-10-30): Material Findings and a Finite Delivery Loop
+
+This amendment supersedes the incompatible operational claims in Decision 6 (lines 56–60), the repeated-failure and new-finding walkthroughs in the original Scenario Walkthroughs, and the progress-only description in Consequences. It also resolves the apparent conflict between those passages and the numeric budget preserved by the 2026-10-29 amendment. `delivery-policy` is the sole operational source for the following rules; the older passages document the original decision, not current instructions.
+
+It also supersedes the older workflow summary and Invariants in `docs/ai/architecture.md` (Agent Topology, Workflow Boundaries, and Invariants) wherever they say nothing outside numbered criteria can block or that a criterion's second failure alone stops delivery. Those statements are historical on these points; the source policy and this amendment govern current behavior.
+
+- The default for both direct and planned work is one `implementation` plus at most two `repair` dispatches per task or direct objective, across paused and resumed runs. Stop sooner when a repair makes no material change to the failing evidence. A second failure by itself is not the stop rule if evidence has materially progressed and a repair remains. An independently evidenced new material defect does not reset the tally. At exhaustion, report evidence, attempts, and the decision needed; extra attempts require explicit, finite user authorization for a named scope. Architecture and integration review budgets remain separately governed by the policy.
+- `functional_review` returns per-criterion `pass | fail | unverifiable`, a reviewed revision, and `pass | changes_required | blocked`. Required validation evidence and current independent verdicts gate acceptance. A failed approved criterion, an established applicable contract/invariant violation, or a demonstrated **material** correctness, reliability, or security defect within the affected boundary with concrete impact can require repair, even if no numbered criterion anticipated the defect. An unverifiable criterion or consequential unresolved decision is `blocked`, not an implementation failure.
+- The original blanket “outside the criteria” follow-up rule applies only to non-blocking observations: preferences, speculative edge cases without demonstrated material impact, unrelated/pre-existing issues, and ADR proposals without a demonstrated conflict. A material in-scope defect is not demoted to a follow-up merely because it appeared in a later review round. Shared-contract mismatches identify both sides of an applicable contract; unavailable future counterparts remain integration risks, not presumed failures.
+- `/deliver`, `/deliver-plan`, and manual `/review-task` use the same `functional_review` and `repair` vocabulary and policy-owned dispositions. No new role, universal gate, approval step, authorization, or persisted retry state is introduced. Independent read-only review, delivery-only commit, human-owned validations, and declared architecture/phase gates remain in force on applicable unchanged revisions.
+
 ## Supersedes and Amends
 
 - Supersedes ADR-0038: `delivery` is no longer a thin three-command task orchestrator; it is the

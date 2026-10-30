@@ -6,58 +6,16 @@ agent: delivery
 Load the `delivery-policy` skill and the approved plan named below (`$ARGUMENTS`, resolved under
 `docs/ai/plans/`; when empty, use the active plan).
 
-Report the loop once at the start: plan status, required gates, task states, and the tasks that are
-ready. Then stay quiet between successful transitions and keep working.
+Report plan status, declared gates, task states, and ready tasks once. Continue through routine transitions without prompting.
 
 Repeat until plan acceptance or a stop condition:
 
-1. Read the plan frontmatter and each task's `**Status:**` line. Task `**Depends on:**` fields decide
-   readiness — not markdown order, not a single cursor. For a plan written before ADR-0048 (no
-   per-task status or dependencies), apply the legacy-plan rules in `delivery-policy` and backfill the
-   fields as you dispatch; legacy plans are executable, not a special case for the user to migrate.
+1. Apply the policy's readiness and legacy-plan rules. Recover every `in-progress` task before a fresh dispatch; retain its tally, revisions, worktree changes, and completed gates. Stop on missing or contradictory recovery evidence. An externally blocked task may be deferred if independent ready work exists.
+2. Resume the next authorized action; otherwise select a dependency-ready `pending` task, mark it `in-progress`, and dispatch `implementation` to `code` with its criteria and evidence (work-order shape: `/implement-task`). Never reimplement a resumed task from scratch.
+3. Confirm agent-owned validations, then obtain the pending `functional_review` and any declared `architecture_review` on the current revision. Report human-owned validations; do not execute them. Apply policy verdicts: bounded `repair` and fresh review on `changes_required`; seek evidence/decision on `blocked`; stop on unchanged failing evidence or exhausted budget.
+4. Run each declared pending phase `integration_review` after its tasks are accepted, retaining passes on unchanged revisions. Apply the policy's bounded resolution to failed gates. After plan acceptance, set `status: completed` and summarize accepted tasks, commits, validations, and follow-ups.
 
-2. Before any dispatch, apply the policy's paused-task recovery inventory and next-action table to
-   every `in-progress` task:
-   status, preserved implementation/repair tally, validation and revision-specific review outcomes,
-   pending repair/review/clarification/authorization, and ownership of uncommitted changes. Resume
-   only the next authorized action for complete, consistent evidence. Missing, contradictory, blocked,
-   or ambiguous recovery evidence fails closed to the owner; do not reset, rewrite to `pending`,
-   discard changes, or issue a fresh implementation dispatch. Defer an externally blocked task only
-   when another dependency-ready pending task can proceed.
-
-3. If recovery selected no in-progress action or stop, pick the next `pending` task whose
-   dependencies are all `accepted`; mark it `in-progress` and dispatch its one `implementation` work
-   order to `code`, including the task's acceptance criteria and the evidence each criterion requires
-   (see `/implement-task` for the work-order shape). Never use this fresh route for a re-entered
-   in-progress task.
-
-4. If neither recovery nor an eligible fresh task selected an action, route every declared phase
-   `integration_review` whose phase tasks are all `accepted` and whose current gate is pending before
-   plan completion. A current passed gate is not repeated. A `changes_required` or `blocked` gate needs
-   its approved policy route or a stop; do not dispatch another integration review over its budget or
-   silently mark the gate passed. A focused task compatibility check does not accept a phase or replace
-   its gate.
-
-5. Execute only the selected action from the policy table: obtain validation evidence before review;
-   dispatch only the required pending functional or architecture review against the current revision;
-   commit and accept only after current validation, criteria, and required review gates pass. Never run
-   human-owned validations; report them instead.
-
-6. Apply the reconciled review outcome under `delivery-policy`: `changes_required` → one bounded
-   `repair` work order with current/prior finding IDs, dispositions, prior decisions, affected boundary,
-   and tally, then fresh review of the repair's new revision. Reconcile new, persisting, regression,
-   and changed-expectation findings independently; an earlier pass does not suppress a demonstrated new
-   defect. `blocked`, unresolved conflict, validation failure, or exhausted budget → stop with the
-   policy's consolidated diagnosis. Do not treat clarification as a repair or extra-review authorization.
-
-7. At the end, run plan acceptance checks (all required tasks accepted, plan acceptance criteria,
-   declared gates, human-owned validations reported), set `status: completed`, and report a plan-level
-   summary: accepted tasks, commits, validations, findings resolved, and anything deliberately left
-   open.
-
-Never implement product code, never substitute your own reading of a diff for verification, and never
-ask the user to confirm a successful routine transition. Stop only on the policy's stop conditions,
-asking the specific escalation question.
+Never implement or self-verify. Commit only on current passing evidence; stop with the policy's specific escalation question when required.
 
 Additional context:
 
