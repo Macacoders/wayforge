@@ -44,9 +44,11 @@ teardown() {
 
 install_env() {
 	TEST_FIXTURES="$TEST_TMPDIR/fixtures"
+	COSIGN_ARGS_LOG="$TEST_TMPDIR/cosign-args.log"
 	mkdir -p "$TEST_FIXTURES/share/base"
 	printf 'binary' >"$TEST_FIXTURES/wayforge-linux-x64"
 	printf '1.0.0' >"$TEST_FIXTURES/share/VERSION"
+	printf 'fixture-bundle' >"$TEST_FIXTURES/wayforge-checksums.txt.sigstore.json"
 	tar -czf "$TEST_FIXTURES/wayforge-share-9.9.9.tar.gz" -C "$TEST_FIXTURES/share" base VERSION
 	# Fixture-aware curl stub: serves local files, never touches the network.
 	cat >"$STUB_DIR/curl" <<'EOF'
@@ -76,6 +78,19 @@ done
 case "$url" in
 */wayforge-linux-x64) cp "$TEST_FIXTURES/wayforge-linux-x64" "$dest" ;;
 */wayforge-share-9.9.9.tar.gz) cp "$TEST_FIXTURES/wayforge-share-9.9.9.tar.gz" "$dest" ;;
+*wayforge-checksums.txt.sigstore.json)
+	if [ "${FAKE_BUNDLE_TIMEOUT:-0}" = "1" ]; then
+		# Transport failure: no status line, curl-like exit 28.
+		exit 28
+	fi
+	status="${FAKE_BUNDLE_STATUS:-200}"
+	if [ -n "$write_out" ]; then
+		printf '%s' "$status"
+	fi
+	if [ "$status" = "200" ]; then
+		cp "$TEST_FIXTURES/wayforge-checksums.txt.sigstore.json" "$dest"
+	fi
+	;;
 *wayforge-checksums.txt)
 	if [ "${FAKE_CHECKSUM_TIMEOUT:-0}" = "1" ]; then
 		# Transport failure: no status line, curl-like exit 28.
@@ -119,7 +134,8 @@ write_checksums() {
 # the stderr assertions working on 1.2.1 and on current Bats.
 run_full_install() {
 	if output="$(env PATH="$STUB_DIR:/usr/bin:/bin" HOME="$TEST_HOME" \
-		TEST_FIXTURES="$TEST_FIXTURES" FAKE_DIGEST="$1" "${@:2}" \
+		TEST_FIXTURES="$TEST_FIXTURES" FAKE_DIGEST="$1" \
+		COSIGN_ARGS_LOG="$COSIGN_ARGS_LOG" "${@:2}" \
 		/bin/sh "$REPO_ROOT/install/install.sh" \
 		--version 9.9.9 --url-base https://fixture.invalid \
 		--skip-node-check --prefix "$TEST_PREFIX" 2>"$TEST_TMPDIR/stderr.log")"; then
@@ -140,6 +156,18 @@ stub_node() {
 echo "$version"
 EOF
 	chmod +x "$STUB_DIR/node"
+}
+
+# Cosign stub: records its arguments and exits $FAKE_COSIGN_EXIT (default 0).
+# Only tests that want cosign present call this; otherwise `command -v cosign`
+# fails inside the installer and the absent-cosign path is exercised.
+stub_cosign() {
+	cat >"$STUB_DIR/cosign" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >>"${COSIGN_ARGS_LOG:?}"
+exit "${FAKE_COSIGN_EXIT:-0}"
+EOF
+	chmod +x "$STUB_DIR/cosign"
 }
 
 run_installer() {
@@ -264,4 +292,79 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 @test "install.sh contains both sha256sum and shasum fallback" {
 	grep -q 'sha256sum' "$REPO_ROOT/install/install.sh"
 	grep -q 'shasum -a 256' "$REPO_ROOT/install/install.sh"
+}
+
+@test "install.sh verifies cosign bundle and installs" {
+	install_env
+	stub_cosign
+	write_checksums "$DIGEST_OK" "$DIGEST_OK"
+	run_full_install "$DIGEST_OK"
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"verified wayforge-checksums.txt signature"* ]]
+	[ -f "$TEST_PREFIX/bin/wfg" ]
+	[ "$(cat "$TEST_PREFIX/bin/wfg")" = "binary" ]
+	[ -d "$TEST_PREFIX/share/wayforge/base" ]
+	local cosign_args
+	cosign_args="$(cat "$COSIGN_ARGS_LOG")"
+	[[ "$cosign_args" == *"verify-blob"* ]]
+	[[ "$cosign_args" == *"--bundle"* ]]
+}
+
+@test "install.sh aborts on failed cosign verification without touching prefix" {
+	install_env
+	stub_cosign
+	write_checksums "$DIGEST_OK" "$DIGEST_OK"
+	run_full_install "$DIGEST_OK" FAKE_COSIGN_EXIT=1
+	[ "$status" -eq 1 ]
+	[[ "$(run_stderr)" == *"cosign signature verification failed"* ]]
+	[ ! -e "$TEST_PREFIX/bin" ]
+	[ ! -e "$TEST_PREFIX/share" ]
+}
+
+@test "install.sh warns and continues when cosign bundle is unavailable" {
+	install_env
+	stub_cosign
+	write_checksums "$DIGEST_OK" "$DIGEST_OK"
+	run_full_install "$DIGEST_OK" FAKE_BUNDLE_STATUS=404
+	[ "$status" -eq 0 ]
+	[[ "$(run_stderr)" == *"cosign signature bundle is unavailable for v9.9.9; skipping signature verification"* ]]
+	[ -f "$TEST_PREFIX/bin/wfg" ]
+	[ -d "$TEST_PREFIX/share/wayforge/base" ]
+}
+
+@test "install.sh aborts on a non-404 bundle download failure without touching prefix" {
+	install_env
+	stub_cosign
+	write_checksums "$DIGEST_OK" "$DIGEST_OK"
+	run_full_install "$DIGEST_OK" FAKE_BUNDLE_STATUS=500
+	[ "$status" -eq 1 ]
+	[[ "$(run_stderr)" == *"failed to download cosign signature bundle for v9.9.9 (HTTP 500)"* ]]
+	[ ! -e "$TEST_PREFIX/bin" ]
+	[ ! -e "$TEST_PREFIX/share" ]
+}
+
+@test "install.sh warns and continues when cosign is absent" {
+	install_env
+	write_checksums "$DIGEST_OK" "$DIGEST_OK"
+	run_full_install "$DIGEST_OK"
+	[ "$status" -eq 0 ]
+	[[ "$(run_stderr)" == *"cosign not found; skipping checksum signature verification"* ]]
+	[ -f "$TEST_PREFIX/bin/wfg" ]
+	[ -d "$TEST_PREFIX/share/wayforge/base" ]
+}
+
+@test "install.sh dry-run prints bundle URL and would-verify plan with cosign" {
+	install_env
+	stub_cosign
+	run env PATH="$STUB_DIR" HOME="$TEST_HOME" /bin/sh "$REPO_ROOT/install/install.sh" --dry-run --version 9.9.9 --url-base https://fixture.invalid --skip-node-check --prefix "$TEST_PREFIX"
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"https://fixture.invalid/wayforge-checksums.txt.sigstore.json"* ]]
+	[[ "$output" == *"[dry-run] would verify checksum signature with cosign"* ]]
+}
+
+@test "install.sh contains cosign verify-blob with pinned identity constants" {
+	grep -q 'cosign verify-blob' "$REPO_ROOT/install/install.sh"
+	grep -q -- '--bundle' "$REPO_ROOT/install/install.sh"
+	grep -q 'COSIGN_IDENTITY_REGEXP' "$REPO_ROOT/install/install.sh"
+	grep -q 'COSIGN_OIDC_ISSUER' "$REPO_ROOT/install/install.sh"
 }
