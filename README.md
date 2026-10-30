@@ -124,18 +124,18 @@ Node colors: gray = you · blue = `planner` · orange = `delivery` · green = `c
 
 ### `/deliver`
 
-Deliver a small, low-risk change end to end: classify, dispatch implementation, verify independently, commit.
+Deliver a small, low-risk change end to end: classify, dispatch implementation, verify each criterion, commit.
 
 ```mermaid
 flowchart LR
     A["Small fix request"] --> B{"Risk classification"}
     B -- "full path" --> C["/intent or /plan"]
-    B -- "direct" --> D["Bounded objective + criteria"]
-    D -- "work order" --> E["code implements"]
-    E --> F["reviewer verifies diff"]
-    F -- "pass" --> G["delivery commits"]
-    F -- "changes_required" --> H["repair work order"] --> F
-    F -- "blocked / budget spent" --> I["escalate: what failed, what was tried, decision needed"]
+    B -- "direct" --> D["Bounded objective + numbered criteria"]
+    D -- "work order" --> E["code makes the criteria pass"]
+    E --> F["reviewer: pass/fail + evidence per criterion"]
+    F -- "all pass" --> G["delivery commits"]
+    F -- "criterion fails" --> H["same criteria back with evidence"] --> F
+    F -- "fails twice / no progress" --> I["escalate: both rounds of evidence, decision needed"]
 
     classDef user fill:#1f2937,stroke:#6b7280,color:#e5e7eb
     classDef delivery fill:#7c2d12,stroke:#fb923c,color:#ffedd5
@@ -232,21 +232,21 @@ flowchart LR
 
 ### `/deliver-plan`
 
-Execute an approved plan autonomously: dependency-driven task readiness, dispatch, independent review, bounded repair, integration, and plan-level acceptance. Stops only on completion, a blocker, or a decision only you can make.
+Execute an approved plan autonomously: dependency-driven task readiness, dispatch, per-criterion verification, integration, and plan-level acceptance. Stops only on completion, a blocker, or a decision only you can make.
 
 ```mermaid
 flowchart LR
     A["Approved plan"] --> B["/deliver-plan"]
     B --> C["Ready tasks = pending + dependencies accepted"]
-    C -- "work order" --> D["code implements"]
-    D --> E["reviewer verdict"]
-    E -- "changes_required" --> F["repair work order"] --> E
-    E -- "pass" --> G["delivery commits + marks accepted"]
+    C -- "work order" --> D["code makes the criteria pass"]
+    D --> E["reviewer: pass/fail + evidence per criterion"]
+    E -- "criterion fails" --> F["same criteria back with evidence"] --> E
+    E -- "all pass" --> G["delivery commits + marks accepted"]
     G -- "more ready tasks" --> C
-    G -- "gate declared" --> H["integration_review"]
+    G -- "gate declared" --> H["phase gate criteria verified"]
     H --> C
-    C -- "all accepted" --> I["plan acceptance + /memory"]
-    E -- "blocked / budget spent" --> J["escalate and stop"]
+    C -- "all accepted" --> I["plan acceptance + follow-ups + /memory"]
+    E -- "fails twice / no progress" --> J["escalate and stop"]
 
     classDef user fill:#1f2937,stroke:#6b7280,color:#e5e7eb
     classDef delivery fill:#7c2d12,stroke:#fb923c,color:#ffedd5
@@ -264,18 +264,18 @@ The manual steps below stay available when you want to drive one task at a time.
 
 ### Delivery loop (manual)
 
-Load an approved plan and implement it task by task, reviewing each step yourself.
+Load an approved plan and implement it task by task, verifying each task's criteria independently.
 
 ```mermaid
 flowchart LR
     A["Approved plan"] --> B["/load-plan"]
     B --> C["/implement-task"]
-    C -- "work order" --> D["code implements"]
+    C -- "work order" --> D["code makes the criteria pass"]
     D --> E["/review-task"]
-    E -- "reviewer verdict" --> F{"Verdict"}
-    F -- "pass" --> G["commit + next ready task"]
-    F -- "changes_required" --> H["repair work order"] --> E
-    F -- "blocked" --> I["ask the user and stop"]
+    E -- "verification" --> F{"Every criterion evidenced?"}
+    F -- "yes" --> G["commit + next ready task"]
+    F -- "no" --> H["same criteria back with evidence"] --> E
+    F -- "fails twice" --> I["ask the user and stop"]
     G -- "more tasks" --> B
     G -- "done" --> J["/memory"]
 

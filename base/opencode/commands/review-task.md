@@ -1,31 +1,35 @@
 ---
-description: Independently review a completed task, apply the verdict, and bound the repair loop.
+description: Verify a completed task's criteria independently, then accept, send the failing criteria back, or stop.
 agent: delivery
 ---
 
 Load the `delivery-policy` skill. Dispatch the task just implemented to `reviewer` as a
-`functional_review` work order containing: the task contract and acceptance criteria, the review
-target (working-tree diff or commit range), the agent-owned validations that were reported as run, and
-the expected result format. Do not send implementation instructions, and do not review the change
-yourself.
+`verification` work order containing: the task's numbered acceptance criteria with the evidence each
+one requires, the review target (working-tree diff or commit range), the agent-owned validations that
+were reported as run, and the expected result format. Do not send implementation instructions, and do
+not verify the change yourself.
 
-Dispatch `architect` with an `architecture_review` work order when the change touches a boundary
-category or the plan's `required_gates.architect_review` is true.
+Dispatch `architect` with an `architecture_review` work order only when the plan declares
+`required_gates.architect_review`. Boundary judgement belongs to planning; a task does not acquire a
+second verifier because it happens to touch a boundary category.
 
-Apply the verdict:
+Apply the result:
 
-- `pass` — commit the accepted change with a conventional message, mark the task `accepted` in the
-  plan, update the frontmatter `task:` cursor, and report the next ready task.
-- `changes_required` — dispatch one bounded `repair` work order containing the findings and evidence,
-  then review the new revision. Repairs and re-reviews share the policy budget and never reset it.
-- `blocked` or exhausted budget — ask the user the policy's escalation question and stop. Do not close
-  a task that does not meet its acceptance criteria.
+- every criterion passes — commit the accepted change with a conventional message, mark the task
+  `accepted` in the plan, update the frontmatter `task:` cursor, and report the next ready task.
+- a criterion fails — dispatch the same criteria back to `code` with the evidence returned. Re-verify
+  only the criteria that failed and the criteria whose evidence the new diff touches.
+- a criterion fails twice, a round shows no change in evidence, or the criterion cannot be satisfied
+  inside the approved scope — ask the user the policy's escalation question with both rounds of
+  evidence and stop. Do not close a task whose criteria are not evidenced.
 
-Check only the `required_gates` the plan declares. Keep memory freshness at plan close (`/memory
-check` or `ai-memory close-check`), not after every task.
+Record anything the reviewer noted outside the criteria as a follow-up in the plan. Do not dispatch
+it, and do not reopen an accepted task for it.
 
-Confirm the active repository root from the plan or the current git repository, and constrain review
-and git inspection to that root unless the user explicitly approves an external path.
+Keep memory freshness at plan close (`/memory check` or `ai-memory close-check`), not after every task.
+
+Confirm the active repository root from the plan or the current git repository, and constrain
+verification and git inspection to that root unless the user explicitly approves an external path.
 
 Additional context:
 

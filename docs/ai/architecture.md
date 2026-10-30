@@ -111,15 +111,16 @@ If no source tree is found, `install` raises a clear error rather than silently 
 ## Agent Topology
 
 Logical roles are separated from agent files. `delivery` owns the review gate but does not perform the
-review; specialized workers produce evidence and verdicts, and `delivery` applies workflow policy
-(ADR-0048).
+review; specialized workers produce evidence, and `delivery` applies workflow policy (ADR-0048).
+Acceptance criteria are the contract: a task is accepted when every criterion has evidence, and
+nothing outside the criteria can block it.
 
 - `planner` is the default primary agent. It uses a non-native id to avoid colliding with OpenCode's built-in `plan` agent. It formalizes intent (via the `intent` skill) and produces plans of outcome-based task contracts (via the `plan` skill). It can decline to plan `direct`-path work and route the user to `/deliver` instead.
-- `delivery` is the primary orchestration gate. It classifies risk (`delivery-policy` skill), dispatches work orders (`implementation`/`repair` to `code`, `functional_review`/`integration_review` to `reviewer`, `architecture_review` to `architect`, `research` to `research`), applies acceptance policy, commits and integrates accepted work, and escalates to the user only when policy says to stop. It does not implement code, does not review its own diff, and does not own memory.
-- `research` is a read-only-in-practice subagent for repository onboarding and for one bounded investigation question during planning, diagnosis, or repair.
-- `code` is the implementer subagent: it executes exactly one dispatched `implementation` or `repair` work order, reports evidence, and never approves or commits its own work. The role name is *implementer*; the agent id stays `code` for compatibility (ADR-0048).
-- `reviewer` is a read-only subagent that independently verifies a review work order against its acceptance criteria and returns `pass | changes_required | blocked` with actionable findings. It never repairs findings and has no source-editing authority.
-- `architect` is a read-only review subagent that flags architectural-boundary conflicts against ADRs and proposes new ADRs. It is dispatched as an `architecture_review` work order.
+- `delivery` is the primary orchestration gate. It classifies risk (`delivery-policy` skill), dispatches work orders (`implementation` to `code`, `verification` to `reviewer`, `architecture_review` to `architect` only for a declared gate, `research` to `research`), applies the acceptance rule, commits and integrates accepted work, and escalates to the user only when the loop stops making progress. It does not implement code, does not verify its own diff, and does not own memory.
+- `research` is a read-only-in-practice subagent for repository onboarding and for one bounded investigation question during planning, diagnosis, or a delivery round.
+- `code` is the implementer subagent: it executes exactly one dispatched `implementation` work order, reports evidence, and never approves or commits its own work. The role name is *implementer*; the agent id stays `code` for compatibility (ADR-0048).
+- `reviewer` is a read-only subagent that answers an acceptance-criteria list `pass | fail | unverifiable`, criterion by criterion, with the evidence for each. It does not grade quality, does not repair, and has no source-editing authority.
+- `architect` is a read-only review subagent that flags architectural-boundary conflicts against ADRs and proposes new ADRs. It is dispatched as an `architecture_review` work order at plan time, because a contradiction is cheapest to resolve before code exists.
 - `troubleshooter` is a `mode: primary` chat agent reachable via `/troubleshooter` that provides command-first, safe, non-destructive diagnostic troubleshooting guidance. It is opt-in (not the default agent; default stays `planner`) and does not implement changes, but it can hand a confirmed root cause to `/deliver` instead of restarting the planning chain.
 
 ## Context Strategy
@@ -144,11 +145,11 @@ Work carries process proportionate to risk, as classified by the `delivery-polic
 
 **Direct path** — small, localized, low-risk corrections with no boundary trigger:
 
-1. Classify the request as `direct` and state the bounded objective and observable acceptance criteria.
+1. Classify the request as `direct` and state the bounded objective and the numbered criteria with the evidence that proves each one.
 2. `delivery` dispatches one `implementation` work order to `code` (`/deliver`).
 3. Agent-owned validations run; human-owned validations are reported, never executed.
-4. `reviewer` verifies the working-tree diff and returns a verdict.
-5. On `pass`, `delivery` commits and reports. On `changes_required`, one bounded `repair` work order, then re-review. On `blocked` or an exhausted budget, `delivery` asks the user and stops.
+4. `reviewer` answers each criterion against the working-tree diff, with evidence.
+5. Every criterion evidenced → `delivery` commits and reports. A failing criterion goes back as the same criterion with the evidence returned. A criterion that fails twice, or a round with no change in evidence, stops the loop and asks the user with both rounds of evidence.
 
 No intent document, plan artifact, or per-step approval is required on this path.
 
@@ -157,12 +158,12 @@ No intent document, plan artifact, or per-step approval is required on this path
 1. Onboard unfamiliar repositories through `research` and create initial `docs/ai/` memory.
 2. Formalize intent (`intent` skill) and plan outcome-based task contracts with acceptance criteria (`plan` skill).
 3. Apply task economy before implementation: one task for a single coherent outcome, justification above 3 tasks, explicit confirmation for 6-8 tasks, and splitting above 8 tasks.
-4. The approved plan is the approval artifact. `delivery` executes it autonomously with `/deliver-plan`: dependencies determine readiness, tasks are dispatched, reviewed, repaired, and committed without routine user prompts.
+4. The approved plan is the approval artifact. `delivery` executes it autonomously with `/deliver-plan`: dependencies determine readiness, each task is dispatched, verified criterion by criterion, and committed without routine user prompts. Boundary review belongs here, at plan time, before code exists.
 5. `/load-plan` + `/implement-task` + `/review-task` remain available to drive one task at a time by hand.
 6. Check reasonable existing patterns, utilities, scripts, helpers, commands, tests, and conventions before creating new repeatable logic.
 7. Update docs, decisions, and logs at plan close via `/memory`.
 
-Both paths stop only for the stop conditions defined in `delivery-policy`. Retry budgets live with the run and never reset silently.
+Both paths stop only for the stop conditions defined in `delivery-policy`.
 
 The shared issue creation workflow is:
 
@@ -179,9 +180,10 @@ The shared issue creation workflow is:
 - Keep repository onboarding separate from feature planning.
 - Keep tasks as coherent, independently reviewable outcomes, not technical microtasks.
 - Keep plans above 8 apparent tasks out of single-task planning; split them into smaller tasks first.
-- Keep independent review: the implementer never approves its own work, and `delivery` never substitutes its own reading of the diff for a verdict.
+- Keep independent verification: the implementer never approves its own work, and `delivery` never substitutes its own reading of the diff for evidence.
+- Keep acceptance criteria as the only bar: what is not a criterion is not required, and a criterion that cannot be evidenced is a plan defect, not an extra review round.
 - Keep write authority narrow: `code` writes product code under a work order; `planner` writes plans; `delivery` writes plan progress and commits; `reviewer`, `architect`, and `research` do not write product code.
-- Keep retries bounded and escalations concrete; no workflow step may repeat without a user-facing decision.
+- Keep the loop converging: a criterion that fails twice, or a round with no change in evidence, escalates to the user with both rounds of evidence; no workflow step may repeat without a user-facing decision.
 - Keep durable memory under `docs/ai/`.
 - Keep GitHub Issues as the operational shared source of truth for team tasks.
 - Keep shared tasks in GitHub Issues rather than a local JSONL backlog.

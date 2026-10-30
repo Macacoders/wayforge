@@ -1,5 +1,5 @@
 ---
-description: Execute an approved plan autonomously - dispatch, verify, repair, integrate, and stop only on completion, a blocker, or a decision only the user can make.
+description: Execute an approved plan autonomously - dispatch, verify criteria, commit, and stop only on completion, a blocker, or a decision only the user can make.
 agent: delivery
 ---
 
@@ -16,23 +16,26 @@ Repeat until plan acceptance or a stop condition:
    per-task status or dependencies), apply the legacy-plan rules in `delivery-policy` and backfill the
    fields as you dispatch; legacy plans are executable, not a special case for the user to migrate.
 2. Pick the next `pending` task whose dependencies are all `accepted`; mark it `in-progress`.
-3. Dispatch one `implementation` work order to `code` (see `/implement-task` for the work-order shape).
+3. Dispatch one `implementation` work order to `code` with the task's criteria and the evidence each
+   one requires (see `/implement-task` for the work-order shape).
 4. Confirm the agent-owned validations ran. Never run human-owned validations; report them instead.
-5. Dispatch a `functional_review` work order to `reviewer` against the resulting revision (see
-   `/review-task`). Dispatch `architecture_review` to `architect` when the task touches a boundary
-   category or the plan's `required_gates.architect_review` is true.
-6. Apply the verdict: `pass` → commit, mark the task `accepted`, update the frontmatter `task:`
-   cursor; `changes_required` → one bounded `repair` work order with the findings, then review the new
-   revision; `blocked` or exhausted budget → escalate and stop.
-7. Run `integration_review` after a phase whose integration gate the plan declares.
-8. At the end, run plan acceptance checks (all required tasks accepted, plan acceptance criteria,
-   declared gates, human-owned validations reported), set `status: completed`, and report a plan-level
-   summary: accepted tasks, commits, validations, findings resolved, and anything deliberately left
-   open.
+5. Dispatch a `verification` work order to `reviewer` against the resulting revision, with the same
+   criteria (see `/review-task`). Dispatch `architecture_review` to `architect` only when the plan's
+   `required_gates.architect_review` is true.
+6. Apply the result: every criterion passes → commit, mark the task `accepted`, update the frontmatter
+   `task:` cursor. A criterion fails → dispatch the same criteria back with the evidence. A criterion
+   that fails twice, a round with no change in evidence, or a criterion that cannot be satisfied
+   inside the approved scope → escalate with the policy's evidence and stop.
+7. When a phase declares an integration gate, verify the criteria the plan declares for that gate,
+   once, after the phase's tasks are accepted.
+8. At the end, run plan acceptance (every required task accepted, declared gates evidenced,
+   human-owned validations reported), record follow-ups, set `status: completed`, and report a
+   plan-level summary: accepted tasks, commits, criteria evidenced, follow-ups recorded, anything
+   deliberately left open.
 
-Never implement product code, never substitute your own reading of a diff for independent
-verification, and never ask the user to confirm a successful routine transition. Stop only on the
-policy's stop conditions, asking the specific escalation question.
+Never implement product code, never substitute your own reading of a diff for verification, and never
+ask the user to confirm a successful routine transition. Stop only on the policy's stop conditions,
+asking the specific escalation question.
 
 Additional context:
 

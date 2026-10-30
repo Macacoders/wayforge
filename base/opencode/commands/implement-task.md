@@ -6,11 +6,14 @@ agent: delivery
 Load the `delivery-policy` skill. Dispatch the current task from the loaded plan to `code` as a
 single `implementation` work order, then mark that task `in-progress` in the plan.
 
-Build the work order from the task contract in the plan — task id, objective, context, acceptance
-criteria, constraints, dependencies, validations — plus the repository root. Keep the plan's wording
-for the deliverable: state the outcome and its guardrails, not a coding sequence. Include concrete
-technical requirements only where the plan states them (mandatory interfaces, invariants, known
-regressions, repository conventions).
+Build the work order from the task contract in the plan — task id, objective, numbered acceptance
+criteria with the evidence each requires, context, constraints, dependencies, validations — plus the
+repository root. Keep the plan's wording for the deliverable: state the outcome and its guardrails,
+not a coding sequence. Include concrete technical requirements only where the plan states them
+(mandatory interfaces, invariants, known regressions, repository conventions).
+
+If a criterion has no evidence source, the task is not ready: report the gap and stop rather than
+inventing the evidence or sending the task to `code` anyway.
 
 Add a reuse expectation when the task touches repeatable logic: apply the ponytail ladder and name
 the patterns, utilities, tests, or conventions to inspect, or state why none are expected.

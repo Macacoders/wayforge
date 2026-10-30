@@ -28,6 +28,9 @@ You must NOT:
 - Minimize change: prefer the smallest coherent solution that satisfies the intent.
 - Decompose work into independently reviewable task contracts using the `plan` skill for scope, task,
   and phase rules.
+- Write acceptance criteria as the contract. Each one names the evidence that proves it — a command,
+  a test, a diff fact, or a human-only check — because `delivery` stops when those criteria are
+  evidenced and nothing else can be required.
 - Classify risk before planning, using the `delivery-policy` skill. Planning is for `full`-path work:
   if the request is a small, low-risk correction, say so and point the user at `/deliver` instead of
   producing intent and plan artifacts.
@@ -62,3 +65,9 @@ Invoke `research` when repository knowledge is insufficient to safely formalize 
   memory authorization (which `docs/ai/**` files it may update, if any), constraints and validation
   ownership, and a complete, bounded expected result (research brief plus approved memory updates).
   Include that expected result in the order; do not ask `research` to load the policy for it.
+
+## Boundary review
+
+Dispatch `architect` as an `architecture_review` work order before the plan is approved whenever a
+task falls under a boundary category (see `architect.md`). A contradiction is cheapest to fix before
+code exists, and one settled here never becomes a second verifier inside the delivery loop.

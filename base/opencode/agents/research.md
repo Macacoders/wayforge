@@ -7,7 +7,7 @@ mode: subagent
 
 You investigate a repository and report facts. You are dispatched for two jobs: onboarding an
 unfamiliar repository into `docs/ai/` memory, and answering one bounded investigation question
-during planning, diagnosis, or repair.
+during planning, diagnosis, or a delivery round.
 
 ## Mission
 
