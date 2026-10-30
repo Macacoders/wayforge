@@ -3,6 +3,7 @@
 Date: 2026-10-21
 Amended: 2026-10-23
 Amended: 2026-10-27
+Amended: 2026-10-30
 Status: Accepted
 
 ## Context
@@ -15,7 +16,7 @@ Before that design was released, the direction changed to two explicit commands 
 
 ## Decision
 
-1. **Trust anchor and same-origin checksum limits.** The release root (`WAYFORGE_RELEASE_ROOT`, default `https://github.com/Macacoders/wayforge/releases`) is the trust anchor. `wayforge-checksums.txt` is fetched from the same origin as the assets it describes, so it defends against transit corruption and mis-published asset bytes, **not** against a compromised release channel (a channel attacker can rewrite both asset and checksum). Asset signing or checksum pinning is deliberately out of scope; revisit if the release channel threat model changes.
+1. **Trust anchor and same-origin checksum limits.** The release root (`WAYFORGE_RELEASE_ROOT`, default `https://github.com/Macacoders/wayforge/releases`) is the trust anchor. `wayforge-checksums.txt` is fetched from the same origin as the assets it describes, so it defends against transit corruption and mis-published asset bytes, **not** against a compromised release channel (a channel attacker can rewrite both asset and checksum). (Amended 2026-10-30: asset signing is no longer out of scope — the manifest is now signed with cosign keyless into a detached `wayforge-checksums.txt.sigstore.json` bundle anchored to the GitHub Actions workflow identity `release.yml@refs/heads/main`; see ADR-0048. The one-shot installer verifies the bundle when cosign is present; **`wfg upgrade` remains hash-only in this task** — bundle verification there is an explicit follow-up gap, and until then the same-origin limits above still describe the upgrade path.)
 
 2. **Explicit commands; no automatic release checks.** `wfg update` is read-only: it resolves the latest release, prints the current and latest versions, and reports either an available update or that wayforge is up to date. It performs no download and writes nothing. `wfg upgrade` is the only install path and requires an installed binary and a resolvable prefix. `wfg upgrade --yes` is retained to skip the prompt. `--check` and `--dry-run` are removed from the upgrade surface: `wfg update` is the only non-mutating check. `wfg update` may run from a source checkout; `wfg upgrade` refuses and points at `git pull` or the one-shot installer. The `wfg update` name is reserved for this CLI release check; #238's managed-project refresh must adopt a different verb before implementation.
 
@@ -39,7 +40,7 @@ Before that design was released, the direction changed to two explicit commands 
 - **Tracking isolation and orphan-cache acceptance.** `installed-projects.json` and `tracking.resolveStateDir()` are unaffected: no migration and no code change. Leftover `update-check.json` files from test or maintainer installs are accepted disposable residue with no cleanup code.
 - The first release containing `upgrade` must publish `wayforge-checksums.txt`; earlier releases cannot be `wfg upgrade` targets. Users upgrade to that release with the existing one-shot installer.
 - The checksum file is strictly additive: existing artifact names are never renamed, preserving installer download contracts.
-- The one-shot installers (`install.sh` / `install.ps1`) now perform the same same-origin checksum verification as `wfg upgrade`, before any install-prefix mutation. The installer path is **fail-open only on HTTP 404** (asset confirmed absent; warn-and-continue for releases predating it) and aborts on every other fetch failure, while `wfg upgrade` remains **fail-closed**; the trust model of Decision 1 is unchanged for both.
+- The one-shot installers (`install.sh` / `install.ps1`) now perform the same same-origin checksum verification as `wfg upgrade`, before any install-prefix mutation. The installer path is **fail-open only on HTTP 404** (asset confirmed absent; warn-and-continue for releases predating it) and aborts on every other fetch failure, while `wfg upgrade` remains **fail-closed**; the trust model of Decision 1 is unchanged for both. (Amended 2026-10-30: `install.sh` additionally verifies the cosign `.sigstore.json` bundle when cosign is present — fail-closed on an invalid bundle or non-404 bundle fetch failure, warn-and-continue when cosign is absent or the bundle is confirmed missing; `install.ps1` documents manual verification; `wfg upgrade` remains hash-only, an explicit gap tracked for follow-up. See ADR-0048.)
 - No downgrade path is provided; a newer installed version stays put even if the latest tag is older.
 - Real running-exe replacement on Windows and Unix, checksum-mismatch abort on a real install, and checksum publication are human-validated on the next release.
 

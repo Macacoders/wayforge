@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Release publishes a cosign-signed `wayforge-checksums.txt.sigstore.json` bundle (keyless, Fulcio + Rekor; workflow identity `release.yml@refs/heads/main`) alongside the checksum manifest (ADR-0048).
+- `wayforge-checksums.txt` now covers the two installer scripts (`install.sh`, `install.ps1`) in addition to every platform binary and both share archives.
+- `--no-modify-path` / `-NoModifyPath` installer flag to skip all persistent PATH writes and print manual instructions instead.
+
+### Changed
+
+- The recommended install path no longer pipes the installer to a shell: download to file, verify the SHA-256 from `wayforge-checksums.txt`, dry-run, then run (see `docs/security/installer-trust.md`).
+- `install.sh` verifies the cosign signature bundle when cosign is present (fail-closed on an invalid bundle or non-404 fetch failure; warn-and-continue when cosign is absent or the bundle is confirmed missing).
+
 ### Removed
 
 - Removed `install/legacy/**` (the frozen legacy Bash/PowerShell installers) and its legacy-only bats/Pester tests. `wfg` is the only supported installer. Release artifacts are unchanged. Contributors relying on the frozen source scripts lose them.

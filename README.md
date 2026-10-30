@@ -8,23 +8,32 @@ Five steps: install the CLI, connect providers, install the runtime into your re
 
 ### 1. Install the CLI
 
-Install the CLI with the one-shot installer:
+Download the installer to a file, verify its SHA-256 hash, preview with a dry run, then run it. Do not pipe the installer directly into a shell.
 
 **Linux / macOS**
 
 ```bash
-curl -fsSL https://github.com/Macacoders/wayforge/releases/latest/download/install.sh | sh
+curl -fsSLO https://github.com/Macacoders/wayforge/releases/latest/download/install.sh
+curl -fsSLO https://github.com/Macacoders/wayforge/releases/latest/download/wayforge-checksums.txt
+grep '  install.sh$' wayforge-checksums.txt | sha256sum -c -
+sh install.sh --dry-run
+sh install.sh
 ```
 
 **Windows** (PowerShell)
 
 ```powershell
-powershell -c "irm https://github.com/Macacoders/wayforge/releases/latest/download/install.ps1 | iex"
+Invoke-WebRequest -Uri https://github.com/Macacoders/wayforge/releases/latest/download/install.ps1 -OutFile install.ps1
+Invoke-WebRequest -Uri https://github.com/Macacoders/wayforge/releases/latest/download/wayforge-checksums.txt -OutFile wayforge-checksums.txt
+$expected = (Select-String -Path wayforge-checksums.txt -Pattern '  install\.ps1$').Line.Split()[0]
+if ((Get-FileHash install.ps1 -Algorithm SHA256).Hash -ne $expected.ToUpper()) { throw 'install.ps1 checksum mismatch' }
+pwsh -File install.ps1 -DryRun
+pwsh -File install.ps1
 ```
 
-Default prefix: `~/.wayforge` (Linux/macOS) or `%LOCALAPPDATA%\wayforge` (Windows).
+Default prefix: `~/.wayforge` (Linux/macOS) or `%LOCALAPPDATA%\wayforge` (Windows). Pass `--no-modify-path` / `-NoModifyPath` to skip PATH registration and print manual instructions instead.
 
-The installer downloads the platform binary and share archive together with the release's `wayforge-checksums.txt` and verifies both SHA-256 hashes before installing anything; a mismatch aborts with no changes. Releases that predate the checksum asset (confirmed by an HTTP 404) install unverified with a warning instead; any other checksum download failure aborts with no changes.
+The installer downloads the platform binary and share archive together with the release's `wayforge-checksums.txt` and verifies both SHA-256 hashes before installing anything; a mismatch aborts with no changes. Releases that predate the checksum asset (confirmed by an HTTP 404) install unverified with a warning instead; any other checksum download failure aborts with no changes. The checksum manifest is cosign-signed into a detached `wayforge-checksums.txt.sigstore.json` bundle; `install.sh` verifies it automatically when cosign is present (see [docs/security/installer-trust.md](docs/security/installer-trust.md) for manual verification on Windows and the full trust model).
 
 ### Requirements
 
