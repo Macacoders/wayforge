@@ -114,7 +114,10 @@ export function resolveDefaultModels(selected: Provider[]): {
 	}
 
 	if (selected.every((p) => p === 'free-tier')) {
-		return { model: '', smallModel: '' }
+		return {
+			model: 'opencode/mimo-v2.6-flash-free',
+			smallModel: 'opencode/mimo-v2.6-flash-free',
+		}
 	}
 
 	return {
@@ -142,7 +145,10 @@ export const FAST_MODELS: Record<
 		model: 'laberit/laberit-ai',
 		smallModel: 'laberit/laberit-ai',
 	},
-	'free-tier': { model: '', smallModel: '' },
+	'free-tier': {
+		model: 'opencode/mimo-v2.6-flash-free',
+		smallModel: 'opencode/mimo-v2.6-flash-free',
+	},
 }
 
 const FAST_MODEL_PRIORITY: Provider[] = [

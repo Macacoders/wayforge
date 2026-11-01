@@ -149,10 +149,10 @@ describe("resolveDefaultModels", () => {
 		});
 	});
 
-  it("returns empty strings for free-tier only", () => {
+  it("pins both free-tier defaults to a free model", () => {
     expect(resolveDefaultModels(["free-tier"])).toEqual({
-      model: "",
-      smallModel: "",
+      model: "opencode/mimo-v2.6-flash-free",
+      smallModel: "opencode/mimo-v2.6-flash-free",
     });
   });
 });
@@ -410,8 +410,8 @@ describe("generateOpenCodeJsonc", () => {
       makeOpts("opencode", ["free-tier"]),
     );
     expect(content).toContain('"enabled_providers": ["opencode"]');
-    expect(content).toContain('"model": ""');
-    expect(content).toContain('"small_model": ""');
+    expect(content).toContain('"model": "opencode/mimo-v2.6-flash-free"');
+    expect(content).toContain('"small_model": "opencode/mimo-v2.6-flash-free"');
     expect(content).toContain('"opencode": {');
     expect(content).toContain('"agent":');
     expect(content).toContain('"build":');
