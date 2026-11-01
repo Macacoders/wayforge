@@ -7,6 +7,7 @@ Do **not** load all `docs/ai/**` by default.
 ## Topic Routes
 
 - Planning current work: `plans/<active-plan>.md`
+- Benchmark evaluation handoff: `plans/2026-10-31_224912-benchmark-backed-harness-evaluation.md` (see its final handoff section)
 - Repo boundaries/contracts: `architecture.md`
 - Durable decisions/tradeoffs: `decisions/*.md` (only related ADRs)
 - Shared task workflow context: `backlog/README.md`

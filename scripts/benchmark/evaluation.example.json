@@ -1,0 +1,24 @@
+{
+  "benchmark_sha": "b63b7b2850226b6aa4fb5929a8c1ac7bc4d9a6af",
+  "opencode_version": "1.18.35",
+  "model": "opencode/big-pickle",
+  "tasks": ["dialogue-parser"],
+  "variants": [
+    {
+      "name": "baseline",
+      "wayforge_sha": "41db5a79a9bf846833f425d1e7af09bd301666a3"
+    }
+  ],
+  "repetitions": 1,
+  "limits": {
+    "attempt_seconds": 600,
+    "attempt_input_tokens": 100000,
+    "attempt_output_tokens": 20000,
+    "attempt_usd": "0",
+    "variant_usd": "0",
+    "run_usd": "0",
+    "provider_ceiling_usd": "0",
+    "variant_attempts": 1,
+    "run_attempts": 1
+  }
+}

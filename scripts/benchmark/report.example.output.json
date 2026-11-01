@@ -1,0 +1,210 @@
+{
+  "metadata": {
+    "baseline_variant": "baseline",
+    "benchmark": "SkillsBench",
+    "benchmark_sha": "b63b7b2850226b6aa4fb5929a8c1ac7bc4d9a6af",
+    "budget_enforcement": "soft_between_attempts",
+    "data_origin": "synthetic",
+    "model": "opencode/big-pickle",
+    "opencode_version": "1.18.35"
+  },
+  "attempts": [
+    {
+      "task_id": "dialogue-parser",
+      "variant": "baseline",
+      "wayforge_sha": "41db5a79a9bf846833f425d1e7af09bd301666a3",
+      "repetition": 1,
+      "official": {
+        "status": "verifier_failed",
+        "reward": "0.833",
+        "verified_resolution": false
+      },
+      "workflow": {
+        "skill_loads": "unverifiable",
+        "dispatch_chain": "unverifiable",
+        "review_verdict": "unverifiable",
+        "reviewed_revision": "unverifiable",
+        "permission_and_stop_events": "unverifiable"
+      },
+      "usage": {
+        "all_session_tokens": "unverifiable",
+        "provider_billed_cost_usd": "unverifiable",
+        "provider_billing_ref": null,
+        "elapsed_seconds": "613.7",
+        "benchflow_tool_calls": 12
+      },
+      "relevant_skills": null,
+      "sanitized_trace_ref": null,
+      "human_rubric": {
+        "ambiguous_routing": "not assessed",
+        "handoff_decision_continuity": "not assessed",
+        "reviewer_feedback_quality": "not assessed",
+        "justified_safety_stops": "not assessed"
+      }
+    },
+    {
+      "task_id": "dialogue-parser",
+      "variant": "illustrative_variant",
+      "wayforge_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "repetition": 1,
+      "official": {
+        "status": "verified_pass",
+        "reward": "1.0",
+        "verified_resolution": true
+      },
+      "workflow": {
+        "skill_loads": [
+          "delivery-policy"
+        ],
+        "dispatch_chain": "observed",
+        "review_verdict": "unverifiable",
+        "reviewed_revision": "unverifiable",
+        "permission_and_stop_events": "unverifiable"
+      },
+      "usage": {
+        "all_session_tokens": {
+          "input": 300,
+          "output": 60,
+          "reasoning": 0,
+          "cache_read": 30,
+          "cache_write": 0,
+          "runtime_estimated_cost_usd": "0"
+        },
+        "provider_billed_cost_usd": "0",
+        "provider_billing_ref": "example/provider-billing.json",
+        "elapsed_seconds": "42.5",
+        "benchflow_tool_calls": 3
+      },
+      "relevant_skills": [
+        "delivery-policy"
+      ],
+      "sanitized_trace_ref": "example/sanitized-root.json",
+      "human_rubric": {
+        "ambiguous_routing": "not assessed",
+        "handoff_decision_continuity": "not assessed",
+        "reviewer_feedback_quality": "not assessed",
+        "justified_safety_stops": "not assessed"
+      }
+    }
+  ],
+  "by_variant": {
+    "baseline": {
+      "verified_resolutions": 0,
+      "attempts": 1,
+      "complete_verifier_outcomes": 1,
+      "verified_resolution_rate_per_attempt": 0.0,
+      "timeouts": 0,
+      "all_session_tokens": {
+        "input": "unverifiable",
+        "output": "unverifiable",
+        "reasoning": "unverifiable",
+        "cache_read": "unverifiable",
+        "cache_write": "unverifiable"
+      },
+      "elapsed_seconds": "613.7",
+      "benchflow_tool_calls": 12,
+      "provider_billed_cost_usd": "unverifiable",
+      "cost_per_verified_resolution_usd": "unverifiable"
+    },
+    "illustrative_variant": {
+      "verified_resolutions": 1,
+      "attempts": 1,
+      "complete_verifier_outcomes": 1,
+      "verified_resolution_rate_per_attempt": 1.0,
+      "timeouts": 0,
+      "all_session_tokens": {
+        "input": 300,
+        "output": 60,
+        "reasoning": 0,
+        "cache_read": 30,
+        "cache_write": 0
+      },
+      "elapsed_seconds": "42.5",
+      "benchflow_tool_calls": 3,
+      "provider_billed_cost_usd": "0",
+      "cost_per_verified_resolution_usd": "0"
+    }
+  },
+  "by_task_and_variant": {
+    "dialogue-parser::baseline": {
+      "verified_resolutions": 0,
+      "attempts": 1,
+      "complete_verifier_outcomes": 1,
+      "verified_resolution_rate_per_attempt": 0.0,
+      "timeouts": 0,
+      "all_session_tokens": {
+        "input": "unverifiable",
+        "output": "unverifiable",
+        "reasoning": "unverifiable",
+        "cache_read": "unverifiable",
+        "cache_write": "unverifiable"
+      },
+      "elapsed_seconds": "613.7",
+      "benchflow_tool_calls": 12,
+      "provider_billed_cost_usd": "unverifiable",
+      "cost_per_verified_resolution_usd": "unverifiable"
+    },
+    "dialogue-parser::illustrative_variant": {
+      "verified_resolutions": 1,
+      "attempts": 1,
+      "complete_verifier_outcomes": 1,
+      "verified_resolution_rate_per_attempt": 1.0,
+      "timeouts": 0,
+      "all_session_tokens": {
+        "input": 300,
+        "output": 60,
+        "reasoning": 0,
+        "cache_read": 30,
+        "cache_write": 0
+      },
+      "elapsed_seconds": "42.5",
+      "benchflow_tool_calls": 3,
+      "provider_billed_cost_usd": "0",
+      "cost_per_verified_resolution_usd": "0"
+    }
+  },
+  "skill_metrics": {
+    "labelled_attempts": 1,
+    "not_labelled_attempts": 1,
+    "labelled_but_unverifiable": 0,
+    "relevant_skill_load_recall": {
+      "numerator": 1,
+      "denominator": 1,
+      "rate": 1.0
+    },
+    "unnecessary_load_rate": {
+      "numerator": 0,
+      "denominator": 1,
+      "rate": 0.0
+    },
+    "zero_load_rate": {
+      "numerator": 0,
+      "denominator": 1,
+      "rate": 0.0
+    }
+  },
+  "paired_comparison": [
+    {
+      "task_id": "dialogue-parser",
+      "repetition": 1,
+      "baseline": "baseline",
+      "variant": "illustrative_variant",
+      "direction": "fail_to_pass",
+      "baseline_status": "verifier_failed",
+      "variant_status": "verified_pass",
+      "baseline_workflow": "unverifiable",
+      "variant_workflow": "observed",
+      "variant_minus_baseline_usage": {
+        "input": "unverifiable",
+        "output": "unverifiable",
+        "reasoning": "unverifiable",
+        "cache_read": "unverifiable",
+        "cache_write": "unverifiable",
+        "provider_billed_cost_usd": "unverifiable",
+        "elapsed_seconds": "-571.2",
+        "benchflow_tool_calls": -9
+      }
+    }
+  ],
+  "interpretation": "Exploratory only; missing runtime evidence is unverifiable and one-run differences do not establish causality."
+}

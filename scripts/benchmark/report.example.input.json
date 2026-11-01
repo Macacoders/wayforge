@@ -1,0 +1,87 @@
+{
+  "metadata": {
+    "benchmark": "SkillsBench",
+    "benchmark_sha": "b63b7b2850226b6aa4fb5929a8c1ac7bc4d9a6af",
+    "opencode_version": "1.18.35",
+    "model": "opencode/big-pickle",
+    "baseline_variant": "baseline",
+    "budget_enforcement": "soft_between_attempts",
+    "data_origin": "synthetic"
+  },
+  "attempts": [
+    {
+      "task_id": "dialogue-parser",
+      "variant": "baseline",
+      "wayforge_sha": "41db5a79a9bf846833f425d1e7af09bd301666a3",
+      "repetition": 1,
+      "result": {
+        "task_name": "dialogue-parser",
+        "rewards": { "reward": 0.833 },
+        "error": null,
+        "error_category": null,
+        "verifier_error": null,
+        "n_tool_calls": 12,
+        "timing": { "total": 613.7 }
+      },
+      "capture_status": "metadata_unavailable",
+      "sessions": [],
+      "provider_billed_cost_usd": null,
+      "provider_billing_ref": null,
+      "relevant_skills": null,
+      "sanitized_trace_ref": null
+    },
+    {
+      "task_id": "dialogue-parser",
+      "variant": "illustrative_variant",
+      "wayforge_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "repetition": 1,
+      "result": {
+        "task_name": "dialogue-parser",
+        "rewards": { "reward": 1.0 },
+        "error": null,
+        "error_category": null,
+        "verifier_error": null,
+        "n_tool_calls": 3,
+        "timing": { "total": 42.5 }
+      },
+      "capture_status": "captured",
+      "sessions": [
+        {
+          "session_id": "ses_example_root",
+          "agent": "delivery",
+          "version": "1.18.35",
+          "cost": 0,
+          "tokens": { "input": 100, "output": 20, "reasoning": 0 },
+          "cache_tokens": { "read": 10, "write": 0 },
+          "tools": [
+            { "agent": "delivery", "tool": "skill", "status": "completed", "skill_name": "delivery-policy", "target_agent": null, "child_session_id": null },
+            { "agent": "delivery", "tool": "task", "status": "completed", "skill_name": null, "target_agent": "code", "child_session_id": "ses_example_code" },
+            { "agent": "delivery", "tool": "task", "status": "completed", "skill_name": null, "target_agent": "reviewer", "child_session_id": "ses_example_review" }
+          ]
+        },
+        {
+          "session_id": "ses_example_code",
+          "agent": "code",
+          "version": "1.18.35",
+          "cost": 0,
+          "tokens": { "input": 100, "output": 20, "reasoning": 0 },
+          "cache_tokens": { "read": 10, "write": 0 },
+          "tools": []
+        },
+        {
+          "session_id": "ses_example_review",
+          "agent": "reviewer",
+          "version": "1.18.35",
+          "cost": 0,
+          "tokens": { "input": 100, "output": 20, "reasoning": 0 },
+          "cache_tokens": { "read": 10, "write": 0 },
+          "tools": []
+        }
+      ],
+      "provider_billed_cost_usd": "0",
+      "provider_billing_ref": "example/provider-billing.json",
+      "relevant_skills": ["delivery-policy"],
+      "sanitized_trace_ref": "example/sanitized-root.json"
+    }
+  ]
+}
