@@ -3,7 +3,6 @@ description: Route error/bug pastes through triage classification for context hy
 agent: planner
 ---
 
-Load the `triage` skill. Summarize and classify the pasted error/log in `$ARGUMENTS`, then recommend
-`/deliver` (small, low-risk correction), `/plan` (needs planning), or backlog.
+Load the `triage` skill. Summarize and classify the pasted error/log in `$ARGUMENTS`, then recommend `/deliver` (small, low-risk correction), `/plan` (needs planning), or backlog.
 
 $ARGUMENTS

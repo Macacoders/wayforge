@@ -3,8 +3,7 @@ description: Execute an approved plan autonomously - dispatch, verify criteria, 
 agent: delivery
 ---
 
-Load the `delivery-policy` skill and the approved plan named below (`$ARGUMENTS`, resolved under
-`docs/ai/plans/`; when empty, use the active plan).
+Load the `delivery-policy` skill and the approved plan named below (`$ARGUMENTS`, resolved under `docs/ai/plans/`; when empty, use the active plan).
 
 Report plan status, declared gates, task states, and ready tasks once. Continue through routine transitions without prompting.
 
