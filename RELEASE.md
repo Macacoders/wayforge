@@ -121,19 +121,19 @@ Download the installer to a file, verify its SHA-256 hash, then run it (do not p
 **Linux:**
 
 ```bash
-B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSLO "$B/install.sh" "$B/wayforge-checksums.txt" && grep '  install.sh$' wayforge-checksums.txt | sha256sum -c - && sh install.sh
+B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSL -O "$B/install.sh" -O "$B/wayforge-checksums.txt" && grep '  install.sh$' wayforge-checksums.txt | sha256sum -c - && sh install.sh
 ```
 
 **macOS:**
 
 ```bash
-B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSLO "$B/install.sh" "$B/wayforge-checksums.txt" && grep '  install.sh$' wayforge-checksums.txt | shasum -a 256 -c - && sh install.sh
+B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSL -O "$B/install.sh" -O "$B/wayforge-checksums.txt" && grep '  install.sh$' wayforge-checksums.txt | shasum -a 256 -c - && sh install.sh
 ```
 
 **Windows** (PowerShell; use `-ExecutionPolicy Bypass` if execution policy blocks remote scripts):
 
 ```powershell
-$b='https://github.com/Macacoders/wayforge/releases/latest/download'; curl.exe -fsSLO "$b/install.ps1" "$b/wayforge-checksums.txt"; $e=(Get-Content wayforge-checksums.txt | Select-String '  install\.ps1$').Line.Split()[0]; if((Get-FileHash install.ps1 -Algorithm SHA256).Hash -ne $e.ToUpper()){throw 'checksum mismatch'}; pwsh -File install.ps1
+$b='https://github.com/Macacoders/wayforge/releases/latest/download'; curl.exe -fsSL -O "$b/install.ps1" -O "$b/wayforge-checksums.txt"; $e=(Get-Content wayforge-checksums.txt | Select-String '  install\.ps1$').Line.Split()[0]; if((Get-FileHash install.ps1 -Algorithm SHA256).Hash -ne $e.ToUpper()){throw 'checksum mismatch'}; pwsh -File install.ps1
 ```
 
 See [docs/security/installer-trust.md](docs/security/installer-trust.md) for cosign bundle verification and the full trust model.

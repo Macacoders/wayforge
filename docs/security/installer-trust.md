@@ -20,14 +20,14 @@ The release publishes `wayforge-checksums.txt` in `sha256sum` format covering ev
 **Linux:**
 
 ```bash
-B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSLO "$B/install.sh" "$B/wayforge-checksums.txt"
+B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSL -O "$B/install.sh" -O "$B/wayforge-checksums.txt"
 grep '  install.sh$' wayforge-checksums.txt | sha256sum -c -
 ```
 
 **macOS:**
 
 ```bash
-B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSLO "$B/install.sh" "$B/wayforge-checksums.txt"
+B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSL -O "$B/install.sh" -O "$B/wayforge-checksums.txt"
 grep '  install.sh$' wayforge-checksums.txt | shasum -a 256 -c -
 ```
 
