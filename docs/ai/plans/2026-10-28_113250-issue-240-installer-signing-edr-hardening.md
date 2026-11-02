@@ -1,5 +1,5 @@
 ---
-status: planned
+status: in-progress
 created: 2026-10-28
 task: 0/4
 required_gates:
@@ -25,6 +25,7 @@ required_gates:
 - **#271** owns install-path hardening (`irm | iex` removal, file download, `-DryRun`, `-NoPath`) and cosign keyless signing/verification of `wayforge-checksums.txt`. Not re-planned here.
 - **#243** already delivered SHA-256 verification. Not re-planned here.
 - **#240 (this plan)** owns only Authenticode via SignPath: application, signing job, `install.ps1` verification, signing docs/ADRs/cutover.
+- **#281** delivered the repo-side prep (policy, artifact configuration, README link) to `develop` via PR #282. The external SignPath application is submitted and tracked here until approval.
 - If SignPath is rejected, this plan remains blocked; there is no free public-trust Authenticode fallback currently available. Do not substitute self-signed for public releases.
 
 ## Decision
@@ -48,10 +49,20 @@ required_gates:
 - #243 checksum verification is already merged in `develop`.
 - This plan supersedes the previous four-task scope that mixed signing, installer hardening, cosign, and docs.
 
+## Progress (2026-11-02)
+
+- Task 1 repo-side artifacts merged to `develop` in `3192133` (PR #282, issue #281 closed):
+  - `CODE_SIGNING_POLICY.md`: https://github.com/Macacoders/wayforge/blob/develop/CODE_SIGNING_POLICY.md
+  - `.signpath/artifact-configuration.xml`
+  - README "Code signing policy" link
+- SignPath Foundation application submitted on 2026-11-02; approval pending. Record the application URL/ID and outcome when available.
+- Task 1 remains open until SignPath accepts the project and the SignPath-side project, signing policy, and artifact configuration are created.
+- Task 2 remains gated on #270; Task 3 is gated on the first signed release.
+
 ## Prerequisites
 
 1. #270 complete: both release jobs on `ubuntu-latest`; SignPath requires all jobs in the chain on GitHub-hosted.
-2. SignPath Foundation approval, SignPath project, signing policy, and artifact configuration.
+2. SignPath Foundation approval, SignPath project, signing policy, and artifact configuration. Application submitted 2026-11-02; approval pending.
 3. #271 merged or coordinated: it creates `docs/security/installer-trust.md`, includes installer scripts in checksums, and signs the manifest with cosign. This plan extends that page with Authenticode and does not duplicate the base content.
 4. Repository secret `SIGNPATH_API_TOKEN`; never echo it.
 5. A human owner for the SignPath application, approval, and first signed release.
@@ -72,6 +83,8 @@ required_gates:
 
 **Objective:** The project is accepted into SignPath Foundation and the code signing policy, roles, artifact configuration, and publisher identity are defined.
 
+**Status (2026-11-02):** Repo-side deliverables are merged to `develop` in `3192133` (PR #282). The SignPath Foundation application was submitted on 2026-11-02 and is awaiting approval. This task is not complete until SignPath accepts the project and the SignPath-side project, signing policy, and artifact configuration exist.
+
 **Files:**
 - Create: `CODE_SIGNING_POLICY.md`
 - Create: `.signpath/artifact-configuration.xml`
@@ -88,7 +101,7 @@ required_gates:
 
 **Step 2: Add or update validation**
 
-- Human: submit the application with repository URL, download page (GitHub Releases/README), description, and policy link; record the application URL/date and outcome.
+- Human: application submitted 2026-11-02; record the application URL/date and the approval outcome when available.
 - Agent: grep the policy for the required phrase, roles, and privacy statement; validate the XML with `xmllint` if available (record a skip otherwise).
 
 **Step 3: Write minimal implementation**
@@ -103,9 +116,11 @@ required_gates:
 **Step 4: Run test to verify pass**
 
 - Agent: `grep` checks; `xmllint --noout .signpath/artifact-configuration.xml` if installed.
-- Human: SignPath approval received; record the approval date and signing policy slug.
+- Human: SignPath approval received; record the approval date and signing policy slug. Pending as of 2026-11-02.
 
 **Step 5: Commit**
+
+**Actual (2026-11-02):** delivered via #281 / PR #282 and squash-merged to `develop` as `3192133` with `docs(signing): add SignPath Foundation policy and artifact config (Issue #281)`. The original command below is historical:
 
 `git add CODE_SIGNING_POLICY.md .signpath/artifact-configuration.xml README.md`
 `git commit -m "docs(signing): add SignPath Foundation policy and artifact config (Issue #240)"`
