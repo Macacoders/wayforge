@@ -9,9 +9,9 @@ required_gates:
 
 # Issue #261: Remove `textVerbosity` from the `opencode-go` GLM-5.3-Flash model
 
-**Goal:** The `code` subagent starts successfully under both balanced opencode-go profiles because the generated `opencode-go` provider config no longer sends the unsupported `verbosity` field to `glm-5.3-flash`, and a regression test prevents it from being reintroduced.
+**Goal:** The generated `opencode-go` provider config no longer sends the unsupported `verbosity` field to `glm-5.3-flash`, so the `code` subagent can start under both balanced opencode-go profiles pending human confirmation, and a regression test prevents the option from being reintroduced.
 
-**Architecture:** Provider model blocks remain the single source of truth for model options (ADR-0013). The only change is removing `textVerbosity` from the `glm-5.3-flash` entry in `base/config/providers/opencode-go-provider-block.jsonc`; `reasoningEffort` stays, and `textVerbosity` stays on the models whose endpoints accept it. A Vitest case parses the generated provider fragment and pins the exact options for GLM plus the retained options for DeepSeek and MiMo. No installer, agent-allocation, or OpenCode-mapping code changes.
+**Architecture:** Provider model blocks remain the single source of truth for model options (ADR-0013). The only change is removing `textVerbosity` from the `glm-5.3-flash` entry in `base/config/providers/opencode-go-provider-block.jsonc`; `reasoningEffort` stays, and `textVerbosity` stays on the models whose endpoints accept it. A Vitest case parses the generated provider fragment and pins the exact options for GLM plus the retained options for DeepSeek, MiMo and Muse. No installer, agent-allocation, or OpenCode-mapping code changes.
 
 **Tech Stack:** JSONC config fragments, TypeScript, Vitest 4 (root `vitest.config.ts`), `cli/src/lib/config-gen.ts` (`buildProviderBlockJson`), `cli/tests/unit/config-gen.test.ts`.
 
@@ -145,6 +145,7 @@ Expected dry-run output is read-only; the definitive structural check is the uni
 | Full repository gate | agent | `make check` (or `npx vitest run` + `cd cli && npx tsc --noEmit && npx eslint src/ && npx prettier --check src/`) | All checks pass |
 | Existing install refresh | human | In a repo installed with the balanced opencode-go profile: `npx tsx cli/src/index.ts install --repo <repo> --providers opencode-go --force`; inspect `opencode.jsonc` for the `glm-5.3-flash` entry | The entry contains `reasoningEffort` and no `textVerbosity`; the rest of the managed config is unchanged |
 | Real `code` subagent handoff (OpenCode 1.19.2) | human | In that refreshed repo, open OpenCode and invoke the `code` subagent (for example, a delivery `/implement-task` on a trivial approved plan) | The subagent starts; no `Upstream request failed: [invalid_request_error] Extra inputs are not permitted, field: 'verbosity'` |
+| Kept `reasoningEffort` is accepted | human | Same handoff as above, with the request/response visible in the endpoint log | No error naming `reasoning_effort`. The model catalogue advertises `low\|high\|max` for `glm-5.3-flash`, so the retained `"medium"` is unproven; if it is rejected, this fix is incomplete and the value must move to an advertised effort |
 | Optional endpoint spot-check | human | Compare the `code` agent start against the `architect` agent (MiMo) in the same install | Both start; only GLM was defect-specific |
 
 Agent validations are bounded and non-interactive. The human rows require a real OpenCode session and an installed provider profile; agents must not attempt them.

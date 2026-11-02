@@ -326,6 +326,9 @@ describe("buildProviderBlockJson", () => {
     expect(opencodeGo.models["mimo-v2.6-flash"].options.textVerbosity).toBe(
       "low",
     );
+    expect(
+      opencodeGo.models["muse-spark-1.3-contributor"].options.textVerbosity,
+    ).toBe("low");
   });
 });
 
