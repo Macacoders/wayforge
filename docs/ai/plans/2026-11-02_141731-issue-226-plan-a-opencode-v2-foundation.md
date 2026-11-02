@@ -2,11 +2,11 @@
 status: planned
 created: 2026-11-02
 updated: 2026-11-02
-task: 0/5
+task: 1/5
 sequence: A
 issue: 278
 parent_issue: 226
-blocks: 2026-10-22_171638-issue-226-opencode-v2-runtime.md
+blocks: feature/issue-279-opencode-v2-migration (commit fd3a586, unmerged plan doc)
 required_gates:
   architect_review: true
   memory_update: true
@@ -24,7 +24,7 @@ required_gates:
 
 **Scope classification:** `multi-task`
 
-**Task budget rationale:** five slices because the descriptor, the version gate, the install wiring, the offline schema harness, and the stale-config rule are independently reviewable and independently testable. Plan A is deliberately emission-neutral: config generation, permissions, plugin entrypoints, and install/update descriptor threading stay unchanged so every intermediate commit is shippable. Plan B (deferred) owns the migration itself.
+**Task budget rationale:** five slices because the descriptor, the version gate, the install wiring, the offline schema harness, and the stale-config rule are independently reviewable and independently testable. Plan A is deliberately emission-neutral: config generation output, permissions, plugin entrypoints, and install/update descriptor threading stay unchanged so every intermediate commit is shippable. Plan B (deferred) owns the migration itself.
 
 ## Plan A / Plan B boundary
 
@@ -33,7 +33,7 @@ required_gates:
 | Runtime descriptor | Add `RuntimeShape`, `RUNTIME_SHAPES`, `schemaUrlFor`, `pluginEntriesFor` | Consume it in config generation and install/update |
 | OpenCode version gate | Add `runtime-version.ts` and wire the gate into `doInstall` | No further gate work |
 | Schema validation | Vendor the V2 schema and add an offline Ajv harness | Validate every generated V2 config sample with it |
-| Config generation | **Unchanged** (both runtimes keep the current shape) | Native V2 keys + Kilo V1 snapshot |
+| Config generation | **Unchanged output** (both runtimes keep the current shape); Task 1 swaps the literal schema-URL ternary for `schemaUrlFor` with byte-identical output | Native V2 keys + Kilo V1 snapshot |
 | Agent permissions | **Unchanged** | V2 rule list + remove `temperature` |
 | Plugin entrypoints | Descriptor lists the intended entries only | Add V2 entrypoints, `exports`, and plugin-entry tests |
 | Stale detection | Add `isRuntimeConfigStale` + unit tests, **not wired** | Wire it through install/update after V2 emission lands |
@@ -48,11 +48,11 @@ required_gates:
 - `RUNTIME_SHAPES.kilocode` keeps the V1 contract: `kilo.jsonc`, `https://app.kilo.ai/config.json`, singular keys (`agent`, `provider`, `plugin`, `permission`), file-based plugin entries, and `minimumOpenCodeMajor: undefined`.
 - The preflight is a no-op for `--runtime kilocode`: it never runs `opencode --version` and never fails because of `WAYFORGE_OPENCODE_VERSION`.
 - Plan A changes no Kilo output. The descriptor addition is data and tests only; config generation, permissions, and plugin files are untouched.
-- Kilo 7.8.x remains the supported target. The future Kilo V2 migration is tracked by issue #277 and in `docs/ai/plans/2026-11-02_142844-kilo-code-v2-migration.md`; it is blocked until Kilo ships V2.
+- Kilo 7.8.x remains the supported target. The future Kilo V2 migration is tracked by issue #277; its plan document lives on branch `feature/issue-277-kilo-code-v2-migration` (commit `3f0fe26`, pushed to origin but not merged into `develop`). It is blocked until Kilo ships V2.
 
 ## Verified context (2026-11-02)
 
-This is the subset Plan A needs. The full upstream and PR analysis is preserved in the deferred Plan B document.
+This is the subset Plan A needs. The full upstream and PR analysis lives in the deferred Plan B document on branch `feature/issue-279-opencode-v2-migration` (commit `fd3a586`, pushed to origin but not merged into `develop`); it is not present at Plan A's HEAD, so do not treat it as a local file reference until that branch merges.
 
 ### Upstream
 
@@ -95,10 +95,10 @@ This is the subset Plan A needs. The full upstream and PR analysis is preserved 
 
 ## Out of scope for Plan A
 
-- Changing generated config keys, plugin entries, permission rendering, or agent frontmatter. Those are Plan B.
+- Changing generated config keys, plugin entries, permission rendering, or agent frontmatter. Those are Plan B. The Task 1 `schemaUrlFor` swap is a source-level deduplication only; emitted config bytes must stay identical.
 - Wiring `isRuntimeConfigStale` into `install.ts` / update. See Task 5 for why.
 - Adding V2 plugin entrypoints or package `exports`. Plan B.
-- ADR-0049, architecture, compatibility matrix, README, changelog, and logs. Plan B.
+- ADR-0049, architecture, compatibility matrix, README, and changelog. Plan B. The only Plan A memory write is the closure log entry in completion criterion 8.
 - Migrating consuming repositories' committed configs in place.
 - Supporting OpenCode 1.x under `--runtime opencode`.
 - Reopening the `.kilo/**` routing work or the legacy release installers.
@@ -111,8 +111,9 @@ This is the subset Plan A needs. The full upstream and PR analysis is preserved 
 
 **Files:**
 - Modify: `cli/src/lib/layout.ts`
+- Modify: `cli/src/lib/config-gen.ts:194-197` (schema URL ternary only)
 - Create: `cli/tests/unit/layout-shapes.test.ts`
-- Validate: `npx vitest run cli/tests/unit/layout-shapes.test.ts`
+- Validate: `npx vitest run cli/tests/unit/layout-shapes.test.ts cli/tests/unit/config-gen.test.ts`
 
 **Step 1: Establish expected behaviour**
 
@@ -139,7 +140,7 @@ Invariants:
 - Every entry uses POSIX separators and the `.agents` root; none contains `.opencode/`.
 - `PLUGIN_ENTRY` still exists for `config-gen.ts` and equals the ponytail V1 file entry (`./.agents/plugins/ponytail/ponytail.mjs`), which remains present in `pluginEntriesFor('kilocode')` even if #274 adds a fourth plugin.
 - `RUNTIME_POINTER_DIRS` is unchanged and remains the pointer source of truth.
-- Plan A does **not** change `generateOpenCodeJsonc` output. The descriptor is data for Plan B.
+- Plan A does **not** change `generateOpenCodeJsonc` output. After Task 1, `generateOpenCodeJsonc` reads the schema URL from `schemaUrlFor(opts.runtime)` instead of a literal ternary; the emitted bytes are identical for both runtimes. Everything else in config generation remains data for Plan B.
 
 **Step 2: Add or update validation**
 
@@ -167,17 +168,18 @@ In `cli/src/lib/layout.ts`:
 - Replace the private `CONFIG_FILES` table with `RUNTIME_SHAPES`; make `RUNTIMES = Object.keys(RUNTIME_SHAPES) as Runtime[]`.
 - Add `schemaUrlFor(runtime)` and `pluginEntriesFor(runtime)`.
 - Keep `PLUGIN_ENTRY` as the ponytail V1 file entry. Derive it from the kilocode descriptor by lookup (not by array index) or keep the literal and pin it with a test, so there is one source of truth and #274 can append without reordering.
-- Do not modify `config-gen.ts`, `install.ts`, `permissions.ts`, or any plugin package in this task.
+- In `cli/src/lib/config-gen.ts`, replace the literal runtime ternary at lines 194-197 with `schemaUrlFor(opts.runtime)`. Make no other change; output must be byte-identical for both runtimes.
+- Do not modify `install.ts`, `permissions.ts`, or any plugin package in this task.
 
 **Step 4: Run test to verify pass**
 
-Run: `npx vitest run cli/tests/unit/layout-shapes.test.ts`
+Run: `npx vitest run cli/tests/unit/layout-shapes.test.ts cli/tests/unit/config-gen.test.ts`
 Run: `make check-node`
-Expected: descriptor tests pass; `cli/src` typecheck, ESLint, and Prettier are clean; existing tests still compile.
+Expected: descriptor tests pass; existing config-generation tests stay green with byte-identical output; `cli/src` typecheck, ESLint, and Prettier are clean.
 
 **Step 5: Commit**
 
-`git add cli/src/lib/layout.ts cli/tests/unit/layout-shapes.test.ts`
+`git add cli/src/lib/layout.ts cli/src/lib/config-gen.ts cli/tests/unit/layout-shapes.test.ts`
 `git commit -m "feat(cli): declare runtime shape descriptors"`
 
 ---
@@ -208,7 +210,7 @@ Expected: descriptor tests pass; `cli/src` typecheck, ESLint, and Prettier are c
 - A throwing runner or output with no parseable major returns `{ version: <raw>, source, warning }` and the warning says the version could not be determined and OpenCode 2.x is assumed.
 - A parseable version returns `{ version, source }` with no warning.
 - `source` is `'env'` when the override supplied the value, `'binary'` when the runner was attempted (even if it threw or returned unparsable output), and `'assumed'` only when no detection ran.
-- The default runner uses `execFileSync`. On Windows, pass `{ shell: true }` so the npm `opencode.cmd` shim resolves; keep the command and args fixed.
+- The default runner is `execFileSync('opencode', ['--version'], { shell: true })` on **every** platform. The command and args are fixed literals, so no user input reaches the shell, and there is no `process.platform` branch. This preserves ADR-0031 Decision 5 (no `win32` hardcoding; platform variance via runtime detection) while still resolving the npm `opencode.cmd` shim on Windows through one uniform code path. Construct the default runner inside `detectOpenCodeVersion` so tests can mock `child_process`.
 
 `assertRuntimeSupported(runtime, opts?)`:
 
@@ -229,7 +231,7 @@ The minimum major is read from `RUNTIME_SHAPES[runtime].minimumOpenCodeMajor`. I
 
 **Step 2: Add or update validation**
 
-Create `cli/tests/unit/runtime-version.test.ts` and cover every row above. Inject both `env` and `runner`; never spawn a real `opencode` binary and never depend on the host's installed version. Assert exact failure-text fragments and the warning fragments. Add a case where the runner is a spy and assert it is not called for `kilocode`. Validation owner: `agent`.
+Create `cli/tests/unit/runtime-version.test.ts` and cover every row above. Inject both `env` and `runner`; never spawn a real `opencode` binary and never depend on the host's installed version. Assert exact failure-text fragments and the warning fragments. Add a case where the runner is a spy and assert it is not called for `kilocode`. Add one `vi.mock('child_process')` case: with no injected runner and no env override, `detectOpenCodeVersion()` calls `execFileSync('opencode', ['--version'], { shell: true })`; construct the default runner inside `detectOpenCodeVersion` (not at module scope) so the mock applies. Validation owner: `agent`.
 
 **Step 3: Write minimal implementation**
 
@@ -297,6 +299,7 @@ Expected: all parser/detector/assertion cases pass; `cli/src` typecheck, ESLint,
 - A warning is logged and the install continues.
 - A supported version proceeds with no extra output.
 - `--runtime kilocode` never calls detection and never fails because of the OpenCode version.
+- The gate also runs for interactive installs because `cli/src/commands/interactive.ts:247` delegates to `doInstall`. No separate call site is added in this task.
 - On failure, the target repo receives no `.wayforge-managed`, no `.agents/**`, no pointers, and no generated config. `resolveSourceDir` and `cloneRef` may run before the gate, but they do not mutate the target repo.
 - CLI help says `opencode` means OpenCode 2.x and `kilocode` means Kilo Code 1.x-compatible.
 
@@ -311,7 +314,7 @@ Create `cli/tests/integration/install-preflight.test.ts` using `cli/tests/helper
 - `WAYFORGE_OPENCODE_VERSION=1.19.5` + `runtime: 'kilocode'` -> install succeeds and writes `kilo.jsonc`; no OpenCode failure log.
 - Spawn `process.execPath` with `path.join(sourceDir, 'node_modules', 'tsx', 'dist', 'cli.mjs')`, `cli/src/index.ts`, `install`, `--help` and assert exit 0 plus the new runtime description fragments.
 
-Use `mockExit` from the helper so `process.exit` throws instead of terminating vitest. Validation owner: `agent`.
+Use `mockExit` from the helper so `process.exit` throws instead of terminating vitest. No separate interactive test is required: the `doInstall` cases above exercise the shared path. Keep `interactive.ts` out of this task's Files and commit. Validation owner: `agent`.
 
 **Step 3: Write minimal implementation**
 
@@ -438,6 +441,7 @@ Extend `cli/tests/unit/config-gen.test.ts`:
 - Managed Kilo V1-shaped config with `"skills"` and no `.opencode/` -> `false`.
 - Managed Kilo config with `.opencode/` or without `"skills"` -> `true`.
 - Existing `isLayoutStaleConfig` tests/behavior remain unchanged.
+- Keep the expected key names literal in the tests (`agents`, `providers`, `plugins`, `permissions` and `agent`, `provider`, `plugin`, `permission`) so the tests pin the V2/V1 contract independently of the descriptor; do not derive test expectations from `RUNTIME_SHAPES`.
 
 Validation owner: `agent`.
 
@@ -445,12 +449,12 @@ Validation owner: `agent`.
 
 In `cli/src/lib/config-gen.ts`:
 
-- Add `V2_REQUIRED_KEYS` and `V1_SINGULAR_KEYS` as local constants.
+- Derive the key sets from `RUNTIME_SHAPES` inside `config-gen.ts`: the required native keys are `Object.values(RUNTIME_SHAPES.opencode.keys)` and the V1 singular keys are `Object.values(RUNTIME_SHAPES.kilocode.keys)`. Do not add hardcoded key literals. Add a comment that the kilocode values are the V1 singular set for as long as Kilo stays V1, and that this derivation must be revisited if Kilo ships V2 (issue #277).
 - Add a small exact-key helper.
 - Add `export function isRuntimeConfigStale(runtime: Runtime, filePath: string): boolean`.
 - Keep `isLayoutStaleConfig` exported and unchanged so existing tests and install behavior stay green.
 - Add a short comment above `isRuntimeConfigStale` noting it is wired in Plan B after V2 config generation lands.
-- Do not change `generateOpenCodeJsonc`, `syncGeneratedOpenCodeJsonc`, or any `install.ts` call site.
+- Do not make any further change to `generateOpenCodeJsonc` (Task 1 already swapped its schema-URL source), `syncGeneratedOpenCodeJsonc`, or any `install.ts` call site.
 
 **Step 4: Run test to verify pass**
 
@@ -474,11 +478,13 @@ Plan A is complete when all five tasks are merged and:
 5. `isRuntimeConfigStale` is implemented and unit-tested but deliberately unwired.
 6. `make check` is green.
 7. No generated artifact changed shape in Plan A. Existing install-layout and config-gen tests remain green.
+8. Memory gate (`memory_update: true`): at Plan A closure, set this plan's frontmatter to `status: completed` and `task: 5/5`, refresh `updated`, and append one entry to `docs/ai/logs/2026-11.md` (create the file if absent) summarizing the five tasks and any deviations. Do **not** write ADR-0049, `architecture.md`, the compatibility matrix, README, or CHANGELOG in Plan A — those remain Plan B and are recorded there.
 
 ## Handoff to Plan B
 
 Before re-planning Plan B, re-verify:
 
+- Merge or rebase `feature/issue-279-opencode-v2-migration` (commit `fd3a586`) first; the Plan B plan document is not on `develop`, so read it from that branch and reconcile it with Plan A as landed.
 - The current OpenCode and `@opencode/plugin` versions and re-fetch the schema fixture if upstream drifted.
 - Whether PR #274 merged; if so, update both plugin-entry lists and add its V2 entrypoint to Plan B scope.
 - Whether PR #255 merged or rebased; if so, reconcile the agent set, permission fixtures, and plan format.
@@ -487,7 +493,7 @@ Before re-planning Plan B, re-verify:
 
 ## Risks and assumptions to verify during implementation
 
-- **Fail-open version detection.** Missing or unparsable `opencode --version` output warns and assumes V2. A broken Windows shim could therefore skip the gate. The implementation must pass `{ shell: true }` on Windows so the npm `.cmd` shim resolves, and CI must set `WAYFORGE_OPENCODE_VERSION` explicitly.
+- **Fail-open version detection.** Missing or unparsable `opencode --version` output warns and assumes V2. A broken Windows shim could therefore skip the gate. The default runner passes `{ shell: true }` unconditionally (fixed literals, no platform branch) so the npm `.cmd` shim resolves; CI must set `WAYFORGE_OPENCODE_VERSION` explicitly.
 - **Strict version parsing.** `parseRuntimeMajor` only accepts a leading `v?<major>` token, matching `parseNodeMajor`. Output such as `opencode 1.19.5` is treated as unparsable and assumed V2. If the real CLI prints a prefixed string, revisit the parser before Plan B ships.
 - **The local workstation runs OpenCode 1.19.5.** Real `--runtime opencode` installs will fail until `@opencode/cli` 2.x is installed or `WAYFORGE_OPENCODE_VERSION=2.x` is set. Tests must inject the env/runner and never depend on the host binary.
 - **Schema fixture drift.** The fixture is a point-in-time copy with one documented external-ref substitution. CI validates against the fixture, so a stale fixture can pass while upstream changes. The README refresh procedure mitigates this; Plan B must record the fixture date in the ADR.
