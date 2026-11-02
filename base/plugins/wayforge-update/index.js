@@ -3,7 +3,7 @@ import { createNotifier } from "./core.js";
 /**
  * OpenCode entrypoint: named `server` export receiving `{ client, ... }`.
  */
-export async function server(input) {
+export function server(input) {
   const client = input?.client ?? null;
   const notifier = createNotifier({ client, env: process.env });
   return {

@@ -26,7 +26,7 @@ export function parseSemver(value) {
   };
 }
 
-export function compareVersions(a, b) {
+function compareVersions(a, b) {
   const va = parseSemver(a);
   const vb = parseSemver(b);
   if (!va || !vb) {
@@ -81,7 +81,7 @@ export function resolveInstallPrefix(env, platform = process.platform) {
  * CLI), otherwise `<prefix>/share/wayforge/VERSION`. Missing or unparseable
  * returns null so callers can no-op.
  */
-export async function resolveInstalledVersion(env, prefix, readFile) {
+async function resolveInstalledVersion(env, prefix, readFile) {
   const fromEnv = env?.WAYFORGE_VERSION;
   if (fromEnv && fromEnv.trim() !== "") {
     return fromEnv.trim();
@@ -162,7 +162,7 @@ function resolveReleaseRoot(env) {
  * Mirrors `cli/src/lib/release.ts`: manual redirects keep the release page
  * body off the wire; the tag lives in the Location header.
  */
-export async function resolveLatestVersion({ releaseRoot, current, fetchImpl }) {
+async function resolveLatestVersion({ releaseRoot, current, fetchImpl }) {
   const root = releaseRoot ?? DEFAULT_RELEASE_ROOT;
   const doFetch = fetchImpl ?? globalThis.fetch;
   const requestUrl = `${root}/latest`;
@@ -227,13 +227,13 @@ export function createNotifier(options = {}) {
   async function run() {
     // Runtime gate: disabled by default, no cache read / network / toast.
     if (!isUpdateCheckEnabled(env)) {
-      return { checked: false, updateAvailable: false, notified: false, reason: "disabled" };
+      return { checked: false, updateAvailable: false, notified: false };
     }
 
     const prefix = installPrefix ?? resolveInstallPrefix(env);
     const current = await resolveInstalledVersion(env, prefix, readFile);
     if (!current) {
-      return { checked: false, updateAvailable: false, notified: false, reason: "no-installed-version" };
+      return { checked: false, updateAvailable: false, notified: false };
     }
 
     const resolvedCachePath = cachePath ?? resolveCachePath(env);
@@ -270,17 +270,17 @@ export function createNotifier(options = {}) {
       memoryCache = cache;
       await writeCache(resolvedCachePath, cache, writeFile);
       if (fetchFailed) {
-        return { checked: true, updateAvailable: false, notified: false, reason: "fetch-failed" };
+        return { checked: true, updateAvailable: false, notified: false };
       }
     }
 
     const updateAvailable = latestVersion ? isNewer(current, latestVersion) : false;
     if (!updateAvailable) {
-      return { checked: true, updateAvailable: false, notified: false, current, latestVersion };
+      return { checked: true, updateAvailable: false, notified: false };
     }
 
     if (cache?.notifiedVersion === latestVersion) {
-      return { checked: true, updateAvailable: true, notified: false, current, latestVersion };
+      return { checked: true, updateAvailable: true, notified: false };
     }
 
     await showToast(client, buildToastMessage(latestVersion, current));
@@ -296,13 +296,13 @@ export function createNotifier(options = {}) {
     memoryCache = cache;
     await writeCache(resolvedCachePath, cache, writeFile);
 
-    return { checked: true, updateAvailable: true, notified: true, current, latestVersion };
+    return { checked: true, updateAvailable: true, notified: true };
   }
 
   async function checkAndNotify() {
     if (inFlight) return inFlight;
     inFlight = run()
-      .catch(() => ({ checked: false, updateAvailable: false, notified: false, reason: "error" }))
+      .catch(() => ({ checked: false, updateAvailable: false, notified: false }))
       .finally(() => {
         inFlight = null;
       });

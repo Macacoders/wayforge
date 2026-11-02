@@ -1,18 +1,7 @@
-import { createNotifier } from "./core.js";
+import { server } from "./index.js";
 
 /**
- * Kilo Code entrypoint: default `{ id, server }` descriptor receiving a
- * context with `client`.
+ * Kilo Code entrypoint: default `{ id, server }` descriptor reusing the
+ * OpenCode-style `server` export from `index.js`.
  */
-function server(ctx) {
-  const client = ctx?.client ?? null;
-  const notifier = createNotifier({ client, env: process.env });
-  return {
-    event: async ({ event }) => {
-      if (!event || event.type !== "session.created") return;
-      await notifier.checkAndNotify();
-    },
-  };
-}
-
 export default { id: "wayforge-update", server };

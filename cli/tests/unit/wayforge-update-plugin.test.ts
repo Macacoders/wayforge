@@ -376,7 +376,7 @@ describe('createNotifier', () => {
       writeFile,
     })
     const result = await notifier.checkAndNotify()
-    expect(result).toMatchObject({ checked: false, reason: 'no-installed-version' })
+    expect(result).toMatchObject({ checked: false, notified: false })
     expect(fetchMock).not.toHaveBeenCalled()
     expect(client.tui.showToast).not.toHaveBeenCalled()
   })
@@ -497,7 +497,7 @@ describe('createNotifier', () => {
       writeFile,
     })
     const result = await notifier.checkAndNotify()
-    expect(result).toMatchObject({ current: '1.0.2', latestVersion: 'v1.0.3' })
+    expect(result).toMatchObject({ notified: true })
     expect(client.tui.showToast).toHaveBeenCalledTimes(1)
   })
 })
@@ -604,59 +604,45 @@ describe('entrypoints', () => {
     return cachePath
   }
 
-  it('OpenCode entrypoint works with real fs: reads VERSION, creates cache dir, persists notifiedVersion', async () => {
-    const cachePath = await realFsEnv()
-    const fetchMock = redirectFetch('v1.0.3')
-    vi.stubGlobal('fetch', fetchMock)
-    const client = makeClient()
+  const entrypoints = [
+    { name: 'OpenCode', load: opencodeServer },
+    { name: 'Kilo', load: (ctx: unknown) => kiloPlugin.server(ctx) },
+  ]
 
-    const hooks = await opencodeServer({ client } as never)
-    await hooks.event(sessionCreated())
-    expect(client.tui.showToast).toHaveBeenCalledTimes(1)
-    expect(client.tui.showToast).toHaveBeenCalledWith({
-      body: {
-        message:
-          'wayforge v1.0.3 is available (installed v1.0.2). Run `wfg upgrade` to update.',
-        variant: 'info',
-      },
-    })
-    expect(existsSync(cachePath)).toBe(true)
-    const cache = JSON.parse(await fsReadFile(cachePath, 'utf8'))
-    expect(cache.notifiedVersion).toBe('v1.0.3')
+  it.each(entrypoints)(
+    '$name entrypoint works with real fs: reads VERSION, creates cache dir, persists notifiedVersion',
+    async ({ load }) => {
+      const cachePath = await realFsEnv()
+      const fetchMock = redirectFetch('v1.0.3')
+      vi.stubGlobal('fetch', fetchMock)
+      const client = makeClient()
 
-    // Simulate a new process: fresh notifier, same env, real fs.
-    const fetchMock2 = redirectFetch('v1.0.3')
-    vi.stubGlobal('fetch', fetchMock2)
-    const client2 = makeClient()
-    const hooks2 = await opencodeServer({ client: client2 } as never)
-    await hooks2.event(sessionCreated())
-    expect(client2.tui.showToast).not.toHaveBeenCalled()
-    expect(fetchMock2).not.toHaveBeenCalled()
-  })
+      const hooks = await load({ client } as never)
+      await hooks.event(sessionCreated())
+      expect(client.tui.showToast).toHaveBeenCalledTimes(1)
+      expect(client.tui.showToast).toHaveBeenCalledWith({
+        body: {
+          message:
+            'wayforge v1.0.3 is available (installed v1.0.2). Run `wfg upgrade` to update.',
+          variant: 'info',
+        },
+      })
+      expect(existsSync(cachePath)).toBe(true)
+      const cache = JSON.parse(await fsReadFile(cachePath, 'utf8'))
+      expect(cache.notifiedVersion).toBe('v1.0.3')
 
-  it('Kilo entrypoint works with real fs: reads VERSION, creates cache dir, persists notifiedVersion', async () => {
-    const cachePath = await realFsEnv()
-    const fetchMock = redirectFetch('v1.0.3')
-    vi.stubGlobal('fetch', fetchMock)
-    const client = makeClient()
+      // Simulate a new process: fresh notifier, same env, real fs.
+      const fetchMock2 = redirectFetch('v1.0.3')
+      vi.stubGlobal('fetch', fetchMock2)
+      const client2 = makeClient()
+      const hooks2 = await load({ client: client2 } as never)
+      await hooks2.event(sessionCreated())
+      expect(client2.tui.showToast).not.toHaveBeenCalled()
+      expect(fetchMock2).not.toHaveBeenCalled()
+    },
+  )
 
-    const hooks = kiloPlugin.server({ client } as never)
-    await hooks.event(sessionCreated())
-    expect(client.tui.showToast).toHaveBeenCalledTimes(1)
-    expect(existsSync(cachePath)).toBe(true)
-    expect(JSON.parse(await fsReadFile(cachePath, 'utf8')).notifiedVersion).toBe('v1.0.3')
-
-    // Simulate a new process: fresh notifier, same env, real fs.
-    const fetchMock2 = redirectFetch('v1.0.3')
-    vi.stubGlobal('fetch', fetchMock2)
-    const client2 = makeClient()
-    const hooks2 = kiloPlugin.server({ client: client2 } as never)
-    await hooks2.event(sessionCreated())
-    expect(client2.tui.showToast).not.toHaveBeenCalled()
-    expect(fetchMock2).not.toHaveBeenCalled()
-  })
-
-  it('package.json maps opencode -> index.js and kilocode -> kilo.js', async () => {
+  it('package.json marks the plugin as ESM with index.js as main', async () => {
     const pkg = JSON.parse(
       await fsReadFile(
         path.resolve(import.meta.dirname, '../../../base/plugins/wayforge-update/package.json'),
@@ -665,12 +651,6 @@ describe('entrypoints', () => {
     )
     expect(pkg.type).toBe('module')
     expect(pkg.main).toBe('index.js')
-    expect(pkg.name).toBe('wayforge-update')
-    expect(typeof pkg.version).toBe('string')
-    expect(pkg.wayforge.entrypoints).toEqual({
-      opencode: 'index.js',
-      kilocode: 'kilo.js',
-    })
   })
 
   it('plugin files contain no runtime SDK imports', async () => {

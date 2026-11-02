@@ -2,11 +2,5 @@
   "name": "wayforge-update",
   "version": "0.1.0",
   "type": "module",
-  "main": "index.js",
-  "wayforge": {
-    "entrypoints": {
-      "opencode": "index.js",
-      "kilocode": "kilo.js"
-    }
-  }
+  "main": "index.js"
 }
