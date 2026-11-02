@@ -26,18 +26,85 @@ export const RUNTIME_POINTER_DIRS: Record<Runtime, string> = {
 	kilocode: '.kilo',
 }
 
-/** Generated runtime config filename. */
-const CONFIG_FILES: Record<Runtime, string> = {
-	opencode: 'opencode.jsonc',
-	kilocode: 'kilo.jsonc',
+/** Top-level config key names a runtime expects in its generated config. */
+export interface RuntimeShapeKeys {
+	agents: string
+	providers: string
+	plugins: string
+	permissions: string
+}
+
+/** Runtime-specific shape of the generated config file. */
+export interface RuntimeShape {
+	/** Generated runtime config filename. */
+	configFile: string
+	/** JSON schema URL referenced by the generated config. */
+	schemaUrl: string
+	/** Top-level key names used by the runtime's config schema. */
+	keys: RuntimeShapeKeys
+	/** Repo-relative plugin entrypoints, POSIX separators. */
+	pluginEntries: readonly string[]
+	/** Minimum OpenCode major version; undefined when not applicable. */
+	minimumOpenCodeMajor?: number
+}
+
+function pluginEntry(name: string, file?: string): string {
+	return file
+		? `./${ARTIFACT_ROOT}/plugins/${name}/${file}`
+		: `./${ARTIFACT_ROOT}/plugins/${name}`
+}
+
+/** Runtime-specific config shape data; the single source of truth. */
+export const RUNTIME_SHAPES: Record<Runtime, RuntimeShape> = {
+	opencode: {
+		configFile: 'opencode.jsonc',
+		schemaUrl: 'https://opencode.ai/config.json',
+		keys: {
+			agents: 'agents',
+			providers: 'providers',
+			plugins: 'plugins',
+			permissions: 'permissions',
+		},
+		pluginEntries: [
+			pluginEntry('ponytail'),
+			pluginEntry('session-tracker'),
+			pluginEntry('token-counter'),
+		],
+		minimumOpenCodeMajor: 2,
+	},
+	kilocode: {
+		configFile: 'kilo.jsonc',
+		schemaUrl: 'https://app.kilo.ai/config.json',
+		keys: {
+			agents: 'agent',
+			providers: 'provider',
+			plugins: 'plugin',
+			permissions: 'permission',
+		},
+		pluginEntries: [
+			pluginEntry('ponytail', 'ponytail.mjs'),
+			pluginEntry('session-tracker', 'index.js'),
+			pluginEntry('token-counter', 'index.js'),
+		],
+	},
 }
 
 /** Every supported runtime. */
-export const RUNTIMES = Object.keys(CONFIG_FILES) as Runtime[]
+export const RUNTIMES = Object.keys(RUNTIME_SHAPES) as Runtime[]
 
 /** Repo-relative generated config path for a runtime. */
 export function configFileFor(runtime: Runtime): string {
-	return CONFIG_FILES[runtime]
+	return RUNTIME_SHAPES[runtime].configFile
+}
+
+/** Schema URL referenced by a runtime's generated config. */
+export function schemaUrlFor(runtime: Runtime): string {
+	return RUNTIME_SHAPES[runtime].schemaUrl
+}
+
+/** Plugin entrypoints for a runtime, as a fresh array. */
+export function pluginEntriesFor(runtime: Runtime): string[] {
+	return [...RUNTIME_SHAPES[runtime].pluginEntries]
 }
 
 /** Categories reached through a runtime directory pointer. */

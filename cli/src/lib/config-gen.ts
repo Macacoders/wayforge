@@ -9,6 +9,7 @@ import {
 	PLUGIN_ENTRY,
 	SKILLS_CONFIG_PATH,
 	configFileFor,
+	schemaUrlFor,
 	sourceDirFor,
 } from './layout.js'
 import { isManagedOpenCodeFile } from './manifest.js'
@@ -191,10 +192,7 @@ export function generateOpenCodeJsonc(opts: GenerateOptions): string {
 		finalSmallModel = opts.smallModelOverride
 	}
 
-	const schemaUrl =
-		opts.runtime === 'opencode'
-			? 'https://opencode.ai/config.json'
-			: 'https://app.kilo.ai/config.json'
+	const schemaUrl = schemaUrlFor(opts.runtime)
 
 	const enabledProvidersJson = buildEnabledProvidersJson(
 		opts.selected,
