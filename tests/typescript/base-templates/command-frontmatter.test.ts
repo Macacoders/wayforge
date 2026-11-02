@@ -13,17 +13,16 @@ const agentIds = fs
     .filter((f) => f.endsWith('.md'))
     .map((f) => path.basename(f, '.md'));
 
-function extractAgentValue(file: string): string | undefined {
-    const content = fs.readFileSync(file, 'utf8');
-    const lines = content.split(/\r?\n/);
+function extractFrontmatter(file: string): string | undefined {
+    const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
     if (lines[0]?.trim() !== '---') return undefined;
     const end = lines.findIndex((line, i) => i > 0 && line.trim() === '---');
     if (end === -1) return undefined;
-    const match = lines
-        .slice(1, end)
-        .join('\n')
-        .match(/^agent:\s*(.*)$/m);
-    return match?.[1];
+    return lines.slice(1, end).join('\n');
+}
+
+function extractAgentValue(frontmatter: string): string | undefined {
+    return frontmatter.match(/^agent:\s*(.*)$/m)?.[1];
 }
 
 describe('base/commands frontmatter agent', () => {
@@ -36,9 +35,15 @@ describe('base/commands frontmatter agent', () => {
             'no commands parsed — check COMMANDS_DIR',
         ).toBeGreaterThan(0);
         for (const name of commands) {
-            const value = extractAgentValue(
+            const frontmatter = extractFrontmatter(
                 path.join(COMMANDS_DIR, name),
             );
+            expect(
+                frontmatter,
+                `${name}: missing or malformed frontmatter fence`,
+            ).toBeDefined();
+            if (frontmatter === undefined) continue;
+            const value = extractAgentValue(frontmatter);
             if (value === undefined) continue;
             const trimmed = value.trim();
             expect(
@@ -57,9 +62,10 @@ describe('base/commands frontmatter agent', () => {
     });
 
     it('pins memory.md to planner', () => {
-        const value = extractAgentValue(
+        const frontmatter = extractFrontmatter(
             path.join(COMMANDS_DIR, 'memory.md'),
         );
-        expect(value?.trim()).toBe('planner');
+        expect(frontmatter).toBeDefined();
+        expect(extractAgentValue(frontmatter ?? '')?.trim()).toBe('planner');
     });
 });
