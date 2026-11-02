@@ -1,10 +1,10 @@
 ---
-status: in-progress
+status: completed
 created: 2026-11-02
 issue: 239
 parent_issue: 48
 supersedes: docs/ai/plans/2026-10-21_113442-issue-239-runtime-update-notifier.md
-task: 1/2
+task: 2/2
 required_gates:
   architect_review: true
   memory_update: true

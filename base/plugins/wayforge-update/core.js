@@ -61,7 +61,7 @@ export function isUpdateCheckEnabled(env) {
 /**
  * Prefix resolution mirrors the CLI: `WAYFORGE_INSTALL_DIR` when set,
  * otherwise `%LOCALAPPDATA%\wayforge` on Windows and `~/.wayforge` elsewhere.
- * `WAYFORGE_HOME` is deliberately ignored (ADR-0049 amendment).
+ * `WAYFORGE_HOME` is deliberately ignored (ADR-0048).
  */
 export function resolveInstallPrefix(env, platform = process.platform) {
   const configured = env?.WAYFORGE_INSTALL_DIR;

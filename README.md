@@ -123,6 +123,30 @@ wfg upgrade --yes # skip the confirmation prompt
 
 Exit codes: `wfg update` exits `0` whether a newer release is available or not, and `1` on a release-lookup or parse error. `wfg upgrade` exits `0` when it updates, finds the install up to date, or the user declines, and `1` for a source checkout, a missing install prefix, a verification failure, or an install failure. Non-interactive `wfg upgrade` without `--yes` auto-declines through `promptYesNo`; automation must pass `--yes`.
 
+### Optional: update notifier
+
+wayforge ships an opt-in update notifier plugin (`base/plugins/wayforge-update/`) that can show a one-time toast in an OpenCode or Kilo Code session when a newer release exists. It is **disabled by default** and default installs are unchanged: the plugin files are installed to `.agents/plugins/wayforge-update/` but nothing runs until you both register the plugin and enable the gate. The notifier only informs — it never downloads, installs, or updates anything; updating stays with `wfg upgrade`.
+
+Until installer plugin selection lands (#273), registration is manual. Add the entrypoint for your runtime to the generated config's `plugin` array:
+
+- OpenCode — `opencode.jsonc`: `"./.agents/plugins/wayforge-update/index.js"`
+- Kilo Code — `kilo.jsonc`: `"./.agents/plugins/wayforge-update/kilo.js"`
+
+Registration alone is not enough. The runtime gate reuses `WAYFORGE_NO_UPDATE_CHECK` with default-off semantics:
+
+| `WAYFORGE_NO_UPDATE_CHECK` | Update check |
+|---|---|
+| unset, empty, `1`, `true`, or any other value | disabled (no cache read, no network call, no toast) |
+| `0` or `false` (case-insensitive) | enabled (when the plugin is registered) |
+
+When enabled, the plugin checks the latest GitHub release at most once per 24 hours and, only inside a runtime session (`session.created`), shows the toast once per version:
+
+```text
+wayforge v1.0.3 is available (installed v1.0.2). Run `wfg upgrade` to update.
+```
+
+The check result is cached in the plugin's own cache file — `%LOCALAPPDATA%\wayforge\update-notifier.json` on Windows, `${XDG_CACHE_HOME:-~/.cache}/wayforge/update-notifier.json` on Unix — which is separate from all CLI state. Network, cache, and toast failures never block the session. Note that `opencode.jsonc` / `kilo.jsonc` are regenerated only by `wfg install --force`, so a normal reinstall keeps your manual entry, but `--force` overwrites it and you must re-apply it.
+
 ## Use
 
 Work flows through five workflows: formalize intent, plan approved intent, track via issues, deliver task by task, and keep durable memory current.
