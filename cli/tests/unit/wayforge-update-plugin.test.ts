@@ -1,0 +1,698 @@
+import { describe, it, expect, afterEach, vi } from 'vitest'
+import { mkdtemp, mkdir, writeFile, readFile as fsReadFile, rm } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import os from 'node:os'
+import path from 'node:path'
+
+import {
+  isUpdateCheckEnabled,
+  resolveInstallPrefix,
+  resolveCachePath,
+  readCache,
+  writeCache,
+  buildToastMessage,
+  createNotifier,
+  parseSemver,
+  isNewer,
+} from '../../../base/plugins/wayforge-update/core.js'
+import { server as opencodeServer } from '../../../base/plugins/wayforge-update/index.js'
+import kiloPlugin from '../../../base/plugins/wayforge-update/kilo.js'
+
+const RELEASE_ROOT = 'http://localhost:1/releases'
+const LOOKUP_URL = `${RELEASE_ROOT}/latest`
+
+async function makeTempDir() {
+  return mkdtemp(path.join(tmpdir(), 'wayforge-update-test-'))
+}
+
+function redirectFetch(tag: string) {
+  return vi.fn(async () => ({
+    ok: false,
+    status: 302,
+    headers: new Headers({ location: `${RELEASE_ROOT}/tag/${tag}` }),
+  })) as unknown as typeof fetch
+}
+
+function failingFetch() {
+  return vi.fn(async () => {
+    throw new Error('network down')
+  }) as unknown as typeof fetch
+}
+
+function makeClient() {
+  return { tui: { showToast: vi.fn(async () => undefined) } }
+}
+
+/** Real fs wrappers as spies so call counts can be asserted. */
+function fsSpies() {
+  return {
+    readFile: vi.fn(async (p: string, enc: string) => fsReadFile(p, enc)),
+    writeFile: vi.fn(async (p: string, data: string, enc: string) => {
+      await writeFile(p, data, enc)
+    }),
+  }
+}
+
+interface NotifierOptions {
+  client?: unknown
+  env?: Record<string, string>
+  cachePath?: string
+  installPrefix?: string
+  fetchImpl?: typeof fetch
+  now?: () => number
+  readFile?: (p: string, enc: string) => Promise<string>
+  writeFile?: (p: string, data: string, enc: string) => Promise<void>
+}
+
+function makeNotifier(options: NotifierOptions) {
+  return createNotifier(options)
+}
+
+async function writeVersionFile(prefix: string, version: string) {
+  const dir = path.join(prefix, 'share', 'wayforge')
+  await mkdir(dir, { recursive: true })
+  await writeFile(path.join(dir, 'VERSION'), `${version}\n`, 'utf8')
+}
+
+async function writeCacheFile(cachePath: string, value: unknown) {
+  await writeFile(cachePath, JSON.stringify(value), 'utf8')
+}
+
+async function readCacheFile(cachePath: string) {
+  return JSON.parse(await fsReadFile(cachePath, 'utf8'))
+}
+
+const ENABLED = { WAYFORGE_NO_UPDATE_CHECK: '0' }
+
+describe('runtime gate (isUpdateCheckEnabled)', () => {
+  const cases: Array<[Record<string, string>, boolean]> = [
+    [{}, false],
+    [{ WAYFORGE_NO_UPDATE_CHECK: '' }, false],
+    [{ WAYFORGE_NO_UPDATE_CHECK: '1' }, false],
+    [{ WAYFORGE_NO_UPDATE_CHECK: 'true' }, false],
+    [{ WAYFORGE_NO_UPDATE_CHECK: 'TRUE' }, false],
+    [{ WAYFORGE_NO_UPDATE_CHECK: 'False' }, true],
+    [{ WAYFORGE_NO_UPDATE_CHECK: 'FALSE' }, true],
+    [{ WAYFORGE_NO_UPDATE_CHECK: '0' }, true],
+    [{ WAYFORGE_NO_UPDATE_CHECK: 'yes' }, false],
+    [{ WAYFORGE_NO_UPDATE_CHECK: 'off' }, false],
+  ]
+
+  for (const [env, expected] of cases) {
+    it(`returns ${expected} for ${JSON.stringify(env)}`, () => {
+      expect(isUpdateCheckEnabled(env)).toBe(expected)
+    })
+  }
+})
+
+describe('resolveInstallPrefix / resolveCachePath', () => {
+  it('prefers WAYFORGE_INSTALL_DIR', () => {
+    expect(
+      resolveInstallPrefix({ WAYFORGE_INSTALL_DIR: '/tmp/wf' }, 'linux'),
+    ).toBe(path.resolve('/tmp/wf'))
+  })
+
+  it('uses LOCALAPPDATA\\wayforge on Windows', () => {
+    expect(
+      resolveInstallPrefix({ LOCALAPPDATA: 'C:\\Users\\t\\AppData\\Local' }, 'win32'),
+    ).toBe(path.join('C:\\Users\\t\\AppData\\Local', 'wayforge'))
+  })
+
+  it('uses ~/.wayforge on non-Windows', () => {
+    const prefix = resolveInstallPrefix({}, 'linux')
+    expect(prefix.endsWith(path.join('.wayforge'))).toBe(true)
+  })
+
+  it('honours WAYFORGE_NOTIFIER_CACHE', () => {
+    expect(
+      resolveCachePath({ WAYFORGE_NOTIFIER_CACHE: '/tmp/cache.json' }, 'linux'),
+    ).toBe(path.resolve('/tmp/cache.json'))
+  })
+
+  it('defaults to the user cache dir per platform', () => {
+    expect(
+      resolveCachePath({ LOCALAPPDATA: 'C:\\Users\\t\\AppData\\Local' }, 'win32'),
+    ).toBe(
+      path.join(
+        'C:\\Users\\t\\AppData\\Local',
+        'wayforge',
+        'update-notifier.json',
+      ),
+    )
+    expect(
+      resolveCachePath({ XDG_CACHE_HOME: '/xdg' }, 'linux'),
+    ).toBe(path.join('/xdg', 'wayforge', 'update-notifier.json'))
+    expect(resolveCachePath({}, 'linux')).toBe(
+      path.join(os.homedir(), '.cache', 'wayforge', 'update-notifier.json'),
+    )
+  })
+})
+
+describe('cache helpers', () => {
+  it('discards corrupt JSON', async () => {
+    const dir = await makeTempDir()
+    const cachePath = path.join(dir, 'cache.json')
+    await writeFile(cachePath, 'not json', 'utf8')
+    expect(await readCache(cachePath, fsReadFile)).toBeNull()
+  })
+
+  it('discards a mismatched schema version', async () => {
+    const dir = await makeTempDir()
+    const cachePath = path.join(dir, 'cache.json')
+    await writeCacheFile(cachePath, {
+      schemaVersion: 2,
+      lastChecked: new Date().toISOString(),
+      latestVersion: null,
+      notifiedVersion: null,
+    })
+    expect(await readCache(cachePath, fsReadFile)).toBeNull()
+  })
+
+  it('round-trips a valid cache', async () => {
+    const dir = await makeTempDir()
+    const cachePath = path.join(dir, 'cache.json')
+    const cache = {
+      schemaVersion: 1,
+      lastChecked: new Date().toISOString(),
+      latestVersion: 'v1.0.3',
+      notifiedVersion: null,
+    }
+    expect(await writeCache(cachePath, cache, writeFile)).toBe(true)
+    expect(await readCache(cachePath, fsReadFile)).toEqual(cache)
+  })
+
+  it('writeCache swallows failures', async () => {
+    const dir = await makeTempDir()
+    const failing = vi.fn(async () => {
+      throw new Error('disk full')
+    })
+    expect(await writeCache(path.join(dir, 'x.json'), {}, failing)).toBe(false)
+  })
+
+  it('writeCache creates a missing parent directory', async () => {
+    const dir = await makeTempDir()
+    const cachePath = path.join(dir, 'nested', 'wayforge', 'update-notifier.json')
+    const cache = {
+      schemaVersion: 1,
+      lastChecked: new Date().toISOString(),
+      latestVersion: null,
+      notifiedVersion: null,
+    }
+    expect(await writeCache(cachePath, cache, writeFile)).toBe(true)
+    expect(existsSync(cachePath)).toBe(true)
+    expect(JSON.parse(await fsReadFile(cachePath, 'utf8'))).toEqual(cache)
+  })
+})
+
+describe('buildToastMessage', () => {
+  it('points at wfg upgrade', () => {
+    expect(buildToastMessage('v1.2.3', '1.0.2')).toBe(
+      'wayforge v1.2.3 is available (installed v1.0.2). Run `wfg upgrade` to update.',
+    )
+  })
+})
+
+describe('createNotifier', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function baseEnv() {
+    return { ...ENABLED, WAYFORGE_RELEASE_ROOT: RELEASE_ROOT }
+  }
+
+  async function enabledFixture(extra: Partial<NotifierOptions> = {}) {
+    const dir = await makeTempDir()
+    const prefix = await makeTempDir()
+    const cachePath = path.join(dir, 'update-notifier.json')
+    await writeVersionFile(prefix, '1.0.2')
+    const spies = fsSpies()
+    const client = makeClient()
+    const notifier = makeNotifier({
+      client,
+      env: baseEnv(),
+      cachePath,
+      installPrefix: prefix,
+      fetchImpl: redirectFetch('v1.0.3'),
+      readFile: spies.readFile,
+      writeFile: spies.writeFile,
+      ...extra,
+    })
+    return { dir, prefix, cachePath, spies, client, notifier }
+  }
+
+  it('does nothing when the gate is disabled (no cache read, no fetch, no toast)', async () => {
+    const { cachePath, spies, client, notifier } = await enabledFixture({
+      env: {},
+      fetchImpl: redirectFetch('v1.0.3'),
+    })
+    const result = await notifier.checkAndNotify()
+    expect(result).toMatchObject({ checked: false, notified: false })
+    expect(spies.readFile).not.toHaveBeenCalled()
+    expect(spies.writeFile).not.toHaveBeenCalled()
+    expect(client.tui.showToast).not.toHaveBeenCalled()
+    expect(cachePath).toBeTruthy()
+  })
+
+  it.each([['0'], ['false'], ['FALSE']])(
+    'runs the check when WAYFORGE_NO_UPDATE_CHECK=%s',
+    async (value) => {
+      const { client, notifier } = await enabledFixture({
+        env: { WAYFORGE_NO_UPDATE_CHECK: value, WAYFORGE_RELEASE_ROOT: RELEASE_ROOT },
+      })
+      const result = await notifier.checkAndNotify()
+      expect(result.checked).toBe(true)
+      expect(client.tui.showToast).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it('shows one toast with the exact message and variant info for a newer version', async () => {
+    const { client, notifier } = await enabledFixture()
+    await notifier.checkAndNotify()
+    expect(client.tui.showToast).toHaveBeenCalledTimes(1)
+    expect(client.tui.showToast).toHaveBeenCalledWith({
+      body: {
+        message:
+          'wayforge v1.0.3 is available (installed v1.0.2). Run `wfg upgrade` to update.',
+        variant: 'info',
+      },
+    })
+  })
+
+  it('shows no toast for equal versions', async () => {
+    const dir = await makeTempDir()
+    const prefix = await makeTempDir()
+    await writeVersionFile(prefix, '1.0.3')
+    const client = makeClient()
+    const notifier = makeNotifier({
+      client,
+      env: baseEnv(),
+      cachePath: path.join(dir, 'c.json'),
+      installPrefix: prefix,
+      fetchImpl: redirectFetch('v1.0.3'),
+      readFile: fsReadFile,
+      writeFile,
+    })
+    const result = await notifier.checkAndNotify()
+    expect(result).toMatchObject({ checked: true, updateAvailable: false, notified: false })
+    expect(client.tui.showToast).not.toHaveBeenCalled()
+  })
+
+  it('does not repeat the toast once notifiedVersion is persisted', async () => {
+    const { client, cachePath, notifier } = await enabledFixture()
+    await notifier.checkAndNotify()
+    const first = await readCacheFile(cachePath)
+    expect(first.notifiedVersion).toBe('v1.0.3')
+
+    // New notifier instance (fresh process) reading the persisted cache.
+    const client2 = makeClient()
+    const notifier2 = makeNotifier({
+      client: client2,
+      env: baseEnv(),
+      cachePath,
+      fetchImpl: redirectFetch('v1.0.3'),
+      readFile: fsReadFile,
+      writeFile,
+    })
+    await notifier2.checkAndNotify()
+    expect(client2.tui.showToast).not.toHaveBeenCalled()
+  })
+
+  it('fresh cache performs no network request; stale cache fetches once', async () => {
+    const { cachePath, notifier, client } = await enabledFixture()
+    await notifier.checkAndNotify()
+    expect(client.tui.showToast).toHaveBeenCalledTimes(1)
+
+    // Fresh cache: no second fetch, no second toast.
+    const fetchMock = redirectFetch('v1.0.3')
+    const client2 = makeClient()
+    const notifier2 = makeNotifier({
+      client: client2,
+      env: baseEnv(),
+      cachePath,
+      fetchImpl: fetchMock,
+      readFile: fsReadFile,
+      writeFile,
+    })
+    await notifier2.checkAndNotify()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(client2.tui.showToast).not.toHaveBeenCalled()
+
+    // Stale cache: fetch called once.
+    const stale = await readCacheFile(cachePath)
+    stale.lastChecked = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
+    stale.notifiedVersion = null
+    await writeCacheFile(cachePath, stale)
+    const fetchMock3 = redirectFetch('v1.0.3')
+    const notifier3 = makeNotifier({
+      client: makeClient(),
+      env: baseEnv(),
+      cachePath,
+      fetchImpl: fetchMock3,
+      readFile: fsReadFile,
+      writeFile,
+    })
+    await notifier3.checkAndNotify()
+    expect(fetchMock3).toHaveBeenCalledTimes(1)
+    expect(fetchMock3).toHaveBeenCalledWith(
+      LOOKUP_URL,
+      expect.objectContaining({ redirect: 'manual' }),
+    )
+  })
+
+  it('no-ops when the VERSION file is missing, even when enabled', async () => {
+    const dir = await makeTempDir()
+    const prefix = await makeTempDir()
+    const fetchMock = redirectFetch('v1.0.3')
+    const client = makeClient()
+    const notifier = makeNotifier({
+      client,
+      env: baseEnv(),
+      cachePath: path.join(dir, 'c.json'),
+      installPrefix: prefix,
+      fetchImpl: fetchMock,
+      readFile: fsReadFile,
+      writeFile,
+    })
+    const result = await notifier.checkAndNotify()
+    expect(result).toMatchObject({ checked: false, reason: 'no-installed-version' })
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(client.tui.showToast).not.toHaveBeenCalled()
+  })
+
+  it('no-ops on an unparseable VERSION file', async () => {
+    const dir = await makeTempDir()
+    const prefix = await makeTempDir()
+    const versionDir = path.join(prefix, 'share', 'wayforge')
+    await mkdir(versionDir, { recursive: true })
+    await writeFile(path.join(versionDir, 'VERSION'), 'garbage', 'utf8')
+    const fetchMock = redirectFetch('v1.0.3')
+    const notifier = makeNotifier({
+      env: baseEnv(),
+      cachePath: path.join(dir, 'c.json'),
+      installPrefix: prefix,
+      fetchImpl: fetchMock,
+      readFile: fsReadFile,
+      writeFile,
+    })
+    const result = await notifier.checkAndNotify()
+    expect(result.checked).toBe(false)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('tolerates a missing showToast API', async () => {
+    const { notifier } = await enabledFixture({ client: {} })
+    await expect(notifier.checkAndNotify()).resolves.toMatchObject({ notified: true })
+  })
+
+  it('tolerates a throwing toast', async () => {
+    const client = { tui: { showToast: vi.fn(async () => { throw new Error('tui gone') }) } }
+    const { notifier } = await enabledFixture({ client })
+    await expect(notifier.checkAndNotify()).resolves.toMatchObject({ notified: true })
+  })
+
+  it('swallows fetch failures and still updates lastChecked', async () => {
+    const { cachePath, notifier, client } = await enabledFixture({
+      fetchImpl: failingFetch(),
+    })
+    const result = await notifier.checkAndNotify()
+    expect(result).toMatchObject({ checked: true, updateAvailable: false })
+    expect(client.tui.showToast).not.toHaveBeenCalled()
+    const cache = await readCacheFile(cachePath)
+    expect(Number.isFinite(Date.parse(cache.lastChecked))).toBe(true)
+    expect(cache.latestVersion).toBeNull()
+  })
+
+  it('discards a corrupt cache and recomputes', async () => {
+    const { cachePath, client, notifier } = await enabledFixture()
+    await writeFile(cachePath, 'corrupt', 'utf8')
+    await notifier.checkAndNotify()
+    expect(client.tui.showToast).toHaveBeenCalledTimes(1)
+    const cache = await readCacheFile(cachePath)
+    expect(cache.schemaVersion).toBe(1)
+  })
+
+  it('discards a mismatched-schema cache and recomputes', async () => {
+    const { cachePath, client, notifier } = await enabledFixture()
+    await writeCacheFile(cachePath, { schemaVersion: 99, lastChecked: 'x' })
+    await notifier.checkAndNotify()
+    expect(client.tui.showToast).toHaveBeenCalledTimes(1)
+    expect((await readCacheFile(cachePath)).schemaVersion).toBe(1)
+  })
+
+  it('falls back to in-process state when the cache write fails', async () => {
+    const client = makeClient()
+    const failingWrite = vi.fn(async () => {
+      throw new Error('read-only fs')
+    })
+    const { notifier } = await enabledFixture({ client, writeFile: failingWrite })
+    await notifier.checkAndNotify()
+    expect(client.tui.showToast).toHaveBeenCalledTimes(1)
+    // Second call in the same process must not re-toast.
+    await notifier.checkAndNotify()
+    expect(client.tui.showToast).toHaveBeenCalledTimes(1)
+  })
+
+  it('in-flight guard prevents duplicate concurrent checks', async () => {
+    let releaseFetch: () => void = () => undefined
+    let signalFetchEntered: () => void = () => undefined
+    const fetchEntered = new Promise<void>((resolve) => {
+      signalFetchEntered = resolve
+    })
+    const gatedFetch = vi.fn(() => {
+      // Signal synchronously that the mock has been entered.
+      signalFetchEntered()
+      return new Promise((resolve) => {
+        releaseFetch = () =>
+          resolve({
+            ok: false,
+            status: 302,
+            headers: new Headers({ location: `${RELEASE_ROOT}/tag/v1.0.3` }),
+          })
+      }) as Promise<Response>
+    }) as unknown as typeof fetch
+    const { client, notifier } = await enabledFixture({ fetchImpl: gatedFetch })
+
+    const first = notifier.checkAndNotify()
+    const second = notifier.checkAndNotify()
+    // Wait deterministically until run() has actually reached the fetch.
+    await fetchEntered
+    releaseFetch()
+    await Promise.all([first, second])
+
+    expect(gatedFetch).toHaveBeenCalledTimes(1)
+    expect(client.tui.showToast).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses WAYFORGE_VERSION over the VERSION file', async () => {
+    const dir = await makeTempDir()
+    const client = makeClient()
+    const notifier = makeNotifier({
+      client,
+      env: { ...baseEnv(), WAYFORGE_VERSION: '1.0.2' },
+      cachePath: path.join(dir, 'c.json'),
+      fetchImpl: redirectFetch('v1.0.3'),
+      readFile: fsReadFile,
+      writeFile,
+    })
+    const result = await notifier.checkAndNotify()
+    expect(result).toMatchObject({ current: '1.0.2', latestVersion: 'v1.0.3' })
+    expect(client.tui.showToast).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('entrypoints', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
+  async function entrypointEnv() {
+    const dir = await makeTempDir()
+    vi.stubEnv('WAYFORGE_NO_UPDATE_CHECK', '0')
+    vi.stubEnv('WAYFORGE_VERSION', '1.0.2')
+    vi.stubEnv('WAYFORGE_RELEASE_ROOT', RELEASE_ROOT)
+    vi.stubEnv('WAYFORGE_NOTIFIER_CACHE', path.join(dir, 'update-notifier.json'))
+    return dir
+  }
+
+  function sessionCreated() {
+    return { event: { type: 'session.created', properties: {} } }
+  }
+
+  it('OpenCode server() returns an event hook and toasts on session.created', async () => {
+    await entrypointEnv()
+    const fetchMock = redirectFetch('v1.0.3')
+    vi.stubGlobal('fetch', fetchMock)
+    const client = makeClient()
+
+    const hooks = await opencodeServer({ client } as never)
+    expect(typeof hooks.event).toBe('function')
+
+    await hooks.event(sessionCreated())
+    expect(client.tui.showToast).toHaveBeenCalledTimes(1)
+    expect(client.tui.showToast).toHaveBeenCalledWith({
+      body: {
+        message:
+          'wayforge v1.0.3 is available (installed v1.0.2). Run `wfg upgrade` to update.',
+        variant: 'info',
+      },
+    })
+  })
+
+  it('OpenCode event hook ignores non-session.created events', async () => {
+    await entrypointEnv()
+    const fetchMock = redirectFetch('v1.0.3')
+    vi.stubGlobal('fetch', fetchMock)
+    const client = makeClient()
+
+    const hooks = await opencodeServer({ client } as never)
+    await hooks.event({ event: { type: 'message.updated', properties: {} } })
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(client.tui.showToast).not.toHaveBeenCalled()
+  })
+
+  it('Kilo default export has id and server, and its event hook calls the shared core', async () => {
+    await entrypointEnv()
+    const fetchMock = redirectFetch('v1.0.3')
+    vi.stubGlobal('fetch', fetchMock)
+    const client = makeClient()
+
+    expect(kiloPlugin.id).toBe('wayforge-update')
+    expect(typeof kiloPlugin.server).toBe('function')
+
+    const hooks = kiloPlugin.server({ client } as never)
+    await hooks.event(sessionCreated())
+    expect(client.tui.showToast).toHaveBeenCalledTimes(1)
+    expect(client.tui.showToast).toHaveBeenCalledWith({
+      body: {
+        message:
+          'wayforge v1.0.3 is available (installed v1.0.2). Run `wfg upgrade` to update.',
+        variant: 'info',
+      },
+    })
+  })
+
+  it('Kilo event hook respects the disabled gate', async () => {
+    await entrypointEnv()
+    vi.stubEnv('WAYFORGE_NO_UPDATE_CHECK', '1')
+    const fetchMock = redirectFetch('v1.0.3')
+    vi.stubGlobal('fetch', fetchMock)
+    const client = makeClient()
+
+    const hooks = kiloPlugin.server({ client } as never)
+    await hooks.event(sessionCreated())
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(client.tui.showToast).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Real-fs end-to-end: no injected fs primitives, no WAYFORGE_VERSION —
+   * the VERSION file and the cache (with a missing parent directory) are
+   * exercised exactly as in a real session.
+   */
+  async function realFsEnv() {
+    const prefix = await makeTempDir()
+    await writeVersionFile(prefix, '1.0.2')
+    const cacheDir = await makeTempDir()
+    const cachePath = path.join(cacheDir, 'not-created-yet', 'wayforge', 'update-notifier.json')
+    vi.stubEnv('WAYFORGE_NO_UPDATE_CHECK', '0')
+    vi.stubEnv('WAYFORGE_INSTALL_DIR', prefix)
+    vi.stubEnv('WAYFORGE_RELEASE_ROOT', RELEASE_ROOT)
+    vi.stubEnv('WAYFORGE_NOTIFIER_CACHE', cachePath)
+    return cachePath
+  }
+
+  it('OpenCode entrypoint works with real fs: reads VERSION, creates cache dir, persists notifiedVersion', async () => {
+    const cachePath = await realFsEnv()
+    const fetchMock = redirectFetch('v1.0.3')
+    vi.stubGlobal('fetch', fetchMock)
+    const client = makeClient()
+
+    const hooks = await opencodeServer({ client } as never)
+    await hooks.event(sessionCreated())
+    expect(client.tui.showToast).toHaveBeenCalledTimes(1)
+    expect(client.tui.showToast).toHaveBeenCalledWith({
+      body: {
+        message:
+          'wayforge v1.0.3 is available (installed v1.0.2). Run `wfg upgrade` to update.',
+        variant: 'info',
+      },
+    })
+    expect(existsSync(cachePath)).toBe(true)
+    const cache = JSON.parse(await fsReadFile(cachePath, 'utf8'))
+    expect(cache.notifiedVersion).toBe('v1.0.3')
+
+    // Simulate a new process: fresh notifier, same env, real fs.
+    const fetchMock2 = redirectFetch('v1.0.3')
+    vi.stubGlobal('fetch', fetchMock2)
+    const client2 = makeClient()
+    const hooks2 = await opencodeServer({ client: client2 } as never)
+    await hooks2.event(sessionCreated())
+    expect(client2.tui.showToast).not.toHaveBeenCalled()
+    expect(fetchMock2).not.toHaveBeenCalled()
+  })
+
+  it('Kilo entrypoint works with real fs: reads VERSION, creates cache dir, persists notifiedVersion', async () => {
+    const cachePath = await realFsEnv()
+    const fetchMock = redirectFetch('v1.0.3')
+    vi.stubGlobal('fetch', fetchMock)
+    const client = makeClient()
+
+    const hooks = kiloPlugin.server({ client } as never)
+    await hooks.event(sessionCreated())
+    expect(client.tui.showToast).toHaveBeenCalledTimes(1)
+    expect(existsSync(cachePath)).toBe(true)
+    expect(JSON.parse(await fsReadFile(cachePath, 'utf8')).notifiedVersion).toBe('v1.0.3')
+
+    // Simulate a new process: fresh notifier, same env, real fs.
+    const fetchMock2 = redirectFetch('v1.0.3')
+    vi.stubGlobal('fetch', fetchMock2)
+    const client2 = makeClient()
+    const hooks2 = kiloPlugin.server({ client: client2 } as never)
+    await hooks2.event(sessionCreated())
+    expect(client2.tui.showToast).not.toHaveBeenCalled()
+    expect(fetchMock2).not.toHaveBeenCalled()
+  })
+
+  it('package.json maps opencode -> index.js and kilocode -> kilo.js', async () => {
+    const pkg = JSON.parse(
+      await fsReadFile(
+        path.resolve(import.meta.dirname, '../../../base/plugins/wayforge-update/package.json'),
+        'utf8',
+      ),
+    )
+    expect(pkg.type).toBe('module')
+    expect(pkg.main).toBe('index.js')
+    expect(pkg.name).toBe('wayforge-update')
+    expect(typeof pkg.version).toBe('string')
+    expect(pkg.wayforge.entrypoints).toEqual({
+      opencode: 'index.js',
+      kilocode: 'kilo.js',
+    })
+  })
+
+  it('plugin files contain no runtime SDK imports', async () => {
+    const base = path.resolve(import.meta.dirname, '../../../base/plugins/wayforge-update')
+    for (const file of ['core.js', 'index.js', 'kilo.js']) {
+      const source = await fsReadFile(path.join(base, file), 'utf8')
+      expect(source).not.toMatch(/@opencode-ai\/plugin/)
+      expect(source).not.toMatch(/@kilocode\/plugin/)
+    }
+  })
+})
+
+describe('semver helpers', () => {
+  it('parseSemver accepts optional v prefix and rejects garbage', () => {
+    expect(parseSemver('v1.2.3')).toEqual({ major: 1, minor: 2, patch: 3 })
+    expect(parseSemver('1.2.3')).toEqual({ major: 1, minor: 2, patch: 3 })
+    expect(parseSemver('abc')).toBeNull()
+  })
+
+  it('isNewer compares numerically', () => {
+    expect(isNewer('1.0.2', 'v1.0.3')).toBe(true)
+    expect(isNewer('1.0.10', '1.0.9')).toBe(false)
+    expect(isNewer('1.0.2', 'not-a-version')).toBe(false)
+  })
+})
