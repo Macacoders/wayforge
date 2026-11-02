@@ -1,6 +1,6 @@
 # Installer Trust Model
 
-How the wayforge one-shot installers (`install.sh` / `install.ps1`) and the release channel are verified, what they download and write, and what to do when an EDR flags the installer. The recommended install path is **download to file → verify SHA-256 (and the cosign bundle signature when available) → dry-run → run**. Do not pipe the installer directly into a shell.
+How the wayforge one-shot installers (`install.sh` / `install.ps1`) and the release channel are verified, what they download and write, and what to do when an EDR flags the installer. The recommended install path is **download to file → verify SHA-256 (and the cosign bundle signature when available) → run**. Do not pipe the installer directly into a shell.
 
 ## What the installer downloads and writes
 
@@ -17,12 +17,18 @@ It writes only inside the dedicated prefix (`~/.wayforge` on Linux/macOS, `%LOCA
 
 The release publishes `wayforge-checksums.txt` in `sha256sum` format covering every platform binary, both share archives, and both installer scripts. Verify the installer itself before running it.
 
-**Linux / macOS:**
+**Linux:**
 
 ```bash
-curl -fsSLO https://github.com/Macacoders/wayforge/releases/latest/download/install.sh
-curl -fsSLO https://github.com/Macacoders/wayforge/releases/latest/download/wayforge-checksums.txt
+B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSLO "$B/install.sh" "$B/wayforge-checksums.txt"
 grep '  install.sh$' wayforge-checksums.txt | sha256sum -c -
+```
+
+**macOS:**
+
+```bash
+B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSLO "$B/install.sh" "$B/wayforge-checksums.txt"
+grep '  install.sh$' wayforge-checksums.txt | shasum -a 256 -c -
 ```
 
 **Windows (PowerShell):**
@@ -84,7 +90,7 @@ If your EDR blocks the installer or the binary, allow-list narrowly — never th
 
 ## 2026-10-21 AMSI detection context
 
-On 2026-10-21, Microsoft Defender flagged `Trojan:PowerShell/AmsiBypazz.E!MTB` (threat ID 2147948519) on a developer host during a wayforge install. Detection source was AMSI, process `pwsh.exe`; the raw evidence is retained in `docs/ai/plans/2026-10-21-wayforge-install-alarm.raw.log`. The install used the then-recommended `irm ... | iex` cradle, which pipes the downloaded script straight into `Invoke-Expression`, so AMSI scanned the remote script content executing in memory and the detection was attributed to the PowerShell host. Static analysis found no AMSI-bypass constructs in the installer and a Defender scan of the repo script found no threats; the detection is assessed as a false positive triggered by the cradle pattern. The recommended flow — download to file, verify the hash, dry-run, then run the file — avoids piping remote content to `Invoke-Expression` and removes that in-memory scan surface.
+On 2026-10-21, Microsoft Defender flagged `Trojan:PowerShell/AmsiBypazz.E!MTB` (threat ID 2147948519) on a developer host during a wayforge install. Detection source was AMSI, process `pwsh.exe`; the raw evidence is retained in `docs/ai/plans/2026-10-21-wayforge-install-alarm.raw.log`. The install used the then-recommended `irm ... | iex` cradle, which pipes the downloaded script straight into `Invoke-Expression`, so AMSI scanned the remote script content executing in memory and the detection was attributed to the PowerShell host. Static analysis found no AMSI-bypass constructs in the installer and a Defender scan of the repo script found no threats; the detection is assessed as a false positive triggered by the cradle pattern. The recommended flow — download to file, verify the hash, then run the file — avoids piping remote content to `Invoke-Expression` and removes that in-memory scan surface.
 
 ## Reporting a false positive
 

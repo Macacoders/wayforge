@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The recommended install path no longer pipes the installer to a shell: download to file, verify the SHA-256 from `wayforge-checksums.txt`, dry-run, then run (see `docs/security/installer-trust.md`).
+- The recommended install path no longer pipes the installer to a shell: download to file, verify the SHA-256 from `wayforge-checksums.txt`, then run (see `docs/security/installer-trust.md`).
 - `install.sh` verifies the cosign signature bundle when cosign is present (fail-closed on an invalid bundle or non-404 fetch failure; warn-and-continue when cosign is absent or the bundle is confirmed missing).
 
 ### Removed

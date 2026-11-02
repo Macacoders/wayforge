@@ -8,27 +8,24 @@ Five steps: install the CLI, connect providers, install the runtime into your re
 
 ### 1. Install the CLI
 
-Download the installer to a file, verify its SHA-256 hash, preview with a dry run, then run it. Do not pipe the installer directly into a shell.
+Download the installer to a file, verify its SHA-256 hash, then run it. Do not pipe the installer directly into a shell.
 
-**Linux / macOS**
+**Linux**
 
 ```bash
-curl -fsSLO https://github.com/Macacoders/wayforge/releases/latest/download/install.sh
-curl -fsSLO https://github.com/Macacoders/wayforge/releases/latest/download/wayforge-checksums.txt
-grep '  install.sh$' wayforge-checksums.txt | sha256sum -c -
-sh install.sh --dry-run
-sh install.sh
+B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSLO "$B/install.sh" "$B/wayforge-checksums.txt" && grep '  install.sh$' wayforge-checksums.txt | sha256sum -c - && sh install.sh
+```
+
+**macOS**
+
+```bash
+B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSLO "$B/install.sh" "$B/wayforge-checksums.txt" && grep '  install.sh$' wayforge-checksums.txt | shasum -a 256 -c - && sh install.sh
 ```
 
 **Windows** (PowerShell)
 
 ```powershell
-Invoke-WebRequest -Uri https://github.com/Macacoders/wayforge/releases/latest/download/install.ps1 -OutFile install.ps1
-Invoke-WebRequest -Uri https://github.com/Macacoders/wayforge/releases/latest/download/wayforge-checksums.txt -OutFile wayforge-checksums.txt
-$expected = (Select-String -Path wayforge-checksums.txt -Pattern '  install\.ps1$').Line.Split()[0]
-if ((Get-FileHash install.ps1 -Algorithm SHA256).Hash -ne $expected.ToUpper()) { throw 'install.ps1 checksum mismatch' }
-pwsh -File install.ps1 -DryRun
-pwsh -File install.ps1
+$b='https://github.com/Macacoders/wayforge/releases/latest/download'; curl.exe -fsSLO "$b/install.ps1" "$b/wayforge-checksums.txt"; $e=(Get-Content wayforge-checksums.txt | Select-String '  install\.ps1$').Line.Split()[0]; if((Get-FileHash install.ps1 -Algorithm SHA256).Hash -ne $e.ToUpper()){throw 'checksum mismatch'}; pwsh -File install.ps1
 ```
 
 Default prefix: `~/.wayforge` (Linux/macOS) or `%LOCALAPPDATA%\wayforge` (Windows). Pass `--no-modify-path` / `-NoModifyPath` to skip PATH registration and print manual instructions instead.
