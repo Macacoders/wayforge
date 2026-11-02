@@ -13,7 +13,7 @@ If the task touches an architectural boundary (public contract, persistence form
 
 Update the plan's frontmatter: bump `task:` to the next task and, when all tasks are complete, set `status: completed`. Check only the `required_gates` the plan declares.
 
-Include memory freshness in review by running `/memory check`, `memory-maintenance` freshness check, or `ai-memory close-check` (with the companion `ai-memory` skill), then load only routed, task-relevant memory files.
+Include memory freshness in review by running `/memory check` (planner), `memory-maintenance` freshness check, or `ai-memory close-check` (with the companion `ai-memory` skill), then load only routed, task-relevant memory files.
 
 Confirm the active repository root from the handoff or current git repository. Constrain review searches, reads, and git inspection to that root unless the user explicitly approves an external path.
 
