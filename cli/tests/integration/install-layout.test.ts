@@ -54,6 +54,7 @@ describe('install layout integration', () => {
 		repo = path.join(tmpDir, 'repo')
 		fs.mkdirpSync(repo)
 		vi.stubEnv('WAYFORGE_HOME', sourceDir)
+		vi.stubEnv('WAYFORGE_OPENCODE_VERSION', '2.2.5')
 		logs = []
 		vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
 			logs.push(args.map((arg) => String(arg)).join(' '))

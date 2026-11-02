@@ -41,7 +41,7 @@ program
 		new Command()
 			.createOption(
 				'--runtime <name>',
-				'Runtime to configure: opencode (default) or kilocode.',
+				'Runtime to configure: opencode (OpenCode 2.x) or kilocode (Kilo Code 1.x-compatible).',
 			)
 			.choices(['opencode', 'kilocode'])
 			.default('opencode'),
