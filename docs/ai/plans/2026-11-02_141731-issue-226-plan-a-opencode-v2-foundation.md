@@ -2,7 +2,7 @@
 status: planned
 created: 2026-11-02
 updated: 2026-11-02
-task: 1/5
+task: 2/5
 sequence: A
 issue: 278
 parent_issue: 226
