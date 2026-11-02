@@ -7,6 +7,7 @@ import { validateFreeTierRuntime, resolveDefaultModels } from './providers.js'
 import {
 	LEGACY_ARTIFACT_ROOT,
 	PLUGIN_ENTRY,
+	RUNTIME_SHAPES,
 	SKILLS_CONFIG_PATH,
 	configFileFor,
 	schemaUrlFor,
@@ -245,6 +246,64 @@ export function isLayoutStaleConfig(filePath: string): boolean {
 	return (
 		content.includes(`${LEGACY_ARTIFACT_ROOT}/`) ||
 		!content.includes('"skills"')
+	)
+}
+
+/** Exact top-level key match: `"key":` with closing quote, not a substring. */
+function hasExactKey(content: string, key: string): boolean {
+	return new RegExp(`"${key}"\\s*:`).test(content)
+}
+
+/**
+ * Runtime-aware staleness check for wayforge-managed configs. Beyond the
+ * legacy-layout checks shared with `isLayoutStaleConfig`, an OpenCode config
+ * is stale when it lacks any native V2 key or still carries a V1 singular
+ * key. Kilo configs are only judged by the shared checks for as long as
+ * Kilo stays V1.
+ *
+ * Not wired into install yet: Plan B calls this after V2 config generation
+ * lands (issue #278), so refreshing an OpenCode config does not regenerate
+ * the current V1 shape and immediately judge it stale again.
+ */
+export function isRuntimeConfigStale(
+	runtime: Runtime,
+	filePath: string,
+): boolean {
+	if (!isManagedOpenCodeFile(filePath)) {
+		return false
+	}
+	const content = fs.readFileSync(filePath, 'utf8')
+	if (
+		content.includes(`${LEGACY_ARTIFACT_ROOT}/`) ||
+		!content.includes('"skills"')
+	) {
+		return true
+	}
+	if (runtime !== 'opencode') {
+		return false
+	}
+	// Required native V2 keys for OpenCode, read explicitly from the
+	// descriptor (RuntimeShapeKeys has no index signature, so Object.values
+	// would degrade to any[]).
+	const opencodeKeys = RUNTIME_SHAPES.opencode.keys
+	const requiredKeys = [
+		opencodeKeys.agents,
+		opencodeKeys.providers,
+		opencodeKeys.plugins,
+		opencodeKeys.permissions,
+	]
+	// The kilocode values are the V1 singular set for as long as Kilo stays
+	// V1; revisit this derivation if Kilo ships V2 (issue #277).
+	const kilocodeKeys = RUNTIME_SHAPES.kilocode.keys
+	const legacyKeys = [
+		kilocodeKeys.agents,
+		kilocodeKeys.providers,
+		kilocodeKeys.plugins,
+		kilocodeKeys.permissions,
+	]
+	return (
+		requiredKeys.some((key) => !hasExactKey(content, key)) ||
+		legacyKeys.some((key) => hasExactKey(content, key))
 	)
 }
 
