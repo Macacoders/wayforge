@@ -130,10 +130,10 @@ B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSL -O
 B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSL -O "$B/install.sh" -O "$B/wayforge-checksums.txt" && grep '  install.sh$' wayforge-checksums.txt | shasum -a 256 -c - && sh install.sh
 ```
 
-**Windows** (PowerShell; use `-ExecutionPolicy Bypass` if execution policy blocks remote scripts):
+**Windows** (PowerShell 5.1+):
 
 ```powershell
-$b='https://github.com/Macacoders/wayforge/releases/latest/download'; curl.exe -fsSL -O "$b/install.ps1" -O "$b/wayforge-checksums.txt"; $e=(Get-Content wayforge-checksums.txt | Select-String '  install\.ps1$').Line.Split()[0]; if((Get-FileHash install.ps1 -Algorithm SHA256).Hash -ne $e.ToUpper()){throw 'checksum mismatch'}; pwsh -File install.ps1
+$b='https://github.com/Macacoders/wayforge/releases/latest/download'; 'install.ps1','wayforge-checksums.txt' | % { iwr "$b/$_" -OutFile $_ -UseBasicParsing }; $e=(Get-Content wayforge-checksums.txt | Select-String '  install\.ps1$').Line.Split()[0]; if((Get-FileHash install.ps1 -Algorithm SHA256).Hash -ne $e.ToUpper()){throw 'checksum mismatch'}; powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
 See [docs/security/installer-trust.md](docs/security/installer-trust.md) for cosign bundle verification and the full trust model.
