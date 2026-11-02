@@ -18,10 +18,9 @@ function releaseJobBlock(): string {
   const start = workflow.indexOf('\n  release:');
   expect(start).toBeGreaterThan(-1);
   const rest = workflow.slice(start + 1);
-  const nextTopLevel = rest.indexOf('\n  ', rest.indexOf('\n')) >= 0
-    ? rest.slice(1).search(/^  \S/m)
-    : -1;
-  return nextTopLevel === -1 ? rest : rest.slice(0, nextTopLevel + 1);
+  const firstLineEnd = rest.indexOf('\n');
+  const next = rest.slice(firstLineEnd + 1).search(/^  \S/m);
+  return next === -1 ? rest : rest.slice(0, firstLineEnd + 1 + next);
 }
 
 function stepBlock(name: string): string {
