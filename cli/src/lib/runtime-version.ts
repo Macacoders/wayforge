@@ -30,7 +30,8 @@ export function detectOpenCodeVersion(opts?: {
 	env?: NodeJS.ProcessEnv
 	runner?: (cmd: string, args: string[]) => string
 }): { version?: string; source: VersionSource; warning?: string } {
-	const override = opts?.env?.WAYFORGE_OPENCODE_VERSION?.trim()
+	const env = opts?.env ?? process.env
+	const override = env.WAYFORGE_OPENCODE_VERSION?.trim()
 	if (override) {
 		return { version: override, source: 'env' }
 	}

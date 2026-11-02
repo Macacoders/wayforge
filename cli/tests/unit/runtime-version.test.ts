@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('child_process', () => ({
 	execFileSync: vi.fn(() => '2.2.5'),
@@ -32,6 +32,10 @@ describe('parseRuntimeMajor', () => {
 })
 
 describe('detectOpenCodeVersion', () => {
+	beforeEach(() => {
+		vi.unstubAllEnvs()
+	})
+
 	it('prefers a non-empty env override', () => {
 		const result = detectOpenCodeVersion({
 			env: { WAYFORGE_OPENCODE_VERSION: '2.2.5' },
@@ -70,6 +74,27 @@ describe('detectOpenCodeVersion', () => {
 		expect(result).toEqual({ version: '2.2.5', source: 'binary' })
 	})
 
+	it('falls back to process.env when no env is injected', () => {
+		vi.stubEnv('WAYFORGE_OPENCODE_VERSION', '2.2.5')
+		const mocked = vi.mocked(execFileSync)
+
+		const result = detectOpenCodeVersion()
+
+		expect(result).toEqual({ version: '2.2.5', source: 'env' })
+		expect(mocked).not.toHaveBeenCalled()
+	})
+
+	it('lets an explicitly injected env win over process.env', () => {
+		vi.stubEnv('WAYFORGE_OPENCODE_VERSION', '1.19.5')
+
+		const result = detectOpenCodeVersion({
+			env: { WAYFORGE_OPENCODE_VERSION: '2.2.5' },
+			runner: () => '1.19.5',
+		})
+
+		expect(result).toEqual({ version: '2.2.5', source: 'env' })
+	})
+
 	it('reports a warning when the runner throws', () => {
 		const result = detectOpenCodeVersion({
 			runner: () => {
@@ -94,6 +119,10 @@ describe('detectOpenCodeVersion', () => {
 })
 
 describe('assertRuntimeSupported', () => {
+	beforeEach(() => {
+		vi.unstubAllEnvs()
+	})
+
 	it('passes with an env override at 2.x', () => {
 		const result = assertRuntimeSupported('opencode', {
 			env: { WAYFORGE_OPENCODE_VERSION: '2.2.5' },
@@ -122,6 +151,17 @@ describe('assertRuntimeSupported', () => {
 			expect(result.message).toContain('@opencode/cli')
 			expect(result.message).toContain('1.19.5')
 			expect(result.message).toContain('WAYFORGE_OPENCODE_VERSION')
+		}
+	})
+
+	it('fails on a process.env override below the minimum with no injected env', () => {
+		vi.stubEnv('WAYFORGE_OPENCODE_VERSION', '1.19.5')
+
+		const result = assertRuntimeSupported('opencode')
+
+		expect(result.ok).toBe(false)
+		if (!result.ok) {
+			expect(result.message).toContain('OpenCode 2.x is required')
 		}
 	})
 
