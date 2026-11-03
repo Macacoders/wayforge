@@ -924,6 +924,9 @@ describe('upgrade', () => {
 
 		expect(result.outcome).toBe('updated')
 		expect(lines).toContain(`upgraded wayforge to v9.0.0`)
+		expect(lines).toContain(
+			'note: upgrade verifies SHA-256 checksums only; verify the cosign bundle with cosign verify-blob for signature verification (ADR-0048)',
+		)
 		expect(
 			fs.readFileSync(
 				path.join(

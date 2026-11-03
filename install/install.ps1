@@ -197,25 +197,62 @@ function Get-NodeMajor {
     return [int]$Matches[0]
 }
 
+function Assert-SafeZip {
+    param([Parameter(Mandatory)][string]$Path)
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($Path)
+    try {
+        foreach ($entry in $zip.Entries) {
+            $name = $entry.FullName
+            if ($name -match '^[/\\]' -or $name -match '(^|[/\\])\.\.([/\\]|$)') {
+                Write-Error "error: archive contains unsafe path '${name}'; aborting without changes" -ErrorAction Stop
+            }
+        }
+    }
+    finally {
+        $zip.Dispose()
+    }
+}
+
 function Install-LocalNode {
     $nodeDir = Join-Path $Prefix "node"
     $archive = "node-v${NodeVersion}-win-${Arch}.zip"
     $url = "${NodeBaseUrl}/v${NodeVersion}/${archive}"
+    $shasumsUrl = "${NodeBaseUrl}/v${NodeVersion}/SHASUMS256.txt"
 
     Write-Host "Installing Node.js v${NodeVersion} (win-${Arch}) to ${nodeDir}"
-    New-Item -ItemType Directory -Force -Path $nodeDir | Out-Null
 
     # The Node zip contains a top-level node-v<ver>-win-<arch>\ folder; expand
     # to a temp dir and move its contents so node.exe lands at nodeDir\node.exe.
     $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("wayforge-node-" + [System.Guid]::NewGuid().ToString("N"))
     $tmpZip = Join-Path ([System.IO.Path]::GetTempPath()) $archive
+    $tmpShasums = Join-Path ([System.IO.Path]::GetTempPath()) ("wayforge-node-shasums-" + [System.Guid]::NewGuid().ToString("N") + ".txt")
     try {
         Invoke-WebRequest -Uri $url -OutFile $tmpZip -UseBasicParsing
+
+        # Verify the archive against the same-origin SHASUMS256.txt before
+        # extracting or executing anything from it.
+        Invoke-WebRequest -Uri $shasumsUrl -OutFile $tmpShasums -UseBasicParsing
+        $expected = Get-ExpectedChecksum -ChecksumFile $tmpShasums
+        if (-not $expected.ContainsKey($archive)) {
+            Write-Error "error: SHASUMS256.txt has no entry for ${archive}; aborting without changes" -ErrorAction Stop
+        }
+        $actual = (Get-FileHash -Path $tmpZip -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($actual -ne $expected[$archive]) {
+            Write-Error "error: checksum mismatch for ${archive}: expected $($expected[$archive]), got ${actual}" -ErrorAction Stop
+        }
+        Write-Host "verified ${archive} checksum"
+
+        Assert-SafeZip -Path $tmpZip
         Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force
     }
     finally {
         if (Test-Path $tmpZip) {
             Remove-Item -Path $tmpZip -Force
+        }
+        if (Test-Path $tmpShasums) {
+            Remove-Item -Path $tmpShasums -Force
         }
     }
 
@@ -224,6 +261,7 @@ function Install-LocalNode {
         Remove-Item -Path $tmpDir -Recurse -Force
         Write-Error "error: Node.js archive did not contain ${nodeDir}\node.exe" -ErrorAction Stop
     }
+    New-Item -ItemType Directory -Force -Path $nodeDir | Out-Null
     Get-ChildItem -Path $extracted.FullName -Force | Move-Item -Destination $nodeDir -Force
     Remove-Item -Path $tmpDir -Recurse -Force
 
@@ -404,6 +442,10 @@ function Install-Wayforge {
             Assert-Checksum -Path $tmpBinary -Name $BinaryName -Expected $expected
             Assert-Checksum -Path $tmpShare -Name $shareName -Expected $expected
         }
+
+        # Refuse unsafe archives before any prefix mutation (Node provisioning,
+        # directory creation, or file moves).
+        Assert-SafeZip -Path $tmpShare
 
         Ensure-Node
 

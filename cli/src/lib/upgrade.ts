@@ -326,6 +326,10 @@ export async function upgrade(
 
 	const fetchImpl = options.fetchImpl ?? fetch
 
+	log(
+		'note: upgrade verifies SHA-256 checksums only; verify the cosign bundle with cosign verify-blob for signature verification (ADR-0048)',
+	)
+
 	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wayforge-update-'))
 	const checksumsPath = path.join(tmpDir, 'wayforge-checksums.txt')
 	const archivePath = path.join(tmpDir, shareArchiveName(latest))

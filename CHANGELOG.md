@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The recommended install path no longer pipes the installer to a shell: download to file, verify the SHA-256 from `wayforge-checksums.txt`, then run (see `docs/security/installer-trust.md`).
 - `install.sh` verifies the cosign signature bundle when cosign is present (fail-closed on an invalid bundle or non-404 fetch failure; warn-and-continue when cosign is absent or the bundle is confirmed missing).
+- The release workflow now SHA-pins every action, runs with least-privilege permissions, disables persisted checkout credentials, and publishes releases draft-first (upload → verify the signature bundle → publish) so a partial upload is repaired instead of silently skipped.
+- Node.js provisioning verifies the `SHASUMS256.txt` digest from `nodejs.org` before extracting the Node archive (`install.sh` and `install.ps1`).
+- The cosign identity pin is an exact `--certificate-identity` value instead of a regexp, so dots in `github.com`/`.github` cannot act as wildcards.
+- `wfg upgrade` prints a warning that it verifies SHA-256 checksums only and does not verify the cosign bundle.
 
 ### Removed
 
@@ -24,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Node.js and share archives are rejected before extraction when they contain absolute paths or `..` path segments, preventing path-traversal writes outside the install prefix.
 - `/memory` (and its `find`, `check`, and `update` intents) runs again: the command's `agent` frontmatter is a single valid owner (`planner`) instead of the unresolvable `planner,delivery`. A new `tests/typescript/base-templates/command-frontmatter.test.ts` guard rejects empty, comma-separated, or unknown command agents, and the `ai-memory` skill documents its installed `.agents/skills/ai-memory/scripts/ai-memory.ts` path.
 - The `code` subagent starts again on the balanced `opencode-go` profiles: `opencode-go/glm-5.3-flash` no longer carries `textVerbosity`, which OpenCode sends as the `verbosity` request field that the GLM endpoint rejects. Existing installs keep their generated `opencode.jsonc` unless it is refreshed: run `wfg upgrade`, then `wfg install --repo <repo> --providers opencode-go --force`.
 

@@ -5,12 +5,13 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
-  actions: write
+  contents: read
 
 jobs:
   build-binaries:
     runs-on: [self-hosted, linux, x64]
+    permissions:
+      contents: read
     strategy:
       matrix:
         include:
@@ -40,9 +41,11 @@ jobs:
             ext: .exe
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
       - name: Install dependencies
         shell: bash
@@ -64,7 +67,7 @@ jobs:
             --outfile "dist/wayforge-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}" \
             --define "process.env.WAYFORGE_VERSION:'$(cat VERSION)'"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: wayforge-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
           path: dist/wayforge-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
@@ -77,7 +80,9 @@ jobs:
       actions: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Read version
         id: version
@@ -92,7 +97,7 @@ jobs:
           awk '/^## \[/{if(++c>1)exit}c' CHANGELOG.md > /tmp/release_body.md
           echo "body_file=/tmp/release_body.md" >> $GITHUB_OUTPUT
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: wayforge-*
           path: dist/
@@ -113,7 +118,7 @@ jobs:
           } > wayforge-checksums.txt
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v4.1.0
+        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
         with:
           cosign-release: 'v3.1.4'
 
@@ -124,18 +129,57 @@ jobs:
             --bundle wayforge-checksums.txt.sigstore.json \
             wayforge-checksums.txt
 
-      - name: Create Release
+      - name: Create draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ steps.version.outputs.tag }}"
           echo "Creating release for $TAG"
-          if gh release view "$TAG" --repo ${{ github.repository }} &>/dev/null 2>&1; then
-            echo "Release $TAG already exists — skipping"
-            exit 0
+          if gh release view "$TAG" --repo "${{ github.repository }}"; then
+            echo "Release $TAG exists and will be repaired"
+          else
+            gh release create "$TAG" \
+              --draft \
+              --title "$TAG" \
+              --notes-file "${{ steps.changelog.outputs.body_file }}" \
+              --repo "${{ github.repository }}"
           fi
-          gh release create "$TAG" \
-            --title "$TAG" \
-            --notes-file "${{ steps.changelog.outputs.body_file }}" \
-            --repo ${{ github.repository }}
-          gh release upload "$TAG" dist/wayforge-* wayforge-share-${{ steps.version.outputs.version }}.tar.gz wayforge-share-${{ steps.version.outputs.version }}.zip wayforge-checksums.txt wayforge-checksums.txt.sigstore.json install/install.sh install/install.ps1 --repo ${{ github.repository }}
+
+      - name: Upload release assets
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          gh release upload "$TAG" \
+            dist/wayforge-* \
+            wayforge-share-${{ steps.version.outputs.version }}.tar.gz \
+            wayforge-share-${{ steps.version.outputs.version }}.zip \
+            wayforge-checksums.txt \
+            wayforge-checksums.txt.sigstore.json \
+            install/install.sh \
+            install/install.ps1 \
+            --clobber \
+            --repo "${{ github.repository }}"
+
+      - name: Verify signature bundle asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if ! gh release view "$TAG" --json assets --jq '.assets[].name' \
+            --repo "${{ github.repository }}" \
+            | grep -qx 'wayforge-checksums.txt.sigstore.json'; then
+            echo "error: wayforge-checksums.txt.sigstore.json is missing from release $TAG; refusing to publish" >&2
+            exit 1
+          fi
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          gh release edit "$TAG" --draft=false --repo "${{ github.repository }}"

@@ -348,6 +348,9 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 	cosign_args="$(cat "$COSIGN_ARGS_LOG")"
 	[[ "$cosign_args" == *"verify-blob"* ]]
 	[[ "$cosign_args" == *"--bundle"* ]]
+	[[ "$cosign_args" == *"--certificate-identity https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main"* ]]
+	[[ "$cosign_args" != *"--certificate-identity-regexp"* ]]
+	[[ "$cosign_args" == *"--certificate-oidc-issuer https://token.actions.githubusercontent.com"* ]]
 }
 
 @test "install.sh aborts on failed cosign verification without touching prefix" {
@@ -405,6 +408,29 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 @test "install.sh contains cosign verify-blob with pinned identity constants" {
 	grep -q 'cosign verify-blob' "$REPO_ROOT/install/install.sh"
 	grep -q -- '--bundle' "$REPO_ROOT/install/install.sh"
-	grep -q 'COSIGN_IDENTITY_REGEXP' "$REPO_ROOT/install/install.sh"
+	grep -q -- '--certificate-identity "$COSIGN_IDENTITY"' "$REPO_ROOT/install/install.sh"
+	grep -q 'COSIGN_IDENTITY=' "$REPO_ROOT/install/install.sh"
 	grep -q 'COSIGN_OIDC_ISSUER' "$REPO_ROOT/install/install.sh"
+	! grep -q 'certificate-identity-regexp' "$REPO_ROOT/install/install.sh"
+}
+
+@test "install.sh verifies the Node SHASUMS256 manifest before extracting" {
+	grep -q 'SHASUMS256.txt' "$REPO_ROOT/install/install.sh"
+	grep -q 'verified ${archive} checksum' "$REPO_ROOT/install/install.sh"
+}
+
+@test "install.sh rejects share archives with path traversal" {
+	install_env
+	stub_cosign
+	write_checksums "$DIGEST_OK" "$DIGEST_OK"
+	if ! tar --version 2>/dev/null | grep -q 'GNU tar'; then
+		skip "GNU tar --transform required"
+	fi
+	rm -f "$TEST_FIXTURES/wayforge-share-9.9.9.tar.gz"
+	tar -czf "$TEST_FIXTURES/wayforge-share-9.9.9.tar.gz" \
+		-C "$TEST_FIXTURES/share" --transform='s|^|../|' base VERSION
+	run_full_install "$DIGEST_OK"
+	[ "$status" -eq 1 ]
+	[[ "$(run_stderr)" == *"share archive contains unsafe paths; aborting without changes"* ]]
+	[ ! -e "$TEST_PREFIX/bin" ]
 }

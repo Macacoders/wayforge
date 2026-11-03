@@ -46,8 +46,10 @@ The installers then verify the binary and share archive hashes against the same 
 
 The checksum manifest is signed with cosign (v3.1.4, keyless: Fulcio certificate + Rekor transparency log) into a detached bundle, `wayforge-checksums.txt.sigstore.json`, uploaded alongside the manifest. The signing identity is pinned to the GitHub Actions workflow that produced the release:
 
-- Identity: `^https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main$`
+- Identity (exact): `https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main`
 - OIDC issuer: `https://token.actions.githubusercontent.com`
+
+Cosign v3 or newer is required for `--bundle`, and verification needs network access to Fulcio, Rekor, and the Sigstore TUF root.
 
 Verify the manifest against the bundle:
 
@@ -57,7 +59,7 @@ Verify the manifest against the bundle:
 curl -fsSLO https://github.com/Macacoders/wayforge/releases/latest/download/wayforge-checksums.txt.sigstore.json
 cosign verify-blob wayforge-checksums.txt \
   --bundle wayforge-checksums.txt.sigstore.json \
-  --certificate-identity-regexp '^https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main$' \
+  --certificate-identity 'https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
@@ -66,7 +68,7 @@ cosign verify-blob wayforge-checksums.txt \
 ```powershell
 Invoke-WebRequest -Uri https://github.com/Macacoders/wayforge/releases/latest/download/wayforge-checksums.txt.sigstore.json -OutFile wayforge-checksums.txt.sigstore.json
 cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigstore.json `
-  --certificate-identity-regexp '^https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main$' `
+  --certificate-identity 'https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main' `
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
@@ -75,6 +77,17 @@ Verification policy:
 - `install.sh` performs this verification automatically when cosign is on PATH: a present-but-invalid bundle or a non-404 bundle fetch failure aborts the install with no changes; cosign absent or a confirmed-missing bundle (404) warns and continues with hash-only verification.
 - `install.ps1` does not require cosign; run the manual `cosign verify-blob --bundle` command above if you want signature verification on Windows.
 - `wfg upgrade` currently verifies hashes only; bundle verification there is a recorded follow-up gap (ADR-0048).
+
+## What signing proves (and does not prove)
+
+A valid bundle proves that `wayforge-checksums.txt` was produced by the pinned release workflow and that the signature is recorded in the public Rekor transparency log. It does **not** prove that the binaries are safe, vulnerability-free, or reproducible, and it is not build provenance (SLSA/in-toto attestation). Treat signature verification as provenance plus integrity, not as a malware scan.
+
+Explicit non-goals:
+
+- No Authenticode enforcement yet; Windows binaries are unsigned until SignPath (#240).
+- `install.ps1` does not invoke cosign; Windows users run the manual `cosign verify-blob --bundle` command above if they want signature verification.
+- `wfg upgrade` remains hash-only and prints a warning pointing at this document.
+- Bootstrap of `install.sh` / `install.ps1` itself is hash-only in the quick-start flow: the installer hash is checked against the same-origin manifest, so verify the bundle first (commands above) for a high-assurance install.
 
 ## Authenticode status
 
@@ -90,7 +103,7 @@ If your EDR blocks the installer or the binary, allow-list narrowly — never th
 
 ## 2026-10-21 AMSI detection context
 
-On 2026-10-21, Microsoft Defender flagged `Trojan:PowerShell/AmsiBypazz.E!MTB` (threat ID 2147948519) on a developer host during a wayforge install. Detection source was AMSI, process `pwsh.exe`; the raw evidence is retained in `docs/ai/plans/2026-10-21-wayforge-install-alarm.raw.log`. The install used the then-recommended `irm ... | iex` cradle, which pipes the downloaded script straight into `Invoke-Expression`, so AMSI scanned the remote script content executing in memory and the detection was attributed to the PowerShell host. Static analysis found no AMSI-bypass constructs in the installer and a Defender scan of the repo script found no threats; the detection is assessed as a false positive triggered by the cradle pattern. The recommended flow — download to file, verify the hash, then run the file — avoids piping remote content to `Invoke-Expression` and removes that in-memory scan surface.
+On 2026-10-21, Microsoft Defender flagged `Trojan:PowerShell/AmsiBypazz.E!MTB` (threat ID 2147948519) on a developer host during a wayforge install. Detection source was AMSI, process `pwsh.exe`; the raw evidence log was captured locally and is not committed to the repository (`*.log` is gitignored). The install used the then-recommended `irm ... | iex` cradle, which pipes the downloaded script straight into `Invoke-Expression`, so AMSI scanned the remote script content executing in memory and the detection was attributed to the PowerShell host. Static analysis found no AMSI-bypass constructs in the installer and a Defender scan of the repo script found no threats; the detection is assessed as a false positive triggered by the cradle pattern. The recommended flow — download to file, verify the hash, then run the file — avoids piping remote content to `Invoke-Expression` and removes that in-memory scan surface.
 
 ## Reporting a false positive
 

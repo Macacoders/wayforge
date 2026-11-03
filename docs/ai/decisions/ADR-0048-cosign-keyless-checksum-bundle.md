@@ -27,9 +27,9 @@ Cosign v3 (pinned at v3.1.4) supports the Sigstore bundle format: signing produc
 
    `install.sh` implements this matrix automatically when cosign is on PATH. `install.ps1` does not require cosign and documents manual `cosign verify-blob --bundle` verification. `wfg upgrade` remains hash-only in this task; adding bundle verification there is an explicit follow-up gap.
 
-4. **Identity/issuer pin maintenance.** The pinned identity regexp `^https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main$` and issuer `https://token.actions.githubusercontent.com` must change in the same commit as any change to the workflow trigger or path. A pin that lags the trigger breaks verification for every release signed after the change.
+4. **Identity/issuer pin maintenance.** The pinned identity is exact, not a regexp: `https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main`, with issuer `https://token.actions.githubusercontent.com`. An exact match keeps dots in `github.com` and `.github` from acting as wildcards. The pin must change in the same commit as any change to the workflow trigger or path. A pin that lags the trigger breaks verification for every release signed after the change.
 
-5. **Verification command.** `cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigstore.json --certificate-identity-regexp '<pin>' --certificate-oidc-issuer https://token.actions.githubusercontent.com` (see `docs/security/installer-trust.md` for the exact POSIX and Windows commands).
+5. **Verification command.** `cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigstore.json --certificate-identity 'https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main' --certificate-oidc-issuer https://token.actions.githubusercontent.com` (see `docs/security/installer-trust.md` for the exact POSIX and Windows commands).
 
 ## Consequences
 

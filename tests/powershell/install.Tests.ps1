@@ -93,6 +93,24 @@ Describe 'install.ps1 file structure' {
     It 'allows overriding the Node download base URL for tests' {
         $script:scriptContent | Should -Match 'WAYFORGE_NODE_BASE_URL'
     }
+
+    It 'verifies the Node SHASUMS256 manifest before extracting' {
+        $script:scriptContent | Should -Match 'SHASUMS256\.txt'
+        $script:scriptContent | Should -Match 'verified \$\{archive\} checksum'
+        $shasums = $script:scriptContent.IndexOf('SHASUMS256.txt')
+        $expand = $script:scriptContent.IndexOf('Expand-Archive -Path $tmpZip')
+        $shasums | Should -BeGreaterThan 0
+        $expand | Should -BeGreaterThan $shasums
+    }
+
+    It 'rejects unsafe archive paths before extracting' {
+        $script:scriptContent | Should -Match 'function Assert-SafeZip'
+        $script:scriptContent | Should -Match 'ZipFile\]::OpenRead'
+        $guard = $script:scriptContent.LastIndexOf('Assert-SafeZip -Path $tmpShare')
+        $expand = $script:scriptContent.LastIndexOf('Expand-Archive -Path $tmpShare')
+        $guard | Should -BeGreaterThan 0
+        $expand | Should -BeGreaterThan $guard
+    }
 }
 
 Describe 'Node detection and provisioning (-DryRun)' {
