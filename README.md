@@ -32,6 +32,10 @@ Default prefix: `~/.wayforge` (Linux/macOS) or `%LOCALAPPDATA%\wayforge` (Window
 
 The installer downloads the platform binary and share archive together with the release's `wayforge-checksums.txt` and verifies both SHA-256 hashes before installing anything; a mismatch aborts with no changes. Releases that predate the checksum asset (confirmed by an HTTP 404) install unverified with a warning instead; any other checksum download failure aborts with no changes. The checksum manifest is cosign-signed into a detached `wayforge-checksums.txt.sigstore.json` bundle; `install.sh` verifies it automatically when cosign is present (see [docs/security/installer-trust.md](docs/security/installer-trust.md) for manual verification on Windows and the full trust model).
 
+### Code signing policy
+
+Windows release artifacts are Authenticode-signed via SignPath Foundation. See the [Code signing policy](./CODE_SIGNING_POLICY.md).
+
 ### Requirements
 
 - **Node.js >= 18** is required to run the installed workflow (skills and commands execute via `npx tsx`).
