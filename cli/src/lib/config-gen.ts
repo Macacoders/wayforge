@@ -84,9 +84,12 @@ export function buildProviderBlockJson(
 		)
 	}
 
-	if (selected.includes('laberit')) {
+	if (selected.includes('openai-compatible')) {
 		fragments.push(
-			readFragment(sourceDir, 'providers/laberit-provider-block.jsonc'),
+			readFragment(
+				sourceDir,
+				'providers/openai-compatible-provider-block.jsonc',
+			),
 		)
 	}
 
@@ -126,21 +129,21 @@ export function buildAgentBlockJson(
 		)
 	} else if (
 		selected.includes('opencode-go') &&
-		selected.includes('laberit')
+		selected.includes('openai-compatible')
 	) {
 		fragment = readFragment(
 			sourceDir,
-			'agents/balanced-opencode-go-laberit-agent-block.jsonc',
+			'agents/balanced-opencode-go-openai-compatible-agent-block.jsonc',
 		)
 	} else if (selected.length === 1 && selected[0] === 'github-copilot') {
 		fragment = readFragment(
 			sourceDir,
 			'agents/balanced-github-copilot-only-agent-block.jsonc',
 		)
-	} else if (selected.length === 1 && selected[0] === 'laberit') {
+	} else if (selected.length === 1 && selected[0] === 'openai-compatible') {
 		fragment = readFragment(
 			sourceDir,
-			'agents/balanced-laberit-only-agent-block.jsonc',
+			'agents/balanced-openai-compatible-only-agent-block.jsonc',
 		)
 	} else if (selected.length === 1 && selected[0] === 'opencode-go') {
 		fragment = readFragment(

@@ -1,0 +1,21 @@
+"agent": {
+    "planner": {
+      "model": "openai-compatible/kimi-k2.6"
+    },
+    "delivery": {
+      "model": "openai-compatible/kimi-k2.6"
+    },
+    "research": {
+      "model": "openai-compatible/kimi-k2.6"
+    },
+    "code": {
+      "model": "openai-compatible/kimi-k2.5",
+      "steps": 16
+    },
+    "troubleshooter": {
+      "model": "openai-compatible/kimi-k2.6"
+    },
+    "architect": {
+      "model": "openai-compatible/kimi-k2.6"
+    }
+  }

@@ -1,5 +1,9 @@
 export type Provider =
-	'openai' | 'github-copilot' | 'laberit' | 'opencode-go' | 'free-tier'
+	| 'openai'
+	| 'github-copilot'
+	| 'openai-compatible'
+	| 'opencode-go'
+	| 'free-tier'
 
 export type Runtime = 'opencode' | 'kilocode'
 

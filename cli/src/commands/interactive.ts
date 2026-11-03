@@ -34,7 +34,7 @@ const PROVIDER_HINTS: Record<Provider, string> = {
 	'free-tier': 'nothing required',
 	openai: 'requires /connect OpenAI auth in OpenCode/Kilo Code',
 	'github-copilot': 'requires /connect device login in OpenCode/Kilo Code',
-	laberit: 'requires OPENAI_BASE_URL and OPENAI_API_KEY env vars',
+	'openai-compatible': 'requires OPENAI_BASE_URL and OPENAI_API_KEY env vars',
 	'opencode-go': 'requires /connect OpenCode Go auth in OpenCode/Kilo Code',
 }
 const providerHint = (value: string): string =>
@@ -85,18 +85,24 @@ export async function interactiveCommand(): Promise<void> {
 			},
 			{ label: 'openai', value: 'openai' },
 			{ label: 'github-copilot', value: 'github-copilot' },
-			{ label: 'laberit', value: 'laberit' },
+			{ label: 'openai-compatible', value: 'openai-compatible' },
 			{ label: 'opencode-go', value: 'opencode-go' },
-			{ label: 'opencode-go,laberit', value: 'opencode-go,laberit' },
-			{ label: 'openai,github-copilot', value: 'openai,github-copilot' },
-			{ label: 'openai,laberit', value: 'openai,laberit' },
 			{
-				label: 'github-copilot,laberit',
-				value: 'github-copilot,laberit',
+				label: 'opencode-go,openai-compatible',
+				value: 'opencode-go,openai-compatible',
+			},
+			{ label: 'openai,github-copilot', value: 'openai,github-copilot' },
+			{
+				label: 'openai,openai-compatible',
+				value: 'openai,openai-compatible',
 			},
 			{
-				label: 'openai,github-copilot,laberit',
-				value: 'openai,github-copilot,laberit',
+				label: 'github-copilot,openai-compatible',
+				value: 'github-copilot,openai-compatible',
+			},
+			{
+				label: 'openai,github-copilot,openai-compatible',
+				value: 'openai,github-copilot,openai-compatible',
 			},
 		]
 		const providerChoices =
@@ -188,9 +194,9 @@ export async function interactiveCommand(): Promise<void> {
 				'  - GitHub Copilot: in OpenCode/Kilo Code, run /connect and complete device login.',
 			)
 		}
-		if (providers.includes('laberit')) {
+		if (providers.includes('openai-compatible')) {
 			console.log(
-				'  - laberit: set OPENAI_BASE_URL and OPENAI_API_KEY in your local environment before use.',
+				'  - openai-compatible: set OPENAI_BASE_URL and OPENAI_API_KEY in your local environment before use.',
 			)
 		}
 		if (providers.includes('opencode-go')) {

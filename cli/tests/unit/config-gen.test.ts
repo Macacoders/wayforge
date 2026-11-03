@@ -63,10 +63,10 @@ describe("parseProviders", () => {
   });
 
   it("parses comma-separated providers and preserves order", () => {
-    expect(parseProviders("openai,github-copilot,laberit")).toEqual([
+    expect(parseProviders("openai,github-copilot,openai-compatible")).toEqual([
       "openai",
       "github-copilot",
-      "laberit",
+      "openai-compatible",
     ]);
   });
 
@@ -93,6 +93,16 @@ describe("parseProviders", () => {
     expect(() => parseProviders("openai,unknown")).toThrow("process.exit");
     exitSpy.mockRestore();
   });
+
+  it("rejects the removed laberit provider id", () => {
+    const exitSpy = vi
+      .spyOn(process, "exit")
+      .mockImplementation(() => {
+        throw new Error("process.exit");
+      });
+    expect(() => parseProviders("laberit")).toThrow("process.exit");
+    exitSpy.mockRestore();
+  });
 });
 
 describe("resolveDefaultModels", () => {
@@ -103,8 +113,8 @@ describe("resolveDefaultModels", () => {
 		});
 	});
 
-	it("returns openai+laberit fallback (openai defaults)", () => {
-		expect(resolveDefaultModels(["openai", "laberit"])).toEqual({
+	it("returns openai+openai-compatible fallback (openai defaults)", () => {
+		expect(resolveDefaultModels(["openai", "openai-compatible"])).toEqual({
 			model: "openai/gpt-6-sol",
 			smallModel: "openai/gpt-5.6-luna",
 		});
@@ -124,10 +134,10 @@ describe("resolveDefaultModels", () => {
 		});
 	});
 
-  it("returns laberit only defaults", () => {
-    expect(resolveDefaultModels(["laberit"])).toEqual({
-      model: "laberit/laberit-ai-preview",
-      smallModel: "laberit/laberit-ai",
+  it("returns openai-compatible only defaults", () => {
+    expect(resolveDefaultModels(["openai-compatible"])).toEqual({
+      model: "openai-compatible/kimi-k2.6",
+      smallModel: "openai-compatible/kimi-k2.5",
     });
   });
 
@@ -138,12 +148,12 @@ describe("resolveDefaultModels", () => {
 		});
 	});
 
-	it("returns opencode-go+laberit combo defaults (either order)", () => {
-		expect(resolveDefaultModels(["opencode-go", "laberit"])).toEqual({
+	it("returns opencode-go+openai-compatible combo defaults (either order)", () => {
+		expect(resolveDefaultModels(["opencode-go", "openai-compatible"])).toEqual({
 			model: "opencode-go/deepseek-v4.1-flash",
 			smallModel: "opencode-go/muse-spark-1.3-contributor",
 		});
-		expect(resolveDefaultModels(["laberit", "opencode-go"])).toEqual({
+		expect(resolveDefaultModels(["openai-compatible", "opencode-go"])).toEqual({
 			model: "opencode-go/deepseek-v4.1-flash",
 			smallModel: "opencode-go/muse-spark-1.3-contributor",
 		});
@@ -276,27 +286,46 @@ describe("buildProviderBlockJson", () => {
     expect(block).toBe("");
   });
 
-  // The laberit fragment is runtime-agnostic and read verbatim for both
-  // runtimes; a single `env` name keeps the provider key-injection path active.
+  // The openai-compatible fragment is runtime-agnostic and read verbatim for
+  // both runtimes; a single `env` name keeps the provider key-injection path
+  // active.
   for (const runtime of RUNTIMES) {
-    it(`emits unified env-based laberit block for ${runtime}`, () => {
-      const block = buildProviderBlockJson(["laberit"], runtime, sourceDir);
+    it(`emits unified env-based openai-compatible block for ${runtime}`, () => {
+      const block = buildProviderBlockJson(
+        ["openai-compatible"],
+        runtime,
+        sourceDir,
+      );
       // Exact array text guards the env.length === 1 key-injection rule.
+      expect(block).toContain('"openai-compatible":');
       expect(block).toContain('"env": ["OPENAI_API_KEY"]');
       expect(block).toContain('"${OPENAI_BASE_URL}"');
+      expect(block).toContain('"kimi-k2.6"');
+      expect(block).toContain('"Kimi K2.6"');
+      expect(block).toContain('"kimi-k2.5"');
+      expect(block).toContain('"Kimi K2.5"');
+      expect(block).toContain('"gpt-5.6-luna"');
+      expect(block).toContain('"kimi-k2.7-code"');
+      expect(block).toContain('"Kimi K2.7 Code"');
+      expect(block).not.toContain("laberit");
       expect(block).not.toContain("{env:");
       expect(block).not.toContain("{file:");
     });
   }
 
-  it("produces identical laberit block text for both runtimes", () => {
+  it("produces identical openai-compatible block text for both runtimes", () => {
     // The opencode runtime prepends the "opencode" free-provider fragment;
-    // laberit is the last fragment in both cases, so compare from its key on.
-    const laberitSlice = (runtime: Runtime) => {
-      const block = buildProviderBlockJson(["laberit"], runtime, sourceDir);
-      return block.slice(block.indexOf('"laberit": {'));
+    // openai-compatible is the last fragment in both cases, so compare from
+    // its key on.
+    const compatibleSlice = (runtime: Runtime) => {
+      const block = buildProviderBlockJson(
+        ["openai-compatible"],
+        runtime,
+        sourceDir,
+      );
+      return block.slice(block.indexOf('"openai-compatible": {'));
     };
-    expect(laberitSlice("opencode")).toBe(laberitSlice("kilocode"));
+    expect(compatibleSlice("opencode")).toBe(compatibleSlice("kilocode"));
   });
 
   it("joins multiple provider fragments with comma-newline", () => {
@@ -359,9 +388,22 @@ describe("buildAgentBlockJson", () => {
     expect(block).toContain('"planner":');
   });
 
-  it("selects opencode-go+laberit combo agent block", () => {
+  it("selects openai-compatible-only agent block", () => {
     const block = buildAgentBlockJson(
-      ["opencode-go", "laberit"],
+      ["openai-compatible"],
+      sourceDir,
+      "opencode",
+    );
+    expect(block).toContain('"planner":');
+    expect(block).toContain('"model": "openai-compatible/kimi-k2.6"');
+    expect(block).toContain('"model": "openai-compatible/kimi-k2.5"');
+    expect(block).toContain('"steps": 16');
+    expect(block).not.toContain('"model": "openai/');
+  });
+
+  it("selects opencode-go+openai-compatible combo agent block", () => {
+    const block = buildAgentBlockJson(
+      ["opencode-go", "openai-compatible"],
       sourceDir,
       "opencode",
     );
@@ -400,9 +442,9 @@ describe("agent block step floors", () => {
     "balanced-openai-only-agent-block.jsonc",
     "balanced-openai-github-copilot-agent-block.jsonc",
     "balanced-opencode-go-only-agent-block.jsonc",
-    "balanced-opencode-go-laberit-agent-block.jsonc",
+    "balanced-opencode-go-openai-compatible-agent-block.jsonc",
     "free-tier-agent-block.jsonc",
-    "balanced-laberit-only-agent-block.jsonc",
+    "balanced-openai-compatible-only-agent-block.jsonc",
   ];
 
   it.each(agentBlockFragments)("gives code at least 16 steps in %s", (file) => {
@@ -411,13 +453,13 @@ describe("agent block step floors", () => {
     expect(parsed.agent.code.steps).toBeGreaterThanOrEqual(16);
   });
 
-  it("keeps laberit-only code model unpinned to laberit-ai", () => {
+  it("keeps openai-compatible-only code model on kimi-k2.5", () => {
     const fragment = readFragment(
       sourceDir,
-      "agents/balanced-laberit-only-agent-block.jsonc",
+      "agents/balanced-openai-compatible-only-agent-block.jsonc",
     );
     const parsed = JSON.parse(`{${fragment}}`);
-    expect(parsed.agent.code.model).toBe("laberit/laberit-ai");
+    expect(parsed.agent.code.model).toBe("openai-compatible/kimi-k2.5");
   });
 });
 
@@ -480,19 +522,34 @@ describe("generateOpenCodeJsonc", () => {
 		);
   });
 
-  it("generates opencode-go+laberit combo config", () => {
+  it("generates openai-compatible-only config", () => {
     const content = generateOpenCodeJsonc(
-      makeOpts("opencode", ["opencode-go", "laberit"]),
+      makeOpts("opencode", ["openai-compatible"]),
     );
     expect(content).toContain(
-      '"enabled_providers": ["opencode", "opencode-go", "laberit"]',
+      '"enabled_providers": ["opencode", "openai-compatible"]',
+    );
+    expect(content).toContain('"model": "openai-compatible/kimi-k2.6"');
+    expect(content).toContain('"small_model": "openai-compatible/kimi-k2.5"');
+    expect(content).toContain('"openai-compatible": {');
+    // Parses as strict JSON after stripping the header comment.
+    const json = content.slice(content.indexOf("\n") + 1);
+    expect(() => JSON.parse(json)).not.toThrow();
+  });
+
+  it("generates opencode-go+openai-compatible combo config", () => {
+    const content = generateOpenCodeJsonc(
+      makeOpts("opencode", ["opencode-go", "openai-compatible"]),
+    );
+    expect(content).toContain(
+      '"enabled_providers": ["opencode", "opencode-go", "openai-compatible"]',
     );
     expect(content).toContain('"model": "opencode-go/deepseek-v4.1-flash"');
     expect(content).toContain(
       '"small_model": "opencode-go/muse-spark-1.3-contributor"',
     );
     expect(content).toContain('"opencode-go": {');
-    expect(content).toContain('"laberit": {');
+    expect(content).toContain('"openai-compatible": {');
     expect(content).toContain('"muse-spark-1.3-contributor"');
   });
 
@@ -554,13 +611,13 @@ describe("generateOpenCodeJsonc", () => {
   for (const runtime of RUNTIMES) {
     it(`emits no env/file references for ${runtime} across all providers`, () => {
       // Generation concatenates per-provider fragments, so one combination
-      // containing every fragment (including laberit) guards the global
-      // invariant.
+      // containing every fragment (including openai-compatible) guards the
+      // global invariant.
       const content = generateOpenCodeJsonc(
         makeOpts(runtime, [
           "openai",
           "github-copilot",
-          "laberit",
+          "openai-compatible",
           "opencode-go",
         ]),
       );
