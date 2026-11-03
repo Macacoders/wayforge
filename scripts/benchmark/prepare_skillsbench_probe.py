@@ -24,17 +24,18 @@ FREE_MODEL = "opencode/mimo-v2.6-flash-free"
 def pin_free_models(config: Path) -> None:
     """Keep OpenCode's root and title/summary model on the free tier."""
     raw = config.read_text()
-    expected = {
-        '"default_agent": "planner"': '"default_agent": "delivery"',
-        '"model": ""': f'"model": "{FREE_MODEL}"',
-        '"small_model": ""': f'"small_model": "{FREE_MODEL}"',
-    }
-    for old, new in expected.items():
-        if raw.count(old) == 1:
-            raw = raw.replace(old, new, 1)
-        elif raw.count(new) != 1:
-            raise RuntimeError(f"Unexpected generated config field: {old}")
-    config.write_text(raw)
+    header = ""
+    if raw.startswith("//"):
+        header, _, raw = raw.partition("\n")
+    data = json.loads(raw)
+    if not isinstance(data, dict) or data.get("default_agent") not in ("planner", "delivery"):
+        raise RuntimeError("Unexpected generated default agent")
+    for field in ("model", "small_model"):
+        if data.get(field) not in ("", FREE_MODEL):
+            raise RuntimeError(f"Unexpected generated config field: {field}")
+        data[field] = FREE_MODEL
+    data["default_agent"] = "delivery"
+    config.write_text((header + "\n" if header else "") + json.dumps(data, indent=2) + "\n")
 
 
 def command(*args: str, env: dict[str, str] | None = None) -> str:

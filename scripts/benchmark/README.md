@@ -4,10 +4,12 @@ For the next-agent coding handoff, read the **Handoff for the next agent**
 section of `docs/ai/plans/2026-10-31_224912-benchmark-backed-harness-evaluation.md`.
 
 The pinned SkillsBench/BenchFlow probe is a human-supervised Task 1 interface
-check. Its upstream verifier output is an outcome measure. The current ACP
-trajectory does not name child agents or the loaded skill, so it does not prove
-the complete Wayforge workflow. The 2026-11-01 maintainer waiver permits
-offline Task 2 work; it does not turn that missing evidence into a pass.
+check. Its upstream verifier output is an outcome measure. The 2026-11-02
+session export captured `delivery`, `skill(name=delivery-policy)`, and a linked
+`code` child session, but no `reviewer`; the run timed out after 900 seconds
+despite verifier reward `1.0`. ACP's flattened trajectory still does not name
+the child or skill. The full Wayforge workflow remains unproven. The
+2026-11-01 maintainer waiver permits offline Task 2 work, not a full-chain pass.
 
 ## Current commands
 
@@ -54,6 +56,8 @@ following attempts. Timeout, budget exhaustion, runtime error, and upstream
 verifier failure are distinct outcomes; none is retried silently.
 
 The existing probe has not demonstrated complete child-agent usage or a
-credential boundary suitable for paid tasks. A live Task 2 smoke attempt and
+credential boundary suitable for paid tasks. BenchFlow reported zero tokens
+and unknown cost for the 2026-11-02 attempt despite captured agent activity,
+so usage accounting also remains unverified. A live Task 2 smoke attempt and
 paid execution remain human-owned and unvalidated. No benchmark command is
 part of the regular test suite or `make check`.
