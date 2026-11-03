@@ -1,7 +1,7 @@
 ---
-status: planned
+status: in-progress
 created: 2026-11-03
-task: 0/2
+task: 1/2
 required_gates:
   architect_review: true
   memory_update: true
