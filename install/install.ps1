@@ -32,7 +32,8 @@
 .PARAMETER AllowUnsigned
     Continue when the signed checksum bundle cannot be verified. Older
     releases already fall back to hash-only; signed-era releases require
-    this explicit opt-in.
+    this explicit opt-in. The WAYFORGE_ALLOW_UNSIGNED=1 environment
+    variable is equivalent to this flag; any other value is ignored.
 
 .PARAMETER UrlBase
     Test override for the download base URL.

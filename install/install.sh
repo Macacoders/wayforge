@@ -77,6 +77,8 @@ Options:
   --allow-unsigned  Continue when the signed checksum bundle cannot be
                     verified (older releases only by default; signed-era
                     releases require this explicit opt-in).
+                    Env equivalent: WAYFORGE_ALLOW_UNSIGNED=1 (only the
+                    literal value 1 enables the opt-in).
   --url-base <base> Test override for the download base URL.
   -h, --help        Show this help message.
 EOF
@@ -375,7 +377,7 @@ verify_checksum_signature() {
 	local checksum_url="$1"
 	[ -n "$TMP_CHECKSUMS" ] || return 0
 	if ! command -v cosign >/dev/null 2>&1; then
-		if signed_era && [ "$ALLOW_UNSIGNED" -eq 0 ]; then
+		if signed_era && [ "$ALLOW_UNSIGNED" != "1" ]; then
 			echo "error: cosign is required to verify ${TAG}; install cosign or pass --allow-unsigned to skip signature verification" >&2
 			return 1
 		fi
@@ -388,7 +390,7 @@ verify_checksum_signature() {
 	case "$bundle_rc" in
 	0) ;;
 	1)
-		if signed_era && [ "$ALLOW_UNSIGNED" -eq 0 ]; then
+		if signed_era && [ "$ALLOW_UNSIGNED" != "1" ]; then
 			echo "error: cosign signature bundle is missing for ${TAG}; refusing an unsigned install (pass --allow-unsigned to override)" >&2
 			return 1
 		fi
@@ -617,7 +619,7 @@ run_install() {
 		if command -v cosign >/dev/null 2>&1; then
 			echo "[dry-run] bundle URL: ${checksum_url}.sigstore.json"
 			echo "[dry-run] would verify checksum signature with cosign"
-		elif signed_era && [ "$ALLOW_UNSIGNED" -eq 0 ]; then
+		elif signed_era && [ "$ALLOW_UNSIGNED" != "1" ]; then
 			echo "[dry-run] cosign not found; signed-era releases require cosign or --allow-unsigned"
 		else
 			echo "[dry-run] cosign not found; checksum signature verification will be skipped"
@@ -659,7 +661,7 @@ run_install() {
 	1)
 		rm -f "$TMP_CHECKSUMS"
 		TMP_CHECKSUMS=""
-		if signed_era && [ "$ALLOW_UNSIGNED" -eq 0 ]; then
+		if signed_era && [ "$ALLOW_UNSIGNED" != "1" ]; then
 			echo "error: wayforge-checksums.txt is missing for ${TAG}; refusing an unverified install (pass --allow-unsigned to override)" >&2
 			exit 1
 		fi

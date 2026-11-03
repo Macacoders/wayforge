@@ -62,11 +62,21 @@ function cosign {
     $script:installChild = {
         param([string]$ExtraEnv = '', [string]$ExtraArgs = '', [switch]$NoCosignStub)
         $stub = ''
-        if (-not $NoCosignStub) {
+        $pathSanitize = ''
+        if ($NoCosignStub) {
+            # Sanitize PATH inside the child so a real cosign on the host
+            # cannot satisfy the lookup; the installer only uses cmdlets
+            # when -SkipNodeCheck is passed.
+            $emptyPath = Join-Path $script:tmp 'no-cosign-path'
+            New-Item -ItemType Directory -Path $emptyPath -Force | Out-Null
+            $pathSanitize = "`$env:PATH = '$emptyPath'"
+        }
+        else {
             $stub = $script:cosignStub
         }
         $child = @"
 `$env:FIXTURE_DIR = '$script:fixtureDir'
+$pathSanitize
 $ExtraEnv
 $script:downloadStub
 $stub
@@ -404,6 +414,20 @@ Describe 'Cosign bundle verification (full install)' {
         $combined = & $script:installChild -ExtraEnv "`$env:FAKE_BUNDLE_STATUS = '404'"
         $LASTEXITCODE | Should -Not -Be 0
         $combined | Should -Match 'refusing an unsigned install'
+        Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
+    }
+
+    It 'aborts on a missing checksum manifest (404) for a signed-era release without -AllowUnsigned' {
+        $combined = & $script:installChild -ExtraEnv "`$env:FAKE_CHECKSUM_STATUS = '404'"
+        $LASTEXITCODE | Should -Not -Be 0
+        $combined | Should -Match 'refusing an unverified install'
+        Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
+    }
+
+    It 'aborts on a non-404 bundle download failure' {
+        $combined = & $script:installChild -ExtraEnv "`$env:FAKE_BUNDLE_STATUS = '500'"
+        $LASTEXITCODE | Should -Not -Be 0
+        $combined | Should -Match 'failed to download cosign signature bundle'
         Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
     }
 }

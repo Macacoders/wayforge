@@ -473,6 +473,26 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 	[ -d "$TEST_PREFIX/share/wayforge/base" ]
 }
 
+@test "install.sh WAYFORGE_ALLOW_UNSIGNED=1 continues without cosign in the signed era" {
+	install_env
+	write_checksums "$DIGEST_OK" "$DIGEST_OK"
+	run_full_install "$DIGEST_OK" WAYFORGE_ALLOW_UNSIGNED=1
+	[ "$status" -eq 0 ]
+	[[ "$(run_stderr)" == *"cosign not found; skipping checksum signature verification"* ]]
+	[ -f "$TEST_PREFIX/bin/wfg" ]
+	[ -d "$TEST_PREFIX/share/wayforge/base" ]
+}
+
+@test "install.sh WAYFORGE_ALLOW_UNSIGNED=true does not bypass the signed-era fail-closed" {
+	install_env
+	write_checksums "$DIGEST_OK" "$DIGEST_OK"
+	run_full_install "$DIGEST_OK" WAYFORGE_ALLOW_UNSIGNED=true
+	[ "$status" -eq 1 ]
+	[[ "$(run_stderr)" == *"cosign is required to verify"* ]]
+	[ ! -e "$TEST_PREFIX/bin" ]
+	[ ! -e "$TEST_PREFIX/share" ]
+}
+
 @test "install.sh warns and continues for legacy releases without a checksums file" {
 	install_env
 	run_full_install "$DIGEST_OK" FAKE_CHECKSUM_STATUS=404 WAYFORGE_COSIGN_REQUIRED_FROM=99.0.0
