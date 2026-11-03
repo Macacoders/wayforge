@@ -36,7 +36,7 @@ This ADR partially supersedes ADR-0008:
 
 - Existing installs that used `--providers laberit` must re-install with `--providers openai-compatible` (e.g. `wfg install --repo <path> --providers openai-compatible --force`); existing generated configs are self-contained and keep working until the next refresh, which migrates them to the new ids. There is no alias.
 - The generated config keeps the existing Kilo-safe shape: `env: ["OPENAI_API_KEY"]` and a literal `${OPENAI_BASE_URL}`; never `{env:}` / `{file:}`.
-- Known pre-existing issue, out of scope for this rename: Kilo 7.3.8 rejects the generated `kilo.jsonc` with `ConfigInvalidError` because of the `"skills": ["./.agents/skills"]` entry; this affects all providers and will be filed as a separate follow-up issue (provider-independent; out of scope here).
+- Kilo config compatibility fix included in this change: `kilo.jsonc` emits `skills` as `{ "paths": ["..."] }` because Kilo 7.3.8 rejects the OpenCode array form with `ConfigInvalidError`; `opencode.jsonc` keeps the array form. This pre-existing kilocode bug affected all providers.
 - Git history, tags, and release artifacts still contain the old name; scrubbing is tracked in #284.
 
 ## Related

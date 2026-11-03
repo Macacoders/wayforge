@@ -173,6 +173,7 @@ function installThroughCli(repo: string, providers: string, extra: string[] = []
 
 - README, architecture, env example, ADR-0048, changelog, and log exactly as above.
 - The log entry records the rename, validation evidence, and that the abandoned install-time-model redesign was discarded.
+- Fix the pre-existing Kilo `skills` incompatibility in `cli/src/lib/config-gen.ts`: kilocode emits `"skills": { "paths": [...] }`; update the unit and integration expectations.
 - Do not touch `VERSION`.
 
 **Step 4: Run test to verify pass**
@@ -190,7 +191,7 @@ Human validation (owner: human; do not execute automatically):
 
 1. Export `OPENAI_BASE_URL` / `OPENAI_API_KEY`, install with `--providers openai-compatible`, open OpenCode, run `/models`, confirm the Kimi models are listed and a prompt succeeds.
 2. Unset `OPENAI_API_KEY`, restart, confirm the request fails loudly with literal `${OPENAI_API_KEY}`.
-3. Repeat with `--runtime kilocode` and note: Kilo acceptance is blocked by the pre-existing `skills` rejection — deferred to the follow-up.
+3. Repeat with `--runtime kilocode` and confirm `kilo.jsonc` is accepted and a prompt succeeds.
 
 **Step 5: Commit**
 
@@ -210,7 +211,7 @@ git commit -m "docs!: document openai-compatible provider rename (Issue #275)"
 - [ ] ADR-0048 exists and supersedes only the vendor-specific portion of ADR-0008.
 - [ ] `CHANGELOG.md` marks the rename as breaking; `VERSION` is unchanged.
 - [ ] `make check` and `npx vitest run` pass.
-- [ ] Human OpenCode check passes; Kilo human check deferred to the pre-existing `skills` follow-up (provider-independent, see ADR-0048).
+- [ ] Human OpenCode and Kilo checks pass.
 - [ ] History/release scrubbing remains tracked in #284.
 
 ## Confirmed at approval
