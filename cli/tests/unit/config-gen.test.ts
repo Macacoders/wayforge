@@ -307,7 +307,11 @@ describe("buildProviderBlockJson", () => {
       expect(block).toContain('"gpt-5.6-luna"');
       expect(block).toContain('"kimi-k2.7-code"');
       expect(block).toContain('"Kimi K2.7 Code"');
-      expect(block).not.toContain("laberit");
+      // Neutral keys map to the endpoint's real model IDs via `id`.
+      expect(block).toContain('"id": "laberit-ai-preview"');
+      expect(block).toContain('"id": "laberit-ai"');
+      expect(block).toContain('"id": "laberit-gpt-5.6-luna"');
+      expect(block).toContain('"id": "laberit-kimi-k2.7-code"');
       expect(block).not.toContain("{env:");
       expect(block).not.toContain("{file:");
     });
