@@ -228,7 +228,8 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 @test "install.sh verifies matching checksums and installs" {
 	install_env
 	write_checksums "$DIGEST_OK" "$DIGEST_OK"
-	run_full_install "$DIGEST_OK"
+	# 9.9.9 is signed-era; hash-only coverage needs the explicit opt-out.
+	run_full_install "$DIGEST_OK" --allow-unsigned
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"verified wayforge-linux-x64 checksum"* ]]
 	# -x is unreliable on Windows/MSYS (chmod is a no-op there); assert
@@ -241,7 +242,7 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 @test "install.sh aborts on binary checksum mismatch without touching prefix" {
 	install_env
 	write_checksums "$DIGEST_BAD" "$DIGEST_OK"
-	run_full_install "$DIGEST_OK"
+	run_full_install "$DIGEST_OK" --allow-unsigned
 	[ "$status" -eq 1 ]
 	[[ "$(run_stderr)" == *"checksum mismatch for wayforge-linux-x64"* ]]
 	[ ! -e "$TEST_PREFIX/bin" ]
@@ -253,14 +254,14 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 	write_checksums "$DIGEST_BAD" "$DIGEST_OK"
 	mkdir -p "$TEST_PREFIX/bin"
 	printf 'OLDBIN' >"$TEST_PREFIX/bin/wfg"
-	run_full_install "$DIGEST_OK"
+	run_full_install "$DIGEST_OK" --allow-unsigned
 	[ "$status" -eq 1 ]
 	[ "$(cat "$TEST_PREFIX/bin/wfg")" = "OLDBIN" ]
 }
 
 @test "install.sh warns and continues when checksums file is unavailable" {
 	install_env
-	run_full_install "$DIGEST_OK" FAKE_CHECKSUM_STATUS=404
+	run_full_install "$DIGEST_OK" FAKE_CHECKSUM_STATUS=404 --allow-unsigned
 	[ "$status" -eq 0 ]
 	[[ "$(run_stderr)" == *"warning: wayforge-checksums.txt is unavailable for v9.9.9; skipping checksum verification"* ]]
 	[ -f "$TEST_PREFIX/bin/wfg" ]
@@ -291,7 +292,7 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 @test "install.sh aborts when checksum file has no entry for the binary" {
 	install_env
 	printf '%s  wayforge-share-9.9.9.tar.gz\n' "$DIGEST_OK" >"$TEST_FIXTURES/wayforge-checksums.txt"
-	run_full_install "$DIGEST_OK"
+	run_full_install "$DIGEST_OK" --allow-unsigned
 	[ "$status" -eq 1 ]
 	[[ "$(run_stderr)" == *"no entry for wayforge-linux-x64"* ]]
 }
@@ -314,7 +315,7 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 @test "install.sh --no-modify-path installs without touching shell profiles" {
 	install_env
 	write_checksums "$DIGEST_OK" "$DIGEST_OK"
-	run_full_install "$DIGEST_OK" --no-modify-path
+	run_full_install "$DIGEST_OK" --no-modify-path --allow-unsigned
 	[ "$status" -eq 0 ]
 	[ -f "$TEST_PREFIX/bin/wfg" ]
 	[ "$(cat "$TEST_PREFIX/bin/wfg")" = "binary" ]
@@ -351,6 +352,8 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 	[[ "$cosign_args" == *"--certificate-identity https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main"* ]]
 	[[ "$cosign_args" != *"--certificate-identity-regexp"* ]]
 	[[ "$cosign_args" == *"--certificate-oidc-issuer https://token.actions.githubusercontent.com"* ]]
+	# Signed era: verification ran, no skip path was taken.
+	[[ "$(run_stderr)" != *"skipping signature verification"* ]]
 }
 
 @test "install.sh aborts on failed cosign verification without touching prefix" {
@@ -360,15 +363,17 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 	run_full_install "$DIGEST_OK" FAKE_COSIGN_EXIT=1
 	[ "$status" -eq 1 ]
 	[[ "$(run_stderr)" == *"cosign signature verification failed"* ]]
+	# Signed era: the failure is a hard abort, not a skip.
+	[[ "$(run_stderr)" != *"skipping signature verification"* ]]
 	[ ! -e "$TEST_PREFIX/bin" ]
 	[ ! -e "$TEST_PREFIX/share" ]
 }
 
-@test "install.sh warns and continues when cosign bundle is unavailable" {
+@test "install.sh warns and continues when cosign bundle is unavailable for legacy releases" {
 	install_env
 	stub_cosign
 	write_checksums "$DIGEST_OK" "$DIGEST_OK"
-	run_full_install "$DIGEST_OK" FAKE_BUNDLE_STATUS=404
+	run_full_install "$DIGEST_OK" FAKE_BUNDLE_STATUS=404 WAYFORGE_COSIGN_REQUIRED_FROM=99.0.0
 	[ "$status" -eq 0 ]
 	[[ "$(run_stderr)" == *"cosign signature bundle is unavailable for v9.9.9; skipping signature verification"* ]]
 	[ -f "$TEST_PREFIX/bin/wfg" ]
@@ -382,14 +387,16 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 	run_full_install "$DIGEST_OK" FAKE_BUNDLE_STATUS=500
 	[ "$status" -eq 1 ]
 	[[ "$(run_stderr)" == *"failed to download cosign signature bundle for v9.9.9 (HTTP 500)"* ]]
+	# Signed era: a non-404 bundle failure aborts even with the opt-out.
+	[[ "$(run_stderr)" != *"skipping signature verification"* ]]
 	[ ! -e "$TEST_PREFIX/bin" ]
 	[ ! -e "$TEST_PREFIX/share" ]
 }
 
-@test "install.sh warns and continues when cosign is absent" {
+@test "install.sh warns and continues when cosign is absent for legacy releases" {
 	install_env
 	write_checksums "$DIGEST_OK" "$DIGEST_OK"
-	run_full_install "$DIGEST_OK"
+	run_full_install "$DIGEST_OK" WAYFORGE_COSIGN_REQUIRED_FROM=99.0.0
 	[ "$status" -eq 0 ]
 	[[ "$(run_stderr)" == *"cosign not found; skipping checksum signature verification"* ]]
 	[ -f "$TEST_PREFIX/bin/wfg" ]
@@ -433,4 +440,53 @@ DIGEST_BAD="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 	[ "$status" -eq 1 ]
 	[[ "$(run_stderr)" == *"share archive contains unsafe paths; aborting without changes"* ]]
 	[ ! -e "$TEST_PREFIX/bin" ]
+}
+
+@test "install.sh aborts on a missing cosign bundle in the signed era" {
+	install_env
+	stub_cosign
+	write_checksums "$DIGEST_OK" "$DIGEST_OK"
+	run_full_install "$DIGEST_OK" FAKE_BUNDLE_STATUS=404
+	[ "$status" -eq 1 ]
+	[[ "$(run_stderr)" == *"refusing an unsigned install"* ]]
+	[ ! -e "$TEST_PREFIX/bin" ]
+	[ ! -e "$TEST_PREFIX/share" ]
+}
+
+@test "install.sh aborts when cosign is absent in the signed era" {
+	install_env
+	write_checksums "$DIGEST_OK" "$DIGEST_OK"
+	run_full_install "$DIGEST_OK"
+	[ "$status" -eq 1 ]
+	[[ "$(run_stderr)" == *"cosign is required to verify"* ]]
+	[ ! -e "$TEST_PREFIX/bin" ]
+	[ ! -e "$TEST_PREFIX/share" ]
+}
+
+@test "install.sh --allow-unsigned continues without cosign in the signed era" {
+	install_env
+	write_checksums "$DIGEST_OK" "$DIGEST_OK"
+	run_full_install "$DIGEST_OK" --allow-unsigned
+	[ "$status" -eq 0 ]
+	[[ "$(run_stderr)" == *"cosign not found; skipping checksum signature verification"* ]]
+	[ -f "$TEST_PREFIX/bin/wfg" ]
+	[ -d "$TEST_PREFIX/share/wayforge/base" ]
+}
+
+@test "install.sh warns and continues for legacy releases without a checksums file" {
+	install_env
+	run_full_install "$DIGEST_OK" FAKE_CHECKSUM_STATUS=404 WAYFORGE_COSIGN_REQUIRED_FROM=99.0.0
+	[ "$status" -eq 0 ]
+	[[ "$(run_stderr)" == *"warning: wayforge-checksums.txt is unavailable for v9.9.9; skipping checksum verification"* ]]
+	[ -f "$TEST_PREFIX/bin/wfg" ]
+	[ -d "$TEST_PREFIX/share/wayforge/base" ]
+}
+
+@test "install.sh aborts on a missing checksums file in the signed era" {
+	install_env
+	run_full_install "$DIGEST_OK" FAKE_CHECKSUM_STATUS=404
+	[ "$status" -eq 1 ]
+	[[ "$(run_stderr)" == *"refusing an unverified install"* ]]
+	[ ! -e "$TEST_PREFIX/bin" ]
+	[ ! -e "$TEST_PREFIX/share" ]
 }

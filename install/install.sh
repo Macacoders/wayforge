@@ -15,6 +15,7 @@ UNINSTALL=0
 DRY_RUN=0
 SKIP_NODE=0
 NO_MODIFY_PATH=0
+ALLOW_UNSIGNED="${WAYFORGE_ALLOW_UNSIGNED:-0}"
 URL_BASE=""
 
 # Node.js provisioning: pinned LTS version, minimum major, and download base
@@ -42,6 +43,12 @@ TMP_NODE_SHASUMS=""
 COSIGN_IDENTITY='https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main'
 COSIGN_OIDC_ISSUER='https://token.actions.githubusercontent.com'
 
+# Releases at or after this version publish a cosign-signed checksum manifest.
+# Signature verification is mandatory for them; older releases keep the
+# hash-only fallback. Bump this when the first signed release ships. The
+# WAYFORGE_COSIGN_REQUIRED_FROM override exists for tests.
+COSIGN_REQUIRED_FROM="${WAYFORGE_COSIGN_REQUIRED_FROM:-1.1.0}"
+
 cleanup() {
 	if [ -n "${TMP_BINARY:-}" ]; then rm -f "$TMP_BINARY"; fi
 	if [ -n "${TMP_SHARE:-}" ]; then rm -f "$TMP_SHARE"; fi
@@ -67,6 +74,9 @@ Options:
   --skip-node-check Skip Node.js detection and provisioning.
   --no-modify-path  Do not write wayforge PATH blocks to ~/.bashrc or
                     ~/.zshrc (install) or remove them (uninstall).
+  --allow-unsigned  Continue when the signed checksum bundle cannot be
+                    verified (older releases only by default; signed-era
+                    releases require this explicit opt-in).
   --url-base <base> Test override for the download base URL.
   -h, --help        Show this help message.
 EOF
@@ -107,6 +117,10 @@ while [ $# -gt 0 ]; do
 		;;
 	--no-modify-path)
 		NO_MODIFY_PATH=1
+		shift
+		;;
+	--allow-unsigned)
+		ALLOW_UNSIGNED=1
 		shift
 		;;
 	--url-base)
@@ -296,6 +310,28 @@ archive_is_unsafe() {
 	tar -tzf "$1" | grep -Eq '(^/|(^|/)\.\.(/|$))'
 }
 
+# version_ge <a> <b>
+# Returns 0 when dotted version <a> is greater than or equal to <b>.
+version_ge() {
+	awk -v a="$1" -v b="$2" 'BEGIN {
+		n = split(a, av, "."); m = split(b, bv, ".")
+		max = (n > m) ? n : m
+		for (i = 1; i <= max; i++) {
+			x = (i <= n) ? av[i] + 0 : 0
+			y = (i <= m) ? bv[i] + 0 : 0
+			if (x > y) exit 0
+			if (x < y) exit 1
+		}
+		exit 0
+	}'
+}
+
+# signed_era
+# Returns 0 when the target release is at or after the first signed release.
+signed_era() {
+	version_ge "${TAG#v}" "$COSIGN_REQUIRED_FROM"
+}
+
 # checksum_for <asset-name>
 # Looks up the digest for an asset in $TMP_CHECKSUMS. Release checksums are
 # generated with paths ("dist/wayforge-*"), so entries are matched by
@@ -329,13 +365,20 @@ verify_asset() {
 
 # verify_checksum_signature <checksum-url>
 # Verifies the cosign .sigstore.json bundle for the checksum manifest before
-# any asset hash is checked. Policy: cosign absent -> warn and continue;
-# bundle 404 -> warn and continue; bundle fetch failure (non-404) or failed
-# cosign verification -> return 1 so the caller aborts without changes.
+# any asset hash is checked. Policy:
+#   - signed-era release (>= COSIGN_REQUIRED_FROM): cosign and a valid bundle
+#     are mandatory; a missing cosign or a confirmed-missing bundle aborts
+#     unless --allow-unsigned was passed;
+#   - older release: cosign absent or bundle 404 warns and continues;
+#   - a present-but-invalid bundle or a non-404 fetch failure always aborts.
 verify_checksum_signature() {
 	local checksum_url="$1"
 	[ -n "$TMP_CHECKSUMS" ] || return 0
 	if ! command -v cosign >/dev/null 2>&1; then
+		if signed_era && [ "$ALLOW_UNSIGNED" -eq 0 ]; then
+			echo "error: cosign is required to verify ${TAG}; install cosign or pass --allow-unsigned to skip signature verification" >&2
+			return 1
+		fi
 		echo "warning: cosign not found; skipping checksum signature verification" >&2
 		return 0
 	fi
@@ -345,6 +388,10 @@ verify_checksum_signature() {
 	case "$bundle_rc" in
 	0) ;;
 	1)
+		if signed_era && [ "$ALLOW_UNSIGNED" -eq 0 ]; then
+			echo "error: cosign signature bundle is missing for ${TAG}; refusing an unsigned install (pass --allow-unsigned to override)" >&2
+			return 1
+		fi
 		echo "warning: cosign signature bundle is unavailable for ${TAG}; skipping signature verification" >&2
 		return 0
 		;;
@@ -570,6 +617,8 @@ run_install() {
 		if command -v cosign >/dev/null 2>&1; then
 			echo "[dry-run] bundle URL: ${checksum_url}.sigstore.json"
 			echo "[dry-run] would verify checksum signature with cosign"
+		elif signed_era && [ "$ALLOW_UNSIGNED" -eq 0 ]; then
+			echo "[dry-run] cosign not found; signed-era releases require cosign or --allow-unsigned"
 		else
 			echo "[dry-run] cosign not found; checksum signature verification will be skipped"
 		fi
@@ -610,6 +659,10 @@ run_install() {
 	1)
 		rm -f "$TMP_CHECKSUMS"
 		TMP_CHECKSUMS=""
+		if signed_era && [ "$ALLOW_UNSIGNED" -eq 0 ]; then
+			echo "error: wayforge-checksums.txt is missing for ${TAG}; refusing an unverified install (pass --allow-unsigned to override)" >&2
+			exit 1
+		fi
 		echo "warning: wayforge-checksums.txt is unavailable for ${TAG}; skipping checksum verification" >&2
 		;;
 	*)
