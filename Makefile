@@ -56,6 +56,10 @@ check-node:
 	@cd cli && npx eslint src/
 	@echo "==> Prettier"
 	@cd cli && npx prettier --check src/
+	@echo "==> Plugin syntax check"
+	@node --check base/plugins/wayforge-update/core.js
+	@node --check base/plugins/wayforge-update/index.js
+	@node --check base/plugins/wayforge-update/kilo.js
 	@echo "Node checks passed."
 
 fix-node:

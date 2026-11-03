@@ -132,20 +132,20 @@ Until installer plugin selection lands (#273), registration is manual. Add the e
 - OpenCode — `opencode.jsonc`: `"./.agents/plugins/wayforge-update/index.js"`
 - Kilo Code — `kilo.jsonc`: `"./.agents/plugins/wayforge-update/kilo.js"`
 
-Registration alone is not enough. The runtime gate reuses `WAYFORGE_NO_UPDATE_CHECK` with default-off semantics:
+Registration alone is not enough. The runtime gate is the affirmative `WAYFORGE_UPDATE_CHECK` flag:
 
-| `WAYFORGE_NO_UPDATE_CHECK` | Update check |
+| `WAYFORGE_UPDATE_CHECK` | Update check |
 |---|---|
-| unset, empty, `1`, `true`, or any other value | disabled (no cache read, no network call, no toast) |
-| `0` or `false` (case-insensitive) | enabled (when the plugin is registered) |
+| unset, empty, `0`, `false`, or any other value | disabled (no cache read, no network call, no toast) |
+| `1` or `true` (case-insensitive) | enabled (when the plugin is registered) |
 
-When enabled, the plugin checks the latest GitHub release at most once per 24 hours and, only inside a runtime session (`session.created`), shows the toast once per version:
+When enabled, the plugin checks the latest GitHub release at most once per 24 hours and, only inside a runtime session (`session.created`), shows the toast once per version. The check runs in the background — the session hook returns before the lookup resolves — so it never blocks or delays the session:
 
 ```text
 wayforge v1.0.3 is available (installed v1.0.2). Run `wfg upgrade` to update.
 ```
 
-The check result is cached in the plugin's own cache file — `%LOCALAPPDATA%\wayforge\update-notifier.json` on Windows, `${XDG_CACHE_HOME:-~/.cache}/wayforge/update-notifier.json` on Unix — which is separate from all CLI state. Network, cache, and toast failures never block the session. Note that `opencode.jsonc` / `kilo.jsonc` are regenerated only by `wfg install --force`, so a normal reinstall keeps your manual entry, but `--force` overwrites it and you must re-apply it.
+The check result is cached in the plugin's own cache file — `%LOCALAPPDATA%\wayforge\update-notifier.json` on Windows, `${XDG_CACHE_HOME:-~/.cache}/wayforge/update-notifier.json` on Unix — which is separate from all CLI state. The lookup only ever targets the wayforge GitHub releases page (`https://github.com/Macacoders/wayforge/releases`), the redirect must land on that repo's release tag page, and the request carries a constant `User-Agent` (your installed version is never sent). Network, cache, and toast failures never block the session. Note that `opencode.jsonc` / `kilo.jsonc` are regenerated only by `wfg install --force`, so a normal reinstall keeps your manual entry, but `--force` overwrites it and you must re-apply it. See [ADR-0049](docs/ai/decisions/ADR-0049-runtime-update-notifier.md) for the full decision record.
 
 ## Use
 

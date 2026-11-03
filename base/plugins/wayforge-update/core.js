@@ -1,6 +1,12 @@
 import path from "node:path";
 import os from "node:os";
-import { readFile as defaultReadFile, writeFile as defaultWriteFile, mkdir as defaultMkdir } from "node:fs/promises";
+import {
+  readFile as defaultReadFile,
+  writeFile as defaultWriteFile,
+  mkdir as defaultMkdir,
+  rename as defaultRename,
+  unlink as defaultUnlink,
+} from "node:fs/promises";
 
 /**
  * Shared update-notifier core for the OpenCode and Kilo Code entrypoints.
@@ -12,7 +18,10 @@ import { readFile as defaultReadFile, writeFile as defaultWriteFile, mkdir as de
 const SCHEMA_VERSION = 1;
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 5000;
-const DEFAULT_RELEASE_ROOT = "https://github.com/Macacoders/wayforge/releases";
+/** Production release root is a constant; no env override outside tests. */
+const RELEASE_ROOT = "https://github.com/Macacoders/wayforge/releases";
+const RELEASE_TAG_PATH = "/Macacoders/wayforge/releases/tag/";
+const USER_AGENT = "wayforge-update-notifier";
 const SEMVER_RE = /^v?(\d+)\.(\d+)\.(\d+)$/;
 
 export function parseSemver(value) {
@@ -47,21 +56,30 @@ export function isNewer(current, candidate) {
 }
 
 /**
- * The update check is disabled by default. Only an explicit `0` or `false`
- * (case-insensitive) enables it; unset, empty, `1`, `true`, or any other
- * value keeps it disabled.
+ * The update check is disabled by default. Only an explicit `1` or `true`
+ * (trimmed, case-insensitive) enables it; unset, empty, `0`, `false`, or any
+ * other value keeps it disabled.
  */
 export function isUpdateCheckEnabled(env) {
-  const value = env?.WAYFORGE_NO_UPDATE_CHECK;
-  if (value === undefined || value === null) return false;
-  if (value === "0") return true;
-  return value.toLowerCase() === "false";
+  const value = env?.WAYFORGE_UPDATE_CHECK;
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed === "1" || trimmed === "true";
+}
+
+/**
+ * Test-only seam gate: `WAYFORGE_RELEASE_ROOT`, `WAYFORGE_NOTIFIER_CACHE`,
+ * and `WAYFORGE_VERSION` are honored only when `WAYFORGE_NOTIFIER_TEST=1`.
+ * In production they are ignored (ADR-0049).
+ */
+function isNotifierTestMode(env) {
+  return env?.WAYFORGE_NOTIFIER_TEST === "1";
 }
 
 /**
  * Prefix resolution mirrors the CLI: `WAYFORGE_INSTALL_DIR` when set,
  * otherwise `%LOCALAPPDATA%\wayforge` on Windows and `~/.wayforge` elsewhere.
- * `WAYFORGE_HOME` is deliberately ignored (ADR-0048).
+ * `WAYFORGE_HOME` is deliberately ignored (ADR-0049).
  */
 export function resolveInstallPrefix(env, platform = process.platform) {
   const configured = env?.WAYFORGE_INSTALL_DIR;
@@ -77,14 +95,17 @@ export function resolveInstallPrefix(env, platform = process.platform) {
 }
 
 /**
- * Installed version: `WAYFORGE_VERSION` overrides (test seam, mirroring the
- * CLI), otherwise `<prefix>/share/wayforge/VERSION`. Missing or unparseable
- * returns null so callers can no-op.
+ * Installed version: `WAYFORGE_VERSION` overrides — but only in test mode
+ * (`WAYFORGE_NOTIFIER_TEST=1`) and only when it parses as semver (invalid
+ * values no-op like an unparseable VERSION file) — otherwise
+ * `<prefix>/share/wayforge/VERSION`. Missing or unparseable returns null so
+ * callers can no-op.
  */
 async function resolveInstalledVersion(env, prefix, readFile) {
-  const fromEnv = env?.WAYFORGE_VERSION;
+  const fromEnv = isNotifierTestMode(env) ? env?.WAYFORGE_VERSION : undefined;
   if (fromEnv && fromEnv.trim() !== "") {
-    return fromEnv.trim();
+    const trimmed = fromEnv.trim();
+    return parseSemver(trimmed) ? trimmed : null;
   }
   if (!prefix || !readFile) return null;
   try {
@@ -98,11 +119,12 @@ async function resolveInstalledVersion(env, prefix, readFile) {
 }
 
 /**
- * Cache path: `WAYFORGE_NOTIFIER_CACHE` when set (test/manual seam), otherwise
+ * Cache path: `WAYFORGE_NOTIFIER_CACHE` when set in test mode
+ * (`WAYFORGE_NOTIFIER_TEST=1`; test/manual seam), otherwise
  * `<user cache>/wayforge/update-notifier.json`.
  */
 export function resolveCachePath(env, platform = process.platform, homedir = os.homedir()) {
-  const override = env?.WAYFORGE_NOTIFIER_CACHE;
+  const override = isNotifierTestMode(env) ? env?.WAYFORGE_NOTIFIER_CACHE : undefined;
   if (override && override.trim() !== "") {
     return path.resolve(override.trim());
   }
@@ -137,40 +159,87 @@ export async function readCache(filePath, readFile) {
   }
 }
 
-/** Best-effort persistence; a failed write returns false, never throws.
- * The cache parent directory is created recursively if missing. */
-export async function writeCache(filePath, cache, writeFile = defaultWriteFile) {
+/** Best-effort atomic persistence; a failed write returns false, never throws.
+ * The JSON is written to a unique temp file in the same directory, then
+ * renamed over the final path — so a crash never leaves a half-written cache
+ * and the rename replaces (rather than follows) a symlink at the final path.
+ * The cache parent directory is created recursively if missing, and the temp
+ * file is removed best-effort on any failure. */
+export async function writeCache(
+  filePath,
+  cache,
+  writeFile = defaultWriteFile,
+  rename = defaultRename,
+  unlink = defaultUnlink,
+) {
   if (!filePath || !writeFile) return false;
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
   try {
     await defaultMkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, `${JSON.stringify(cache, null, 2)}\n`, "utf8");
+    await writeFile(tempPath, `${JSON.stringify(cache, null, 2)}\n`, "utf8");
+    await rename(tempPath, filePath);
     return true;
   } catch {
+    try {
+      await unlink(tempPath);
+    } catch {
+      // The temp file may not exist; cleanup is best-effort.
+    }
     return false;
   }
 }
 
+/** Production release root is a constant; `WAYFORGE_RELEASE_ROOT` is honored
+ * only in test mode (`WAYFORGE_NOTIFIER_TEST=1`). */
 function resolveReleaseRoot(env) {
-  const override = env?.WAYFORGE_RELEASE_ROOT;
+  const override = isNotifierTestMode(env) ? env?.WAYFORGE_RELEASE_ROOT : undefined;
   if (override && override.trim() !== "") {
     return override.trim().replace(/\/+$/, "");
   }
-  return DEFAULT_RELEASE_ROOT;
+  return RELEASE_ROOT;
+}
+
+/**
+ * The redirect must land on the wayforge releases tag page on github.com over
+ * HTTPS; anything else is rejected so a compromised or hostile redirect can
+ * never feed a version string into the notifier.
+ */
+function parseRedirectTag(redirectUrl) {
+  if (redirectUrl.protocol !== "https:" || redirectUrl.hostname !== "github.com") {
+    return null;
+  }
+  if (!redirectUrl.pathname.startsWith(RELEASE_TAG_PATH)) {
+    return null;
+  }
+  const tag = redirectUrl.pathname.slice(RELEASE_TAG_PATH.length);
+  if (!tag || tag.includes("/") || !parseSemver(tag)) return null;
+  return tag;
+}
+
+/** Cancel the response body before returning or throwing; best-effort. */
+async function cancelBody(response) {
+  try {
+    await response.body?.cancel();
+  } catch {
+    // Body cancellation is best-effort; mocks may have no body.
+  }
 }
 
 /**
  * Mirrors `cli/src/lib/release.ts`: manual redirects keep the release page
- * body off the wire; the tag lives in the Location header.
+ * body off the wire; the tag lives in the Location header. The User-Agent is
+ * a constant — the installed version is never sent to the server.
  */
-async function resolveLatestVersion({ releaseRoot, current, fetchImpl }) {
-  const root = releaseRoot ?? DEFAULT_RELEASE_ROOT;
+async function resolveLatestVersion({ releaseRoot, fetchImpl }) {
+  const root = releaseRoot ?? RELEASE_ROOT;
   const doFetch = fetchImpl ?? globalThis.fetch;
   const requestUrl = `${root}/latest`;
   const response = await doFetch(requestUrl, {
     redirect: "manual",
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    headers: { "User-Agent": `wayforge/${current}` },
+    headers: { "User-Agent": USER_AGENT },
   });
+  await cancelBody(response);
 
   const isRedirect = response.status >= 300 && response.status < 400;
   if (!isRedirect) {
@@ -181,9 +250,8 @@ async function resolveLatestVersion({ releaseRoot, current, fetchImpl }) {
     throw new Error(`Release lookup redirected without a Location header: ${requestUrl}`);
   }
   const redirectUrl = new URL(location, requestUrl);
-  const segments = redirectUrl.pathname.split("/").filter(Boolean);
-  const tag = segments.at(-1);
-  if (!segments.includes("tag") || !tag || !parseSemver(tag)) {
+  const tag = parseRedirectTag(redirectUrl);
+  if (!tag) {
     throw new Error(`Could not parse a release tag from ${redirectUrl.href}`);
   }
   return tag;
@@ -219,6 +287,8 @@ export function createNotifier(options = {}) {
     now = () => Date.now(),
     readFile = defaultReadFile,
     writeFile = defaultWriteFile,
+    rename = defaultRename,
+    unlink = defaultUnlink,
   } = options;
 
   let inFlight = null;
@@ -268,7 +338,7 @@ export function createNotifier(options = {}) {
         notifiedVersion: cache?.notifiedVersion ?? null,
       };
       memoryCache = cache;
-      await writeCache(resolvedCachePath, cache, writeFile);
+      await writeCache(resolvedCachePath, cache, writeFile, rename, unlink);
       if (fetchFailed) {
         return { checked: true, updateAvailable: false, notified: false };
       }
@@ -294,7 +364,7 @@ export function createNotifier(options = {}) {
       notifiedVersion: latestVersion,
     };
     memoryCache = cache;
-    await writeCache(resolvedCachePath, cache, writeFile);
+    await writeCache(resolvedCachePath, cache, writeFile, rename, unlink);
 
     return { checked: true, updateAvailable: true, notified: true };
   }

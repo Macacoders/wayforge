@@ -12,7 +12,7 @@ required_gates:
 
 # Issue #239: Opt-in OpenCode and Kilo Code update notifier
 
-**Goal:** Implement the wayforge update-notifier plugin for OpenCode and Kilo Code, with an opt-in runtime gate reused from `WAYFORGE_NO_UPDATE_CHECK`, and document/validate it.
+**Goal:** Implement the wayforge update-notifier plugin for OpenCode and Kilo Code, with an opt-in runtime gate (`WAYFORGE_UPDATE_CHECK`, amended 2026-11-03 during the PR #274 review), and document/validate it.
 
 **Architecture:** Add `base/plugins/wayforge-update/**` with one shared notifier core and two thin runtime entrypoints. The core reads the installed CLI version and a plugin-owned 24-hour cache, checks the latest GitHub release only when the runtime gate enables it, and calls `client.tui.showToast(...)` once per version. Installer plugin selection is a separate follow-up in #273 and is not part of this plan.
 
@@ -48,16 +48,16 @@ This plan covers **only issue #239**: the notifier plugin and its documentation/
 These are binding for implementation.
 
 1. **Scope is only #239.** This plan implements the notifier plugin and its documentation/validation. Installer plugin selection (`--plugins`, interactive prompt, config-gen arrays, manifest behavior) is #273 and is out of scope.
-2. **Reuse `WAYFORGE_NO_UPDATE_CHECK` as the runtime gate, with default-off semantics.** The update check is disabled by default:
-   - unset, empty, `1`, `true`, or any other value -> disabled;
-   - only an explicit `0` or `false` (case-insensitive) -> enabled.
-   This deliberately reinterprets the previously withdrawn opt-out flag as a default-off enable switch. It must be documented clearly in README and ADR-0049 and covered by tests.
+2. **`WAYFORGE_UPDATE_CHECK` is the runtime gate, affirmative and default-off** (amended 2026-11-03, PR #274 review). The update check is disabled by default:
+   - unset, empty, `0`, `false`, or any other value -> disabled;
+   - only `1` or `true` (trimmed, case-insensitive) -> enabled.
+   This is a new plugin-only flag, distinct from the `WAYFORGE_NO_UPDATE_CHECK` opt-out ADR-0047 withdrew from the CLI. It must be documented clearly in README and ADR-0049 and covered by tests.
 3. **Interim activation.** Because the installer still registers only ponytail, the plugin is installed as a file but not active. Until #273 lands, manual registration of `./.agents/plugins/wayforge-update/index.js` (opencode) or `./.agents/plugins/wayforge-update/kilo.js` (kilocode) in the generated config is the documented interim path.
-4. **The notifier owns its cache.** The shared `update-check.json` cache no longer exists (ADR-0047). The plugin writes `<user cache>/wayforge/update-notifier.json` with its own numeric schema and never reads or writes CLI state. A `WAYFORGE_NOTIFIER_CACHE` absolute-path override exists only as a test/manual-validation seam.
+4. **The notifier owns its cache.** The shared `update-check.json` cache no longer exists (ADR-0047). The plugin writes `<user cache>/wayforge/update-notifier.json` with its own numeric schema and never reads or writes CLI state. `WAYFORGE_NOTIFIER_CACHE` is an absolute-path override honored only as a test seam (`WAYFORGE_NOTIFIER_TEST=1`); in production the real user-cache path is used. Cache writes are atomic (same-directory temp file + rename, temp cleanup on failure).
 5. **The toast points at the current command.** The message says ``Run `wfg upgrade` to update.`` The issue's `wfg self-update` text is obsolete.
 6. **Toast text is English.** The repository's user-facing docs and CLI output are English; the Spanish example in the issue is illustrative, not binding.
 7. **No runtime package imports.** The notifier files import only Node built-ins and use global `fetch` so OpenCode and Kilo Code can load them without resolving `@opencode-ai/plugin` or `@kilocode/plugin`.
-8. **Cache miss/failure behavior never blocks the session.** Network, filesystem, and toast errors are swallowed. A missing toast API is a no-op. A failed cache write falls back to in-process state so a single runtime session does not toast repeatedly.
+8. **Cache miss/failure behavior never blocks the session.** Network, filesystem, and toast errors are swallowed. A missing toast API is a no-op. A failed cache write falls back to in-process state so a single runtime session does not toast repeatedly. The `session.created` hook is fire-and-forget: it triggers `checkAndNotify()` and returns immediately, never awaiting the network (amended 2026-11-03, PR #274 review).
 
 ## Blocking decisions and required gates
 
@@ -65,17 +65,16 @@ These are binding for implementation.
 
 The `architect` gate must review and either accept or amend:
 
-- **Flag semantics:** reusing `WAYFORGE_NO_UPDATE_CHECK` with default-off semantics (only `0`/`false` enables) after ADR-0047 withdrew the flag from the CLI. Confirm this is documented as a plugin-only decision and does not silently resurrect CLI behavior.
-- **Interim activation:** accepting manual config registration until #273 lands, with dual gating (registered plugin + `WAYFORGE_NO_UPDATE_CHECK=0|false`).
-- **Cache placement:** a plugin-owned user cache after ADR-0047 explicitly withdrew the shared cache/latency budget and `WAYFORGE_STATE_DIR`.
-- **Network/trust boundary:** the plugin performs an outbound `fetch` to `WAYFORGE_RELEASE_ROOT`/GitHub from inside a runtime session only when enabled, with a 5-second timeout and no install mutation.
+- **Flag semantics:** an affirmative plugin-only `WAYFORGE_UPDATE_CHECK` gate (only `1`/`true` enables) as a new flag distinct from the `WAYFORGE_NO_UPDATE_CHECK` opt-out ADR-0047 withdrew from the CLI. Confirm this is documented as a plugin-only decision and does not silently resurrect CLI behavior.
+- **Interim activation:** accepting manual config registration until #273 lands, with dual gating (registered plugin + `WAYFORGE_UPDATE_CHECK=1|true`).
+- **Network/trust boundary:** the plugin performs an outbound `fetch` to the constant wayforge GitHub releases root from inside a runtime session only when enabled, with a 5-second timeout, HTTPS/github.com/tag-path redirect validation, a constant `User-Agent`, and no install mutation.
 - **Cross-runtime API compatibility:** OpenCode `client.tui.showToast({ body: {...} })`, Kilo `{ id, server }`, named `server` export for OpenCode, and graceful no-op when the method is absent.
 
 If the architect rejects the flag semantics or the plugin cache, amend Task 1 and ADR-0049 before implementation.
 
 ### Required: owner decision recorded
 
-The 2026-11-02 owner answers chose plugin-first, installer selection later (#273), and reuse of `WAYFORGE_NO_UPDATE_CHECK` with default-off behavior. Issue #239's body was updated on 2026-11-02 to match this plan; the shared-cache and `wfg self-update` assumptions were removed.
+The 2026-11-02 owner answers chose plugin-first, installer selection later (#273), and an opt-in runtime gate; the 2026-11-03 PR #274 review amended the gate to the affirmative `WAYFORGE_UPDATE_CHECK` with test-only seams. Issue #239's body was updated on 2026-11-02 to match this plan; the shared-cache and `wfg self-update` assumptions were removed.
 
 ### Required: human validation
 
@@ -100,9 +99,10 @@ OpenCode and both Kilo Code surfaces (CLI and VS Code extension) must be validat
 - Prefix resolution: `env.WAYFORGE_INSTALL_DIR` when set; otherwise `%LOCALAPPDATA%\wayforge` on Windows and `~/.wayforge` otherwise. `WAYFORGE_VERSION` overrides the installed version for tests, mirroring the CLI.
 - Installed version: `WAYFORGE_VERSION`, else `<prefix>/share/wayforge/VERSION`; missing or unparseable -> no-op.
 - Cache path: `env.WAYFORGE_NOTIFIER_CACHE` when set; otherwise `<user cache>/wayforge/update-notifier.json` (`%LOCALAPPDATA%\wayforge\update-notifier.json` on Windows, `${XDG_CACHE_HOME:-~/.cache}/wayforge/update-notifier.json` on Unix).
-- Cache schema: `{ schemaVersion: 1, lastChecked: string, latestVersion: string | null, notifiedVersion: string | null }`. Mismatched schema or corrupt JSON is discarded.
-- Runtime gate: the update check is **disabled by default**. `isUpdateCheckEnabled(env)` returns true only when `WAYFORGE_NO_UPDATE_CHECK` is exactly `0` or `false` (case-insensitive); unset, empty, `1`, `true`, or any other value returns false. When disabled, no cache read, no network call, and no toast occur.
-- Fresh cache (less than 24 hours) performs no network request. Stale cache resolves `${WAYFORGE_RELEASE_ROOT || 'https://github.com/Macacoders/wayforge/releases'}/latest` with `redirect: 'manual'`, a 5-second timeout, and `User-Agent: wayforge/<current>`; the tag is parsed from the redirect `Location`.
+- Cache schema: `{ schemaVersion: 1, lastChecked: string, latestVersion: string | null, notifiedVersion: string | null }`. Mismatched schema or corrupt JSON is discarded. Writes are atomic: a same-directory temp file is renamed over the final path, the temp file is cleaned up on failure, and the final write never follows a symlink.
+- Runtime gate: the update check is **disabled by default**. `isUpdateCheckEnabled(env)` returns true only when `WAYFORGE_UPDATE_CHECK` is `1` or `true` (trimmed, case-insensitive); unset, empty, `0`, `false`, or any other value returns false. When disabled, no cache read, no network call, and no toast occur.
+- Test-only seams: `WAYFORGE_RELEASE_ROOT`, `WAYFORGE_NOTIFIER_CACHE`, and `WAYFORGE_VERSION` are honored only when `WAYFORGE_NOTIFIER_TEST=1`; in production they are ignored and the constant release root, real user-cache path, and `<prefix>/share/wayforge/VERSION` are used. An invalid test-mode `WAYFORGE_VERSION` no-ops like an unparseable `VERSION` file.
+- Fresh cache (less than 24 hours) performs no network request. Stale cache resolves `${release root}/latest` — the production root is the constant `https://github.com/Macacoders/wayforge/releases` — with `redirect: 'manual'`, a 5-second timeout, and the constant `User-Agent: wayforge-update-notifier` (the installed version is never sent). The redirect `Location` must be HTTPS on `github.com` under `/Macacoders/wayforge/releases/tag/` and end in a semver tag; anything else is rejected, and the response body is cancelled before returning or throwing.
 - Failed lookups update `lastChecked` best-effort and never throw, so an outage cannot add 5 seconds to every session.
 - If `latestVersion` is newer than the installed version and `notifiedVersion !== latestVersion`, call `client.tui.showToast({ body: { message: <message>, variant: 'info' } })`, then persist `notifiedVersion`.
 - Toast message:
@@ -113,7 +113,7 @@ OpenCode and both Kilo Code surfaces (CLI and VS Code extension) must be validat
 
 - Missing `client.tui.showToast`, a throwing toast, an unreachable network, an unreadable version, and unwritable cache paths are all silent no-ops (cache writes fall back to in-process state).
 - An in-flight guard prevents concurrent `session.created` events from making parallel checks in the same process.
-- `index.js` exports `export async function server(input)` and wires `event` -> `session.created` -> `checkAndNotify`.
+- `index.js` exports `export function server(input)` and wires `event` -> `session.created` -> fire-and-forget `void checkAndNotify()` (returns immediately, never awaiting the network).
 - `kilo.js` exports `export default { id: 'wayforge-update', server }` with the same event wiring.
 - `package.json` declares `"type": "module"`, `"main": "index.js"`, and `wayforge.entrypoints` for `opencode: index.js` and `kilocode: kilo.js`.
 - The plugin is not registered by the installer yet; after installation, manual registration in the generated config is the interim activation path. #273 adds the supported selection surface.
@@ -123,8 +123,8 @@ OpenCode and both Kilo Code surfaces (CLI and VS Code extension) must be validat
 
 `cli/tests/unit/wayforge-update-plugin.test.ts` using temp directories and mocked clients/clocks:
 
-- `WAYFORGE_NO_UPDATE_CHECK` unset/empty/`1`/`true`/other -> no cache read, no fetch, no toast;
-- `WAYFORGE_NO_UPDATE_CHECK=0` and `=false` -> check runs;
+- `WAYFORGE_UPDATE_CHECK` unset/empty/`0`/`false`/other -> no cache read, no fetch, no toast;
+- `WAYFORGE_UPDATE_CHECK=1` and `=true` -> check runs;
 - equal versions -> no toast;
 - newer version -> one toast with the exact message and `variant: 'info'`;
 - second call with `notifiedVersion` set -> no repeat toast;
@@ -185,11 +185,11 @@ git commit -m "feat(plugins): add opt-in update notifier for OpenCode and Kilo C
 - The notifier is registered manually until #273 lands:
   - opencode: add `./.agents/plugins/wayforge-update/index.js` to `opencode.jsonc`;
   - kilocode: add `./.agents/plugins/wayforge-update/kilo.js` to `kilo.jsonc`.
-- Registration alone is not enough: with `WAYFORGE_NO_UPDATE_CHECK` unset/empty/`1`/`true`, the plugin performs no cache read and no fetch.
-- `WAYFORGE_NO_UPDATE_CHECK=0` or `=false` enables the check when the plugin is registered.
+- Registration alone is not enough: with `WAYFORGE_UPDATE_CHECK` unset/empty/`0`/`false`/other, the plugin performs no cache read and no fetch.
+- `WAYFORGE_UPDATE_CHECK=1` (or `true`) enables the check when the plugin is registered.
 - The toast appears once per version, only when a newer version exists, and only in a runtime session (`session.created`).
 - The message points at `wfg upgrade`; `wfg self-update` is not mentioned.
-- ADR-0049 records: the `WAYFORGE_NO_UPDATE_CHECK` default-off reinterpretation; the plugin-owned cache and why it is not the withdrawn CLI cache; the network/trust boundary and no-mutation guarantee; the OpenCode/Kilo module-shape difference; graceful degradation; the interim manual-registration path; #273 as the follow-up for installer selection.
+- ADR-0049 records: the affirmative `WAYFORGE_UPDATE_CHECK` gate; the plugin-owned cache and why it is not the withdrawn CLI cache; the network/trust boundary (constant release root, redirect validation, constant `User-Agent`) and no-mutation guarantee; the OpenCode/Kilo module-shape difference; graceful degradation and the fire-and-forget hook; the interim manual-registration path; #273 as the follow-up for installer selection.
 - The 2026-11 log records the plan, tests, manual results, and any runtime gaps.
 
 **Step 2: Add validation**
@@ -202,12 +202,12 @@ Agent-owned:
 Human-owned (exact procedure):
 
 1. Install into a temp repo and manually register the notifier entrypoint for the selected runtime.
-2. Create a temp prefix (`WAYFORGE_INSTALL_DIR`) with `share/wayforge/VERSION` = `1.0.2`, and a local fake release root whose `/latest` redirects to `/tag/v1.0.3` (or publish a newer patch release). Launch OpenCode with `WAYFORGE_INSTALL_DIR`, `WAYFORGE_RELEASE_ROOT`, `WAYFORGE_NOTIFIER_CACHE`, and `WAYFORGE_NO_UPDATE_CHECK=0` pointing at temp paths.
+2. Create a temp prefix (`WAYFORGE_INSTALL_DIR`) with `share/wayforge/VERSION` = `1.0.2`, and a local fake release root whose `/latest` redirects to `/tag/v1.0.3` (or publish a newer patch release). Launch OpenCode with `WAYFORGE_INSTALL_DIR`, `WAYFORGE_RELEASE_ROOT`, `WAYFORGE_NOTIFIER_CACHE`, `WAYFORGE_NOTIFIER_TEST=1`, and `WAYFORGE_UPDATE_CHECK=1` pointing at temp paths.
 3. Create a session and confirm the toast appears once with `wayforge v1.0.3 is available (installed v1.0.2). Run `wfg upgrade` to update.`
 4. Create a second session and confirm no second toast for the same version.
 5. Repeat in the Kilo Code CLI and the Kilo Code VS Code extension.
-6. Relaunch with `WAYFORGE_NO_UPDATE_CHECK` unset (or `1`) and confirm no toast and no network call in both runtimes.
-7. Confirm an install without the notifier registered never shows a toast even with `WAYFORGE_NO_UPDATE_CHECK=0`.
+6. Relaunch with `WAYFORGE_UPDATE_CHECK` unset (or `0`) and confirm no toast and no network call in both runtimes.
+7. Confirm an install with the plugin files present but **not registered** never shows a toast, never makes a network request, and never creates a cache file — even with `WAYFORGE_UPDATE_CHECK=1` — in OpenCode, the Kilo Code CLI, and the Kilo Code VS Code extension.
 8. Confirm a runtime build without `client.tui.showToast` does not break the session, and an unreachable release root does not block session creation.
 9. If any runtime cannot show the toast, document the gap in README/architecture instead of claiming support.
 
@@ -240,7 +240,7 @@ git commit -m "docs: document opt-in update notifier (Issue #239)"
 | Validation | Owner |
 |---|---|
 | Notifier core tests with mocked clients | agent |
-| Runtime gate tests (default-off, `0`/`false` enable) | agent |
+| Runtime gate tests (default-off, `1`/`true` enable) | agent |
 | Notifier entrypoint tests | agent |
 | `node --check` on plugin files | agent |
 | `make check` | agent |
@@ -255,7 +255,7 @@ git commit -m "docs: document opt-in update notifier (Issue #239)"
 ## Acceptance criteria
 
 - [ ] The notifier is implemented under `base/plugins/wayforge-update/`, with a shared core and separate OpenCode/Kilo entrypoints.
-- [ ] The check is disabled by default; only `WAYFORGE_NO_UPDATE_CHECK=0` or `false` enables it, and unset/empty/`1`/`true`/other values keep it disabled.
+- [ ] The check is disabled by default; only `WAYFORGE_UPDATE_CHECK=1` or `true` (trimmed, case-insensitive) enables it, and unset/empty/`0`/`false`/other values keep it disabled.
 - [ ] The shared core reads the installed version and the plugin-owned cache, checks the latest release at most once per 24 hours when enabled, and returns a clear update decision.
 - [ ] OpenCode loads the named `server` entrypoint; Kilo Code loads the default `{ id, server }` descriptor; the wrong entrypoint is never used per runtime.
 - [ ] A toast appears once per newer version, only when the gate is enabled, and points at `wfg upgrade`.
@@ -269,7 +269,7 @@ git commit -m "docs: document opt-in update notifier (Issue #239)"
 ## Out of scope
 
 - Installer plugin selection (`--plugins`, interactive prompt, config-gen arrays, manifest behavior) — tracked by #273.
-- Reintroducing the withdrawn CLI automatic notice, `update-check.json`, `WAYFORGE_NO_UPDATE_CHECK` behavior in CLI commands, or `WAYFORGE_STATE_DIR` (ADR-0047).
+- Reintroducing the withdrawn CLI automatic notice, `update-check.json`, the withdrawn `WAYFORGE_NO_UPDATE_CHECK` opt-out behavior in CLI commands, or `WAYFORGE_STATE_DIR` (ADR-0047).
 - Changing `wfg update`/`wfg upgrade` behavior or release checksums.
 - Managed-project status, updates, pruning, and Git hooks (#238).
 - Filtering which plugin files are copied, or pruning deselected plugin files.
@@ -282,10 +282,10 @@ git commit -m "docs: document opt-in update notifier (Issue #239)"
 
 | Risk | Mitigation |
 |---|---|
-| Reusing `WAYFORGE_NO_UPDATE_CHECK` with default-off semantics confuses users | Document the exact values in README/ADR; expose `isUpdateCheckEnabled` for tests; unit-test every accepted value. |
+| A negative-named gate (`0`/`false` enables) invites accidental egress | Use the affirmative `WAYFORGE_UPDATE_CHECK` flag (`1`/`true` enables); document the exact values in README/ADR; expose `isUpdateCheckEnabled` for tests; unit-test every accepted value. |
 | Plugin is installed but unregistered until #273 lands | Document manual registration as the interim path; #273 adds `--plugins`. |
 | OpenCode/Kilo API drift | Use only documented `event`/`session.created` and `client.tui.showToast`; wrap every call in try/catch; no-op when absent; manual validation on both runtimes. |
-| Automatic network access from every project | The plugin must be registered and `WAYFORGE_NO_UPDATE_CHECK` must be `0`/`false`; 24-hour cache; 5-second timeout; no mutation. |
+| Automatic network access from every project | The plugin must be registered and `WAYFORGE_UPDATE_CHECK` must be `1`/`true`; constant egress root and redirect allowlist; 24-hour cache; 5-second timeout; no mutation. |
 | Two runtimes share one plugin directory but need different module shapes | Separate thin `index.js`/`kilo.js` entrypoints over one core. |
 | Cache location contradicts ADR-0047's withdrawn state directory | ADR-0049 records a plugin-scoped cache decision and explicitly does not resurrect CLI state/env behavior; architect gate reviews it. |
 | Toast nags on every session | `notifiedVersion` in cache plus in-process guard; one toast per version. |
