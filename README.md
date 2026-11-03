@@ -13,6 +13,7 @@ Download the installer, `wayforge-checksums.txt`, and the `wayforge-checksums.tx
 **Linux**
 
 ```bash
+set -e
 B=https://github.com/Macacoders/wayforge/releases/latest/download
 curl -fsSLO "$B/install.sh" -O "$B/wayforge-checksums.txt" -O "$B/wayforge-checksums.txt.sigstore.json"
 cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigstore.json \
@@ -25,6 +26,7 @@ sh install.sh --dry-run && sh install.sh
 **macOS**
 
 ```bash
+set -e
 B=https://github.com/Macacoders/wayforge/releases/latest/download
 curl -fsSLO "$B/install.sh" -O "$B/wayforge-checksums.txt" -O "$B/wayforge-checksums.txt.sigstore.json"
 cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigstore.json \
@@ -39,13 +41,14 @@ sh install.sh --dry-run && sh install.sh
 ```powershell
 $b='https://github.com/Macacoders/wayforge/releases/latest/download'; 'install.ps1','wayforge-checksums.txt','wayforge-checksums.txt.sigstore.json' | % { iwr "$b/$_" -OutFile $_ -UseBasicParsing }
 cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigstore.json --certificate-identity 'https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main' --certificate-oidc-issuer https://token.actions.githubusercontent.com
+if ($LASTEXITCODE -ne 0) { throw 'cosign verification failed' }
 $e=(Get-Content wayforge-checksums.txt | Select-String '  install\.ps1$').Line.Split()[0]; if((Get-FileHash install.ps1 -Algorithm SHA256).Hash -ne $e.ToUpper()){throw 'checksum mismatch'}
 powershell -ExecutionPolicy Bypass -File install.ps1 -DryRun; powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
 Default prefix: `~/.wayforge` (Linux/macOS) or `%LOCALAPPDATA%\wayforge` (Windows). Pass `--no-modify-path` / `-NoModifyPath` to skip PATH registration and print manual instructions instead.
 
-The installer downloads the platform binary and share archive together with the release's `wayforge-checksums.txt` and verifies both SHA-256 hashes before installing anything; a mismatch aborts with no changes. Releases published with a signed manifest are verified fail-closed: when cosign is absent, the bundle is missing (404), or the manifest itself is missing (404), the install aborts unless you pass `--allow-unsigned` / `-AllowUnsigned`; an invalid signature or any other verification failure always aborts. Both installers verify the cosign bundle automatically when cosign is on PATH (see [docs/security/installer-trust.md](docs/security/installer-trust.md) for the full trust model). Releases that predate the checksum asset install unverified with a warning instead.
+The installer downloads the platform binary and share archive together with the release's `wayforge-checksums.txt` and verifies both SHA-256 hashes before installing anything; a mismatch aborts with no changes. Releases published with a signed manifest are verified fail-closed: when cosign is absent, the bundle is missing (404), or the manifest itself is missing (404), the install aborts unless you pass `--allow-unsigned` / `-AllowUnsigned`; an invalid signature or any other bundle download or verification failure always aborts. Both installers verify the cosign bundle automatically when cosign is on PATH (see [docs/security/installer-trust.md](docs/security/installer-trust.md) for the full trust model). Releases that predate the checksum asset install unverified with a warning instead.
 
 ### Code signing policy
 
