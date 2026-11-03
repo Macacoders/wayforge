@@ -29,6 +29,11 @@
     Do not add wayforge to the User PATH (install) or remove it
     (uninstall). Print manual PATH instructions instead.
 
+.PARAMETER AllowUnsigned
+    Continue when the signed checksum bundle cannot be verified. Older
+    releases already fall back to hash-only; signed-era releases require
+    this explicit opt-in.
+
 .PARAMETER UrlBase
     Test override for the download base URL.
 #>
@@ -41,10 +46,25 @@ param(
     [switch]$DryRun,
     [switch]$SkipNodeCheck,
     [switch]$NoModifyPath,
+    [switch]$AllowUnsigned,
     [string]$UrlBase = ""
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($env:WAYFORGE_ALLOW_UNSIGNED -eq '1') {
+    $AllowUnsigned = $true
+}
+
+# Cosign identity pins for the checksum signature bundle. These must match the
+# release workflow identity in .github/workflows/release.yml; if the release
+# trigger changes from push: main, update the pin in the same commit.
+$CosignIdentity = 'https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main'
+$CosignOidcIssuer = 'https://token.actions.githubusercontent.com'
+
+# Releases at or after this version publish a cosign-signed checksum manifest.
+# WAYFORGE_COSIGN_REQUIRED_FROM exists for tests.
+$CosignRequiredFrom = if ($env:WAYFORGE_COSIGN_REQUIRED_FROM) { $env:WAYFORGE_COSIGN_REQUIRED_FROM } else { "1.1.0" }
 
 $Repo = "Macacoders/wayforge"
 if ($env:LOCALAPPDATA) {
@@ -369,6 +389,73 @@ function Assert-Checksum {
     Write-Host "verified ${Name} checksum"
 }
 
+# Returns $true when dotted version $Version is at least $Minimum.
+function Test-VersionAtLeast {
+    param([string]$Version, [string]$Minimum)
+
+    $v = $Version.TrimStart('v') -split '\.'
+    $m = $Minimum.TrimStart('v') -split '\.'
+    $max = [Math]::Max($v.Count, $m.Count)
+    for ($i = 0; $i -lt $max; $i++) {
+        $x = if ($i -lt $v.Count) { [int]$v[$i] } else { 0 }
+        $y = if ($i -lt $m.Count) { [int]$m[$i] } else { 0 }
+        if ($x -gt $y) { return $true }
+        if ($x -lt $y) { return $false }
+    }
+    return $true
+}
+
+# Verifies the cosign bundle before any asset hash is checked. Policy mirrors
+# install.sh: signed-era releases require cosign and a valid bundle (or an
+# explicit -AllowUnsigned); older releases warn and continue when cosign or the
+# bundle is missing; invalid signatures and non-404 fetch failures always abort.
+function Test-ChecksumSignature {
+    param(
+        [Parameter(Mandatory)][string]$ChecksumUrl,
+        [Parameter(Mandatory)][string]$ChecksumFile,
+        [Parameter(Mandatory)][string]$ResolvedVersion,
+        [Parameter(Mandatory)][bool]$SignedEra
+    )
+
+    if (-not (Get-Command cosign -ErrorAction SilentlyContinue)) {
+        if ($SignedEra -and -not $AllowUnsigned) {
+            Write-Error "error: cosign is required to verify ${ResolvedVersion}; install cosign or pass -AllowUnsigned to skip signature verification" -ErrorAction Stop
+        }
+        Write-Warning "cosign not found; skipping checksum signature verification"
+        return
+    }
+
+    $bundle = Join-Path ([System.IO.Path]::GetTempPath()) ("wayforge-bundle-" + [System.Guid]::NewGuid().ToString("N") + ".json")
+    try {
+        try {
+            Invoke-WebRequest -Uri "${ChecksumUrl}.sigstore.json" -OutFile $bundle -UseBasicParsing
+        }
+        catch {
+            $statusCode = Get-HttpStatusCode $_
+            if ($statusCode -eq 404) {
+                if ($SignedEra -and -not $AllowUnsigned) {
+                    Write-Error "error: cosign signature bundle is missing for ${ResolvedVersion}; refusing an unsigned install (pass -AllowUnsigned to override)" -ErrorAction Stop
+                }
+                Write-Warning "cosign signature bundle is unavailable for ${ResolvedVersion}; skipping signature verification"
+                return
+            }
+            $detail = if ($statusCode) { " (HTTP ${statusCode})" } else { "" }
+            Write-Error "error: failed to download cosign signature bundle for ${ResolvedVersion}${detail}: $($_.Exception.Message); aborting without changes" -ErrorAction Stop
+        }
+
+        & cosign verify-blob --bundle $bundle --certificate-identity $CosignIdentity --certificate-oidc-issuer $CosignOidcIssuer $ChecksumFile
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "error: cosign signature verification failed for wayforge-checksums.txt; aborting without changes" -ErrorAction Stop
+        }
+        Write-Host "verified wayforge-checksums.txt signature"
+    }
+    finally {
+        if (Test-Path $bundle) {
+            Remove-Item -Path $bundle -Force
+        }
+    }
+}
+
 # ---------------------------------------------------------------------------
 # Install path
 # ---------------------------------------------------------------------------
@@ -387,6 +474,7 @@ function Install-Wayforge {
     $binDir = Join-Path $Prefix "bin"
     $shareDir = Join-Path $Prefix (Join-Path "share" "wayforge")
     $binaryPath = Join-Path $binDir "wfg.exe"
+    $signedEra = Test-VersionAtLeast -Version $resolvedVersion -Minimum $CosignRequiredFrom
 
     if ($DryRun) {
         $baseCheck = Join-Path $shareDir "base"
@@ -397,6 +485,16 @@ function Install-Wayforge {
         Write-Host "[dry-run] binary URL: ${binaryUrl}"
         Write-Host "[dry-run] share URL: ${shareUrl}"
         Write-Host "[dry-run] checksum URL: ${checksumUrl}"
+        if (Get-Command cosign -ErrorAction SilentlyContinue) {
+            Write-Host "[dry-run] bundle URL: ${checksumUrl}.sigstore.json"
+            Write-Host "[dry-run] would verify checksum signature with cosign"
+        }
+        elseif ($signedEra -and -not $AllowUnsigned) {
+            Write-Host "[dry-run] cosign not found; signed-era releases require cosign or -AllowUnsigned"
+        }
+        else {
+            Write-Host "[dry-run] cosign not found; checksum signature verification will be skipped"
+        }
         Write-Host "[dry-run] would verify: ${BinaryName}, ${shareName}"
         Write-Host "[dry-run] would create directory: ${binDir}"
         Write-Host "[dry-run] would create directory: ${shareDir}"
@@ -420,8 +518,9 @@ function Install-Wayforge {
         Invoke-WebRequest -Uri $shareUrl -OutFile $tmpShare -UseBasicParsing
 
         # Older releases predate wayforge-checksums.txt; only a confirmed
-        # 404 may fall back to an unverified install. Every other failure
-        # (403/5xx, timeout, TLS) aborts before any prefix change.
+        # 404 may fall back to an unverified install, and only for releases
+        # before the signed era. Every other failure (403/5xx, timeout, TLS)
+        # aborts before any prefix change.
         $skipChecksums = $false
         try {
             Invoke-WebRequest -Uri $checksumUrl -OutFile $tmpChecksums -UseBasicParsing
@@ -429,6 +528,9 @@ function Install-Wayforge {
         catch {
             $statusCode = Get-HttpStatusCode $_
             if ($statusCode -eq 404) {
+                if ($signedEra -and -not $AllowUnsigned) {
+                    Write-Error "error: wayforge-checksums.txt is missing for ${resolvedVersion}; refusing an unverified install (pass -AllowUnsigned to override)" -ErrorAction Stop
+                }
                 $skipChecksums = $true
                 Write-Warning "wayforge-checksums.txt is unavailable for ${resolvedVersion}; skipping checksum verification"
             }
@@ -438,6 +540,7 @@ function Install-Wayforge {
             }
         }
         if (-not $skipChecksums) {
+            Test-ChecksumSignature -ChecksumUrl $checksumUrl -ChecksumFile $tmpChecksums -ResolvedVersion $resolvedVersion -SignedEra $signedEra
             $expected = Get-ExpectedChecksum -ChecksumFile $tmpChecksums
             Assert-Checksum -Path $tmpBinary -Name $BinaryName -Expected $expected
             Assert-Checksum -Path $tmpShare -Name $shareName -Expected $expected

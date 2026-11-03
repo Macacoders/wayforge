@@ -28,19 +28,48 @@ function Invoke-WebRequest {
     if ($leaf -eq 'wayforge-checksums.txt' -and $env:FAKE_CHECKSUM_TIMEOUT -eq '1') {
         throw [System.TimeoutException]::new('The operation has timed out.')
     }
+    if ($leaf -eq 'wayforge-checksums.txt.sigstore.json' -and $env:FAKE_BUNDLE_STATUS) {
+        $status = [int]$env:FAKE_BUNDLE_STATUS
+        $ex = [System.Exception]::new("The remote server returned an error: (${status}).")
+        $ex | Add-Member -NotePropertyName Response -NotePropertyValue ([pscustomobject]@{ StatusCode = $status }) -Force
+        throw $ex
+    }
+    if ($leaf -eq 'wayforge-checksums.txt.sigstore.json' -and $env:FAKE_BUNDLE_TIMEOUT -eq '1') {
+        throw [System.TimeoutException]::new('The operation has timed out.')
+    }
     $src = Join-Path $env:FIXTURE_DIR $leaf
     if (-not (Test-Path $src)) { throw "404: ${Uri}" }
     Copy-Item -Path $src -Destination $OutFile -Force
 }
 '@
+    # Stub cosign: records its arguments (one per line) to COSIGN_ARGS_LOG and
+    # exits with FAKE_COSIGN_EXIT (default 0). Defined at file scope so the
+    # child harness can omit it (-NoCosignStub) to simulate a host without
+    # cosign; this host has no real cosign on PATH either way.
+    $script:cosignStub = @'
+function cosign {
+    if ($env:COSIGN_ARGS_LOG) {
+        ($args -join "`n") | Add-Content -Path $env:COSIGN_ARGS_LOG
+    }
+    $global:LASTEXITCODE = 0
+    if ($env:FAKE_COSIGN_EXIT) {
+        $global:LASTEXITCODE = [int]$env:FAKE_COSIGN_EXIT
+    }
+}
+'@
     # Helper for child pwsh runs; a $script: scriptblock because Pester 6
     # does not expose file-scope functions to It blocks.
     $script:installChild = {
-        param([string]$ExtraEnv = '', [string]$ExtraArgs = '')
+        param([string]$ExtraEnv = '', [string]$ExtraArgs = '', [switch]$NoCosignStub)
+        $stub = ''
+        if (-not $NoCosignStub) {
+            $stub = $script:cosignStub
+        }
         $child = @"
 `$env:FIXTURE_DIR = '$script:fixtureDir'
 $ExtraEnv
 $script:downloadStub
+$stub
 try { & '$script:installScript' -SkipNodeCheck -Version 9.9.9 -Prefix '$script:tmp/prefix' $ExtraArgs *>&1 } catch { `$_; exit 1 }
 exit 0
 "@
@@ -61,6 +90,7 @@ exit 0
         $script:shareFixture = Join-Path $script:fixtureDir 'wayforge-share-9.9.9.zip'
         $script:checksumsFixture = Join-Path $script:fixtureDir 'wayforge-checksums.txt'
         Set-Content -Path $script:binaryFixture -Value 'fake wayforge binary'
+        Set-Content -Path (Join-Path $script:fixtureDir 'wayforge-checksums.txt.sigstore.json') -Value '{"stub":"sigstore bundle"}'
         Compress-Archive -Path (Join-Path $script:shareSrc '*') -DestinationPath $script:shareFixture
 
         $script:binaryHash = (Get-FileHash -Path $script:binaryFixture -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -193,6 +223,7 @@ Describe 'Release URL construction (-DryRun)' {
             "
             $combined = ($output | Out-String)
             $combined | Should -Match 'releases/download/v9\.9\.9/wayforge-'
+            $combined | Should -Match '\[dry-run\] cosign not found; signed-era releases require cosign or -AllowUnsigned'
             $combined | Should -Not -Match 'releases/v9\.9\.9/download'
         }
         finally {
@@ -279,7 +310,9 @@ Describe 'Checksum verification (full install)' {
     }
 
     It 'installs with a warning when the checksum asset is missing' {
-        $combined = & $script:installChild -ExtraEnv "`$env:FAKE_CHECKSUM_STATUS = '404'"
+        # Signed-era releases fail closed on a missing manifest; the legacy
+        # warn-and-continue fallback requires the explicit opt-in.
+        $combined = & $script:installChild -ExtraArgs '-AllowUnsigned' -ExtraEnv "`$env:FAKE_CHECKSUM_STATUS = '404'"
         $LASTEXITCODE | Should -Be 0
         $combined | Should -Match 'wayforge-checksums\.txt is unavailable for 9\.9\.9; skipping checksum verification'
         Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
@@ -313,6 +346,65 @@ Describe 'Checksum verification (full install)' {
         $script:scriptContent | Should -Match 'Get-FileHash'
         $script:scriptContent | Should -Match '-Algorithm SHA256'
         $script:scriptContent | Should -Match 'wayforge-checksums\.txt'
+    }
+}
+
+Describe 'Cosign bundle verification (full install)' {
+    BeforeEach {
+        & $script:setupFixtures
+        # Valid manifest so the checksum download succeeds and the cosign
+        # matrix is what each test actually exercises.
+        Set-Content -Path $script:checksumsFixture -Value "$($script:binaryHash)  dist/wayforge-win32-x64.exe`n$($script:shareHash)  wayforge-share-9.9.9.zip"
+    }
+    AfterEach { & $script:teardownFixtures }
+
+    It 'installs when the bundle verifies and records the cosign arguments' {
+        $log = Join-Path $script:tmp 'cosign-args.log'
+        $combined = & $script:installChild -ExtraEnv "`$env:COSIGN_ARGS_LOG = '$log'"
+        $LASTEXITCODE | Should -Be 0
+        Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
+        $combined | Should -Match 'verified wayforge-checksums\.txt signature'
+        $cosignArgs = (Get-Content -Path $log) -join ' '
+        $cosignArgs | Should -Match 'verify-blob'
+        $cosignArgs | Should -Match '--bundle \S+'
+        $cosignArgs | Should -Match '--certificate-identity https://github\.com/Macacoders/wayforge/\.github/workflows/release\.yml@refs/heads/main'
+        $cosignArgs | Should -Match '--certificate-oidc-issuer https://token\.actions\.githubusercontent\.com'
+    }
+
+    It 'aborts on an invalid signature even with -AllowUnsigned' {
+        $combined = & $script:installChild -ExtraArgs '-AllowUnsigned' -ExtraEnv "`$env:FAKE_COSIGN_EXIT = '1'"
+        $LASTEXITCODE | Should -Not -Be 0
+        $combined | Should -Match 'cosign signature verification failed'
+        Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
+    }
+
+    It 'aborts when cosign is missing for a signed-era release' {
+        $combined = & $script:installChild -NoCosignStub
+        $LASTEXITCODE | Should -Not -Be 0
+        $combined | Should -Match 'cosign is required to verify 9\.9\.9'
+        Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
+    }
+
+    It 'continues with -AllowUnsigned when cosign is missing' {
+        $combined = & $script:installChild -NoCosignStub -ExtraArgs '-AllowUnsigned'
+        $LASTEXITCODE | Should -Be 0
+        $combined | Should -Match 'cosign not found; skipping checksum signature verification'
+        Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
+        Test-Path (Join-Path $script:tmp 'prefix/share/wayforge/base') -PathType Container | Should -Be $true
+    }
+
+    It 'warns and continues for legacy releases when the bundle is missing' {
+        $combined = & $script:installChild -ExtraEnv "`$env:WAYFORGE_COSIGN_REQUIRED_FROM = '99.0.0'; `$env:FAKE_BUNDLE_STATUS = '404'"
+        $LASTEXITCODE | Should -Be 0
+        $combined | Should -Match 'cosign signature bundle is unavailable for 9\.9\.9; skipping signature verification'
+        Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
+    }
+
+    It 'aborts when the bundle is missing (404) for a signed-era release' {
+        $combined = & $script:installChild -ExtraEnv "`$env:FAKE_BUNDLE_STATUS = '404'"
+        $LASTEXITCODE | Should -Not -Be 0
+        $combined | Should -Match 'refusing an unsigned install'
+        Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
     }
 }
 
