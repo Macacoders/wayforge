@@ -9,7 +9,7 @@ On a real install (not `--dry-run` / `-DryRun`), the installer downloads into OS
 - `wayforge-<os>-<arch>[.exe]` — the platform binary (installed as `<prefix>/bin/wfg` / `wfg.exe`)
 - `wayforge-share-<version>.tar.gz` / `.zip` — the share archive (extracted to `<prefix>/share/wayforge/base/**` + `VERSION`)
 - `wayforge-checksums.txt` — the SHA-256 manifest for the release
-- `wayforge-checksums.txt.sigstore.json` — the detached cosign signature bundle (fetched by `install.sh` only when cosign is present)
+- `wayforge-checksums.txt.sigstore.json` — the detached cosign signature bundle (fetched by the installers only when cosign is present)
 
 It writes only inside the dedicated prefix (`~/.wayforge` on Linux/macOS, `%LOCALAPPDATA%\wayforge` on Windows: `bin/`, `share/wayforge/`, optionally `node/`) plus the PATH registration (`~/.bashrc` / `~/.zshrc` marker block, or the Windows User PATH). No administrator privileges are required. `--no-modify-path` / `-NoModifyPath` skips the PATH writes and prints manual instructions instead. A dry run downloads nothing and writes nothing.
 
@@ -74,9 +74,14 @@ cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigsto
 
 Verification policy:
 
-- `install.sh` performs this verification automatically when cosign is on PATH: a present-but-invalid bundle or a non-404 bundle fetch failure aborts the install with no changes; cosign absent or a confirmed-missing bundle (404) warns and continues with hash-only verification.
-- `install.ps1` does not require cosign; run the manual `cosign verify-blob --bundle` command above if you want signature verification on Windows.
+- Releases published with a signed manifest are verified fail-closed: cosign plus a valid bundle is mandatory. When cosign is absent, the bundle is confirmed missing (404), or the manifest itself is confirmed missing (404), the install aborts unless `--allow-unsigned` / `-AllowUnsigned` is passed. An invalid signature or any other bundle verification failure always aborts — `--allow-unsigned` never bypasses a bad signature; it only covers absent verification material.
+- Legacy releases that predate the signed manifest keep the warn-and-continue behavior: a confirmed-missing checksum asset (HTTP 404) warns and installs unverified.
+- Both `install.sh` and `install.ps1` perform this verification automatically when cosign is on PATH; Windows is not manual-only. The manual `cosign verify-blob --bundle` command above stays documented for users without cosign.
 - `wfg upgrade` currently verifies hashes only; bundle verification there is a recorded follow-up gap (ADR-0048).
+
+### Node.js `SHASUMS256.txt` verification
+
+When Node.js must be provisioned, the installer downloads the pinned Node.js archive together with the official Node.js `SHASUMS256.txt` from the same Node.js release and verifies the archive hash against it before extraction; a mismatch aborts with no changes. This inherits Node.js's own integrity chain; it is not covered by the cosign bundle.
 
 ## What signing proves (and does not prove)
 
@@ -85,9 +90,8 @@ A valid bundle proves that `wayforge-checksums.txt` was produced by the pinned r
 Explicit non-goals:
 
 - No Authenticode enforcement yet; Windows binaries are unsigned until SignPath (#240).
-- `install.ps1` does not invoke cosign; Windows users run the manual `cosign verify-blob --bundle` command above if they want signature verification.
 - `wfg upgrade` remains hash-only and prints a warning pointing at this document.
-- Bootstrap of `install.sh` / `install.ps1` itself is hash-only in the quick-start flow: the installer hash is checked against the same-origin manifest, so verify the bundle first (commands above) for a high-assurance install.
+- Bootstrap residual risk: the installer script itself is hash-checked against the same-origin manifest, not signature-verified directly. Verifying the bundle **before** trusting the manifest (commands above) is the high-assurance path; the hash-only bootstrap check is the lower-assurance fallback when the bundle step is skipped.
 
 ## Authenticode status
 

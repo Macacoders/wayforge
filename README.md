@@ -8,29 +8,44 @@ Five steps: install the CLI, connect providers, install the runtime into your re
 
 ### 1. Install the CLI
 
-Download the installer to a file, verify its SHA-256 hash, then run it. Do not pipe the installer directly into a shell.
+Download the installer, `wayforge-checksums.txt`, and the `wayforge-checksums.txt.sigstore.json` bundle to files, verify the manifest signature **before trusting the manifest**, then verify the installer hash and run it. Do not pipe the installer directly into a shell. Releases published with a signed manifest require [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) v3+; pass `--allow-unsigned` / `-AllowUnsigned` only if you explicitly accept an unverified install.
 
 **Linux**
 
 ```bash
-B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSL -O "$B/install.sh" -O "$B/wayforge-checksums.txt" && grep '  install.sh$' wayforge-checksums.txt | sha256sum -c - && sh install.sh
+B=https://github.com/Macacoders/wayforge/releases/latest/download
+curl -fsSLO "$B/install.sh" -O "$B/wayforge-checksums.txt" -O "$B/wayforge-checksums.txt.sigstore.json"
+cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigstore.json \
+  --certificate-identity 'https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+grep '  install.sh$' wayforge-checksums.txt | sha256sum -c -
+sh install.sh --dry-run && sh install.sh
 ```
 
 **macOS**
 
 ```bash
-B=https://github.com/Macacoders/wayforge/releases/latest/download; curl -fsSL -O "$B/install.sh" -O "$B/wayforge-checksums.txt" && grep '  install.sh$' wayforge-checksums.txt | shasum -a 256 -c - && sh install.sh
+B=https://github.com/Macacoders/wayforge/releases/latest/download
+curl -fsSLO "$B/install.sh" -O "$B/wayforge-checksums.txt" -O "$B/wayforge-checksums.txt.sigstore.json"
+cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigstore.json \
+  --certificate-identity 'https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+grep '  install.sh$' wayforge-checksums.txt | shasum -a 256 -c -
+sh install.sh --dry-run && sh install.sh
 ```
 
 **Windows** (PowerShell 5.1+)
 
 ```powershell
-$b='https://github.com/Macacoders/wayforge/releases/latest/download'; 'install.ps1','wayforge-checksums.txt' | % { iwr "$b/$_" -OutFile $_ -UseBasicParsing }; $e=(Get-Content wayforge-checksums.txt | Select-String '  install\.ps1$').Line.Split()[0]; if((Get-FileHash install.ps1 -Algorithm SHA256).Hash -ne $e.ToUpper()){throw 'checksum mismatch'}; powershell -ExecutionPolicy Bypass -File install.ps1
+$b='https://github.com/Macacoders/wayforge/releases/latest/download'; 'install.ps1','wayforge-checksums.txt','wayforge-checksums.txt.sigstore.json' | % { iwr "$b/$_" -OutFile $_ -UseBasicParsing }
+cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigstore.json --certificate-identity 'https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main' --certificate-oidc-issuer https://token.actions.githubusercontent.com
+$e=(Get-Content wayforge-checksums.txt | Select-String '  install\.ps1$').Line.Split()[0]; if((Get-FileHash install.ps1 -Algorithm SHA256).Hash -ne $e.ToUpper()){throw 'checksum mismatch'}
+powershell -ExecutionPolicy Bypass -File install.ps1 -DryRun; powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
 Default prefix: `~/.wayforge` (Linux/macOS) or `%LOCALAPPDATA%\wayforge` (Windows). Pass `--no-modify-path` / `-NoModifyPath` to skip PATH registration and print manual instructions instead.
 
-The installer downloads the platform binary and share archive together with the release's `wayforge-checksums.txt` and verifies both SHA-256 hashes before installing anything; a mismatch aborts with no changes. Releases that predate the checksum asset (confirmed by an HTTP 404) install unverified with a warning instead; any other checksum download failure aborts with no changes. The checksum manifest is cosign-signed into a detached `wayforge-checksums.txt.sigstore.json` bundle; `install.sh` verifies it automatically when cosign is present (see [docs/security/installer-trust.md](docs/security/installer-trust.md) for manual verification on Windows and the full trust model).
+The installer downloads the platform binary and share archive together with the release's `wayforge-checksums.txt` and verifies both SHA-256 hashes before installing anything; a mismatch aborts with no changes. Releases published with a signed manifest are verified fail-closed: when cosign is absent, the bundle is missing (404), or the manifest itself is missing (404), the install aborts unless you pass `--allow-unsigned` / `-AllowUnsigned`; an invalid signature or any other verification failure always aborts. Both installers verify the cosign bundle automatically when cosign is on PATH (see [docs/security/installer-trust.md](docs/security/installer-trust.md) for the full trust model). Releases that predate the checksum asset install unverified with a warning instead.
 
 ### Code signing policy
 
