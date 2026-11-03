@@ -1,11 +1,13 @@
 ---
-status: in-progress
+status: superseded
 created: 2026-10-28
 task: 0/4
 required_gates:
   architect_review: true
   memory_update: true
 ---
+
+> Superseded on 2026-11-03 by `docs/ai/plans/2026-11-03_100026-issue-240-remove-signpath-artifacts.md`. SignPath Foundation declined; the project now ships unsigned Windows artifacts.
 
 # Issue #240: Authenticode signing via SignPath Foundation
 

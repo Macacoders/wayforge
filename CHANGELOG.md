@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed `install/legacy/**` (the frozen legacy Bash/PowerShell installers) and its legacy-only bats/Pester tests. `wfg` is the only supported installer. Release artifacts are unchanged. Contributors relying on the frozen source scripts lose them.
+- Removed the SignPath application artifacts (`CODE_SIGNING_POLICY.md`, `.signpath/artifact-configuration.xml`) and the README claim that Windows artifacts are Authenticode-signed. SignPath Foundation denied the project's application on 2026-11-03; Windows release artifacts are unsigned and integrity is verified with `wayforge-checksums.txt` (SHA-256). See [Windows code signing](docs/security/windows-code-signing.md).
 
 ### Fixed
 
