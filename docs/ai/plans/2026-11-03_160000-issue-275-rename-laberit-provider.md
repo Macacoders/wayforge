@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: completed
 created: 2026-11-03
 task: 2/2
 required_gates:
@@ -9,7 +9,7 @@ required_gates:
 
 # Issue #275: Rename the `laberit` provider to `openai-compatible`
 
-**Goal:** The installer exposes the same provider behaviour it had under the vendor-specific `laberit` id, but with a neutral `openai-compatible` id, neutral model IDs, and no `laberit` string in the working tree. Models, limits, defaults, agent pins, env-var names, and both-runtime output are unchanged.
+**Goal:** The installer exposes the same provider behaviour it had under the vendor-specific `laberit` id, but with a neutral `openai-compatible` id, neutral model keys, and `laberit` confined to the upstream `id` values the endpoint requires. Models, limits, defaults, agent pins, env-var names, and both-runtime output are unchanged.
 
 **Architecture:** This is a rename, not a redesign. The static fragments under `base/config/providers` and `base/config/agents` stay the source of truth and are renamed with their contents updated only where the provider id, model IDs, or display names appear. `Provider`, `VALID_PROVIDERS`, `resolveDefaultModels`, `FAST_MODELS`, the interactive menu, and fragment lookups change ids only. No install-time model registration, no generated provider block, no `--model` requirement.
 
@@ -28,6 +28,7 @@ required_gates:
   - `laberit-ai` → `kimi-k2.5` (display name `Kimi K2.5`, limit 131072 / 16384)
   - `laberit-gpt-5.6-luna` → `gpt-5.6-luna` (display name `GPT-5.6-luna`, limit 1000000 / 131072)
   - `laberit-kimi-k2.7-code` → `kimi-k2.7-code` (display name `Kimi K2.7 Code`, limit 262100 / 262100)
+- Each neutral model key carries `id` with the endpoint's real model ID, because the endpoint rejects the neutral names (`/v1/models` only lists `laberit-*`). OpenCode 1.19.5 and Kilo 7.3.8 both honor `id`: the UI/model references stay neutral while requests send the upstream ID.
 - Defaults keep the previous mapping: `model` = `openai-compatible/kimi-k2.6`, `small_model` = `openai-compatible/kimi-k2.5`.
 - Agent pins keep the previous mapping: `planner`, `delivery`, `research`, `troubleshooter`, `architect` → `openai-compatible/kimi-k2.6`; `code` → `openai-compatible/kimi-k2.5` with `steps: 16`.
 - The `opencode-go,laberit` combo becomes `opencode-go,openai-compatible` and keeps the opencode-go agent block.
@@ -78,10 +79,10 @@ required_gates:
         }
       },
       "models": {
-        "kimi-k2.6": { "name": "Kimi K2.6", "limit": { "context": 262144, "output": 16384 } },
-        "kimi-k2.5": { "name": "Kimi K2.5", "limit": { "context": 131072, "output": 16384 } },
-        "gpt-5.6-luna": { "name": "GPT-5.6-luna", "limit": { "context": 1000000, "output": 131072 } },
-        "kimi-k2.7-code": { "name": "Kimi K2.7 Code", "limit": { "context": 262100, "output": 262100 } }
+        "kimi-k2.6": { "name": "Kimi K2.6", "id": "laberit-ai-preview", "limit": { "context": 262144, "output": 16384 } },
+        "kimi-k2.5": { "name": "Kimi K2.5", "id": "laberit-ai", "limit": { "context": 131072, "output": 16384 } },
+        "gpt-5.6-luna": { "name": "GPT-5.6-luna", "id": "laberit-gpt-5.6-luna", "limit": { "context": 1000000, "output": 131072 } },
+        "kimi-k2.7-code": { "name": "Kimi K2.7 Code", "id": "laberit-kimi-k2.7-code", "limit": { "context": 262100, "output": 262100 } }
       }
     }
 ```
@@ -100,7 +101,7 @@ Update `cli/tests/unit/config-gen.test.ts`:
 
 - `parseProviders`: comma-separated case uses `openai-compatible`; add a rejection case for `laberit`.
 - `resolveDefaultModels`: laberit-only becomes `openai-compatible`-only with the renamed defaults; `opencode-go+laberit` becomes `opencode-go+openai-compatible` with opencode-go defaults.
-- `buildProviderBlockJson`: assert `"openai-compatible":`, `"env": ["OPENAI_API_KEY"]`, `"${OPENAI_BASE_URL}"`, the four renamed model keys with their names and limits, and absence of `laberit`.
+- `buildProviderBlockJson`: assert `"openai-compatible":`, `"env": ["OPENAI_API_KEY"]`, `"${OPENAI_BASE_URL}"`, the four renamed model keys with their names and limits, and the `id` mappings to the endpoint's real `laberit-*` IDs.
 - `buildAgentBlockJson`: assert the renamed only-block pins and the combo block behaviour (`"model": "opencode-go/glm-5.3-flash"`, `"steps": 16`).
 - `agentBlockFragments` step-floor table: replace the two renamed file names; keep `generic`-free (no `generic-only` entry).
 - `generateOpenCodeJsonc`: provider-only produces `"enabled_providers": ["opencode", "openai-compatible"]`, the renamed defaults, the provider key, and parses as JSON after stripping the header; combo produces both provider blocks. Keep the `emits no env/file references` case with `openai-compatible` in the provider set and no required overrides.
@@ -127,7 +128,7 @@ cd cli && npx tsc --noEmit
 npx tsx cli/src/index.ts install --repo temp/smoke-openai-compatible --providers openai-compatible --skip-node-check --no-track --force
 ```
 
-Expected: unit cases pass, typecheck clean, and `temp/smoke-openai-compatible/opencode.jsonc` contains `"openai-compatible":`, the four renamed models with names/limits, top-level `openai-compatible/kimi-k2.6` / `kimi-k2.5`, agent pins on `openai-compatible/kimi-k2.*`, no `laberit`, and no `{env:}` / `{file:}`. Repeat with `--runtime kilocode` and confirm the same provider block.
+Expected: unit cases pass, typecheck clean, and `temp/smoke-openai-compatible/opencode.jsonc` contains `"openai-compatible":`, the four renamed models with names/limits, the `id` mappings to `laberit-*`, top-level `openai-compatible/kimi-k2.6` / `kimi-k2.5`, agent pins on `openai-compatible/kimi-k2.*`, and no `{env:}` / `{file:}`. Repeat with `--runtime kilocode` and confirm the same provider block.
 
 **Step 5: Commit**
 
@@ -156,7 +157,8 @@ git commit -m "refactor!: rename laberit provider to openai-compatible (Issue #2
 - `profiles/defaults.env.example` keeps the two variables but renames the section from Laberit to the generic provider and uses a neutral example URL.
 - ADR-0048 records: rename only; same env vars; renamed model IDs with unchanged limits; unchanged defaults and agent pins; no install-time model requirement; supersedes ADR-0008's vendor-specific provider-list entry and laberit authentication bullet.
 - `CHANGELOG.md` has a **Breaking** `### Changed` entry under `[Unreleased]` with the migration (`--providers openai-compatible`, model ids `openai-compatible/kimi-k2.6`, `openai-compatible/kimi-k2.5`). `VERSION` stays untouched.
-- No `laberit` remains in `README.md`, `docs/ai/architecture.md`, `profiles/defaults.env.example`, `cli/src/**`, or `base/config/**`.
+- `laberit` appears only in the `id` fields of the model entries (the upstream IDs the endpoint requires); provider id, display names, model keys, defaults, and agent pins are neutral.
+- No `laberit` remains in `README.md`, `docs/ai/architecture.md`, `profiles/defaults.env.example`, or `cli/src/**`; in `base/config/**` it appears only as the upstream `id` values.
 
 **Step 2: Add or update validation**
 
@@ -207,7 +209,8 @@ git commit -m "docs!: document openai-compatible provider rename (Issue #275)"
 - [ ] The four renamed models keep their previous display names and limits.
 - [ ] Defaults and agent pins keep their previous model mapping.
 - [ ] Generated config keeps one `env` entry and literal `${OPENAI_BASE_URL}`, with no `{env:}` / `{file:}`.
-- [ ] `laberit` no longer appears in `cli/src/**`, `base/config/**`, `README.md`, `docs/ai/architecture.md`, or `profiles/defaults.env.example`.
+- [ ] `laberit` appears only as the upstream `id` values; provider id, model keys, display names, defaults, and agent pins are neutral.
+- [ ] `laberit` does not appear in `cli/src/**`, `README.md`, `docs/ai/architecture.md`, or `profiles/defaults.env.example`.
 - [ ] ADR-0048 exists and supersedes only the vendor-specific portion of ADR-0008.
 - [ ] `CHANGELOG.md` marks the rename as breaking; `VERSION` is unchanged.
 - [ ] `make check` and `npx vitest run` pass.
@@ -219,4 +222,5 @@ git commit -m "docs!: document openai-compatible provider rename (Issue #275)"
 - Provider id `openai-compatible`; env vars `OPENAI_BASE_URL` / `OPENAI_API_KEY` unchanged.
 - Model mapping: `kimi-k2.6` (was `laberit-ai-preview`), `kimi-k2.5` (was `laberit-ai`), `gpt-5.6-luna`, `kimi-k2.7-code`.
 - No `laberit` alias; clean break.
+- The endpoint only accepts `laberit-*` model IDs, so each neutral model key carries `id` with the real upstream ID; the vendor string is unavoidable there and nowhere else.
 - This rename replaces the abandoned install-time-model redesign; that branch is kept as `backup/issue-275-generic-redesign`.

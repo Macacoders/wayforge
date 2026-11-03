@@ -24,6 +24,22 @@ Rename the provider id from `laberit` to `openai-compatible`. This is a rename o
 - `--model` / `--small-model` remain optional overrides; the provider is not required to receive model IDs at install time. No install-time model registration, no generated provider block, and no `generic-only` fragment are introduced.
 - There is no `laberit` alias; this is a clean break.
 
+### Upstream model ID mapping
+
+The endpoint only accepts its original model IDs (`laberit-ai-preview`, `laberit-ai`, `laberit-gpt-5.6-luna`, `laberit-kimi-k2.7-code`), confirmed against its `/v1/models`. Renaming only the `models` map key changes the model name sent in `/chat/completions` and the endpoint rejects it with `Invalid model name`.
+
+Each model entry therefore keeps a neutral key for OpenCode/Kilo and carries the real upstream ID in `id`:
+
+```jsonc
+"kimi-k2.6": {
+  "name": "Kimi K2.6",
+  "id": "laberit-ai-preview",
+  "limit": { "context": 262144, "output": 16384 }
+}
+```
+
+Verified with the real endpoint on OpenCode 1.19.5 and Kilo 7.3.8: the UI and model references use `openai-compatible/kimi-k2.6`, while requests send `laberit-ai-preview`.
+
 ## Supersedes
 
 This ADR partially supersedes ADR-0008:
@@ -35,6 +51,8 @@ This ADR partially supersedes ADR-0008:
 ## Consequences
 
 - Existing installs that used `--providers laberit` must re-install with `--providers openai-compatible` (e.g. `wfg install --repo <path> --providers openai-compatible --force`); existing generated configs are self-contained and keep working until the next refresh, which migrates them to the new ids. There is no alias.
+- The vendor name remains only in the `id` field of each model entry (the upstream identifier required by the endpoint). Provider id, display names, model keys, defaults, agent pins, env vars, and `/models` references are neutral.
+- Alternatives rejected: keep `laberit-*` as the model keys (vendor stays visible in `/models` and every model reference); ask the endpoint owner for neutral aliases (outside this repo); inject the upstream IDs through environment variables (`id` has no `${VAR}` interpolation and it would add four undocumented variables).
 - The generated config keeps the existing Kilo-safe shape: `env: ["OPENAI_API_KEY"]` and a literal `${OPENAI_BASE_URL}`; never `{env:}` / `{file:}`.
 - Kilo config compatibility fix included in this change: `kilo.jsonc` emits `skills` as `{ "paths": ["..."] }` because Kilo 7.3.8 rejects the OpenCode array form with `ConfigInvalidError`; `opencode.jsonc` keeps the array form. This pre-existing kilocode bug affected all providers.
 - Git history, tags, and release artifacts still contain the old name; scrubbing is tracked in #284.

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Breaking:** Renamed the `laberit` provider to `openai-compatible` (Issue #275). Install with `--providers openai-compatible`; model IDs are now `openai-compatible/kimi-k2.6` (was `laberit/laberit-ai-preview`), `openai-compatible/kimi-k2.5` (was `laberit/laberit-ai`), `openai-compatible/gpt-5.6-luna`, and `openai-compatible/kimi-k2.7-code`. Environment variables (`OPENAI_BASE_URL` / `OPENAI_API_KEY`), model limits, defaults, and agent pins are unchanged. There is no `laberit` alias; re-run `wfg install --repo <path> --providers openai-compatible --force` to migrate existing installs. See ADR-0048.
+- **Breaking:** Renamed the `laberit` provider to `openai-compatible` (Issue #275). Install with `--providers openai-compatible`; model IDs are now `openai-compatible/kimi-k2.6` (was `laberit/laberit-ai-preview`), `openai-compatible/kimi-k2.5` (was `laberit/laberit-ai`), `openai-compatible/gpt-5.6-luna`, and `openai-compatible/kimi-k2.7-code`. Each neutral model key carries `id` with the endpoint's real `laberit-*` ID, so requests keep working while `/models` stays neutral; `laberit` remains only as that upstream identifier. Environment variables (`OPENAI_BASE_URL` / `OPENAI_API_KEY`), model limits, defaults, and agent pins are unchanged. There is no `laberit` alias; re-run `wfg install --repo <path> --providers openai-compatible --force` to migrate existing installs. See ADR-0048.
 
 ### Fixed
 
