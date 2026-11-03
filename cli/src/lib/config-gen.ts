@@ -214,6 +214,12 @@ export function generateOpenCodeJsonc(opts: GenerateOptions): string {
 		opts.runtime,
 	)
 	const agentSection = agentBlock ? `${agentBlock},\n  ` : ''
+	// Kilo expects `skills` as an object with `paths`; a bare array is
+	// rejected as ConfigInvalidError. OpenCode keeps the array form.
+	const skillsLine =
+		opts.runtime === 'opencode'
+			? `"skills": ["${SKILLS_CONFIG_PATH}"],`
+			: `"skills": { "paths": ["${SKILLS_CONFIG_PATH}"] },`
 
 	return `${MANAGED_OPENCODE_HEADER}
 {
@@ -227,7 +233,7 @@ export function generateOpenCodeJsonc(opts: GenerateOptions): string {
 ${providerBlock}
   },
   "plugin": ["${PLUGIN_ENTRY}"],
-  "skills": ["${SKILLS_CONFIG_PATH}"],
+  ${skillsLine}
   "permission": {
     "skill": {
       "*": "allow"

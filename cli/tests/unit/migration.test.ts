@@ -254,7 +254,11 @@ describe('legacy .opencode migration', () => {
 			expect(config).toContain(
 				'"plugin": ["./.agents/plugins/ponytail/ponytail.mjs"]',
 			)
-			expect(config).toContain('"skills": ["./.agents/skills"]')
+			expect(config).toContain(
+				configPath === kiloConfig
+					? '"skills": { "paths": ["./.agents/skills"] }'
+					: '"skills": ["./.agents/skills"]',
+			)
 			expect(config).not.toContain('.opencode/')
 		}
 	})

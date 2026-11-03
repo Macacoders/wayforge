@@ -122,7 +122,11 @@ describe('install layout integration', () => {
 			expect(config).toContain(
 				'"plugin": ["./.agents/plugins/ponytail/ponytail.mjs"]',
 			)
-			expect(config).toContain('"skills": ["./.agents/skills"]')
+			expect(config).toContain(
+				runtime === 'opencode'
+					? '"skills": ["./.agents/skills"]'
+					: '"skills": { "paths": ["./.agents/skills"] }',
+			)
 			expect(config).not.toContain('.opencode/')
 
 			const pointerRoot = pointerRootFor(runtime)
