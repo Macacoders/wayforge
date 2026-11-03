@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release publishes a cosign-signed `wayforge-checksums.txt.sigstore.json` bundle (keyless, Fulcio + Rekor; workflow identity `release.yml@refs/heads/main`) alongside the checksum manifest (ADR-0048).
 - `wayforge-checksums.txt` now covers the two installer scripts (`install.sh`, `install.ps1`) in addition to every platform binary and both share archives.
 - `--no-modify-path` / `-NoModifyPath` installer flag to skip all persistent PATH writes and print manual instructions instead.
+- `--allow-unsigned` / `-AllowUnsigned` (or the `WAYFORGE_ALLOW_UNSIGNED=1` environment variable) installer opt-out for missing verification material — cosign not installed, a missing signature bundle, or a missing checksum manifest. It never bypasses an invalid signature or a non-404 failure.
 
 ### Changed
 

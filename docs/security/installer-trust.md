@@ -15,7 +15,7 @@ It writes only inside the dedicated prefix (`~/.wayforge` on Linux/macOS, `%LOCA
 
 ## SHA-256 verification
 
-The release publishes `wayforge-checksums.txt` in `sha256sum` format covering every platform binary, both share archives, and both installer scripts. Verify the installer itself before running it.
+The release publishes `wayforge-checksums.txt` in `sha256sum` format covering every platform binary, both share archives, and both installer scripts. Verify the installer itself before running it. **Run the bundle verification step below first** (download `wayforge-checksums.txt.sigstore.json` and run `cosign verify-blob` with the exact identity/issuer) before trusting the manifest — it is mandatory for releases published with a signed manifest.
 
 **Linux:**
 
@@ -40,7 +40,7 @@ $expected = (Select-String -Path wayforge-checksums.txt -Pattern '  install\.ps1
 if ((Get-FileHash install.ps1 -Algorithm SHA256).Hash -ne $expected.ToUpper()) { throw 'install.ps1 checksum mismatch' }
 ```
 
-The installers then verify the binary and share archive hashes against the same manifest before any prefix mutation; a mismatch or missing entry aborts with the prefix untouched. Only a confirmed-missing checksum asset (HTTP 404, releases predating it) warns and installs unverified; any other download failure aborts.
+The installers then verify the binary and share archive hashes against the same manifest before any prefix mutation; a mismatch or missing entry aborts with the prefix untouched. For legacy releases that predate the signed manifest, a confirmed-missing checksum asset (HTTP 404) warns and installs unverified; any other download failure aborts.
 
 ## Cosign keyless bundle verification
 
@@ -74,7 +74,7 @@ cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigsto
 
 Verification policy:
 
-- Releases published with a signed manifest are verified fail-closed: cosign plus a valid bundle is mandatory. When cosign is absent, the bundle is confirmed missing (404), or the manifest itself is confirmed missing (404), the install aborts unless `--allow-unsigned` / `-AllowUnsigned` is passed. An invalid signature or any other bundle download or verification failure always aborts — `--allow-unsigned` never bypasses a bad signature; it only covers absent verification material.
+- Releases published with a signed manifest are verified fail-closed: cosign plus a valid bundle is mandatory. When cosign is absent, the bundle is confirmed missing (404), or the manifest itself is confirmed missing (404), the install aborts unless `--allow-unsigned` / `-AllowUnsigned` is passed (or the `WAYFORGE_ALLOW_UNSIGNED=1` environment variable is set). An invalid signature or any other bundle download or verification failure always aborts — `--allow-unsigned` never bypasses a bad signature; it only covers absent verification material.
 - Legacy releases that predate the signed manifest keep the warn-and-continue behavior: a confirmed-missing checksum asset (HTTP 404) warns and installs unverified.
 - Both `install.sh` and `install.ps1` perform this verification automatically when cosign is on PATH; Windows is not manual-only. The manual `cosign verify-blob --bundle` command above stays documented for users without cosign.
 - `wfg upgrade` currently verifies hashes only; bundle verification there is a recorded follow-up gap (ADR-0048).
