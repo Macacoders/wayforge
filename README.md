@@ -42,12 +42,14 @@ Open the OpenCode TUI with `opencode`, then run `/connect` to authenticate a pro
 
 The provider IDs you connect must match the `enabled_providers` list and the `provider` block in `opencode.jsonc` (see step 4). See the [OpenCode providers doc](https://opencode.ai/docs/providers) for supported providers.
 
+The `openai-compatible` provider does not use `/connect`. Instead, export `OPENAI_BASE_URL` and `OPENAI_API_KEY` in the process environment before launching OpenCode (a project `.env` file is not read). A missing variable stays literal (`${OPENAI_API_KEY}`) in the generated config and the request fails loudly. After install, run `/models` and pick e.g. `openai-compatible/kimi-k2.6`.
+
 ### 3. Install the runtime into your repo
 
 Install the workflow into a target repository:
 
 ```bash
-wfg install --repo /path/to/repo --providers openai
+wfg install --repo /path/to/repo --providers openai-compatible
 ```
 
 | Command | Purpose |
@@ -89,7 +91,7 @@ Prefer a clone over the release? Run the installer straight from TypeScript sour
 git clone https://github.com/Macacoders/wayforge.git
 cd wayforge
 npm install
-npx tsx cli/src/index.ts install --repo /path/to/your-project --providers openai
+npx tsx cli/src/index.ts install --repo /path/to/your-project --providers openai-compatible
 ```
 
 Build a standalone binary with `make cli-binary` (no Node.js needed).

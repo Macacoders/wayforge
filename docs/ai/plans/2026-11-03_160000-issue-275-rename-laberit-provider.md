@@ -1,7 +1,7 @@
 ---
 status: in-progress
 created: 2026-11-03
-task: 1/2
+task: 2/2
 required_gates:
   architect_review: true
   memory_update: true
@@ -190,7 +190,7 @@ Human validation (owner: human; do not execute automatically):
 
 1. Export `OPENAI_BASE_URL` / `OPENAI_API_KEY`, install with `--providers openai-compatible`, open OpenCode, run `/models`, confirm the Kimi models are listed and a prompt succeeds.
 2. Unset `OPENAI_API_KEY`, restart, confirm the request fails loudly with literal `${OPENAI_API_KEY}`.
-3. Repeat with `--runtime kilocode` and confirm `kilo.jsonc` is accepted and a prompt succeeds.
+3. Repeat with `--runtime kilocode` and note: Kilo acceptance is blocked by the pre-existing `skills` rejection — deferred to the follow-up.
 
 **Step 5: Commit**
 
@@ -210,7 +210,7 @@ git commit -m "docs!: document openai-compatible provider rename (Issue #275)"
 - [ ] ADR-0048 exists and supersedes only the vendor-specific portion of ADR-0008.
 - [ ] `CHANGELOG.md` marks the rename as breaking; `VERSION` is unchanged.
 - [ ] `make check` and `npx vitest run` pass.
-- [ ] Human OpenCode and Kilo checks pass.
+- [ ] Human OpenCode check passes; Kilo human check deferred to the pre-existing `skills` follow-up (provider-independent, see ADR-0048).
 - [ ] History/release scrubbing remains tracked in #284.
 
 ## Confirmed at approval
