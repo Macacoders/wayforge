@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The recommended install path no longer pipes the installer to a shell: download to file, verify the SHA-256 from `wayforge-checksums.txt`, then run (see `docs/security/installer-trust.md`).
-- `install.sh` verifies the cosign signature bundle when cosign is present (fail-closed on an invalid bundle or non-404 fetch failure; warn-and-continue when cosign is absent or the bundle is confirmed missing).
+- Both installers verify the cosign signature bundle automatically when cosign is present. Releases published with a signed manifest fail closed: a missing cosign, a missing bundle, or a missing checksum manifest aborts the install unless `--allow-unsigned` / `-AllowUnsigned` is passed. Invalid signatures and non-404 failures always abort. Releases predating the signed manifest keep the warn-and-continue behavior.
 - The release workflow now SHA-pins every action, runs with least-privilege permissions, disables persisted checkout credentials, and publishes releases draft-first (upload → verify the signature bundle → publish) so a partial upload is repaired instead of silently skipped.
 - Node.js provisioning verifies the `SHASUMS256.txt` digest from `nodejs.org` before extracting the Node archive (`install.sh` and `install.ps1`).
 - The cosign identity pin is an exact `--certificate-identity` value instead of a regexp, so dots in `github.com`/`.github` cannot act as wildcards.

@@ -4,6 +4,7 @@ Date: 2026-10-21
 Amended: 2026-10-23
 Amended: 2026-10-27
 Amended: 2026-10-30
+Amended: 2026-11-03
 Status: Accepted
 
 ## Context
@@ -40,7 +41,7 @@ Before that design was released, the direction changed to two explicit commands 
 - **Tracking isolation and orphan-cache acceptance.** `installed-projects.json` and `tracking.resolveStateDir()` are unaffected: no migration and no code change. Leftover `update-check.json` files from test or maintainer installs are accepted disposable residue with no cleanup code.
 - The first release containing `upgrade` must publish `wayforge-checksums.txt`; earlier releases cannot be `wfg upgrade` targets. Users upgrade to that release with the existing one-shot installer.
 - The checksum file is strictly additive: existing artifact names are never renamed, preserving installer download contracts.
-- The one-shot installers (`install.sh` / `install.ps1`) now perform the same same-origin checksum verification as `wfg upgrade`, before any install-prefix mutation. The installer path is **fail-open only on HTTP 404** (asset confirmed absent; warn-and-continue for releases predating it) and aborts on every other fetch failure, while `wfg upgrade` remains **fail-closed**; the trust model of Decision 1 is unchanged for both. (Amended 2026-10-30: `install.sh` additionally verifies the cosign `.sigstore.json` bundle when cosign is present — fail-closed on an invalid bundle or non-404 bundle fetch failure, warn-and-continue when cosign is absent or the bundle is confirmed missing; `install.ps1` documents manual verification; `wfg upgrade` remains hash-only, an explicit gap tracked for follow-up. See ADR-0048.)
+- The one-shot installers (`install.sh` / `install.ps1`) now perform the same same-origin checksum verification as `wfg upgrade`, before any install-prefix mutation. The installer path is **fail-open only on HTTP 404** (asset confirmed absent; warn-and-continue for releases predating it) and aborts on every other fetch failure, while `wfg upgrade` remains **fail-closed**; the trust model of Decision 1 is unchanged for both. (Amended 2026-10-30: `install.sh` additionally verifies the cosign `.sigstore.json` bundle when cosign is present — fail-closed on an invalid bundle or non-404 bundle fetch failure, warn-and-continue when cosign is absent or the bundle is confirmed missing; `install.ps1` documents manual verification; `wfg upgrade` remains hash-only, an explicit gap tracked for follow-up. See ADR-0048. Amended 2026-11-03: both installers classify the target release against an internal cutoff constant and fail closed for signed-era releases — a missing cosign, a confirmed-missing bundle (404), or a confirmed-missing checksum manifest (404) aborts unless `--allow-unsigned` / `-AllowUnsigned` is passed; invalid signatures and non-404 failures always abort; releases predating the signed manifest keep warn-and-continue; `install.ps1` verifies the bundle automatically when cosign is present, so Windows is not manual-only; `wfg upgrade` remains hash-only, an explicit gap tracked for follow-up. See ADR-0048 Decision 6.)
 - No downgrade path is provided; a newer installed version stays put even if the latest tag is older.
 - Real running-exe replacement on Windows and Unix, checksum-mismatch abort on a real install, and checksum publication are human-validated on the next release.
 

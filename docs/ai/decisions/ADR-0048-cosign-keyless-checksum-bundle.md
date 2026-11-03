@@ -2,6 +2,7 @@
 
 Date: 2026-10-30
 Status: Accepted
+**Amended**: 2026-11-03 — signed-era fail-closed verification with a version cutoff and explicit opt-out; Windows verifies automatically (Decision 6).
 
 ## Context
 
@@ -15,28 +16,34 @@ Cosign v3 (pinned at v3.1.4) supports the Sigstore bundle format: signing produc
 
 2. **Materialization.** The `release` job signs `wayforge-checksums.txt` with `cosign sign-blob --yes --bundle wayforge-checksums.txt.sigstore.json wayforge-checksums.txt` and uploads the bundle as a release asset. The bundle is detached: it is a separate asset, not an entry inside the manifest. The manifest covers every platform binary, both share archives, and both installer scripts.
 
-3. **Verification policy matrix.**
+3. **Verification policy matrix.** (Amended 2026-11-03: the matrix is now split by release era — see Decision 6 for the cutoff and opt-out.)
 
-   | State | Policy |
-   |---|---|
-   | Bundle present and `cosign verify-blob --bundle` valid with the pinned identity/issuer | Proceed |
-   | Bundle present but verification fails | Abort with no changes |
-   | Bundle fetch fails (non-404: 403, 5xx, timeout, TLS) | Abort with no changes |
-   | Bundle confirmed missing (HTTP 404) | Warn and continue (hash-only) |
-   | cosign not installed | Warn and continue (hash-only) |
+   Releases are classified by comparing the target tag against the installer's internal cutoff constant (`COSIGN_REQUIRED_FROM` / `$CosignRequiredFrom`; Decision 6). Releases at or above the cutoff are **signed-era**; earlier releases are **legacy**.
 
-   `install.sh` implements this matrix automatically when cosign is on PATH. `install.ps1` does not require cosign and documents manual `cosign verify-blob --bundle` verification. `wfg upgrade` remains hash-only in this task; adding bundle verification there is an explicit follow-up gap.
+   | State | Signed-era policy | Legacy policy |
+   |---|---|---|
+   | Bundle present and `cosign verify-blob --bundle` valid with the pinned identity/issuer | Proceed | Proceed |
+   | Bundle present but verification fails | Abort with no changes | Abort with no changes |
+   | Bundle fetch fails (non-404: 403, 5xx, timeout, TLS) | Abort with no changes | Abort with no changes |
+   | Bundle confirmed missing (HTTP 404) | Abort unless `--allow-unsigned` / `-AllowUnsigned` | Warn and continue (hash-only) |
+   | Checksum manifest confirmed missing (HTTP 404) | Abort unless `--allow-unsigned` / `-AllowUnsigned` | Warn and continue (hash-only) |
+   | cosign not installed | Abort unless `--allow-unsigned` / `-AllowUnsigned` | Warn and continue (hash-only) |
+
+   `--allow-unsigned` never bypasses a bad signature or a non-404 fetch failure; it only covers absent verification material (cosign not installed, bundle 404, manifest 404). Both `install.sh` and `install.ps1` implement this matrix automatically when cosign is on PATH; Windows is not manual-only. `wfg upgrade` remains hash-only in this task; adding bundle verification there is an explicit follow-up gap.
 
 4. **Identity/issuer pin maintenance.** The pinned identity is exact, not a regexp: `https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main`, with issuer `https://token.actions.githubusercontent.com`. An exact match keeps dots in `github.com` and `.github` from acting as wildcards. The pin must change in the same commit as any change to the workflow trigger or path. A pin that lags the trigger breaks verification for every release signed after the change.
 
 5. **Verification command.** `cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigstore.json --certificate-identity 'https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main' --certificate-oidc-issuer https://token.actions.githubusercontent.com` (see `docs/security/installer-trust.md` for the exact POSIX and Windows commands).
+
+6. **Signed-era cutoff and opt-out** (2026-11-03): both installers carry an internal cutoff constant (`COSIGN_REQUIRED_FROM` in `install.sh`, `$CosignRequiredFrom` in `install.ps1`) and classify the target release by comparing the tag against it. Releases at or above the cutoff are signed-era and fail closed: cosign plus a valid bundle is mandatory, and a missing cosign, a confirmed-missing bundle (HTTP 404), or a confirmed-missing checksum manifest (HTTP 404) aborts before any prefix mutation unless the operator passes `--allow-unsigned` / `-AllowUnsigned` (or sets `WAYFORGE_ALLOW_UNSIGNED=1`). Releases below the cutoff keep the legacy warn-and-continue hash-only fallback. `--allow-unsigned` never bypasses an invalid signature or a non-404 failure; it only covers absent verification material. `install.ps1` downloads the bundle and runs `cosign verify-blob` when cosign is present, so Windows verification is automatic, not manual-only; the manual command remains documented for users without cosign. The cutoff value is an internal constant; the release version that first carries a signed manifest is declared at merge time, not in this record.
 
 ## Consequences
 
 - A Sigstore outage (Fulcio/Rekor/TUF unreachable) blocks releases: signing is fail-closed, so a release cannot ship an unsigned manifest silently.
 - The `release` job needs `id-token: write`, which lets code executing in the persistent self-hosted runner mint the `release.yml@refs/heads/main` OIDC identity. This is acceptable only while ADR-0045 Decision 3's `push: main`-only trigger holds; relaxing the trigger requires re-reviewing that boundary.
 - The signed manifest is recorded in the public Rekor transparency log; checksums are not secret.
-- The installer self-verifies the bundle (POSIX) or documents manual verification (Windows), closing the "manifest unsigned" gap in the one-shot path.
+- Both installers self-verify the bundle automatically when cosign is on PATH (POSIX and Windows), closing the "manifest unsigned" gap in the one-shot path. Cosign becomes a prerequisite for signed-era installs: without it, the install aborts unless `--allow-unsigned` is passed.
+- Legacy-tag downgrade residual risk: the cutoff is a version comparison, not a proof that a given release was signed. A release published with a tag below the cutoff and no bundle takes the legacy hash-only path even if it was intended to be signed-era.
 - Self-hosted-runner compatibility of `sigstore/cosign-installer@v4.1.0` must be verified in the Task 5 release rehearsal; the fallback is a direct pinned `cosign-linux-amd64` v3.1.4 download with SHA-256 verification.
 - `wfg upgrade` remains hash-only until a follow-up; the upgrade path's trust anchor is unchanged (ADR-0047 Decision 1's same-origin discussion still applies to it).
 
