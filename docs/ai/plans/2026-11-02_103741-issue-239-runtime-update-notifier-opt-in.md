@@ -202,7 +202,7 @@ Agent-owned:
 Human-owned (exact procedure):
 
 1. Install into a temp repo and manually register the notifier entrypoint for the selected runtime.
-2. Create a temp prefix (`WAYFORGE_INSTALL_DIR`) with `share/wayforge/VERSION` = `1.0.2`, and a local fake release root whose `/latest` redirects to `/tag/v1.0.3` (or publish a newer patch release). Launch OpenCode with `WAYFORGE_INSTALL_DIR`, `WAYFORGE_RELEASE_ROOT`, `WAYFORGE_NOTIFIER_CACHE`, `WAYFORGE_NOTIFIER_TEST=1`, and `WAYFORGE_UPDATE_CHECK=1` pointing at temp paths.
+2. Create a temp prefix (`WAYFORGE_INSTALL_DIR`) with `share/wayforge/VERSION` = `1.0.2`, and a local fake release root whose `/latest` returns `302` with `Location: https://github.com/Macacoders/wayforge/releases/tag/v1.0.3` (the redirect must be the production GitHub tag URL to pass the allowlist; `redirect: 'manual'` means it is never followed), or publish a newer patch release. Launch OpenCode with `WAYFORGE_INSTALL_DIR`, `WAYFORGE_RELEASE_ROOT`, `WAYFORGE_NOTIFIER_CACHE`, `WAYFORGE_NOTIFIER_TEST=1`, and `WAYFORGE_UPDATE_CHECK=1` pointing at temp paths.
 3. Create a session and confirm the toast appears once with `wayforge v1.0.3 is available (installed v1.0.2). Run `wfg upgrade` to update.`
 4. Create a second session and confirm no second toast for the same version.
 5. Repeat in the Kilo Code CLI and the Kilo Code VS Code extension.
