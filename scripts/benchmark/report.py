@@ -84,7 +84,11 @@ def child_usage_complete(sessions: list[dict[str, Any]], ids: set[Any]) -> bool:
     rather than undercounted.
     """
     for session in sessions:
-        for tool in session.get("tools") or []:
+        tools = session.get("tools")
+        if not isinstance(tools, list):
+            # Tool events that were never parsed prove nothing about dispatches.
+            return False
+        for tool in tools:
             if not isinstance(tool, dict) or tool.get("tool") != "task":
                 continue
             child = tool.get("child_session_id")
@@ -270,17 +274,34 @@ def usage_source_records(
     }
     undercount: bool | None = None
     benchflow = raw.get("benchflow_usage")
+    sources["benchflow_acp"] = {
+        "status": "unavailable",
+        "reported_status": None,
+        "input_tokens": None,
+        "output_tokens": None,
+        "cache_read_tokens": None,
+        "cost_usd": UNVERIFIABLE,
+    }
     if isinstance(benchflow, dict):
         bf_input = nonnegative_int(benchflow.get("input_tokens"))
         bf_output = nonnegative_int(benchflow.get("output_tokens"))
         bf_cost = number(benchflow.get("cost_usd"))
-        reported = any(value is not None for value in (bf_input, bf_output, bf_cost))
+        declared = benchflow.get("status")
+        reported = benchflow.get("reported_status")
+        reported = reported if isinstance(reported, str) else None
+        if reported == "unavailable":
+            status = "unavailable"
+        elif declared in ("measured", "partial", "unavailable"):
+            status = declared
+        elif (bf_input or bf_output) and bf_cost is not None:
+            status = "measured"
+        elif any(value is not None for value in (bf_input, bf_output, bf_cost)):
+            status = "partial"
+        else:
+            status = "unavailable"
         sources["benchflow_acp"] = {
-            "status": (
-                "unavailable" if not reported
-                else "measured" if (bf_input or bf_output) and bf_cost is not None
-                else "partial"
-            ),
+            "status": status,
+            "reported_status": reported,
             "input_tokens": bf_input,
             "output_tokens": bf_output,
             "cache_read_tokens": nonnegative_int(benchflow.get("cache_read_tokens")),
@@ -290,9 +311,9 @@ def usage_source_records(
             session_tokens = sum(
                 usage[field] for field in ("input", "output", "reasoning", "cache_read", "cache_write")
             )
-            session_cost = number(usage["runtime_estimated_cost_usd"]) or Decimal(0)
+            session_cost = number(usage["runtime_estimated_cost_usd"])
             undercount = bool(session_tokens and not (bf_input or bf_output)) or (
-                session_cost > 0 and bf_cost is None
+                session_cost is not None and session_cost > 0 and bf_cost is None
             )
     sources["provider_billed"] = {
         "status": "measured" if billed is not None else "unavailable",
@@ -336,6 +357,7 @@ def attempt_report(raw: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("relevant_skills must be a list or null")
     trace_ref = relative_ref(raw.get("sanitized_trace_ref"), "sanitized_trace_ref")
+    tool_calls = nonnegative_int(result.get("n_tool_calls"))
     sources, undercount = usage_source_records(raw, usage, billed, billing_ref)
     return {
         "task_id": raw["task_id"],
@@ -349,7 +371,7 @@ def attempt_report(raw: dict[str, Any]) -> dict[str, Any]:
             "provider_billed_cost_usd": str(billed) if billed is not None else UNVERIFIABLE,
             "provider_billing_ref": billing_ref,
             "elapsed_seconds": str(elapsed) if elapsed is not None else UNVERIFIABLE,
-            "benchflow_tool_calls": nonnegative_int(result.get("n_tool_calls")),
+            "benchflow_tool_calls": tool_calls if tool_calls is not None else UNVERIFIABLE,
             "sources": sources,
             "benchflow_undercount": UNVERIFIABLE if undercount is None else undercount,
             "missing_child_usage": missing_child_usage(raw["capture_status"], raw["sessions"]),

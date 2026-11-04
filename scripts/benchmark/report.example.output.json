@@ -39,7 +39,8 @@
             "per_agent": "unverifiable"
           },
           "benchflow_acp": {
-            "status": "partial",
+            "status": "unavailable",
+            "reported_status": null,
             "input_tokens": 0,
             "output_tokens": 0,
             "cache_read_tokens": 0,
@@ -154,6 +155,7 @@
           },
           "benchflow_acp": {
             "status": "measured",
+            "reported_status": null,
             "input_tokens": 300,
             "output_tokens": 60,
             "cache_read_tokens": 30,

@@ -221,7 +221,7 @@ class ReportTests(unittest.TestCase):
         )
         row = build_report(bundle([raw]))["attempts"][0]
         self.assertTrue(row["usage"]["benchflow_undercount"])
-        self.assertEqual(row["usage"]["sources"]["benchflow_acp"]["status"], "partial")
+        self.assertEqual(row["usage"]["sources"]["benchflow_acp"]["status"], "unavailable")
         self.assertEqual(row["usage"]["sources"]["benchflow_acp"]["cost_usd"], "unverifiable")
         self.assertEqual(row["usage"]["all_session_tokens"]["input"], 200)
 
@@ -262,6 +262,71 @@ class ReportTests(unittest.TestCase):
         self.assertTrue(row["usage"]["missing_child_usage"])
         self.assertEqual(row["usage"]["benchflow_undercount"], "unverifiable")
         self.assertEqual(row["usage"]["sources"]["session_export"]["status"], "unavailable")
+
+    def test_session_without_parsed_tools_is_unverifiable(self):
+        root = {key: value for key, value in session("ses_root", "delivery").items() if key != "tools"}
+        row = build_report(bundle([attempt(sessions=[root])]))["attempts"][0]
+        self.assertEqual(row["usage"]["all_session_tokens"], "unverifiable")
+        self.assertTrue(row["usage"]["missing_child_usage"])
+
+    def test_partial_session_usage_is_unverifiable_and_the_flag_is_about_dispatches(self):
+        sessions = complete_sessions()
+        sessions[1]["cost"] = None
+        row = build_report(bundle([attempt(sessions=sessions)]))["attempts"][0]
+        self.assertEqual(row["usage"]["all_session_tokens"], "unverifiable")
+        self.assertFalse(row["usage"]["missing_child_usage"])
+        self.assertEqual(row["usage"]["sources"]["session_export"]["status"], "unavailable")
+
+    def test_probe_record_with_unavailable_usage_is_unverifiable(self):
+        sessions = probe_index_sessions()
+        sessions[0]["usage"] = {
+            "source": "session_export",
+            "status": "unavailable",
+            "tokens": {"input": None, "output": None, "reasoning": None},
+            "cache_tokens": {"read": None, "write": None},
+            "cost_usd": None,
+        }
+        row = build_report(bundle([attempt(sessions=sessions)]))["attempts"][0]
+        self.assertEqual(row["usage"]["all_session_tokens"], "unverifiable")
+
+    def test_benchflow_source_status_is_not_overridden_by_its_own_counters(self):
+        raw = attempt(
+            sessions=dispatched_sessions(),
+            benchflow_usage={
+                "source": "benchflow_acp",
+                "status": "measured",
+                "reported_status": "unavailable",
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_tokens": 0,
+                "cost_usd": None,
+            },
+        )
+        source = build_report(bundle([raw]))["attempts"][0]["usage"]["sources"]["benchflow_acp"]
+        self.assertEqual(source["status"], "unavailable")
+        self.assertEqual(source["reported_status"], "unavailable")
+
+    def test_benchflow_cost_gap_triggers_the_undercount(self):
+        sessions = complete_sessions()
+        for item in sessions:
+            item["cost"] = "0.42"
+        raw = attempt(
+            sessions=sessions,
+            benchflow_usage={"input_tokens": 300, "output_tokens": 60, "cost_usd": None},
+        )
+        row = build_report(bundle([raw]))["attempts"][0]
+        self.assertTrue(row["usage"]["benchflow_undercount"])
+
+    def test_missing_benchflow_usage_still_reports_the_source(self):
+        row = build_report(bundle([attempt()]))["attempts"][0]
+        self.assertEqual(row["usage"]["sources"]["benchflow_acp"]["status"], "unavailable")
+        self.assertEqual(row["usage"]["sources"]["benchflow_acp"]["input_tokens"], None)
+
+    def test_unknown_tool_call_count_is_unverifiable_not_null(self):
+        raw = attempt()
+        raw["result"].pop("n_tool_calls")
+        row = build_report(bundle([raw]))["attempts"][0]
+        self.assertEqual(row["usage"]["benchflow_tool_calls"], "unverifiable")
 
 
 if __name__ == "__main__":
