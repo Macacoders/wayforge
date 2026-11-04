@@ -56,14 +56,37 @@ function errorResponse(status: number, message: string) {
   };
 }
 
-/** Helper: spy on process.stdout and return the captured writes */
-function captureStdout(): string[] {
-  const stdout: string[] = [];
-  vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-    stdout.push(String(chunk));
+/** Helper: spy on a stream and return the captured writes */
+function captureStream(stream: NodeJS.WriteStream): string[] {
+  const writes: string[] = [];
+  vi.spyOn(stream, 'write').mockImplementation((chunk) => {
+    writes.push(String(chunk));
     return true;
   });
-  return stdout;
+  return writes;
+}
+
+/** Helper: spy on process.stdout and return the captured writes */
+function captureStdout(): string[] {
+  return captureStream(process.stdout);
+}
+
+/** Helper: mock the gh token subprocess, then assert resolveToken() fails safely with actionable guidance and no leakage */
+async function expectActionableCredentialError(
+  mockImpl: () => string,
+): Promise<void> {
+  const stdout = captureStream(process.stdout);
+  const stderr = captureStream(process.stderr);
+  mockExecFileSync.mockImplementation(mockImpl);
+
+  const error = await gh.resolveToken().catch((err: unknown) => err as Error);
+  expect(error.message).toContain(
+    'GITHUB_TOKEN to a fine-grained personal access token for this repository',
+  );
+  expect(error.message).toContain('gh auth login');
+  expect(error.message).not.toContain('gh-credential-sentinel');
+  expect(stdout).toHaveLength(0);
+  expect(stderr).toHaveLength(0);
 }
 
 /** All 12 required labels as GitHub API objects */
@@ -304,6 +327,11 @@ describe('api retry behavior', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('resolveToken', () => {
+	beforeEach(() => {
+		delete process.env.GITHUB_TOKEN;
+		delete process.env.GH_TOKEN;
+	});
+
 	it('returns GITHUB_TOKEN env var', async () => {
 		process.env.GITHUB_TOKEN = 'from-env';
 		process.env.GH_TOKEN = 'should-be-ignored';
@@ -313,16 +341,13 @@ describe('resolveToken', () => {
 	});
 
   it('falls back to GH_TOKEN env var', async () => {
-    delete process.env.GITHUB_TOKEN;
-		process.env.GH_TOKEN = 'from-gh-env';
+    process.env.GH_TOKEN = 'from-gh-env';
 		const token = await gh.resolveToken();
 		expect(token).toBe('from-gh-env');
 		expect(mockExecFileSync).not.toHaveBeenCalled();
 	});
 
 	it('uses a token from gh when no environment token is set', async () => {
-		delete process.env.GITHUB_TOKEN;
-		delete process.env.GH_TOKEN;
 		mockExecFileSync.mockReturnValue('from-gh-cli\n');
 
 		await expect(gh.resolveToken()).resolves.toBe('from-gh-cli');
@@ -333,20 +358,26 @@ describe('resolveToken', () => {
 		});
 	});
 
-	it.each([
-		['gh is unavailable', () => { throw new Error('credential-bearing subprocess output'); }],
-		['gh returns an empty token', () => '   \n'],
-	])('fails safely when %s', async (_caseName, result) => {
-		delete process.env.GITHUB_TOKEN;
-		delete process.env.GH_TOKEN;
-		mockExecFileSync.mockImplementation(result);
+	it('throws actionable guidance when gh is not installed (ENOENT)', async () => {
+		const enoent = new Error('gh-credential-sentinel') as NodeJS.ErrnoException;
+		enoent.code = 'ENOENT';
+		await expectActionableCredentialError(() => {
+			throw enoent;
+		});
+	});
 
-		const error = await gh.resolveToken().catch((err: unknown) => err as Error);
-		expect(error.message).toContain(
-			'GITHUB_TOKEN to a fine-grained personal access token for this repository',
-		);
-		expect(error.message).toContain('gh auth login');
-		expect(error.message).not.toContain('credential-bearing subprocess output');
+	it('throws actionable guidance when gh is installed but unauthenticated', async () => {
+		const unauthenticated = new Error('gh-credential-sentinel') as NodeJS.ErrnoException & {
+			status?: number;
+		};
+		unauthenticated.status = 1;
+		await expectActionableCredentialError(() => {
+			throw unauthenticated;
+		});
+	});
+
+	it('throws actionable guidance when gh returns an empty token', async () => {
+		await expectActionableCredentialError(() => '   \n');
 	});
 });
 

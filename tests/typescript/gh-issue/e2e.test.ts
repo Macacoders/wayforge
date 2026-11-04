@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -105,6 +107,34 @@ describe('gh-issue.ts auth integration', () => {
 		expect(r.status).toBe(1);
 		expect(r.stderr).toContain('GITHUB_TOKEN to a fine-grained personal access token');
 		expect(r.stderr).toContain('gh auth login');
+	});
+
+	it('exits 1 when gh is installed but unauthenticated', () => {
+		// The fake "gh" is the real Node executable: invoking it as `gh auth token`
+		// fails non-zero without depending on a real GitHub CLI or shell shims.
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-issue-unauth-'));
+		const fakeGh = path.join(dir, process.platform === 'win32' ? 'gh.exe' : 'gh');
+		try {
+			try {
+				fs.linkSync(process.execPath, fakeGh);
+			} catch {
+				fs.copyFileSync(process.execPath, fakeGh);
+			}
+			const r = run([ISSUE_SCRIPT, '--repo', 'test/repo', 'check'], {
+				env: {
+					GITHUB_TOKEN: '',
+					GH_TOKEN: '',
+					PATH: `${dir}${path.delimiter}${process.env.PATH ?? ''}`,
+				},
+			});
+			expect(r.status).toBe(1);
+			expect(r.stderr).toContain('GITHUB_TOKEN to a fine-grained personal access token');
+			expect(r.stderr).toContain('gh auth login');
+			expect(r.stdout).not.toContain('Cannot find module');
+			expect(r.stderr).not.toContain('Cannot find module');
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
 	});
 
 	it('fake token reaches API and gets 401', () => {
