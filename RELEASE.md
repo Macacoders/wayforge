@@ -116,17 +116,45 @@ Consumers install the `wfg` CLI once per user, then install configuration into e
 
 ### Install the CLI
 
-**Linux / macOS:**
+Download the installer, `wayforge-checksums.txt`, and the `wayforge-checksums.txt.sigstore.json` bundle to files, verify the manifest signature **before trusting the manifest**, then verify the installer hash and run it (do not pipe it into a shell). Releases published with a signed manifest require [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) v3+; pass `--allow-unsigned` / `-AllowUnsigned` only if you explicitly accept an unverified install.
+
+**Linux:**
 
 ```bash
-curl -fsSL https://github.com/Macacoders/wayforge/releases/latest/download/install.sh | sh
+set -e
+B=https://github.com/Macacoders/wayforge/releases/latest/download
+curl -fsSLO "$B/install.sh" -O "$B/wayforge-checksums.txt" -O "$B/wayforge-checksums.txt.sigstore.json"
+cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigstore.json \
+  --certificate-identity 'https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+grep '  install.sh$' wayforge-checksums.txt | sha256sum -c -
+sh install.sh --dry-run && sh install.sh
 ```
 
-**Windows** (PowerShell; use `-ExecutionPolicy Bypass` if execution policy blocks remote scripts):
+**macOS:**
+
+```bash
+set -e
+B=https://github.com/Macacoders/wayforge/releases/latest/download
+curl -fsSLO "$B/install.sh" -O "$B/wayforge-checksums.txt" -O "$B/wayforge-checksums.txt.sigstore.json"
+cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigstore.json \
+  --certificate-identity 'https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+grep '  install.sh$' wayforge-checksums.txt | shasum -a 256 -c -
+sh install.sh --dry-run && sh install.sh
+```
+
+**Windows** (PowerShell 5.1+):
 
 ```powershell
-powershell -c "irm https://github.com/Macacoders/wayforge/releases/latest/download/install.ps1 | iex"
+$b='https://github.com/Macacoders/wayforge/releases/latest/download'; 'install.ps1','wayforge-checksums.txt','wayforge-checksums.txt.sigstore.json' | % { iwr "$b/$_" -OutFile $_ -UseBasicParsing }
+cosign verify-blob wayforge-checksums.txt --bundle wayforge-checksums.txt.sigstore.json --certificate-identity 'https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main' --certificate-oidc-issuer https://token.actions.githubusercontent.com
+if ($LASTEXITCODE -ne 0) { throw 'cosign verification failed' }
+$e=(Get-Content wayforge-checksums.txt | Select-String '  install\.ps1$').Line.Split()[0]; if((Get-FileHash install.ps1 -Algorithm SHA256).Hash -ne $e.ToUpper()){throw 'checksum mismatch'}
+powershell -ExecutionPolicy Bypass -File install.ps1 -DryRun; powershell -ExecutionPolicy Bypass -File install.ps1
 ```
+
+See [docs/security/installer-trust.md](docs/security/installer-trust.md) for cosign bundle verification and the full trust model.
 
 ### Install config into a repo
 
@@ -280,6 +308,6 @@ The `.github/workflows/release.yml` workflow builds and attaches the following a
 - **One-shot installer scripts** uploaded as release assets so the `releases/latest/download/` URLs resolve:
   - `install.sh`
   - `install.ps1`
-- **Checksums**: `wayforge-checksums.txt` in `sha256sum` format, covering every platform binary and both share archives. `wfg upgrade` verifies the binary and share hashes against this file before changing the installed binary or `share/wayforge` contents; a missing or mismatched checksum aborts the upgrade with no changes. The one-shot installers (`install.sh` / `install.ps1`) verify the same two hashes against this file before any install-prefix mutation; a missing or mismatched checksum aborts with the prefix untouched, while releases whose checksum asset is confirmed missing (HTTP 404) warn and install unverified (backward-compatible fallback). Any other checksum download failure (403, 5xx, timeout, TLS) aborts with the prefix untouched. `wfg update` is report-only and never mutates the install. The checksum file is strictly additive — existing artifact names are never renamed.
+- **Checksums**: `wayforge-checksums.txt` in `sha256sum` format, covering every platform binary, both share archives, and the two installer scripts (`install.sh`, `install.ps1`). The manifest is signed with cosign keyless (v3.1.4, Fulcio + Rekor) into a detached `wayforge-checksums.txt.sigstore.json` bundle uploaded alongside it; the signing identity is pinned to the GitHub Actions workflow identity `https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main` with OIDC issuer `https://token.actions.githubusercontent.com` (see ADR-0048). `wfg upgrade` verifies the binary and share hashes against this file before changing the installed binary or `share/wayforge` contents; a missing or mismatched checksum aborts the upgrade with no changes. The one-shot installers (`install.sh` / `install.ps1`) verify the same two hashes against this file before any install-prefix mutation; a missing or mismatched checksum aborts with the prefix untouched, while releases that predate the signed manifest and whose checksum asset is confirmed missing (HTTP 404) warn and install unverified (backward-compatible fallback). Any other checksum download failure (403, 5xx, timeout, TLS) aborts with the prefix untouched. Releases published with a signed manifest are verified fail-closed: when cosign is absent, the bundle is confirmed missing (404), or the manifest is confirmed missing (404), the install aborts unless `--allow-unsigned` / `-AllowUnsigned` is passed; an invalid signature or any other bundle download or verification failure always aborts. Both installers verify the cosign bundle automatically when cosign is on PATH. `--allow-unsigned` never bypasses a bad signature; it only covers absent verification material. Legacy releases that predate the signed manifest keep the warn-and-continue behavior. `wfg update` is report-only and never mutates the install. The checksum file is strictly additive — existing artifact names are never renamed.
 
-The release workflow runs only at release time; source changes to `install/install.sh` or `install/install.ps1` are validated locally via `bash -n` and smoke tests against `--url-base` fixtures, including checksum fixtures (matching, mismatched, and missing `wayforge-checksums.txt`).
+The release workflow runs only at release time; source changes to `install/install.sh` or `install/install.ps1` are validated locally via `bash -n` and smoke tests against `--url-base` fixtures, including checksum fixtures (matching, mismatched, and missing `wayforge-checksums.txt`) and cosign bundle fixtures (valid, tampered, and missing `wayforge-checksums.txt.sigstore.json`).

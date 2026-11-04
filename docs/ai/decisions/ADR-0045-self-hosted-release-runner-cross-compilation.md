@@ -2,6 +2,7 @@
 
 Date: 2026-10-15
 Status: Accepted
+**Amended**: 2026-10-30 — release job obtains a GitHub OIDC identity for cosign keyless signing (see ADR-0048).
 
 ## Context
 
@@ -39,11 +40,16 @@ Moving release builds onto a persistent self-hosted runner changes deployment to
 - Cross-compilation correctness depends on `--target`: an invalid or missing target silently produces a host-architecture binary that is mislabeled. Mitigation: per-target smoke builds verified with `file` (validated for darwin-arm64, windows-x64, and linux-arm64).
 - x64 SIMD baseline: if end users report `Illegal instruction` on x64, switch the x64 targets to their `-baseline` variants. Known lever, not applied.
 - Amends ADR-0044's note on `--define process.env.WAYFORGE_VERSION`: the injected value is now emitted as a JSON5 string (`:'<version>'`) because bun >=1.4 rejects the bare value as invalid JSON5 (the pre-existing unquoted form failed the build).
+- **OIDC identity for cosign keyless signing** (2026-10-30, ADR-0048): the `release` job now carries `id-token: write`, which lets code executing in the persistent runner mint the `release.yml@refs/heads/main` GitHub OIDC identity. This is acceptable **only while Decision 3's `push: main`-only trigger holds** — only code already merged to `main` runs on the runner — and must be re-reviewed if the trigger ever changes.
+- **Sigstore egress dependency**: signing requires outbound access to `token.actions.githubusercontent.com` (OIDC), `fulcio.sigstore.dev`, `rekor.sigstore.dev`, `tuf-repo-cdn.sigstore.dev`, and `oauth2.sigstore.dev`. A Sigstore outage blocks releases because signing is fail-closed — the workflow cannot silently publish an unsigned manifest.
+- **Pinned cosign prerequisite**: the workflow installs cosign via `sigstore/cosign-installer@v4.1.0` with `cosign-release: 'v3.1.4'`. The action documents GitHub-hosted runners and says self-hosted "may not work"; the Task 5 release rehearsal must verify it on the self-hosted runner, with the pinned direct-download fallback (`cosign-linux-amd64` v3.1.4 + SHA-256 verification) if it does not.
+- **Least-privilege narrowing**: the `release` job's inherited `actions: write` is narrowed to `actions: read`, which is all `download-artifact` needs.
 
 ## Related
 
 - ADR-0044 (Wayforge Rename) — references the `--define process.env.WAYFORGE_VERSION` injection in the Makefile and release workflow; lightly amended here re: JSON5 string quoting.
 - ADR-0035 (One-Shot CLI Installer) — the release-artifact distribution surface this pipeline feeds.
+- [ADR-0048](ADR-0048-cosign-keyless-checksum-bundle.md) (Cosign Keyless Signing) — the `id-token: write` / OIDC identity and Sigstore egress consequences recorded here.
 - Plan: `docs/ai/plans/2026-10-15_083234-self-hosted-release-runner.md`
 
 ## Review provenance

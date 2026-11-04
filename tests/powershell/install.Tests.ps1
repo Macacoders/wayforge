@@ -7,6 +7,110 @@ BeforeAll {
     $script:repoRoot = Resolve-Path "$PSScriptRoot/../.." | Select-Object -ExpandProperty Path
     $script:installScript = Join-Path $script:repoRoot 'install/install.ps1'
     $script:scriptContent = Get-Content -Path $script:installScript -Raw
+    # ponytail: three Invoke-WebRequest stubs live in this file; consolidate when
+    # the older Describes are next touched.
+    # Stub Invoke-WebRequest: copies fixtures by URI leaf, never hits the
+    # network. The checksum URL can fail with an HTTP status
+    # (FAKE_CHECKSUM_STATUS) or as a transport timeout
+    # (FAKE_CHECKSUM_TIMEOUT). Defined at file scope so multiple Describes
+    # (checksum verification, PATH opt-out) reuse it.
+    $script:downloadStub = @'
+function Invoke-WebRequest {
+    [CmdletBinding()]
+    param([string]$Uri, [string]$OutFile, [switch]$UseBasicParsing)
+    $leaf = [System.IO.Path]::GetFileName($Uri)
+    if ($leaf -eq 'wayforge-checksums.txt' -and $env:FAKE_CHECKSUM_STATUS) {
+        $status = [int]$env:FAKE_CHECKSUM_STATUS
+        $ex = [System.Exception]::new("The remote server returned an error: (${status}).")
+        $ex | Add-Member -NotePropertyName Response -NotePropertyValue ([pscustomobject]@{ StatusCode = $status }) -Force
+        throw $ex
+    }
+    if ($leaf -eq 'wayforge-checksums.txt' -and $env:FAKE_CHECKSUM_TIMEOUT -eq '1') {
+        throw [System.TimeoutException]::new('The operation has timed out.')
+    }
+    if ($leaf -eq 'wayforge-checksums.txt.sigstore.json' -and $env:FAKE_BUNDLE_STATUS) {
+        $status = [int]$env:FAKE_BUNDLE_STATUS
+        $ex = [System.Exception]::new("The remote server returned an error: (${status}).")
+        $ex | Add-Member -NotePropertyName Response -NotePropertyValue ([pscustomobject]@{ StatusCode = $status }) -Force
+        throw $ex
+    }
+    if ($leaf -eq 'wayforge-checksums.txt.sigstore.json' -and $env:FAKE_BUNDLE_TIMEOUT -eq '1') {
+        throw [System.TimeoutException]::new('The operation has timed out.')
+    }
+    $src = Join-Path $env:FIXTURE_DIR $leaf
+    if (-not (Test-Path $src)) { throw "404: ${Uri}" }
+    Copy-Item -Path $src -Destination $OutFile -Force
+}
+'@
+    # Stub cosign: records its arguments (one per line) to COSIGN_ARGS_LOG and
+    # exits with FAKE_COSIGN_EXIT (default 0). Defined at file scope so the
+    # child harness can omit it (-NoCosignStub) to simulate a host without
+    # cosign; this host has no real cosign on PATH either way.
+    $script:cosignStub = @'
+function cosign {
+    if ($env:COSIGN_ARGS_LOG) {
+        ($args -join "`n") | Add-Content -Path $env:COSIGN_ARGS_LOG
+    }
+    $global:LASTEXITCODE = 0
+    if ($env:FAKE_COSIGN_EXIT) {
+        $global:LASTEXITCODE = [int]$env:FAKE_COSIGN_EXIT
+    }
+}
+'@
+    # Helper for child pwsh runs; a $script: scriptblock because Pester 6
+    # does not expose file-scope functions to It blocks.
+    $script:installChild = {
+        param([string]$ExtraEnv = '', [string]$ExtraArgs = '', [switch]$NoCosignStub)
+        $stub = ''
+        $pathSanitize = ''
+        if ($NoCosignStub) {
+            # Sanitize PATH inside the child so a real cosign on the host
+            # cannot satisfy the lookup; the installer only uses cmdlets
+            # when -SkipNodeCheck is passed.
+            $emptyPath = Join-Path $script:tmp 'no-cosign-path'
+            New-Item -ItemType Directory -Path $emptyPath -Force | Out-Null
+            $pathSanitize = "`$env:PATH = '$emptyPath'"
+        }
+        else {
+            $stub = $script:cosignStub
+        }
+        $child = @"
+`$env:FIXTURE_DIR = '$script:fixtureDir'
+$pathSanitize
+$ExtraEnv
+$script:downloadStub
+$stub
+try { & '$script:installScript' -SkipNodeCheck -Version 9.9.9 -Prefix '$script:tmp/prefix' $ExtraArgs *>&1 } catch { `$_; exit 1 }
+exit 0
+"@
+        return (& pwsh -NoProfile -Command $child | Out-String)
+    }
+    $script:setupFixtures = {
+        $script:tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
+        $script:fixtureDir = Join-Path $script:tmp 'fixtures'
+        $script:shareSrc = Join-Path $script:tmp 'share-src'
+        New-Item -ItemType Directory -Path $script:fixtureDir | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $script:shareSrc 'base') | Out-Null
+        # Compress-Archive drops empty directories; seed base/ so the fixture
+        # zip actually contains it.
+        Set-Content -Path (Join-Path $script:shareSrc 'base/README.md') -Value 'fixture'
+        Set-Content -Path (Join-Path $script:shareSrc 'VERSION') -Value '9.9.9'
+
+        $script:binaryFixture = Join-Path $script:fixtureDir 'wayforge-win32-x64.exe'
+        $script:shareFixture = Join-Path $script:fixtureDir 'wayforge-share-9.9.9.zip'
+        $script:checksumsFixture = Join-Path $script:fixtureDir 'wayforge-checksums.txt'
+        Set-Content -Path $script:binaryFixture -Value 'fake wayforge binary'
+        Set-Content -Path (Join-Path $script:fixtureDir 'wayforge-checksums.txt.sigstore.json') -Value '{"stub":"sigstore bundle"}'
+        Compress-Archive -Path (Join-Path $script:shareSrc '*') -DestinationPath $script:shareFixture
+
+        $script:binaryHash = (Get-FileHash -Path $script:binaryFixture -Algorithm SHA256).Hash.ToLowerInvariant()
+        $script:shareHash = (Get-FileHash -Path $script:shareFixture -Algorithm SHA256).Hash.ToLowerInvariant()
+        $script:originalUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    }
+    $script:teardownFixtures = {
+        [Environment]::SetEnvironmentVariable('Path', $script:originalUserPath, 'User')
+        Remove-Item -Path $script:tmp -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 Describe 'install.ps1 file structure' {
@@ -28,6 +132,24 @@ Describe 'install.ps1 file structure' {
 
     It 'allows overriding the Node download base URL for tests' {
         $script:scriptContent | Should -Match 'WAYFORGE_NODE_BASE_URL'
+    }
+
+    It 'verifies the Node SHASUMS256 manifest before extracting' {
+        $script:scriptContent | Should -Match 'SHASUMS256\.txt'
+        $script:scriptContent | Should -Match 'verified \$\{archive\} checksum'
+        $shasums = $script:scriptContent.IndexOf('SHASUMS256.txt')
+        $expand = $script:scriptContent.IndexOf('Expand-Archive -Path $tmpZip')
+        $shasums | Should -BeGreaterThan 0
+        $expand | Should -BeGreaterThan $shasums
+    }
+
+    It 'rejects unsafe archive paths before extracting' {
+        $script:scriptContent | Should -Match 'function Assert-SafeZip'
+        $script:scriptContent | Should -Match 'ZipFile\]::OpenRead'
+        $guard = $script:scriptContent.LastIndexOf('Assert-SafeZip -Path $tmpShare')
+        $expand = $script:scriptContent.LastIndexOf('Expand-Archive -Path $tmpShare')
+        $guard | Should -BeGreaterThan 0
+        $expand | Should -BeGreaterThan $guard
     }
 }
 
@@ -111,6 +233,7 @@ Describe 'Release URL construction (-DryRun)' {
             "
             $combined = ($output | Out-String)
             $combined | Should -Match 'releases/download/v9\.9\.9/wayforge-'
+            $combined | Should -Match '\[dry-run\] cosign not found; signed-era releases require cosign or -AllowUnsigned'
             $combined | Should -Not -Match 'releases/v9\.9\.9/download'
         }
         finally {
@@ -173,72 +296,8 @@ exit 0
 }
 
 Describe 'Checksum verification (full install)' {
-    BeforeAll {
-        # ponytail: three Invoke-WebRequest stubs live in this file; consolidate when
-        # the older Describes are next touched.
-        # Stub Invoke-WebRequest: copies fixtures by URI leaf, never hits the
-        # network. The checksum URL can fail with an HTTP status
-        # (FAKE_CHECKSUM_STATUS) or as a transport timeout
-        # (FAKE_CHECKSUM_TIMEOUT). Defined in BeforeAll so it exists in the run
-        # phase, not just discovery.
-        $script:downloadStub = @'
-function Invoke-WebRequest {
-    [CmdletBinding()]
-    param([string]$Uri, [string]$OutFile, [switch]$UseBasicParsing)
-    $leaf = [System.IO.Path]::GetFileName($Uri)
-    if ($leaf -eq 'wayforge-checksums.txt' -and $env:FAKE_CHECKSUM_STATUS) {
-        $status = [int]$env:FAKE_CHECKSUM_STATUS
-        $ex = [System.Exception]::new("The remote server returned an error: (${status}).")
-        $ex | Add-Member -NotePropertyName Response -NotePropertyValue ([pscustomobject]@{ StatusCode = $status }) -Force
-        throw $ex
-    }
-    if ($leaf -eq 'wayforge-checksums.txt' -and $env:FAKE_CHECKSUM_TIMEOUT -eq '1') {
-        throw [System.TimeoutException]::new('The operation has timed out.')
-    }
-    $src = Join-Path $env:FIXTURE_DIR $leaf
-    if (-not (Test-Path $src)) { throw "404: ${Uri}" }
-    Copy-Item -Path $src -Destination $OutFile -Force
-}
-'@
-        # Helper for child pwsh runs; a $script: scriptblock because Pester 6
-        # does not expose file-scope functions to It blocks.
-        $script:installChild = {
-            param([string]$ExtraEnv = '')
-            $child = @"
-`$env:FIXTURE_DIR = '$script:fixtureDir'
-$ExtraEnv
-$script:downloadStub
-try { & '$script:installScript' -SkipNodeCheck -Version 9.9.9 -Prefix '$script:tmp/prefix' *>&1 } catch { `$_; exit 1 }
-exit 0
-"@
-            return (& pwsh -NoProfile -Command $child | Out-String)
-        }
-    }
-    BeforeEach {
-        $script:tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
-        $script:fixtureDir = Join-Path $script:tmp 'fixtures'
-        $script:shareSrc = Join-Path $script:tmp 'share-src'
-        New-Item -ItemType Directory -Path $script:fixtureDir | Out-Null
-        New-Item -ItemType Directory -Path (Join-Path $script:shareSrc 'base') | Out-Null
-        # Compress-Archive drops empty directories; seed base/ so the fixture
-        # zip actually contains it.
-        Set-Content -Path (Join-Path $script:shareSrc 'base/README.md') -Value 'fixture'
-        Set-Content -Path (Join-Path $script:shareSrc 'VERSION') -Value '9.9.9'
-
-        $script:binaryFixture = Join-Path $script:fixtureDir 'wayforge-win32-x64.exe'
-        $script:shareFixture = Join-Path $script:fixtureDir 'wayforge-share-9.9.9.zip'
-        $script:checksumsFixture = Join-Path $script:fixtureDir 'wayforge-checksums.txt'
-        Set-Content -Path $script:binaryFixture -Value 'fake wayforge binary'
-        Compress-Archive -Path (Join-Path $script:shareSrc '*') -DestinationPath $script:shareFixture
-
-        $script:binaryHash = (Get-FileHash -Path $script:binaryFixture -Algorithm SHA256).Hash.ToLowerInvariant()
-        $script:shareHash = (Get-FileHash -Path $script:shareFixture -Algorithm SHA256).Hash.ToLowerInvariant()
-        $script:originalUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    }
-    AfterEach {
-        [Environment]::SetEnvironmentVariable('Path', $script:originalUserPath, 'User')
-        Remove-Item -Path $script:tmp -Recurse -Force -ErrorAction SilentlyContinue
-    }
+    BeforeEach { & $script:setupFixtures }
+    AfterEach { & $script:teardownFixtures }
 
     It 'installs when digests match' {
         # Binary entries carry a dist/ prefix in release checksums; the
@@ -261,7 +320,9 @@ exit 0
     }
 
     It 'installs with a warning when the checksum asset is missing' {
-        $combined = & $script:installChild -ExtraEnv "`$env:FAKE_CHECKSUM_STATUS = '404'"
+        # Signed-era releases fail closed on a missing manifest; the legacy
+        # warn-and-continue fallback requires the explicit opt-in.
+        $combined = & $script:installChild -ExtraArgs '-AllowUnsigned' -ExtraEnv "`$env:FAKE_CHECKSUM_STATUS = '404'"
         $LASTEXITCODE | Should -Be 0
         $combined | Should -Match 'wayforge-checksums\.txt is unavailable for 9\.9\.9; skipping checksum verification'
         Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
@@ -298,6 +359,79 @@ exit 0
     }
 }
 
+Describe 'Cosign bundle verification (full install)' {
+    BeforeEach {
+        & $script:setupFixtures
+        # Valid manifest so the checksum download succeeds and the cosign
+        # matrix is what each test actually exercises.
+        Set-Content -Path $script:checksumsFixture -Value "$($script:binaryHash)  dist/wayforge-win32-x64.exe`n$($script:shareHash)  wayforge-share-9.9.9.zip"
+    }
+    AfterEach { & $script:teardownFixtures }
+
+    It 'installs when the bundle verifies and records the cosign arguments' {
+        $log = Join-Path $script:tmp 'cosign-args.log'
+        $combined = & $script:installChild -ExtraEnv "`$env:COSIGN_ARGS_LOG = '$log'"
+        $LASTEXITCODE | Should -Be 0
+        Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
+        $combined | Should -Match 'verified wayforge-checksums\.txt signature'
+        $cosignArgs = (Get-Content -Path $log) -join ' '
+        $cosignArgs | Should -Match 'verify-blob'
+        $cosignArgs | Should -Match '--bundle \S+'
+        $cosignArgs | Should -Match '--certificate-identity https://github\.com/Macacoders/wayforge/\.github/workflows/release\.yml@refs/heads/main'
+        $cosignArgs | Should -Match '--certificate-oidc-issuer https://token\.actions\.githubusercontent\.com'
+    }
+
+    It 'aborts on an invalid signature even with -AllowUnsigned' {
+        $combined = & $script:installChild -ExtraArgs '-AllowUnsigned' -ExtraEnv "`$env:FAKE_COSIGN_EXIT = '1'"
+        $LASTEXITCODE | Should -Not -Be 0
+        $combined | Should -Match 'cosign signature verification failed'
+        Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
+    }
+
+    It 'aborts when cosign is missing for a signed-era release' {
+        $combined = & $script:installChild -NoCosignStub
+        $LASTEXITCODE | Should -Not -Be 0
+        $combined | Should -Match 'cosign is required to verify 9\.9\.9'
+        Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
+    }
+
+    It 'continues with -AllowUnsigned when cosign is missing' {
+        $combined = & $script:installChild -NoCosignStub -ExtraArgs '-AllowUnsigned'
+        $LASTEXITCODE | Should -Be 0
+        $combined | Should -Match 'cosign not found; skipping checksum signature verification'
+        Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
+        Test-Path (Join-Path $script:tmp 'prefix/share/wayforge/base') -PathType Container | Should -Be $true
+    }
+
+    It 'warns and continues for legacy releases when the bundle is missing' {
+        $combined = & $script:installChild -ExtraEnv "`$env:WAYFORGE_COSIGN_REQUIRED_FROM = '99.0.0'; `$env:FAKE_BUNDLE_STATUS = '404'"
+        $LASTEXITCODE | Should -Be 0
+        $combined | Should -Match 'cosign signature bundle is unavailable for 9\.9\.9; skipping signature verification'
+        Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
+    }
+
+    It 'aborts when the bundle is missing (404) for a signed-era release' {
+        $combined = & $script:installChild -ExtraEnv "`$env:FAKE_BUNDLE_STATUS = '404'"
+        $LASTEXITCODE | Should -Not -Be 0
+        $combined | Should -Match 'refusing an unsigned install'
+        Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
+    }
+
+    It 'aborts on a missing checksum manifest (404) for a signed-era release without -AllowUnsigned' {
+        $combined = & $script:installChild -ExtraEnv "`$env:FAKE_CHECKSUM_STATUS = '404'"
+        $LASTEXITCODE | Should -Not -Be 0
+        $combined | Should -Match 'refusing an unverified install'
+        Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
+    }
+
+    It 'aborts on a non-404 bundle download failure' {
+        $combined = & $script:installChild -ExtraEnv "`$env:FAKE_BUNDLE_STATUS = '500'"
+        $LASTEXITCODE | Should -Not -Be 0
+        $combined | Should -Match 'failed to download cosign signature bundle'
+        Test-Path (Join-Path $script:tmp 'prefix') | Should -Be $false
+    }
+}
+
 Describe 'Uninstall removes provisioned Node' {
     It 'dry-run uninstall mentions the node directory and its PATH entry' {
         $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
@@ -314,5 +448,42 @@ Describe 'Uninstall removes provisioned Node' {
         finally {
             Remove-Item -Path $tmp -Recurse -Force -ErrorAction SilentlyContinue
         }
+    }
+}
+
+Describe 'PATH opt-out (-NoModifyPath)' {
+    BeforeEach { & $script:setupFixtures }
+    AfterEach { & $script:teardownFixtures }
+
+    It 'dry-run install prints the User PATH skip line' {
+        $output = & pwsh -NoProfile -Command "
+            `$env:PATH = '$script:tmp'
+            & '$script:installScript' -DryRun -SkipNodeCheck -NoModifyPath -Version 9.9.9 -Prefix '$script:tmp/prefix' 2>&1
+            exit 0
+        "
+        $combined = ($output | Out-String)
+        $combined | Should -Match '\[dry-run\] would skip User PATH update \(-NoModifyPath\)'
+        $combined | Should -Not -Match 'would add to User PATH'
+    }
+
+    It 'full install leaves the User PATH unchanged' {
+        Set-Content -Path $script:checksumsFixture -Value "$($script:binaryHash)  dist/wayforge-win32-x64.exe`n$($script:shareHash)  wayforge-share-9.9.9.zip"
+        $before = [Environment]::GetEnvironmentVariable('Path', 'User')
+        $combined = & $script:installChild -ExtraArgs '-NoModifyPath'
+        $LASTEXITCODE | Should -Be 0
+        Test-Path (Join-Path $script:tmp 'prefix/bin/wfg.exe') | Should -Be $true
+        Test-Path (Join-Path $script:tmp 'prefix/share/wayforge/base') -PathType Container | Should -Be $true
+        $combined | Should -Match 'User PATH update skipped \(-NoModifyPath\)'
+        [Environment]::GetEnvironmentVariable('Path', 'User') | Should -Be $before
+    }
+
+    It 'dry-run uninstall prints the User PATH skip line' {
+        $output = & pwsh -NoProfile -Command "
+            & '$script:installScript' -Uninstall -DryRun -NoModifyPath -Prefix '$script:tmp/prefix' 2>&1
+            exit 0
+        "
+        $combined = ($output | Out-String)
+        $combined | Should -Match '\[dry-run\] would skip User PATH update \(-NoModifyPath\)'
+        $combined | Should -Not -Match 'would remove from User PATH'
     }
 }

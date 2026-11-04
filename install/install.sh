@@ -14,6 +14,8 @@ TAG=""
 UNINSTALL=0
 DRY_RUN=0
 SKIP_NODE=0
+NO_MODIFY_PATH=0
+ALLOW_UNSIGNED="${WAYFORGE_ALLOW_UNSIGNED:-0}"
 URL_BASE=""
 
 # Node.js provisioning: pinned LTS version, minimum major, and download base
@@ -29,15 +31,32 @@ NODE_BIN_DIR=""
 TMP_BINARY=""
 TMP_SHARE=""
 TMP_CHECKSUMS=""
+TMP_CHECKSUM_BUNDLE=""
 TMP_PATH_BLOCK=""
 TMP_NODE=""
+TMP_NODE_SHASUMS=""
+
+# Cosign identity pins for the checksum signature bundle. These must match the
+# release workflow identity in .github/workflows/release.yml; if the release
+# trigger changes from push: main, update the pin in the same commit. The
+# identity is matched exactly (not as a regexp) so dots cannot act as wildcards.
+COSIGN_IDENTITY='https://github.com/Macacoders/wayforge/.github/workflows/release.yml@refs/heads/main'
+COSIGN_OIDC_ISSUER='https://token.actions.githubusercontent.com'
+
+# Releases at or after this version publish a cosign-signed checksum manifest.
+# Signature verification is mandatory for them; older releases keep the
+# hash-only fallback. Bump this when the first signed release ships. The
+# WAYFORGE_COSIGN_REQUIRED_FROM override exists for tests.
+COSIGN_REQUIRED_FROM="${WAYFORGE_COSIGN_REQUIRED_FROM:-1.1.0}"
 
 cleanup() {
 	if [ -n "${TMP_BINARY:-}" ]; then rm -f "$TMP_BINARY"; fi
 	if [ -n "${TMP_SHARE:-}" ]; then rm -f "$TMP_SHARE"; fi
 	if [ -n "${TMP_CHECKSUMS:-}" ]; then rm -f "$TMP_CHECKSUMS"; fi
+	if [ -n "${TMP_CHECKSUM_BUNDLE:-}" ]; then rm -f "$TMP_CHECKSUM_BUNDLE"; fi
 	if [ -n "${TMP_PATH_BLOCK:-}" ]; then rm -f "$TMP_PATH_BLOCK"; fi
 	if [ -n "${TMP_NODE:-}" ]; then rm -f "$TMP_NODE"; fi
+	if [ -n "${TMP_NODE_SHASUMS:-}" ]; then rm -f "$TMP_NODE_SHASUMS"; fi
 }
 trap cleanup EXIT INT TERM
 
@@ -53,6 +72,13 @@ Options:
   --uninstall       Remove wayforge from the prefix.
   --dry-run         Print actions without performing them.
   --skip-node-check Skip Node.js detection and provisioning.
+  --no-modify-path  Do not write wayforge PATH blocks to ~/.bashrc or
+                    ~/.zshrc (install) or remove them (uninstall).
+  --allow-unsigned  Continue when the signed checksum bundle cannot be
+                    verified (older releases only by default; signed-era
+                    releases require this explicit opt-in).
+                    Env equivalent: WAYFORGE_ALLOW_UNSIGNED=1 (only the
+                    literal value 1 enables the opt-in).
   --url-base <base> Test override for the download base URL.
   -h, --help        Show this help message.
 EOF
@@ -89,6 +115,14 @@ while [ $# -gt 0 ]; do
 		;;
 	--skip-node-check)
 		SKIP_NODE=1
+		shift
+		;;
+	--no-modify-path)
+		NO_MODIFY_PATH=1
+		shift
+		;;
+	--allow-unsigned)
+		ALLOW_UNSIGNED=1
 		shift
 		;;
 	--url-base)
@@ -213,19 +247,19 @@ download() {
 # ---------------------------------------------------------------------------
 # Checksum verification
 # ---------------------------------------------------------------------------
-# Set by fetch_checksums() when the HTTP status is known, so run_install can
-# include it in the abort message. Empty for transport failures.
-CHECKSUM_HTTP_STATUS=""
+# Set by fetch_asset() when the HTTP status is known, so callers can include
+# it in abort messages. Empty for transport failures.
+FETCH_HTTP_STATUS=""
 
-# fetch_checksums <url> <dest>
-# Returns 0 when the checksum file was downloaded, 1 when the asset is
-# confirmed absent (HTTP 404), and 2 for every other failure (403/5xx,
-# DNS/TLS/timeout, unknown status). Only the 404 case may fall back to an
-# unverified install; a download failure aborts before any prefix mutation.
-fetch_checksums() {
+# fetch_asset <url> <dest>
+# Returns 0 when the asset was downloaded, 1 when it is confirmed absent
+# (HTTP 404), and 2 for every other failure (403/5xx, DNS/TLS/timeout,
+# unknown status). Used for the checksum manifest and its cosign signature
+# bundle; only the manifest 404 case may fall back to an unverified install.
+fetch_asset() {
 	local url="$1"
 	local dest="$2"
-	CHECKSUM_HTTP_STATUS=""
+	FETCH_HTTP_STATUS=""
 	detect_downloader
 	case "$DOWNLOADER" in
 	curl)
@@ -233,7 +267,7 @@ fetch_checksums() {
 		# No -f here: its exit code cannot distinguish 404 from other HTTP
 		# errors, and the unverified fallback is only safe for a 404.
 		status=$(curl -sS -L --connect-timeout 30 --max-time 300 -o "$dest" -w '%{http_code}' "$url" 2>/dev/null) || return 2
-		CHECKSUM_HTTP_STATUS="$status"
+		FETCH_HTTP_STATUS="$status"
 		case "$status" in
 		200) return 0 ;;
 		404) return 1 ;;
@@ -251,7 +285,7 @@ fetch_checksums() {
 		# tell a missing asset (404) from an outage (403/5xx).
 		status=$(awk '/^[[:space:]]*HTTP\// { code=$2 } END { print code }' "$headers")
 		rm -f "$headers"
-		CHECKSUM_HTTP_STATUS="$status"
+		FETCH_HTTP_STATUS="$status"
 		if [ "$status" = "404" ]; then
 			return 1
 		fi
@@ -269,6 +303,35 @@ sha256_file() {
 		echo "error: cannot verify checksums: sha256sum or shasum is required" >&2
 		return 1
 	fi
+}
+
+# archive_is_unsafe <tar-file>
+# Returns 0 when the archive lists an absolute path or a `..` path segment, so
+# callers can refuse extraction before writing anything outside the target.
+archive_is_unsafe() {
+	tar -tzf "$1" | grep -Eq '(^/|(^|/)\.\.(/|$))'
+}
+
+# version_ge <a> <b>
+# Returns 0 when dotted version <a> is greater than or equal to <b>.
+version_ge() {
+	awk -v a="$1" -v b="$2" 'BEGIN {
+		n = split(a, av, "."); m = split(b, bv, ".")
+		max = (n > m) ? n : m
+		for (i = 1; i <= max; i++) {
+			x = (i <= n) ? av[i] + 0 : 0
+			y = (i <= m) ? bv[i] + 0 : 0
+			if (x > y) exit 0
+			if (x < y) exit 1
+		}
+		exit 0
+	}'
+}
+
+# signed_era
+# Returns 0 when the target release is at or after the first signed release.
+signed_era() {
+	version_ge "${TAG#v}" "$COSIGN_REQUIRED_FROM"
 }
 
 # checksum_for <asset-name>
@@ -302,6 +365,58 @@ verify_asset() {
 	echo "verified ${name} checksum"
 }
 
+# verify_checksum_signature <checksum-url>
+# Verifies the cosign .sigstore.json bundle for the checksum manifest before
+# any asset hash is checked. Policy:
+#   - signed-era release (>= COSIGN_REQUIRED_FROM): cosign and a valid bundle
+#     are mandatory; a missing cosign or a confirmed-missing bundle aborts
+#     unless --allow-unsigned was passed;
+#   - older release: cosign absent or bundle 404 warns and continues;
+#   - a present-but-invalid bundle or a non-404 fetch failure always aborts.
+verify_checksum_signature() {
+	local checksum_url="$1"
+	[ -n "$TMP_CHECKSUMS" ] || return 0
+	if ! command -v cosign >/dev/null 2>&1; then
+		if signed_era && [ "$ALLOW_UNSIGNED" != "1" ]; then
+			echo "error: cosign is required to verify ${TAG}; install cosign or pass --allow-unsigned to skip signature verification" >&2
+			return 1
+		fi
+		echo "warning: cosign not found; skipping checksum signature verification" >&2
+		return 0
+	fi
+	TMP_CHECKSUM_BUNDLE="$(mktemp)"
+	local bundle_rc=0
+	fetch_asset "${checksum_url}.sigstore.json" "$TMP_CHECKSUM_BUNDLE" || bundle_rc=$?
+	case "$bundle_rc" in
+	0) ;;
+	1)
+		if signed_era && [ "$ALLOW_UNSIGNED" != "1" ]; then
+			echo "error: cosign signature bundle is missing for ${TAG}; refusing an unsigned install (pass --allow-unsigned to override)" >&2
+			return 1
+		fi
+		echo "warning: cosign signature bundle is unavailable for ${TAG}; skipping signature verification" >&2
+		return 0
+		;;
+	*)
+		if [ -n "$FETCH_HTTP_STATUS" ]; then
+			echo "error: failed to download cosign signature bundle for ${TAG} (HTTP ${FETCH_HTTP_STATUS}); aborting without changes" >&2
+		else
+			echo "error: failed to download cosign signature bundle for ${TAG}; aborting without changes" >&2
+		fi
+		return 1
+		;;
+	esac
+	if ! cosign verify-blob \
+		--bundle "$TMP_CHECKSUM_BUNDLE" \
+		--certificate-identity "$COSIGN_IDENTITY" \
+		--certificate-oidc-issuer "$COSIGN_OIDC_ISSUER" \
+		"$TMP_CHECKSUMS"; then
+		echo "error: cosign signature verification failed for wayforge-checksums.txt; aborting without changes" >&2
+		return 1
+	fi
+	echo "verified wayforge-checksums.txt signature"
+}
+
 # ---------------------------------------------------------------------------
 # Node.js provisioning
 # ---------------------------------------------------------------------------
@@ -326,11 +441,42 @@ install_local_node() {
 	local node_bin="${node_dir}/bin"
 	local archive="node-v${NODE_VERSION}-${OS}-${ARCH}.tar.gz"
 	local url="${NODE_BASE_URL}/v${NODE_VERSION}/${archive}"
+	local shasums_url="${NODE_BASE_URL}/v${NODE_VERSION}/SHASUMS256.txt"
 
 	echo "Installing Node.js v${NODE_VERSION} (${OS}-${ARCH}) to ${node_dir}"
-	mkdir -p "$node_dir"
 	TMP_NODE="$(mktemp)"
 	download "$url" "$TMP_NODE"
+
+	# Verify the Node archive against the same-origin SHASUMS256.txt before
+	# extracting or executing anything from it.
+	TMP_NODE_SHASUMS="$(mktemp)"
+	if ! download "$shasums_url" "$TMP_NODE_SHASUMS"; then
+		echo "error: failed to download Node.js SHASUMS256.txt; aborting without changes" >&2
+		return 1
+	fi
+	local expected actual
+	expected="$(awk -v name="$archive" \
+		'{ f=$2; sub(/^\*/, "", f); if (f == name) { print tolower($1); exit } }' \
+		"$TMP_NODE_SHASUMS")"
+	rm -f "$TMP_NODE_SHASUMS"
+	TMP_NODE_SHASUMS=""
+	if [ -z "$expected" ]; then
+		echo "error: SHASUMS256.txt has no entry for ${archive}; aborting without changes" >&2
+		return 1
+	fi
+	actual="$(sha256_file "$TMP_NODE")" || return 1
+	if [ "$actual" != "$expected" ]; then
+		echo "error: checksum mismatch for ${archive}: expected ${expected}, got ${actual}" >&2
+		return 1
+	fi
+	echo "verified ${archive} checksum"
+
+	if archive_is_unsafe "$TMP_NODE"; then
+		echo "error: Node.js archive contains unsafe paths; aborting without changes" >&2
+		return 1
+	fi
+
+	mkdir -p "$node_dir"
 	tar -xzf "$TMP_NODE" -C "$node_dir" --strip-components=1
 	rm -f "$TMP_NODE"
 	TMP_NODE=""
@@ -470,6 +616,14 @@ run_install() {
 		echo "[dry-run] binary URL: ${binary_url}"
 		echo "[dry-run] share URL: ${share_url}"
 		echo "[dry-run] checksum URL: ${checksum_url}"
+		if command -v cosign >/dev/null 2>&1; then
+			echo "[dry-run] bundle URL: ${checksum_url}.sigstore.json"
+			echo "[dry-run] would verify checksum signature with cosign"
+		elif signed_era && [ "$ALLOW_UNSIGNED" != "1" ]; then
+			echo "[dry-run] cosign not found; signed-era releases require cosign or --allow-unsigned"
+		else
+			echo "[dry-run] cosign not found; checksum signature verification will be skipped"
+		fi
 		echo "[dry-run] would verify: ${BINARY_NAME}, ${share_name}"
 		echo "[dry-run] would create directory: ${bin_dir}"
 		echo "[dry-run] would create directory: ${share_dir}"
@@ -478,8 +632,12 @@ run_install() {
 		echo "[dry-run] would download and extract: ${share_url} -> ${share_dir}"
 		echo "[dry-run] would verify directory exists: ${share_dir}/base"
 		echo "[dry-run] PATH export: export PATH=\"${bin_dir}:\$PATH\""
-		echo "[dry-run] would append wayforge PATH block to: ${HOME}/.bashrc"
-		echo "[dry-run] would append wayforge PATH block to: ${HOME}/.zshrc"
+		if [ "$NO_MODIFY_PATH" -eq 1 ]; then
+			echo "[dry-run] would skip PATH modification (--no-modify-path)"
+		else
+			echo "[dry-run] would append wayforge PATH block to: ${HOME}/.bashrc"
+			echo "[dry-run] would append wayforge PATH block to: ${HOME}/.zshrc"
+		fi
 		return 0
 	fi
 
@@ -491,28 +649,42 @@ run_install() {
 
 	local checksum_rc
 	checksum_rc=0
-	fetch_checksums "$checksum_url" "$TMP_CHECKSUMS" || checksum_rc=$?
+	fetch_asset "$checksum_url" "$TMP_CHECKSUMS" || checksum_rc=$?
 	case "$checksum_rc" in
 	0)
+		if ! verify_checksum_signature "$checksum_url"; then
+			exit 1
+		fi
 		verify_asset "$TMP_BINARY" "$BINARY_NAME"
 		verify_asset "$TMP_SHARE" "$share_name"
 		;;
 	1)
 		rm -f "$TMP_CHECKSUMS"
 		TMP_CHECKSUMS=""
+		if signed_era && [ "$ALLOW_UNSIGNED" != "1" ]; then
+			echo "error: wayforge-checksums.txt is missing for ${TAG}; refusing an unverified install (pass --allow-unsigned to override)" >&2
+			exit 1
+		fi
 		echo "warning: wayforge-checksums.txt is unavailable for ${TAG}; skipping checksum verification" >&2
 		;;
 	*)
 		rm -f "$TMP_CHECKSUMS"
 		TMP_CHECKSUMS=""
-		if [ -n "$CHECKSUM_HTTP_STATUS" ]; then
-			echo "error: failed to download wayforge-checksums.txt for ${TAG} (HTTP ${CHECKSUM_HTTP_STATUS}); aborting without changes" >&2
+		if [ -n "$FETCH_HTTP_STATUS" ]; then
+			echo "error: failed to download wayforge-checksums.txt for ${TAG} (HTTP ${FETCH_HTTP_STATUS}); aborting without changes" >&2
 		else
 			echo "error: failed to download wayforge-checksums.txt for ${TAG}; aborting without changes" >&2
 		fi
 		exit 1
 		;;
 	esac
+
+	# Refuse unsafe archives before any prefix mutation (Node provisioning,
+	# directory creation, or file moves).
+	if archive_is_unsafe "$TMP_SHARE"; then
+		echo "error: share archive contains unsafe paths; aborting without changes" >&2
+		exit 1
+	fi
 
 	ensure_node
 
@@ -537,16 +709,22 @@ run_install() {
 	local path_prefix="$bin_dir"
 	if [ -n "${NODE_BIN_DIR:-}" ]; then
 		path_prefix="${NODE_BIN_DIR}:${bin_dir}"
-		remove_path_block "${HOME}/.bashrc"
-		remove_path_block "${HOME}/.zshrc"
+		if [ "$NO_MODIFY_PATH" -eq 0 ]; then
+			remove_path_block "${HOME}/.bashrc"
+			remove_path_block "${HOME}/.zshrc"
+		fi
 	fi
 
 	echo "wayforge ${TAG#v} installed to ${binary_path}"
 	echo "Add to your PATH:"
 	echo "  export PATH=\"${path_prefix}:\$PATH\""
 
-	append_path_block "${HOME}/.bashrc" "$path_prefix"
-	append_path_block "${HOME}/.zshrc" "$path_prefix"
+	if [ "$NO_MODIFY_PATH" -eq 1 ]; then
+		echo "PATH modification skipped (--no-modify-path); add the export above manually."
+	else
+		append_path_block "${HOME}/.bashrc" "$path_prefix"
+		append_path_block "${HOME}/.zshrc" "$path_prefix"
+	fi
 }
 
 # ---------------------------------------------------------------------------
@@ -567,8 +745,12 @@ run_uninstall() {
 		echo "[dry-run] would remove: ${share_dir}"
 		echo "[dry-run] would remove: ${node_dir}"
 		echo "[dry-run] would remove: ${tracking_file}"
-		echo "[dry-run] would remove wayforge PATH block from: ${bashrc}"
-		echo "[dry-run] would remove wayforge PATH block from: ${zshrc}"
+		if [ "$NO_MODIFY_PATH" -eq 1 ]; then
+			echo "[dry-run] would skip PATH modification (--no-modify-path)"
+		else
+			echo "[dry-run] would remove wayforge PATH block from: ${bashrc}"
+			echo "[dry-run] would remove wayforge PATH block from: ${zshrc}"
+		fi
 		return 0
 	fi
 
@@ -577,8 +759,10 @@ run_uninstall() {
 	rm -rf "$node_dir"
 	rm -f "$tracking_file"
 
-	remove_path_block "$bashrc"
-	remove_path_block "$zshrc"
+	if [ "$NO_MODIFY_PATH" -eq 0 ]; then
+		remove_path_block "$bashrc"
+		remove_path_block "$zshrc"
+	fi
 
 	if [ -d "$PREFIX" ] && [ -z "$(ls -A "$PREFIX" 2>/dev/null)" ]; then
 		rmdir "$PREFIX"

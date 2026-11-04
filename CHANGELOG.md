@@ -7,12 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Release publishes a cosign-signed `wayforge-checksums.txt.sigstore.json` bundle (keyless, Fulcio + Rekor; workflow identity `release.yml@refs/heads/main`) alongside the checksum manifest (ADR-0048).
+- `wayforge-checksums.txt` now covers the two installer scripts (`install.sh`, `install.ps1`) in addition to every platform binary and both share archives.
+- `--no-modify-path` / `-NoModifyPath` installer flag to skip all persistent PATH writes and print manual instructions instead.
+- `--allow-unsigned` / `-AllowUnsigned` (or the `WAYFORGE_ALLOW_UNSIGNED=1` environment variable) installer opt-out for missing verification material — cosign not installed, a missing signature bundle, or a missing checksum manifest. It never bypasses an invalid signature or a non-404 failure.
+
+### Changed
+
+- The recommended install path no longer pipes the installer to a shell: download to file, verify the SHA-256 from `wayforge-checksums.txt`, then run (see `docs/security/installer-trust.md`).
+- Both installers verify the cosign signature bundle automatically when cosign is present. Releases published with a signed manifest fail closed: a missing cosign, a missing bundle, or a missing checksum manifest aborts the install unless `--allow-unsigned` / `-AllowUnsigned` is passed. Invalid signatures and non-404 failures always abort. Releases predating the signed manifest keep the warn-and-continue behavior.
+- The release workflow now SHA-pins every action, runs with least-privilege permissions, disables persisted checkout credentials, and publishes releases draft-first (upload → verify the signature bundle → publish) so a partial upload is repaired instead of silently skipped.
+- Node.js provisioning verifies the `SHASUMS256.txt` digest from `nodejs.org` before extracting the Node archive (`install.sh` and `install.ps1`).
+- The cosign identity pin is an exact `--certificate-identity` value instead of a regexp, so dots in `github.com`/`.github` cannot act as wildcards.
+- `wfg upgrade` prints a warning that it verifies SHA-256 checksums only and does not verify the cosign bundle.
+
 ### Removed
 
 - Removed `install/legacy/**` (the frozen legacy Bash/PowerShell installers) and its legacy-only bats/Pester tests. `wfg` is the only supported installer. Release artifacts are unchanged. Contributors relying on the frozen source scripts lose them.
 
 ### Fixed
 
+- Node.js and share archives are rejected before extraction when they contain absolute paths or `..` path segments, preventing path-traversal writes outside the install prefix.
 - `/memory` (and its `find`, `check`, and `update` intents) runs again: the command's `agent` frontmatter is a single valid owner (`planner`) instead of the unresolvable `planner,delivery`. A new `tests/typescript/base-templates/command-frontmatter.test.ts` guard rejects empty, comma-separated, or unknown command agents, and the `ai-memory` skill documents its installed `.agents/skills/ai-memory/scripts/ai-memory.ts` path.
 - The `code` subagent starts again on the balanced `opencode-go` profiles: `opencode-go/glm-5.3-flash` no longer carries `textVerbosity`, which OpenCode sends as the `verbosity` request field that the GLM endpoint rejects. Existing installs keep their generated `opencode.jsonc` unless it is refreshed: run `wfg upgrade`, then `wfg install --repo <repo> --providers opencode-go --force`.
 
