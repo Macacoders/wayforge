@@ -47,10 +47,12 @@ describe('legacy .opencode migration', () => {
 		fs.mkdirpSync(repo)
 		previousHome = process.env.WAYFORGE_HOME
 		process.env.WAYFORGE_HOME = sourceDir
+		vi.stubEnv('WAYFORGE_OPENCODE_VERSION', '2.2.5')
 	})
 
 	afterEach(() => {
 		vi.restoreAllMocks()
+		vi.unstubAllEnvs()
 		if (previousHome === undefined) {
 			delete process.env.WAYFORGE_HOME
 		} else {

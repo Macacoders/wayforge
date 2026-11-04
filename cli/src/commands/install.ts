@@ -37,6 +37,7 @@ import { trackInstalledProject } from '../lib/tracking.js'
 import { cloneRef } from '../lib/git.js'
 import { resolveSourceDir } from '../lib/source-dir.js'
 import { checkNode } from '../lib/prereq.js'
+import { assertRuntimeSupported } from '../lib/runtime-version.js'
 import {
 	ARTIFACT_ROOT,
 	CONTENT_CATEGORIES,
@@ -121,6 +122,14 @@ export async function doInstall(
 	validateFreeTierRuntime(selected, options.runtime)
 	validateModelOverride(options.model, '--model', selected)
 	validateModelOverride(options.smallModel, '--small-model', selected)
+
+	const support = assertRuntimeSupported(options.runtime)
+	if (!support.ok) {
+		ctx.log(support.message)
+		process.exit(1)
+	} else if (support.warning) {
+		ctx.log(support.warning)
+	}
 
 	const genOpts: GenerateOptions = {
 		runtime: options.runtime,
