@@ -26,9 +26,9 @@ Default prefix: `~/.wayforge` (Linux/macOS) or `%LOCALAPPDATA%\wayforge` (Window
 
 The installer downloads the platform binary and share archive together with the release's `wayforge-checksums.txt` and verifies both SHA-256 hashes before installing anything; a mismatch aborts with no changes. Releases that predate the checksum asset (confirmed by an HTTP 404) install unverified with a warning instead; any other checksum download failure aborts with no changes.
 
-### Code signing policy
+### Windows code signing
 
-Windows release artifacts are Authenticode-signed via SignPath Foundation. See the [Code signing policy](./CODE_SIGNING_POLICY.md).
+Windows release artifacts are currently **unsigned** (no Authenticode signature). SignPath Foundation declined the project's application, and no free public-trust option is viable for the current direct-download distribution. Integrity is verified via `wayforge-checksums.txt` (SHA-256); SmartScreen may show an unknown-publisher warning. See [Windows code signing](./docs/security/windows-code-signing.md).
 
 ### Requirements
 
