@@ -34,7 +34,7 @@ process.env.GITHUB_TOKEN = 'test-token-value';
 
 // ── Module under test ──────────────────────────────────────────────────────
 
-import * as gh from '../../../base/opencode/skills/shared-task/scripts/gh-issue.ts';
+import * as gh from '../../../base/skills/shared-task/scripts/gh-issue.ts';
 
 // ── Test helpers ────────────────────────────────────────────────────────────
 

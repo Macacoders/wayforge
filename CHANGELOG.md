@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed `install/legacy/**` (the frozen legacy Bash/PowerShell installers) and its legacy-only bats/Pester tests. `wfg` is the only supported installer. Release artifacts are unchanged. Contributors relying on the frozen source scripts lose them.
 
+### Fixed
+
+- `/memory` (and its `find`, `check`, and `update` intents) runs again: the command's `agent` frontmatter is a single valid owner (`planner`) instead of the unresolvable `planner,delivery`. A new `tests/typescript/base-templates/command-frontmatter.test.ts` guard rejects empty, comma-separated, or unknown command agents, and the `ai-memory` skill documents its installed `.agents/skills/ai-memory/scripts/ai-memory.ts` path.
+- The `code` subagent starts again on the balanced `opencode-go` profiles: `opencode-go/glm-5.3-flash` no longer carries `textVerbosity`, which OpenCode sends as the `verbosity` request field that the GLM endpoint rejects. Existing installs keep their generated `opencode.jsonc` unless it is refreshed: run `wfg upgrade`, then `wfg install --repo <repo> --providers opencode-go --force`.
+
 ## [1.0.2] - 2026-10-16
 
 ### Fixed

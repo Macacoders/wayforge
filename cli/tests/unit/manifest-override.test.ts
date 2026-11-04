@@ -34,7 +34,7 @@ describe('syncManagedFile override behavior', () => {
 		initManagedManifest(repo, '0.1.0', undefined, ctx)
 
 		const src = path.join(tmpDir, 'src.md')
-		const dst = path.join(repo, '.opencode', 'agents', 'planner.md')
+		const dst = path.join(repo, '.agents', 'agents', 'planner.md')
 		fs.mkdirpSync(path.dirname(dst))
 		fs.writeFileSync(src, '# source content')
 		fs.writeFileSync(dst, '# local content')
@@ -46,7 +46,7 @@ describe('syncManagedFile override behavior', () => {
 		expect(fs.readFileSync(dst, 'utf8')).toBe('# source content')
 
 		finalizeManagedManifest(repo, ctx)
-		expect(readManagedManifest(repo)).toContain('.opencode/agents/planner.md')
+		expect(readManagedManifest(repo)).toContain('.agents/agents/planner.md')
 	})
 
 	it('skips an unmanaged dst when overrideUnmanaged is empty', () => {
@@ -54,7 +54,7 @@ describe('syncManagedFile override behavior', () => {
 		initManagedManifest(repo, '0.1.0', undefined, ctx)
 
 		const src = path.join(tmpDir, 'src.md')
-		const dst = path.join(repo, '.opencode', 'agents', 'planner.md')
+		const dst = path.join(repo, '.agents', 'agents', 'planner.md')
 		fs.mkdirpSync(path.dirname(dst))
 		fs.writeFileSync(src, '# source content')
 		fs.writeFileSync(dst, '# local content')
@@ -78,8 +78,8 @@ describe('syncManagedTree override behavior', () => {
 			path.join(os.tmpdir(), 'wayforge-tree-override-test-'),
 		)
 		repo = path.join(tmpDir, 'repo')
-		srcDir = path.join(tmpDir, 'source', '.opencode', 'agents')
-		dstDir = path.join(repo, '.opencode', 'agents')
+		srcDir = path.join(tmpDir, 'source', '.agents', 'agents')
+		dstDir = path.join(repo, '.agents', 'agents')
 		fs.mkdirpSync(srcDir)
 		fs.mkdirpSync(dstDir)
 	})

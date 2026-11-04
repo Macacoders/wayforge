@@ -7,8 +7,8 @@ Fully onboard this repository so it is immediately ready to use with the wayforg
 
 1. Treat the current working directory as the repository root — the `ai-memory` script operates on `process.cwd()`. Keep all reads/writes inside it.
 2. Load the `ai-memory` skill and check `docs/ai/` with its script:
-   - `npx tsx .opencode/skills/ai-memory/scripts/ai-memory.ts status`
-   - If `docs/ai/` is missing or incomplete, scaffold with `npx tsx .opencode/skills/ai-memory/scripts/ai-memory.ts init`.
+   - `npx tsx .agents/skills/ai-memory/scripts/ai-memory.ts status`
+   - If `docs/ai/` is missing or incomplete, scaffold with `npx tsx .agents/skills/ai-memory/scripts/ai-memory.ts init`.
 3. Invoke the `research` subagent with explicit write approval to complete onboarding:
    - Fill `docs/ai/architecture.md` (scope, boundaries, invariants).
    - Write `docs/ai/decisions/ADR-0001-initial-ai-memory.md`.

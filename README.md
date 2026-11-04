@@ -26,6 +26,10 @@ Default prefix: `~/.wayforge` (Linux/macOS) or `%LOCALAPPDATA%\wayforge` (Window
 
 The installer downloads the platform binary and share archive together with the release's `wayforge-checksums.txt` and verifies both SHA-256 hashes before installing anything; a mismatch aborts with no changes. Releases that predate the checksum asset (confirmed by an HTTP 404) install unverified with a warning instead; any other checksum download failure aborts with no changes.
 
+### Code signing policy
+
+Windows release artifacts are Authenticode-signed via SignPath Foundation. See the [Code signing policy](./CODE_SIGNING_POLICY.md).
+
 ### Requirements
 
 - **Node.js >= 18** is required to run the installed workflow (skills and commands execute via `npx tsx`).
@@ -71,12 +75,17 @@ Existing installs that used `{env:}` in OpenCode switch to the unified form on t
 
 ### 4. Review the generated files
 
-`wfg install` writes two managed files into your repo — both are generated output, not source, and must not be hand-edited:
+`wfg install` installs wayforge artifacts into one canonical `.agents/` tree and wires each runtime to it:
 
-- **`opencode.jsonc`** — the OpenCode runtime config: `$schema`, `enabled_providers`, `default_agent`, and `plugin` entries. Provider IDs here must match what you connected in step 2.
+- **`.agents/`** — installed agents, commands, skills, and plugins under `.agents/{agents,commands,skills,plugins}`. Runtime content lives here; `.opencode/` and `.kilo/` no longer hold wayforge copies.
+- **`opencode.jsonc` / `kilo.jsonc`** — generated runtime config. Skills and the ponytail plugin point at `.agents/skills` and `.agents/plugins/ponytail/ponytail.mjs`.
+- **`.opencode/agents` + `.opencode/commands`** — OpenCode directory pointers to the matching `.agents/` categories (relative symlink, or Windows junction fallback).
+- **`.kilo/agents` + `.kilo/commands`** — Kilo Code directory pointers to `.agents/` (Kilo no longer reads `.opencode/`).
 - **`.wayforge-managed`** — the manifest of managed paths (with a `project_id` header) that tracks everything wayforge owns.
 
-To refresh them after a template update, re-run `wfg install --repo <path> --force`.
+Pi reads `.agents/skills/**/SKILL.md` natively and needs no installer step. Per-runtime materialization of `.agents/` into native trees is future work. See [`docs/compatibility-matrix.md`](./docs/compatibility-matrix.md) for verified runtime support.
+
+All of these are generated output, not source, and must not be hand-edited. To refresh managed artifacts and regenerate config after a template update, re-run `wfg install --repo <path> --force`.
 
 ### 5. Onboard the repository with `/init`
 
@@ -179,7 +188,7 @@ environment integration; do not commit tokens, put them in generated config,
 or paste them into agent prompts. Verify the configured repository access with:
 
 ```bash
-npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts check
+npx tsx .agents/skills/shared-task/scripts/gh-issue.ts check
 ```
 
 **Breaking change:** `/issue` no longer reads, refreshes, or removes legacy
@@ -187,7 +196,7 @@ npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts check
 must configure an environment token or authenticate the GitHub CLI; remove old
 credential files manually only after confirming they are no longer needed.
 
-Helper operations (list, create, claim, close, PR creation) are documented in [`base/opencode/skills/shared-task/SKILL.md`](./base/opencode/skills/shared-task/SKILL.md).
+Helper operations (list, create, claim, close, PR creation) are documented in [`base/skills/shared-task/SKILL.md`](./base/skills/shared-task/SKILL.md).
 
 ### `/issue`
 
@@ -251,12 +260,12 @@ flowchart LR
     class B,C,D,E,F planner
 ```
 
-Deep memory guidance is in [`docs/ai/README.md`](./docs/ai/README.md); deterministic bookkeeping (`status`, `list-plans`, `list-adrs`, `close-check`, `init`) is in the [`ai-memory` skill](./base/opencode/skills/ai-memory/SKILL.md).
+Deep memory guidance is in [`docs/ai/README.md`](./docs/ai/README.md); deterministic bookkeeping (`status`, `list-plans`, `list-adrs`, `close-check`, `init`) is in the [`ai-memory` skill](./base/skills/ai-memory/SKILL.md).
 
 ## Contribute
 
-Edit source templates under `base/opencode/**`. Never edit generated `.opencode/` files (they are gitignored and overwritten on reinstall).
+Edit source templates under `base/**`. `base/{agents,commands,skills,plugins}` are installed into `.agents/`; `base/{config,permissions}` are installer inputs and are never installed. Never edit generated `.agents/` content, runtime pointer directories (`.opencode/agents`, `.opencode/commands`, `.kilo/agents`, `.kilo/commands`), or generated config files — they are gitignored and overwritten on reinstall.
 
-> **Protection rule:** Agents must never merge changes to `develop` that touch `base/opencode` markdown files for skills, agents, or commands — `base/opencode/skills/**/SKILL.md`, `base/opencode/agents/**/*.md`, and `base/opencode/commands/**/*.md`. Changes to these files must always be validated through a pull request.
+> **Protection rule:** Agents must never merge changes to `develop` that touch `base/` markdown files for skills, agents, or commands — `base/skills/**/SKILL.md`, `base/agents/**/*.md`, and `base/commands/**/*.md`. Changes to these files must always be validated through a pull request.
 
 Deep workflow and memory guidance is in [`docs/ai/README.md`](./docs/ai/README.md) and [`AGENTS.md`](./AGENTS.md).

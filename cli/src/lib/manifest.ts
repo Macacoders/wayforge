@@ -8,15 +8,11 @@ import {
 	type SyncTreeResult,
 } from './context.js'
 import { cp, ensureDir, rm, writeFile } from './files.js'
+import { posixPath, sourceForDest } from './layout.js'
 
 /** Read a file and split into lines, normalizing CRLF to LF. */
 function readFileLines(filePath: string): string[] {
 	return fs.readFileSync(filePath, 'utf8').replace(/\r/g, '').split('\n')
-}
-
-/** Normalize Windows backslashes to POSIX forward slashes. */
-export function posixPath(p: string): string {
-	return p.replace(/\\/g, '/')
 }
 
 /** Returns the path portion of a manifest list entry (`- path` or `  - path`), or null. */
@@ -210,6 +206,8 @@ export function isManagedPath(repo: string, relativePath: string): boolean {
 	return false
 }
 
+// ponytail: debt - isManagedFile/isManagedDir share the same ancestor walk;
+// merge only with a dedicated refactor and tests.
 export function isManagedFile(absolutePath: string): boolean {
 	if (fs.pathExistsSync(`${absolutePath}${MANAGED_DIR_MARKER}`)) {
 		return true
@@ -217,6 +215,9 @@ export function isManagedFile(absolutePath: string): boolean {
 
 	let dir = path.dirname(absolutePath)
 	while (dir !== '/') {
+		// Consult both markers at an ancestor: `.wayforge-managed` lists the
+		// previous install, `.wayforge-managed.tmp` lists this run's writes, so
+		// a file refreshed during an upgrade is only in the tmp manifest.
 		for (const name of [MANAGED_DIR_MARKER, `${MANAGED_DIR_MARKER}.tmp`]) {
 			const manifest = path.join(dir, name)
 			if (fs.pathExistsSync(manifest)) {
@@ -228,7 +229,6 @@ export function isManagedFile(absolutePath: string): boolean {
 						return true
 					}
 				}
-				break
 			}
 		}
 		const parent = path.dirname(dir)
@@ -248,6 +248,9 @@ export function isManagedDir(absolutePath: string): boolean {
 
 	let dir = absolutePath
 	while (dir !== '/') {
+		// Consult both markers at an ancestor: `.wayforge-managed` lists the
+		// previous install, `.wayforge-managed.tmp` lists this run's writes, so
+		// a directory refreshed during an upgrade is only in the tmp manifest.
 		for (const name of [MANAGED_DIR_MARKER, `${MANAGED_DIR_MARKER}.tmp`]) {
 			const manifest = path.join(dir, name)
 			if (fs.pathExistsSync(manifest)) {
@@ -265,7 +268,6 @@ export function isManagedDir(absolutePath: string): boolean {
 						}
 					}
 				}
-				break
 			}
 		}
 		const parent = path.dirname(dir)
@@ -551,23 +553,15 @@ export function syncManagedPathFromManifest(
 		return
 	} else if (relativePath === 'AGENTS.md') {
 		srcFile = path.join(rootDir, 'base', 'AGENTS.md')
-	} else if (relativePath.startsWith('.opencode/agents/')) {
-		const subpath = relativePath.slice('.opencode/agents/'.length)
-		srcFile = path.join(rootDir, 'base', 'opencode', 'agents', subpath)
-	} else if (relativePath.startsWith('.opencode/commands/')) {
-		const subpath = relativePath.slice('.opencode/commands/'.length)
-		srcFile = path.join(rootDir, 'base', 'opencode', 'commands', subpath)
-	} else if (relativePath.startsWith('.opencode/skills/')) {
-		const subpath = relativePath.slice('.opencode/skills/'.length)
-		srcFile = path.join(rootDir, 'base', 'opencode', 'skills', subpath)
-	} else if (relativePath.startsWith('.opencode/plugins/')) {
-		const subpath = relativePath.slice('.opencode/plugins/'.length)
-		srcFile = path.join(rootDir, 'base', 'opencode', 'plugins', subpath)
 	} else {
-		ctx.log(
-			`warning: unknown managed path prefix, skipping: ${relativePath}`,
-		)
-		return
+		const resolved = sourceForDest(rootDir, relativePath)
+		if (!resolved) {
+			ctx.log(
+				`warning: unknown managed path prefix, skipping: ${relativePath}`,
+			)
+			return
+		}
+		srcFile = resolved
 	}
 
 	if (

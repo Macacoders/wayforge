@@ -10,7 +10,7 @@ metadata:
 
 Reference for the `gh-issue.ts` CLI that backs `/issue`.
 
-Run as: `npx tsx .opencode/skills/shared-task/scripts/gh-issue.ts [--repo OWNER/REPO|-R OWNER/REPO] [--json] [--dry-run] <operation> [args]`
+Run as: `npx tsx .agents/skills/shared-task/scripts/gh-issue.ts [--repo OWNER/REPO|-R OWNER/REPO] [--json] [--dry-run] <operation> [args]`
 
 ## Operations
 

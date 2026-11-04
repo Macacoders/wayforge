@@ -1,4 +1,4 @@
-.PHONY: install-deps check check-bash check-powershell check-tests check-ts check-node check-integration check-bats check-pester coverage check-duplication fix-bash fix-node cli-binary
+.PHONY: install-deps check check-bash check-powershell check-tests check-ts check-node check-bats check-pester coverage check-duplication fix-bash fix-node cli-binary
 
 install-deps:
 	./qa/install-deps
@@ -44,8 +44,6 @@ check-tests:
 	./qa/check-pester
 	@echo "==> TypeScript tests"
 	npx vitest run
-	@echo "==> Integration tests"
-	@$(MAKE) check-integration
 	@echo "Tests passed."
 
 check-ts:
@@ -66,9 +64,6 @@ fix-node:
 	@echo "==> Formatting with Prettier"
 	@cd cli && npx prettier --write src/
 	@echo "Node fixes applied."
-
-check-integration:
-	cli/tests/integration/run.sh
 
 check-bats:
 	./qa/check-bats

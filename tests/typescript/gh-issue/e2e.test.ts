@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../../..');
-const ISSUE_SCRIPT = path.join(REPO_ROOT, 'base/opencode/skills/shared-task/scripts/gh-issue.ts');
+const ISSUE_SCRIPT = path.join(REPO_ROOT, 'base/skills/shared-task/scripts/gh-issue.ts');
 
 const require = createRequire(import.meta.url);
 const TSX_CLI = require.resolve('tsx/cli');

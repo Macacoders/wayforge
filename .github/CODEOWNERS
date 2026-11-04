@@ -6,12 +6,12 @@
 /.github/CODEOWNERS            @Macacoders/wayforge-maintainers
 
 # Agent, command, and skill templates — the protection rule stated in AGENTS.md.
-/base/opencode/agents/         @Macacoders/wayforge-maintainers
-/base/opencode/commands/       @Macacoders/wayforge-maintainers
-/base/opencode/skills/         @Macacoders/wayforge-maintainers
+/base/agents/                  @Macacoders/wayforge-maintainers
+/base/commands/                @Macacoders/wayforge-maintainers
+/base/skills/                  @Macacoders/wayforge-maintainers
 
 # Other source templates shipped to consumers.
 /base/AGENTS.md                @Macacoders/wayforge-maintainers
-/base/opencode/permissions/    @Macacoders/wayforge-maintainers
-/base/opencode/config/         @Macacoders/wayforge-maintainers
-/base/opencode/plugins/        @Macacoders/wayforge-maintainers
+/base/permissions/             @Macacoders/wayforge-maintainers
+/base/config/                  @Macacoders/wayforge-maintainers
+/base/plugins/                 @Macacoders/wayforge-maintainers
