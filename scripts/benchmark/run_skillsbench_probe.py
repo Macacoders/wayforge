@@ -285,11 +285,10 @@ def usage_record(evidence: dict[str, object]) -> dict[str, object]:
         },
         "cost_usd": str(cost) if cost is not None else None,
     }
-    reported_tokens = any(value is not None for value in record["tokens"].values())
-    reported_cache = any(value is not None for value in record["cache_tokens"].values())
-    if cost is not None and reported_tokens:
+    reported = [*record["tokens"].values(), *record["cache_tokens"].values()]
+    if cost is not None and all(value is not None for value in reported):
         record["status"] = "measured"
-    elif cost is not None or reported_tokens or reported_cache:
+    elif cost is not None or any(value is not None for value in reported):
         record["status"] = "partial"
     else:
         record["status"] = "unavailable"
@@ -314,11 +313,21 @@ def benchflow_usage(result: object) -> dict[str, object]:
     )
     cache_read = pick_number(cache.get("read"), tracking.get("cache_read_tokens"))
     cost = pick_number(tracking.get("cost_usd"), attribute(result, "cost_usd"))
-    measured = any(value is not None for value in (input_tokens, output_tokens, cache_read, cost))
+    reported_status = safe_identifier(tracking.get("status"))
+    # A source that declares itself unavailable is not measured, even when its
+    # legacy counters carry a leftover zero from a failed extraction.
+    if reported_status == "unavailable":
+        status = "unavailable"
+    elif None not in (input_tokens, output_tokens, cost):
+        status = "measured"
+    elif any(value is not None for value in (input_tokens, output_tokens, cache_read, cost)):
+        status = "partial"
+    else:
+        status = "unavailable"
     return {
         "source": "benchflow_acp",
-        "status": "measured" if measured else "unavailable",
-        "reported_status": safe_identifier(tracking.get("status")),
+        "status": status,
+        "reported_status": reported_status,
         "reported_source": safe_identifier(
             tracking.get("source") or tracking.get("usage_source")
         ),

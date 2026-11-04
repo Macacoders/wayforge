@@ -64,6 +64,18 @@ class UsageRecordTests(unittest.TestCase):
         self.assertEqual(record["status"], "partial")
         self.assertEqual(record["tokens"]["input"], 120)
 
+    def test_missing_component_keeps_the_record_partial(self):
+        record = probe.usage_record(evidence(tokens={"input": 1, "output": 1}))
+        self.assertEqual(record["status"], "partial")
+
+    def test_measured_requires_every_component_and_a_cost(self):
+        full = probe.usage_record(evidence())
+        self.assertEqual(full["status"], "measured")
+        for field in ("input", "output", "reasoning"):
+            tokens = {"input": 1, "output": 1, "reasoning": 1}
+            tokens.pop(field)
+            self.assertEqual(probe.usage_record(evidence(tokens=tokens))["status"], "partial")
+
     def test_unusable_cost_does_not_crash_or_become_zero(self):
         record = probe.usage_record(evidence(cost="unknown"))
         self.assertEqual(record["status"], "partial")
@@ -85,6 +97,7 @@ class BenchflowUsageTests(unittest.TestCase):
         )
         record = probe.benchflow_usage(result)
         self.assertEqual(record["source"], "benchflow_acp")
+        self.assertEqual(record["status"], "unavailable")
         self.assertEqual(record["reported_status"], "unavailable")
         self.assertEqual(record["input_tokens"], 0)
         self.assertEqual(record["output_tokens"], 0)
@@ -109,7 +122,7 @@ class BenchflowUsageTests(unittest.TestCase):
             "cost_usd": None,
         }
         record = probe.benchflow_usage(result)
-        self.assertEqual(record["status"], "measured")
+        self.assertEqual(record["status"], "partial")
         self.assertEqual(record["reported_source"], "agent_native_acp")
         self.assertEqual(record["input_tokens"], 563)
         self.assertEqual(record["cache_read_tokens"], 45184)
@@ -149,6 +162,31 @@ class CaptureIndexTests(unittest.TestCase):
         self.assertEqual(capture["status"], "metadata_unavailable")
         self.assertEqual(index[0]["evidence_status"], "summary_failed")
         self.assertNotIn("usage", index[0])
+
+    def test_child_session_listed_by_a_task_tool_is_exported_and_measured(self):
+        root_summary = evidence(tools=[
+            {
+                "agent": "delivery", "tool": "task", "status": "completed",
+                "skill_name": None, "target_agent": "code", "child_session_id": "ses_code",
+            },
+        ])
+        child_summary = evidence(session_id="ses_code", agent="code", tools=[])
+        env = FakeEnv([
+            ExecResult(stdout="1.18.35\n"),
+            ExecResult(stdout=json.dumps([{"id": "ses_root"}])),
+            ExecResult(stdout=json.dumps({"info": {"id": "ses_root"}, "messages": []})),
+            ExecResult(stdout=json.dumps(root_summary)),
+            ExecResult(stdout=json.dumps({"info": {"id": "ses_code"}, "messages": []})),
+            ExecResult(stdout=json.dumps(child_summary)),
+        ])
+        with tempfile.TemporaryDirectory() as temp:
+            capture = asyncio.run(probe.capture_sessions(env, Path(temp), "sk-private-key"))
+            index = json.loads((Path(temp) / "session-export-index.json").read_text())
+        self.assertEqual([record["id"] for record in index], ["ses_root", "ses_code"])
+        self.assertEqual(index[1]["parent_id"], "ses_root")
+        self.assertEqual(index[1]["agent"], "code")
+        self.assertEqual(index[1]["usage"]["status"], "measured")
+        self.assertEqual(capture["status"], "captured")
 
 
 if __name__ == "__main__":
