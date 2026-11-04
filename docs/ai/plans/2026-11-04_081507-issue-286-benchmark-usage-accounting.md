@@ -38,6 +38,15 @@ call is part of this plan.
 | 5 | No fixture or test models "agents ran, BenchFlow says 0 tokens / `cost_usd: null`", the exact #286 observation. | `test_report.py:11-49` |
 | 6 | Docs state the gap in prose only; no page says which figure is measured, estimated, or unavailable per source. | `scripts/benchmark/README.md:47-62` |
 
+Line numbers above are from commit `9d2a687` (pre-change); the symbol names are
+stable at HEAD. The upstream mechanism behind the zero/null result was not
+confirmed in BenchFlow 0.6.3's own source, which is outside this repository's
+boundary: the recorded evidence points at the ACP usage event existing only for
+a completed agent prompt (the 870-second completed attempt reported
+`agent_native_acp` tokens, the 900-second aborted one reported `unavailable`
+with zero counters), with child-agent omission as a second, separate loss. The
+workbench therefore fails closed instead of asserting a cause.
+
 ## Tasks
 
 ### Task 1: Emit a normalized, source-labelled usage record from the probe
@@ -218,12 +227,28 @@ All three tasks are implemented offline.
 
 | Task | Result |
 | --- | --- |
-| 1 | `run_skillsbench_probe.py` gained `usage_record()` (per-session usage in every index entry) and `benchflow_usage()` (BenchFlow's view printed as a separate source). Missing values stay `None`; a reported zero stays zero. New `test_run_skillsbench_probe.py` covers records, partial/unavailable cases, and the index shape via a fake env. |
-| 2 | `report.py` normalizes both session shapes, keeps `per_agent` totals, adds `usage.sources`, `usage.benchflow_undercount`, and `usage.missing_child_usage`, and treats an unfinished or unlinked `task` dispatch as unverifiable. `test_report.py` gained six cases including the 2026-11-02 shape; the synthetic example pair is regenerated. |
-| 3 | `scripts/benchmark/README.md` documents the measured/estimated/unavailable table; the compatibility report carries a 2026-11-04 offline accounting update. |
+| 1 | `run_skillsbench_probe.py` gained `usage_record()` (per-session usage in every index entry) and `benchflow_usage()` (BenchFlow's view printed as a separate source). Missing values stay `None`; a reported zero stays zero; a source declaring `unavailable` is never labelled `measured`. New `test_run_skillsbench_probe.py` covers records, partial/unavailable cases, child discovery, and the index shape via a fake env. |
+| 2 | `report.py` normalizes both session shapes, keeps `per_agent` totals, adds `usage.sources`, `usage.benchflow_undercount`, and `usage.missing_child_usage`, and treats an unfinished or unlinked `task` dispatch — or unparsed tool events — as unverifiable. `test_report.py` grew to cover the 2026-11-02 shape, missing components, undercount by cost gap, and the always-present BenchFlow source; the synthetic example pair is regenerated. |
+| 3 | `scripts/benchmark/README.md` documents the measured/estimated/unavailable table plus a "Not measured" list; the compatibility report carries a 2026-11-04 offline accounting update. |
 
-Validation: `python3 -m unittest discover -s scripts/benchmark -p 'test_*.py'` → 41 tests, OK
+Validation: `python3 -m unittest discover -s scripts/benchmark -p 'test_*.py'` → 51 tests, OK
 (two existing `test_prepare_comparison` cases need the ignored
 `temp/benchmark-testing` directory to exist). `report.example.output.json`
 regenerates byte-identically. No benchmark, Docker, or model call was made, and
 no live attempt was performed, so BenchFlow-side usage remains unconfirmed.
+
+### Deviations and accepted limits
+
+- The implemented key is `usage.sources`, not the `usage_sources` written in
+  Task 2 Step 1. The nested name reads as part of the existing `usage` block.
+- Task 2 Step 2 asked for `missing_child_usage: true` on the 2026-11-02-shaped
+  fixture, which Step 1's own rule contradicts: that attempt's single `task`
+  call completed and its `code` child was exported, so the flag is `false` and
+  the workflow gap is `dispatch_chain: not_observed`. The shipped test asserts
+  the rule, not the impossible value.
+- Accepted limits, documented in `scripts/benchmark/README.md`: helper and
+  `small_model` calls are not separately identifiable; a session's `cost` is
+  assumed session-local; retries and pre-session overhead are unattributed;
+  capture stops at 50 sessions without a truncation marker; and a `task`
+  dispatch with `status: error` is treated as incomplete even when its child
+  session was exported and measured (strict fail-closed choice).
