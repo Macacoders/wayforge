@@ -149,6 +149,8 @@ When `--ref` is specified, the installer:
 
 Always pin to a specific tag for production consuming repositories to ensure reproducible installs.
 
+**Optional update notifier**: releases also ship the `wayforge-update` plugin under `base/plugins/wayforge-update/`, installed into `.agents/plugins/wayforge-update/` but **not registered** — default installs are unchanged and no CLI behavior changes. Users opt in by manually registering the entrypoint in the generated runtime config and setting `WAYFORGE_UPDATE_CHECK=1` (or `true`); see README's "Optional: update notifier" section and [ADR-0049](docs/ai/decisions/ADR-0049-runtime-update-notifier.md). Installer plugin selection is tracked by #273.
+
 **Note**: When a consuming repo re-installs with a newer `--ref`, the installer detects the version change via the `.wayforge-managed` file (see ADR-0009) and applies the appropriate upgrade logic.
 
 ### Install / uninstall contract
