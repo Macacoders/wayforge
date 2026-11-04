@@ -66,6 +66,31 @@ function captureStdout(): string[] {
   return stdout;
 }
 
+/** Helper: spy on process.stderr and return the captured writes */
+function captureStderr(): string[] {
+  const stderr: string[] = [];
+  vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+    stderr.push(String(chunk));
+    return true;
+  });
+  return stderr;
+}
+
+/** Helper: assert resolveToken() fails safely with actionable guidance and no leakage */
+async function expectActionableCredentialError(): Promise<void> {
+  const stdout = captureStdout();
+  const stderr = captureStderr();
+
+  const error = await gh.resolveToken().catch((err: unknown) => err as Error);
+  expect(error.message).toContain(
+    'GITHUB_TOKEN to a fine-grained personal access token for this repository',
+  );
+  expect(error.message).toContain('gh auth login');
+  expect(error.message).not.toContain('gh-credential-sentinel');
+  expect(stdout).toHaveLength(0);
+  expect(stderr).toHaveLength(0);
+}
+
 /** All 12 required labels as GitHub API objects */
 const ALL_REQUIRED_LABELS_API = gh.REQUIRED_LABELS.map((name) => ({ name }));
 
@@ -333,20 +358,38 @@ describe('resolveToken', () => {
 		});
 	});
 
-	it.each([
-		['gh is unavailable', () => { throw new Error('credential-bearing subprocess output'); }],
-		['gh returns an empty token', () => '   \n'],
-	])('fails safely when %s', async (_caseName, result) => {
+	it('throws actionable guidance when gh is not installed (ENOENT)', async () => {
 		delete process.env.GITHUB_TOKEN;
 		delete process.env.GH_TOKEN;
-		mockExecFileSync.mockImplementation(result);
+		const enoent = new Error('gh-credential-sentinel') as NodeJS.ErrnoException;
+		enoent.code = 'ENOENT';
+		mockExecFileSync.mockImplementation(() => {
+			throw enoent;
+		});
 
-		const error = await gh.resolveToken().catch((err: unknown) => err as Error);
-		expect(error.message).toContain(
-			'GITHUB_TOKEN to a fine-grained personal access token for this repository',
-		);
-		expect(error.message).toContain('gh auth login');
-		expect(error.message).not.toContain('credential-bearing subprocess output');
+		await expectActionableCredentialError();
+	});
+
+	it('throws actionable guidance when gh is installed but unauthenticated', async () => {
+		delete process.env.GITHUB_TOKEN;
+		delete process.env.GH_TOKEN;
+		const unauthenticated = new Error('gh-credential-sentinel') as NodeJS.ErrnoException & {
+			status?: number;
+		};
+		unauthenticated.status = 1;
+		mockExecFileSync.mockImplementation(() => {
+			throw unauthenticated;
+		});
+
+		await expectActionableCredentialError();
+	});
+
+	it('throws actionable guidance when gh returns an empty token', async () => {
+		delete process.env.GITHUB_TOKEN;
+		delete process.env.GH_TOKEN;
+		mockExecFileSync.mockReturnValue('   \n');
+
+		await expectActionableCredentialError();
 	});
 });
 
