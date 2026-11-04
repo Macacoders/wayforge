@@ -16,15 +16,27 @@ Use GitHub Issues as the operational source of truth for shared team tasks in th
 - Status is tracked with labels (`status:to-do`, `status:doing`, `status:blocked`) plus assignee state.
 - Duplicate-claim prevention is process-based: verify assignee and `status:doing`, then assign + label + comment before implementation.
 - Each person/collaborator uses one responsible agent/session for GitHub Issue interactions in this repository.
-- Credentials policy for issue operations:
+- Credentials policy for issue operations (superseded; historical rationale):
   - Each collaborator uses their own fine-grained token scoped to this repository only.
   - Minimum permissions are Metadata (read-only) and Issues (read/write).
-  - Tokens are not shared and broad/global `gh` credentials are not used for shared task operations.
-  - Use repository-local `GH_CONFIG_DIR` (for example, `.gh-config/`) and explicit repository targeting.
+  - Tokens are not shared and broad/global `gh` credentials were not used for shared task operations.
+  - Repository-local `GH_CONFIG_DIR` was used with explicit repository targeting.
   - Repository resolution order is `GH_REPO` first, otherwise derive `OWNER/REPO` from `git remote get-url origin`.
   - Do not require `gh repo view` because issue-scoped tokens may not have broader repository permissions.
 
 Open unresolved tasks from `docs/ai/backlog/tasks.jsonl` were migrated to GitHub Issues, and the local JSONL backlog was removed. Durable task state now belongs in GitHub Issues; durable design context belongs in ADRs, plans, architecture notes, and short logs.
+
+## Credential-policy supersession (2026-10-27)
+
+Only the credential-policy subsection above is superseded. Its original
+repository-local credential rationale is retained as historical context; the
+decision to use GitHub Issues as the shared-task tracker remains accepted.
+
+Per ADR-0016's 2026-10-27 reversal, the current credential contract is
+`GITHUB_TOKEN` → `GH_TOKEN` → optional internal `gh auth token` fallback.
+Environment tokens remain suitable for fine-grained, repository-scoped access;
+the fallback uses an already-authenticated, machine-wide `gh` login. Refer to
+ADR-0016 for the current migration and credential-handling boundary.
 
 ## Consequences
 

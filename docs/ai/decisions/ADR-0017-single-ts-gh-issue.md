@@ -3,6 +3,7 @@
 **Originally:** 2026-06-23 (Replace Bash/PowerShell gh-issue with Single TypeScript Script)
 **Broadened:** 2026-07-02 (Generalized to all tooling and skill scripts)
 **Amended:** 2026-10-06 (Node.js >= 18 requirement is provisioned by the ai-config one-shot installer when ai-config is installed through it — see ADR-0035 Decision 11)
+**Amended:** 2026-10-27 (gh-issue credential fallback delegates to `gh`; the former direct auth-helper integration is historical)
 **Status:** Accepted
 
 ## Context
@@ -31,10 +32,10 @@ Adopt TypeScript as the main language for all operational tooling scripts and sk
 
 **gh-issue.ts** (Issue #84):
 - Single TypeScript script replacing two legacy scripts
-- Native `fetch` (Node 18+) against the GitHub REST API — no `gh` CLI dependency
-- Direct `import { getValidToken } from './gh-app-auth.ts'` — no subprocess
-- Auth order: `GITHUB_TOKEN` → `GH_TOKEN` → `getValidToken()` (cache → refresh → device flow)
-- 88 vitest tests under `tests/typescript/gh-issue/`
+- Native `fetch` (Node 18+) against the GitHub REST API; the `gh` CLI is not an
+  API client dependency, but is an optional credential source.
+- Auth order: `GITHUB_TOKEN` → `GH_TOKEN` → internal `gh auth token` lookup.
+- Tests for the helper live under `tests/typescript/gh-issue/`.
 - **temp-file fallback** (Issue #168): `buildPRBody()` reads `temp/pr-body-<issue>.md` when it exists (agent pre-population mode) before falling back to template or hardcoded body
 - See ponytail simplifications below
 
@@ -58,7 +59,8 @@ Adopt TypeScript as the main language for all operational tooling scripts and sk
 - Shared utilities emerging organically (e.g., `scripts/lib/git.ts`)
 - **2026-07-03 update**: Both `gh-issue.ts` and `ai-memory.ts` establish a convention of an inline one-liner `git` wrapper (`const git = (args, cwd?, t?) => execFileSync('git', args, {encoding:'utf8', cwd, timeout: t}).trim()`) rather than importing from `scripts/lib/git.ts`. A shared skill-script utility library is deferred via `ponytail:` comments for future extraction when more than two skill scripts share a pattern.
 - Vitest provides consistent test framework across all TypeScript scripts
-- No `gh` CLI dependency for gh-issue — works wherever `npx tsx` runs
+- GitHub API operations do not depend on the `gh` CLI; when no environment
+  token is supplied, its authenticated credential is an optional fallback
 - Consuming repositories need Node.js (already required for OpenCode)
 
 **Negative:**
@@ -68,7 +70,9 @@ Adopt TypeScript as the main language for all operational tooling scripts and sk
 ## ADRs Affected
 
 - **ADR-0027**: The "keep both scripts in sync" constraint is superseded (single script per tool).
-- **ADR-0016**: Auth helper integration is a direct import rather than subprocess.
+- **ADR-0016**: Historical note: at the time this ADR was written, auth-helper
+  integration was a direct import rather than a subprocess. This was superseded
+  by the 2026-10-27 credential-fallback amendment above.
 - Earlier separate ADRs for release migration and skill-script policy were absorbed into this broader decision — their numbers are released for future use.
 
 ## Simplification (2026-06-25)

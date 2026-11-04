@@ -164,19 +164,6 @@ export async function interactiveCommand(): Promise<void> {
 			0,
 		)
 
-		console.log('\nGitHub App for issue management (/issue command):')
-		console.log(
-			'  If you have a GitHub App with Issues and PR permissions, enter its Client ID below.',
-		)
-		console.log(
-			'  Leave blank to skip — you can configure it later in .gh-config/app.yml',
-		)
-		const ghAppClientIdInput = (
-			await rl.question('GitHub App Client ID (leave blank to skip): ')
-		).trim()
-		const ghAppClientId =
-			ghAppClientIdInput === '' ? undefined : ghAppClientIdInput
-
 		console.log('\nProvider connection instructions (not automated):')
 		if (providers.includes('openai')) {
 			console.log(
@@ -217,9 +204,6 @@ export async function interactiveCommand(): Promise<void> {
 		}
 		console.log(`  Dry run: ${String(dryRun)}`)
 		console.log(`  Force: ${String(force)}`)
-		console.log(
-			`  GitHub App Client ID: ${ghAppClientId ?? '(not set — configure later in .gh-config/app.yml)'}`,
-		)
 
 		const proceedInput = (
 			await rl.question('\nProceed with install? [Y/n]: ')
@@ -239,7 +223,6 @@ export async function interactiveCommand(): Promise<void> {
 			smallModel: smallModelOverride,
 			dryRun,
 			force,
-			ghAppClientId,
 			noTrack: false,
 		}
 

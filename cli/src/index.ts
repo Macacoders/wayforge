@@ -51,10 +51,6 @@ program
 		'Fetch source from a specific Git ref (tag, branch, commit) on GitHub. Without --ref, installs from the local wayforge source tree.',
 	)
 	.option(
-		'--gh-app-client-id <id>',
-		'GitHub App Client ID for issue management (Iv1...). Creates .gh-config/app.yml.',
-	)
-	.option(
 		'--dry-run',
 		'Print planned operations without modifying files.',
 		false,
@@ -77,7 +73,6 @@ program
 			smallModel: options.smallModel as string | undefined,
 			runtime: options.runtime as Runtime,
 			ref: options.ref as string | undefined,
-			ghAppClientId: options.ghAppClientId as string | undefined,
 			dryRun: Boolean(options.dryRun),
 			force: Boolean(options.force),
 			skipNodeCheck: Boolean(options.skipNodeCheck),

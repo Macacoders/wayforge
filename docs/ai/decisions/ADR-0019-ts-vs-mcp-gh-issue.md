@@ -2,6 +2,10 @@
 
 **Date:** 2026-07-01
 **Status:** Accepted
+**Amended:** 2026-10-27 — the original comparison below is retained as a
+historical record. The current TypeScript-native credential boundary is
+`GITHUB_TOKEN` → `GH_TOKEN` → an internal `gh auth token` lookup; `gh` remains
+an optional credential source, not the API client.
 
 ## Context
 
@@ -9,22 +13,22 @@ Issue #16 originally posed the question: **"Evaluate `gh` CLI vs MCP for shared 
 
 Since the issue was filed, the landscape shifted significantly:
 
-1. **Issue #84 (2026-06-16)** replaced the Bash/PowerShell `gh` CLI wrappers with a single TypeScript script (`gh-issue.ts`) using native `fetch` against the GitHub REST API. The `gh` CLI dependency was completely eliminated.
+1. **Issue #84 (2026-06-16)** replaced the Bash/PowerShell `gh` CLI wrappers with a single TypeScript script (`gh-issue.ts`) using native `fetch` against the GitHub REST API. The `gh` CLI was eliminated as an API-client dependency.
 2. **Issue #120/#121 (2026-06-25)** applied ponytail simplification: simplified retry, slugify, eliminated N+1 API calls, and inlined dead abstractions. Net −62 lines.
 3. **ADR-0017** documents the single-TypeScript-script decision.
-4. **ADR-0016** documents the move from PAT to GitHub App Device Flow authentication.
+4. **ADR-0016** records the then-current GitHub App Device Flow authentication decision.
 
-The question is now: **Keep the current TypeScript-native approach (`gh-issue.ts` + `gh-app-auth.ts` via native `fetch`) or migrate to the GitHub MCP Server (`github/github-mcp-server`)?**
+The question was: **Keep the TypeScript-native approach (native `fetch`) or migrate to the GitHub MCP Server (`github/github-mcp-server`)?**
 
 ## Options Evaluated
 
-### Option A: TypeScript-native (current)
+### Option A: TypeScript-native (original comparison)
 
-- `gh-issue.ts`: ~1,020 lines, pure TypeScript, native `fetch`
-- `gh-app-auth.ts`: ~359 lines, GitHub App Device Flow OAuth
-- 132 vitest tests (85 for gh-issue + 47 for gh-app-auth) with mocked API and git commands
-- 9 commands: `check`, `labels-check`, `list`, `create`, `claim`, `assign`, `release`, `close`, `prclose`, `show`
-- No runtime dependencies beyond `npx tsx` (already required by the project)
+- At the time of this decision, `gh-issue.ts` plus its Device Flow helper used
+  native `fetch` with mocked API and git commands.
+- Supported operations include `check`, `labels-check`, issue lifecycle commands,
+  and the coordinated `prclose` workflow.
+- No API-client runtime dependency beyond `npx tsx` (already required by the project)
 - Works on all platforms via Node.js
 - No Docker, no Go, no MCP protocol layer
 
@@ -60,19 +64,22 @@ The question is now: **Keep the current TypeScript-native approach (`gh-issue.ts
 
 | Dimension | TS-native | MCP Remote | MCP Local (Docker) |
 |-----------|-----------|------------|-------------------|
-| **Auth model** | GitHub App Device Flow OAuth | PAT in `Authorization` header | OAuth auto-login or PAT |
-| **Credentials on disk** | Cached OAuth token in `.gh-config/github-token.json` (hardened with `icacls` on Windows) | PAT in `opencode.json` or env var | OAuth token in memory (Docker) or PAT in config |
-| **Credential lifetime** | Token expires, refresh tokens extend sessions transparently | PAT persists until manually revoked | Token in memory only (Docker OAuth); PAT if used |
-| **Exposure risk** | Low — OAuth token, repo-scoped via GitHub App | Medium — PAT in config or env var | Low (OAuth) or Medium (PAT) |
-| **User experience** | One-time browser authorization | Create and paste PAT | OAuth browser login (Docker) or PAT setup |
+| **Auth model** | Environment token, then internal GitHub CLI credential lookup | PAT in `Authorization` header | OAuth auto-login or PAT |
+| **Credentials on disk** | None managed by this workflow | PAT in `opencode.json` or env var | OAuth token in memory (Docker) or PAT in config |
+| **Credential lifetime** | Managed by the selected environment source or GitHub CLI | PAT persists until manually revoked | Token in memory only (Docker OAuth); PAT if used |
+| **Exposure risk** | Depends on secure environment/CLI credential handling | Medium — PAT in config or env var | Low (OAuth) or Medium (PAT) |
+| **User experience** | Configure a repository-scoped token or authenticate GitHub CLI | Create and paste PAT | OAuth browser login (Docker) or PAT setup |
 
-**Finding:** The current Device Flow approach is more secure than the PAT-based MCP Remote mode. The MCP Local mode can use OAuth but requires Docker.
+**Finding (amended 2026-10-27):** The TypeScript-native approach avoids
+workflow-managed credential files and still avoids Docker. Securely injected,
+repo-scoped tokens or a user-managed GitHub CLI login remain its credential
+boundary; the MCP Local mode still requires Docker.
 
 ### 3. Testability
 
 | Dimension | TS-native | MCP Server |
 |-----------|-----------|------------|
-| **Test count** | 132 tests (85 + 47) | No test infra in this project |
+| **Test coverage** | Deterministic helper tests with mocked API and git commands | No test infra in this project |
 | **Test framework** | vitest, mocked API (`fetch`) + mocked git (`execFileSync`) | Would require Go server or MCP protocol mocking |
 | **Test speed** | ~3.5s | Unknown — likely slower due to Docker/protocol overhead |
 | **Determinism** | Full — all external calls mocked | Unknown — depends on mock strategy |
@@ -84,7 +91,7 @@ The question is now: **Keep the current TypeScript-native approach (`gh-issue.ts
 
 | Dimension | TS-native | MCP Server |
 |-----------|-----------|------------|
-| **Context footprint** | ~1,020 lines of owned code | Full MCP tool registry (dozens of tools) |
+| **Context footprint** | Purpose-built owned helper code | Full MCP tool registry (dozens of tools) |
 | **Protocol overhead** | None — direct HTTP | JSON-RPC over stdio or HTTP |
 | **Official docs warning** | N/A | *"The GitHub MCP server can add a lot of tokens to your context. Consider limiting toolsets..."* |
 | **Per-operation tokens** | Equal to HTTP request + response | MCP protocol framing + tool registration + request/response |
@@ -98,16 +105,16 @@ The question is now: **Keep the current TypeScript-native approach (`gh-issue.ts
 | `npx tsx` | ✅ Required | ✅ Required | ✅ Required |
 | Docker | ❌ Not needed | ❌ Not needed | ✅ Required |
 | Go toolchain | ❌ Not needed | ❌ Not needed | ❌ Optional (build from source) |
-| GitHub PAT | ❌ Not needed | ✅ Required | ⚠️ Optional (OAuth alternative) |
+| GitHub credential | Fine-grained PAT or existing `gh` login | ✅ PAT required | ⚠️ Optional (OAuth alternative) |
 | OpenCode MCP config | ❌ Not needed | ✅ Required | ✅ Required |
 
-**Finding:** The MCP Remote mode adds a PAT dependency and MCP configuration. The MCP Local mode adds Docker. The current approach adds zero additional dependencies beyond what the project already requires.
+**Current implication (amended 2026-10-27):** MCP Remote adds PAT configuration and MCP Local adds Docker. The current approach has no workflow-managed credential file or API-client dependency; it requires a securely supplied token or an existing `gh` login, with `gh` optional when an environment token is supplied.
 
 ### 6. Maintenance
 
 | Dimension | TS-native | MCP Server |
 |-----------|-----------|------------|
-| **Owned code** | ~1,379 lines (gh-issue.ts + gh-app-auth.ts) | Zero owned code for API calls |
+| **Owned code** | Purpose-built TypeScript helper | Zero owned code for API calls |
 | **Configuration** | None — direct script invocation | OpenCode MCP config in opencode.json |
 | **Server updates** | None — fully owned | Server maintained by GitHub (but breaking changes possible) |
 | **Bug fixes** | Full control | Depends on upstream release cycle |
@@ -121,8 +128,8 @@ The question is now: **Keep the current TypeScript-native approach (`gh-issue.ts
 | Concern | Status with TS-native | Status with MCP |
 |---------|----------------------|----------------|
 | PowerShell quoting | ✅ **Moot** — TypeScript script eliminated shell-specific quoting (issue #84) | ✅ Not applicable (MCP protocol) |
-| `gh` CLI dependency | ✅ **Moot** — eliminated in issue #84 | ❌ MCP adds new dependencies (Docker/PAT) |
-| Token scope/security | ✅ Device Flow, no stored PAT | ❌ PAT required for Remote mode |
+| `gh` CLI dependency | ✅ API operations remain native; CLI is an optional credential fallback | ❌ MCP adds new dependencies (Docker/PAT) |
+| Token scope/security | ✅ No workflow-managed credential file; use a repo-scoped token or managed CLI login | ❌ PAT required for Remote mode |
 | Platform portability | ✅ All platforms via Node.js | ✅ All platforms via Docker/Go |
 | Tool call efficiency | ✅ Single command per operation | ❌ 3-6+ tool calls per operation |
 | Maintenance burden | ✅ Single TypeScript file | ✅ Zero API code, but MCP config + testing |
@@ -133,17 +140,20 @@ The question is now: **Keep the current TypeScript-native approach (`gh-issue.ts
 
 ### Rationale
 
-1. **The original problem is already solved.** The `gh` CLI dependency was eliminated, PowerShell quoting issues are moot, and the script is battle-tested with 132 tests across all platforms.
+1. **The original problem is already solved.** PowerShell quoting issues are moot, and the TypeScript helper remains covered by deterministic tests across supported platforms. GitHub CLI is only an optional credential fallback, not an API implementation dependency.
 
-2. **Feature gap is too large.** The MCP server cannot replicate 5 of 9 commands (`labels-check`, `claim`, `assign`, `release`, `prclose`) as single operations. The `prclose` command alone requires coordinating git operations with API calls in a way no MCP tool can match.
+2. **Feature gap is too large.** The MCP server cannot replicate several
+project-specific workflows (`labels-check`, `claim`, `assign`, `release`, and
+`prclose`) as single operations. The `prclose` command alone requires
+coordinating git operations with API calls in a way no MCP tool can match.
 
-3. **Security regression.** The current Device Flow OAuth is more secure than storing a PAT in OpenCode configuration. Remote MCP mode requires PAT; Local mode requires Docker.
+3. **Security boundary.** The helper does not manage credential files; it uses securely injected, repo-scoped tokens or an existing GitHub CLI login. Remote MCP mode requires PAT; Local mode requires Docker.
 
 4. **Token overhead.** The MCP server's own documentation warns about context window pressure from tool registration. The TS approach has zero protocol overhead.
 
-5. **Testability loss.** 132 deterministic tests would require complex MCP mocking to replace.
+5. **Testability loss.** The existing deterministic helper tests would require complex MCP mocking to replace.
 
-6. **Dependency cost.** MCP adds Docker (local) or PAT management (remote) as requirements. The current approach needs only `npx tsx`.
+6. **Dependency cost.** MCP adds Docker (local) or PAT management (remote) as requirements. The current approach needs `npx tsx` and a GitHub credential; `gh` is optional as a credential fallback.
 
 ### What Would Change the Decision
 
@@ -153,9 +163,9 @@ The question is now: **Keep the current TypeScript-native approach (`gh-issue.ts
 
 None of these conditions are met today.
 
-## Consequences
+## Consequences (original decision record)
 
-- The existing `gh-issue.ts` + `gh-app-auth.ts` approach continues as the shared-task workflow implementation.
+- At the time of the original decision, the TypeScript-native `gh-issue.ts` approach continued as the shared-task workflow implementation. Its current credential resolution is documented in ADR-0016's supersession and this ADR's 2026-10-27 amendment.
 - No changes to `SKILL.md`, `issue.md`, `permissions/agents.yml`, or tests.
 - Issue #16 will be updated with this analysis and closed.
 - The GitHub MCP Server remains available as a general-purpose tool for future needs (e.g., repository browsing, code search, Actions monitoring) if those use cases arise.
@@ -163,7 +173,7 @@ None of these conditions are met today.
 ## ADRs Affected
 
 - **ADR-0017** (Single TS gh-issue): Unchanged — this ADR confirms the TS-native direction.
-- **ADR-0016** (GitHub App Device Flow): Unchanged — auth model remains the same.
+- **ADR-0016** (GitHub App Device Flow): superseded on 2026-10-27; this ADR's TypeScript-native versus MCP decision remains unchanged.
 
 ## References
 
