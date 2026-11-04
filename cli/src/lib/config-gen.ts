@@ -84,9 +84,12 @@ export function buildProviderBlockJson(
 		)
 	}
 
-	if (selected.includes('laberit')) {
+	if (selected.includes('openai-compatible')) {
 		fragments.push(
-			readFragment(sourceDir, 'providers/laberit-provider-block.jsonc'),
+			readFragment(
+				sourceDir,
+				'providers/openai-compatible-provider-block.jsonc',
+			),
 		)
 	}
 
@@ -126,21 +129,21 @@ export function buildAgentBlockJson(
 		)
 	} else if (
 		selected.includes('opencode-go') &&
-		selected.includes('laberit')
+		selected.includes('openai-compatible')
 	) {
 		fragment = readFragment(
 			sourceDir,
-			'agents/balanced-opencode-go-laberit-agent-block.jsonc',
+			'agents/balanced-opencode-go-openai-compatible-agent-block.jsonc',
 		)
 	} else if (selected.length === 1 && selected[0] === 'github-copilot') {
 		fragment = readFragment(
 			sourceDir,
 			'agents/balanced-github-copilot-only-agent-block.jsonc',
 		)
-	} else if (selected.length === 1 && selected[0] === 'laberit') {
+	} else if (selected.length === 1 && selected[0] === 'openai-compatible') {
 		fragment = readFragment(
 			sourceDir,
-			'agents/balanced-laberit-only-agent-block.jsonc',
+			'agents/balanced-openai-compatible-only-agent-block.jsonc',
 		)
 	} else if (selected.length === 1 && selected[0] === 'opencode-go') {
 		fragment = readFragment(
@@ -211,6 +214,12 @@ export function generateOpenCodeJsonc(opts: GenerateOptions): string {
 		opts.runtime,
 	)
 	const agentSection = agentBlock ? `${agentBlock},\n  ` : ''
+	// Kilo expects `skills` as an object with `paths`; a bare array is
+	// rejected as ConfigInvalidError. OpenCode keeps the array form.
+	const skillsLine =
+		opts.runtime === 'opencode'
+			? `"skills": ["${SKILLS_CONFIG_PATH}"],`
+			: `"skills": { "paths": ["${SKILLS_CONFIG_PATH}"] },`
 
 	return `${MANAGED_OPENCODE_HEADER}
 {
@@ -224,7 +233,7 @@ export function generateOpenCodeJsonc(opts: GenerateOptions): string {
 ${providerBlock}
   },
   "plugin": ["${PLUGIN_ENTRY}"],
-  "skills": ["${SKILLS_CONFIG_PATH}"],
+  ${skillsLine}
   "permission": {
     "skill": {
       "*": "allow"

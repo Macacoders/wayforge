@@ -3,7 +3,7 @@ import type { Provider, Runtime } from '../types.js'
 const VALID_PROVIDERS: Provider[] = [
 	'openai',
 	'github-copilot',
-	'laberit',
+	'openai-compatible',
 	'opencode-go',
 	'free-tier',
 ]
@@ -17,7 +17,7 @@ export function parseProviders(raw: string): Provider[] {
 		if (!VALID_PROVIDERS.includes(token as Provider)) {
 			console.error(`error: invalid provider '${token}' in --providers`)
 			console.error(
-				'       allowed values: openai, github-copilot, laberit, opencode-go, free-tier, or comma-separated combinations',
+				'       allowed values: openai, github-copilot, openai-compatible, opencode-go, free-tier, or comma-separated combinations',
 			)
 			process.exit(1)
 		}
@@ -92,17 +92,20 @@ export function resolveDefaultModels(selected: Provider[]): {
 		}
 	}
 
-	if (selected.includes('opencode-go') && selected.includes('laberit')) {
+	if (
+		selected.includes('opencode-go') &&
+		selected.includes('openai-compatible')
+	) {
 		return {
 			model: 'opencode-go/deepseek-v4.1-flash',
 			smallModel: 'opencode-go/muse-spark-1.3-contributor',
 		}
 	}
 
-	if (selected.length === 1 && selected[0] === 'laberit') {
+	if (selected.length === 1 && selected[0] === 'openai-compatible') {
 		return {
-			model: 'laberit/laberit-ai-preview',
-			smallModel: 'laberit/laberit-ai',
+			model: 'openai-compatible/kimi-k2.6',
+			smallModel: 'openai-compatible/kimi-k2.5',
 		}
 	}
 
@@ -138,9 +141,9 @@ export const FAST_MODELS: Record<
 		model: 'opencode-go/muse-spark-1.3-contributor',
 		smallModel: 'opencode-go/muse-spark-1.3-contributor',
 	},
-	laberit: {
-		model: 'laberit/laberit-ai',
-		smallModel: 'laberit/laberit-ai',
+	'openai-compatible': {
+		model: 'openai-compatible/kimi-k2.5',
+		smallModel: 'openai-compatible/kimi-k2.5',
 	},
 	'free-tier': { model: '', smallModel: '' },
 }
@@ -149,13 +152,13 @@ const FAST_MODEL_PRIORITY: Provider[] = [
 	'openai',
 	'github-copilot',
 	'opencode-go',
-	'laberit',
+	'openai-compatible',
 ]
 const FAST_SMALL_MODEL_PRIORITY: Provider[] = [
 	'github-copilot',
 	'openai',
 	'opencode-go',
-	'laberit',
+	'openai-compatible',
 ]
 
 // ponytail: rung 2 — shared with interactive.ts; prevents model-name duplication across 2 files

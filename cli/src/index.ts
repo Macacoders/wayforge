@@ -26,7 +26,7 @@ program
 	)
 	.option(
 		'--providers <list>',
-		'Provider set to enable: openai | github-copilot | laberit | opencode-go | free-tier | comma-separated combinations',
+		'Provider set to enable: openai | github-copilot | openai-compatible | opencode-go | free-tier | comma-separated combinations',
 		'free-tier',
 	)
 	.option(

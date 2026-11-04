@@ -19,7 +19,11 @@ import type { Runtime } from '../../src/types.js'
 
 const RUNTIMES: Runtime[] = ['opencode', 'kilocode']
 
-function installThroughCli(repo: string, providers: string): void {
+function installThroughCli(
+	repo: string,
+	providers: string,
+	extra: string[] = [],
+): void {
 	const result = spawnSync(
 		process.execPath,
 		[
@@ -30,6 +34,7 @@ function installThroughCli(repo: string, providers: string): void {
 			repo,
 			'--providers',
 			providers,
+			...extra,
 			'--skip-node-check',
 			'--no-track',
 		],
@@ -117,7 +122,11 @@ describe('install layout integration', () => {
 			expect(config).toContain(
 				'"plugin": ["./.agents/plugins/ponytail/ponytail.mjs"]',
 			)
-			expect(config).toContain('"skills": ["./.agents/skills"]')
+			expect(config).toContain(
+				runtime === 'opencode'
+					? '"skills": ["./.agents/skills"]'
+					: '"skills": { "paths": ["./.agents/skills"] }',
+			)
 			expect(config).not.toContain('.opencode/')
 
 			const pointerRoot = pointerRootFor(runtime)
@@ -214,15 +223,23 @@ describe('install layout integration', () => {
 				'utf8',
 			)
 			expect(config).toContain(enabledProviders)
-			expect(fs.pathExistsSync(path.join(repo, '.agents', 'agents'))).toBe(
-				true,
-			)
 			expect(
-				fs.pathExistsSync(path.join(repo, '.agents', 'commands', 'init.md')),
+				fs.pathExistsSync(path.join(repo, '.agents', 'agents')),
 			).toBe(true)
 			expect(
 				fs.pathExistsSync(
-					path.join(repo, '.agents', 'plugins', 'ponytail', 'ponytail.mjs'),
+					path.join(repo, '.agents', 'commands', 'init.md'),
+				),
+			).toBe(true)
+			expect(
+				fs.pathExistsSync(
+					path.join(
+						repo,
+						'.agents',
+						'plugins',
+						'ponytail',
+						'ponytail.mjs',
+					),
 				),
 			).toBe(true)
 			expectPointer(repo, '.opencode/agents', '.agents/agents')
@@ -237,6 +254,29 @@ describe('install layout integration', () => {
 			}
 		},
 	)
+
+	it('installs the openai-compatible provider through the CLI', () => {
+		installThroughCli(repo, 'openai-compatible')
+
+		const config = fs.readFileSync(
+			path.join(repo, configFileFor('opencode')),
+			'utf8',
+		)
+		expect(config).toContain(
+			'"enabled_providers": ["opencode", "openai-compatible"]',
+		)
+		expect(config).toContain('"openai-compatible":')
+		for (const model of [
+			'kimi-k2.6',
+			'kimi-k2.5',
+			'gpt-5.6-luna',
+			'kimi-k2.7-code',
+		]) {
+			expect(config).toContain(`"${model}": {`)
+		}
+		expect(config).toContain('"model": "openai-compatible/kimi-k2.6"')
+		expect(config).toContain('"small_model": "openai-compatible/kimi-k2.5"')
+	})
 
 	it('migrates a seeded legacy install into the .agents layout', async () => {
 		seedLegacyInstall(repo, [

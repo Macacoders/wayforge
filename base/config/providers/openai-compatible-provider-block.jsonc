@@ -1,6 +1,6 @@
-    "laberit": {
+    "openai-compatible": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Laberit AI",
+      "name": "OpenAI-compatible",
       "env": ["OPENAI_API_KEY"],
       "options": {
         "baseURL": "${OPENAI_BASE_URL}",
@@ -9,29 +9,33 @@
         }
       },
       "models": {
-        "laberit-ai-preview": {
-          "name": "Laberit AI Preview",
+        "kimi-k2.6": {
+          "name": "Kimi K2.6",
+          "id": "laberit-ai-preview",
           "limit": {
             "context": 262144,
             "output": 16384
           }
         },
-        "laberit-ai": {
-          "name": "Laberit AI",
+        "kimi-k2.5": {
+          "name": "Kimi K2.5",
+          "id": "laberit-ai",
           "limit": {
             "context": 131072,
             "output": 16384
           }
         },
-        "laberit-gpt-5.6-luna": {
+        "gpt-5.6-luna": {
           "name": "GPT-5.6-luna",
+          "id": "laberit-gpt-5.6-luna",
           "limit": {
             "context": 1000000,
             "output": 131072
           }
         },
-        "laberit-kimi-k2.7-code": {
+        "kimi-k2.7-code": {
           "name": "Kimi K2.7 Code",
+          "id": "laberit-kimi-k2.7-code",
           "limit": {
             "context": 262100,
             "output": 262100
