@@ -56,30 +56,28 @@ function errorResponse(status: number, message: string) {
   };
 }
 
+/** Helper: spy on a stream and return the captured writes */
+function captureStream(stream: NodeJS.WriteStream): string[] {
+  const writes: string[] = [];
+  vi.spyOn(stream, 'write').mockImplementation((chunk) => {
+    writes.push(String(chunk));
+    return true;
+  });
+  return writes;
+}
+
 /** Helper: spy on process.stdout and return the captured writes */
 function captureStdout(): string[] {
-  const stdout: string[] = [];
-  vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-    stdout.push(String(chunk));
-    return true;
-  });
-  return stdout;
+  return captureStream(process.stdout);
 }
 
-/** Helper: spy on process.stderr and return the captured writes */
-function captureStderr(): string[] {
-  const stderr: string[] = [];
-  vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
-    stderr.push(String(chunk));
-    return true;
-  });
-  return stderr;
-}
-
-/** Helper: assert resolveToken() fails safely with actionable guidance and no leakage */
-async function expectActionableCredentialError(): Promise<void> {
-  const stdout = captureStdout();
-  const stderr = captureStderr();
+/** Helper: mock the gh token subprocess, then assert resolveToken() fails safely with actionable guidance and no leakage */
+async function expectActionableCredentialError(
+  mockImpl: () => string,
+): Promise<void> {
+  const stdout = captureStream(process.stdout);
+  const stderr = captureStream(process.stderr);
+  mockExecFileSync.mockImplementation(mockImpl);
 
   const error = await gh.resolveToken().catch((err: unknown) => err as Error);
   expect(error.message).toContain(
@@ -329,6 +327,11 @@ describe('api retry behavior', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('resolveToken', () => {
+	beforeEach(() => {
+		delete process.env.GITHUB_TOKEN;
+		delete process.env.GH_TOKEN;
+	});
+
 	it('returns GITHUB_TOKEN env var', async () => {
 		process.env.GITHUB_TOKEN = 'from-env';
 		process.env.GH_TOKEN = 'should-be-ignored';
@@ -338,16 +341,13 @@ describe('resolveToken', () => {
 	});
 
   it('falls back to GH_TOKEN env var', async () => {
-    delete process.env.GITHUB_TOKEN;
-		process.env.GH_TOKEN = 'from-gh-env';
+    process.env.GH_TOKEN = 'from-gh-env';
 		const token = await gh.resolveToken();
 		expect(token).toBe('from-gh-env');
 		expect(mockExecFileSync).not.toHaveBeenCalled();
 	});
 
 	it('uses a token from gh when no environment token is set', async () => {
-		delete process.env.GITHUB_TOKEN;
-		delete process.env.GH_TOKEN;
 		mockExecFileSync.mockReturnValue('from-gh-cli\n');
 
 		await expect(gh.resolveToken()).resolves.toBe('from-gh-cli');
@@ -359,37 +359,25 @@ describe('resolveToken', () => {
 	});
 
 	it('throws actionable guidance when gh is not installed (ENOENT)', async () => {
-		delete process.env.GITHUB_TOKEN;
-		delete process.env.GH_TOKEN;
 		const enoent = new Error('gh-credential-sentinel') as NodeJS.ErrnoException;
 		enoent.code = 'ENOENT';
-		mockExecFileSync.mockImplementation(() => {
+		await expectActionableCredentialError(() => {
 			throw enoent;
 		});
-
-		await expectActionableCredentialError();
 	});
 
 	it('throws actionable guidance when gh is installed but unauthenticated', async () => {
-		delete process.env.GITHUB_TOKEN;
-		delete process.env.GH_TOKEN;
 		const unauthenticated = new Error('gh-credential-sentinel') as NodeJS.ErrnoException & {
 			status?: number;
 		};
 		unauthenticated.status = 1;
-		mockExecFileSync.mockImplementation(() => {
+		await expectActionableCredentialError(() => {
 			throw unauthenticated;
 		});
-
-		await expectActionableCredentialError();
 	});
 
 	it('throws actionable guidance when gh returns an empty token', async () => {
-		delete process.env.GITHUB_TOKEN;
-		delete process.env.GH_TOKEN;
-		mockExecFileSync.mockReturnValue('   \n');
-
-		await expectActionableCredentialError();
+		await expectActionableCredentialError(() => '   \n');
 	});
 });
 

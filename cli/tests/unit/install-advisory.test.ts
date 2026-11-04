@@ -19,7 +19,6 @@ import { captureLogs, installOptions, sourceDir } from '../helpers/install.js'
 describe('issue credential advisory', () => {
 	let tmpDir: string
 	let repo: string
-	let previousHome: string | undefined
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(
@@ -27,17 +26,12 @@ describe('issue credential advisory', () => {
 		)
 		repo = path.join(tmpDir, 'repo')
 		fs.mkdirpSync(repo)
-		previousHome = process.env.WAYFORGE_HOME
-		process.env.WAYFORGE_HOME = sourceDir
+		vi.stubEnv('WAYFORGE_HOME', sourceDir)
 	})
 
 	afterEach(() => {
+		vi.unstubAllEnvs()
 		vi.restoreAllMocks()
-		if (previousHome === undefined) {
-			delete process.env.WAYFORGE_HOME
-		} else {
-			process.env.WAYFORGE_HOME = previousHome
-		}
 		fs.removeSync(tmpDir)
 	})
 
