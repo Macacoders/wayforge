@@ -18,7 +18,10 @@ the child or skill. The full Wayforge workflow remains unproven. The
 - `run_skillsbench_probe.py` runs one human-supervised upstream attempt with
   mount inspection and the dedicated free-model key. It is not a repeated or
   budgeted evaluation runner. Do not invoke it while free requests are being
-  rejected or treat a partial reward as verified resolution.
+  rejected or treat a partial reward as verified resolution. It prints one
+  `usage` record for BenchFlow's own ACP view and writes a per-session `usage`
+  record into each `session-export-index.json` entry, so the index is
+  self-sufficient for reporting.
 - `run_evidence_canary.sh` runs one local, non-benchmark `/deliver` canary and
   extracts restricted session evidence. It stops promptly on the observed
   `Free usage limit reached` error.
@@ -31,7 +34,8 @@ the child or skill. The full Wayforge workflow remains unproven. The
   attempt. Preview the pinned smoke example with
   `python3 scripts/benchmark/evaluation_plan.py scripts/benchmark/evaluation.example.json`.
 - `report.py` renders an offline report from upstream-shaped result objects
-  and restricted session summaries. The checked-in
+  and restricted session summaries. It accepts either the report session shape
+  or the probe's `session-export-index.json` shape. The checked-in
   `report.example.input.json` / `report.example.output.json` pair is explicitly
   synthetic; its illustrative variant is not a benchmark result. Generate it
   with `python3 scripts/benchmark/report.py scripts/benchmark/report.example.input.json`.
@@ -44,6 +48,44 @@ the child or skill. The full Wayforge workflow remains unproven. The
   `python3 scripts/benchmark/prepare_comparison.py`. It makes no model,
   Docker, or verifier call; its manifest says `not_run`.
 
+## Usage accounting: measured, estimated, unavailable
+
+Until issue #286 the two usage sources were never combined: BenchFlow's
+flattened ACP counters could report zero tokens and an unknown cost for an
+attempt whose sessions recorded model use. A report now labels every figure
+with its source and its status, and a missing figure is never replaced by zero.
+
+| Figure | Meaning | How it can be wrong |
+| --- | --- | --- |
+| `usage.all_session_tokens` | Measured per-session tokens from the OpenCode export, summed over root **and** child sessions. `sources.session_export.per_agent` keeps the same numbers split by agent role. | Only as complete as the capture: a `task` call that never returned, or a session whose tool events were not parsed, leaves child usage unproven, so the total becomes `unverifiable`. |
+| `sources.benchflow_acp.*` | BenchFlow 0.6.3's own counters (`agent_native_acp`). The key is always present. | Partial by construction: it may omit child agents, so `0` can mean "not reported". When BenchFlow itself reports `status: unavailable`, this record is `unavailable` even if its legacy counters carry a leftover `0`. Never treated as proof of zero spend. |
+| `all_session_tokens.runtime_estimated_cost_usd` | Estimated cost: the sum of the costs OpenCode reports per session. | Usually `0` on free models; it is an estimate, not a bill. |
+| `provider_billed_cost_usd` | Measured cost, and only when `provider_billing_ref` points at a private billing extract. | `unverifiable` without that reference. The local budget ledger is a soft cap, not a provider-enforced one. |
+| `benchflow_undercount` | `true` when BenchFlow reported zero or missing tokens/cost while session totals show model use. | `unverifiable` when the two sources cannot be compared. Never read it as zero spend. |
+| `missing_child_usage` | `true` when a dispatch or export gap leaves some child usage unproven. | It describes dispatches and exports only, not whether the token total is measured: a measured total still reports `true` when a `task` event could not be parsed. It does not estimate the missing amount. |
+
+Totals, costs, and computed counts that cannot be measured are the string
+`unverifiable`. Individual sub-fields inside `sources.benchflow_acp` may instead
+be `null`, which means "not reported"; the source `status`
+(`measured`, `partial`, `unavailable`) is the field to trust first.
+
+### Not measured
+
+These figures stay outside the accounting model and must not be inferred from
+the report:
+
+- Helper and `small_model` calls (for example session-title generation) are
+  not separately identifiable in either source. Their tokens and cost are
+  `unverifiable` without a provider extract.
+- A session's reported `cost` is assumed to be session-local. If OpenCode ever
+  reported a cumulative value, `runtime_estimated_cost_usd` would double-count
+  root plus child sessions.
+- Retries, ACP reconnect overhead, and work before the first session are not
+  attributed to any attempt.
+- Session capture stops after 50 sessions with no truncation marker. A
+  dispatch whose child was not captured is still caught by
+  `missing_child_usage`, but a dispatched sibling beyond the cap is not.
+
 ## Task 2 execution contract still to integrate
 
 The runner should call the pinned upstream rollout for each explicitly chosen
@@ -55,9 +97,15 @@ an in-flight kill switch. A missing cost or child-agent usage record stops all
 following attempts. Timeout, budget exhaustion, runtime error, and upstream
 verifier failure are distinct outcomes; none is retried silently.
 
-The existing probe has not demonstrated complete child-agent usage or a
-credential boundary suitable for paid tasks. BenchFlow reported zero tokens
-and unknown cost for the 2026-11-02 attempt despite captured agent activity,
-so usage accounting also remains unverified. A live Task 2 smoke attempt and
-paid execution remain human-owned and unvalidated. No benchmark command is
-part of the regular test suite or `make check`.
+Usage accounting is now represented offline but still unproven against a live
+attempt. The probe records both sources, and `report.py` fails closed when a
+child session is missing or when a session's own numbers are incomplete;
+`budget_contract.py` and `evaluation_plan.py` already stop following attempts
+on incomplete usage. The existing probe has not demonstrated complete
+child-agent usage or a credential boundary suitable for paid tasks, and
+BenchFlow reported zero tokens and unknown cost for the 2026-11-02 attempt, so
+the accounting path needs one supervised confirmation before any budget or
+efficiency claim. A live Task 2 smoke attempt and paid execution remain
+human-owned and unvalidated. No benchmark command is part of the regular test
+suite or `make check`; run the offline checks with
+`python3 -m unittest discover -s scripts/benchmark -p 'test_*.py'`.

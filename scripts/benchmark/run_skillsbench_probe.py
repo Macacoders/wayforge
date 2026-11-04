@@ -247,6 +247,97 @@ def session_evidence(data: dict[str, object]) -> dict[str, object]:
     return evidence
 
 
+def measured_number(value: object) -> int | float | None:
+    """Return a metric the runtime actually reported, else None.
+
+    Missing or unusable data never becomes zero; a reported zero stays zero.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return value if value >= 0 else None
+
+
+def attribute(source: object, name: str) -> object:
+    return source.get(name) if isinstance(source, dict) else getattr(source, name, None)
+
+
+def pick_number(*values: object) -> int | float | None:
+    for value in values:
+        metric = measured_number(value)
+        if metric is not None:
+            return metric
+    return None
+
+
+def usage_record(evidence: dict[str, object]) -> dict[str, object]:
+    """Label one exported session's usage without inventing values."""
+    tokens = evidence.get("tokens") if isinstance(evidence.get("tokens"), dict) else {}
+    cache = evidence.get("cache_tokens") if isinstance(evidence.get("cache_tokens"), dict) else {}
+    cost = measured_number(evidence.get("cost"))
+    record: dict[str, object] = {
+        "source": "session_export",
+        "tokens": {
+            name: measured_number(tokens.get(name))
+            for name in ("input", "output", "reasoning")
+        },
+        "cache_tokens": {
+            name: measured_number(cache.get(name)) for name in ("read", "write")
+        },
+        "cost_usd": str(cost) if cost is not None else None,
+    }
+    reported = [*record["tokens"].values(), *record["cache_tokens"].values()]
+    if cost is not None and all(value is not None for value in reported):
+        record["status"] = "measured"
+    elif cost is not None or any(value is not None for value in reported):
+        record["status"] = "partial"
+    else:
+        record["status"] = "unavailable"
+    return record
+
+
+def benchflow_usage(result: object) -> dict[str, object]:
+    """Record BenchFlow's own usage view as a separate, partial source.
+
+    BenchFlow's flattened ACP counters may omit child agents, so this record
+    never replaces per-session totals and never turns "not reported" into 0.
+    """
+    tracking = attribute(result, "usage_tracking")
+    tracking = tracking if isinstance(tracking, dict) else {}
+    tokens = tracking.get("tokens") if isinstance(tracking.get("tokens"), dict) else {}
+    cache = tracking.get("cache_tokens") if isinstance(tracking.get("cache_tokens"), dict) else {}
+    input_tokens = pick_number(
+        tokens.get("input"), tracking.get("input_tokens"), attribute(result, "n_input_tokens")
+    )
+    output_tokens = pick_number(
+        tokens.get("output"), tracking.get("output_tokens"), attribute(result, "n_output_tokens")
+    )
+    cache_read = pick_number(cache.get("read"), tracking.get("cache_read_tokens"))
+    cost = pick_number(tracking.get("cost_usd"), attribute(result, "cost_usd"))
+    reported_status = safe_identifier(tracking.get("status"))
+    # A source that declares itself unavailable is not measured, even when its
+    # legacy counters carry a leftover zero from a failed extraction.
+    if reported_status == "unavailable":
+        status = "unavailable"
+    elif None not in (input_tokens, output_tokens, cost):
+        status = "measured"
+    elif any(value is not None for value in (input_tokens, output_tokens, cache_read, cost)):
+        status = "partial"
+    else:
+        status = "unavailable"
+    return {
+        "source": "benchflow_acp",
+        "status": status,
+        "reported_status": reported_status,
+        "reported_source": safe_identifier(
+            tracking.get("source") or tracking.get("usage_source")
+        ),
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "cache_read_tokens": cache_read,
+        "cost_usd": str(cost) if cost is not None else None,
+    }
+
+
 async def capture_sessions(env: object, jobs_dir: Path, key: str) -> dict[str, object]:
     """Export OpenCode sessions before BenchFlow removes the task container."""
     command = "/opt/benchflow/js-agents/bin/opencode"
@@ -345,6 +436,7 @@ async def capture_sessions(env: object, jobs_dir: Path, key: str) -> dict[str, o
                     )
                     record["agent"] = evidence.get("agent")
                     record["tool_events"] = evidence["tools"]
+                    record["usage"] = usage_record(evidence)
                     record["evidence_file"] = f"session-exports/{session_id}.evidence.json"
                     for tool_event in evidence["tools"]:
                         child_id = tool_event.get("child_session_id") if isinstance(tool_event, dict) else None
@@ -482,6 +574,7 @@ async def main(manifest_path: Path, key_path: Path, agent_timeout: int) -> int:
         "input_tokens": result.n_input_tokens,
         "output_tokens": result.n_output_tokens,
         "cost_usd": result.cost_usd,
+        "usage": benchflow_usage(result),
         "session_capture": session_capture,
         "jobs_dir": str(jobs_dir),
     }, default=str, indent=2))

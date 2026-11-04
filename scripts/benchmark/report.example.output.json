@@ -31,7 +31,29 @@
         "provider_billed_cost_usd": "unverifiable",
         "provider_billing_ref": null,
         "elapsed_seconds": "613.7",
-        "benchflow_tool_calls": 12
+        "benchflow_tool_calls": 12,
+        "sources": {
+          "session_export": {
+            "status": "unavailable",
+            "runtime_estimated_cost_usd": "unverifiable",
+            "per_agent": "unverifiable"
+          },
+          "benchflow_acp": {
+            "status": "unavailable",
+            "reported_status": null,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_read_tokens": 0,
+            "cost_usd": "unverifiable"
+          },
+          "provider_billed": {
+            "status": "unavailable",
+            "cost_usd": "unverifiable",
+            "billing_ref": null
+          }
+        },
+        "benchflow_undercount": "unverifiable",
+        "missing_child_usage": true
       },
       "relevant_skills": null,
       "sanitized_trace_ref": null,
@@ -68,12 +90,85 @@
           "reasoning": 0,
           "cache_read": 30,
           "cache_write": 0,
-          "runtime_estimated_cost_usd": "0"
+          "runtime_estimated_cost_usd": "0",
+          "per_agent": {
+            "code": {
+              "input": 100,
+              "output": 20,
+              "reasoning": 0,
+              "cache_read": 10,
+              "cache_write": 0,
+              "runtime_estimated_cost_usd": "0"
+            },
+            "delivery": {
+              "input": 100,
+              "output": 20,
+              "reasoning": 0,
+              "cache_read": 10,
+              "cache_write": 0,
+              "runtime_estimated_cost_usd": "0"
+            },
+            "reviewer": {
+              "input": 100,
+              "output": 20,
+              "reasoning": 0,
+              "cache_read": 10,
+              "cache_write": 0,
+              "runtime_estimated_cost_usd": "0"
+            }
+          }
         },
         "provider_billed_cost_usd": "0",
         "provider_billing_ref": "example/provider-billing.json",
         "elapsed_seconds": "42.5",
-        "benchflow_tool_calls": 3
+        "benchflow_tool_calls": 3,
+        "sources": {
+          "session_export": {
+            "status": "measured",
+            "runtime_estimated_cost_usd": "0",
+            "per_agent": {
+              "code": {
+                "input": 100,
+                "output": 20,
+                "reasoning": 0,
+                "cache_read": 10,
+                "cache_write": 0,
+                "runtime_estimated_cost_usd": "0"
+              },
+              "delivery": {
+                "input": 100,
+                "output": 20,
+                "reasoning": 0,
+                "cache_read": 10,
+                "cache_write": 0,
+                "runtime_estimated_cost_usd": "0"
+              },
+              "reviewer": {
+                "input": 100,
+                "output": 20,
+                "reasoning": 0,
+                "cache_read": 10,
+                "cache_write": 0,
+                "runtime_estimated_cost_usd": "0"
+              }
+            }
+          },
+          "benchflow_acp": {
+            "status": "measured",
+            "reported_status": null,
+            "input_tokens": 300,
+            "output_tokens": 60,
+            "cache_read_tokens": 30,
+            "cost_usd": "0"
+          },
+          "provider_billed": {
+            "status": "measured",
+            "cost_usd": "0",
+            "billing_ref": "example/provider-billing.json"
+          }
+        },
+        "benchflow_undercount": false,
+        "missing_child_usage": false
       },
       "relevant_skills": [
         "delivery-policy"

@@ -43,6 +43,60 @@ def nonnegative_int(value: object) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
 
 
+def normalized_session(session: object) -> dict[str, Any]:
+    """Accept either the report's session shape or the probe's export-index shape.
+
+    The probe's index carries `id`, `tool_events`, and a nested `usage` block;
+    the report's own shape carries `session_id`, `tools`, `tokens`,
+    `cache_tokens`, and `cost`. Normalizing keeps one code path for both and lets
+    a probe export index be used as report input directly.
+    """
+    if not isinstance(session, dict):
+        session = {}
+    usage = session.get("usage") if isinstance(session.get("usage"), dict) else {}
+    tokens = session.get("tokens")
+    if not isinstance(tokens, dict):
+        tokens = usage.get("tokens")
+    cache = session.get("cache_tokens")
+    if not isinstance(cache, dict):
+        cache = usage.get("cache_tokens")
+    cost = session.get("cost")
+    if cost is None:
+        cost = usage.get("cost_usd")
+    tools = session.get("tools")
+    if not isinstance(tools, list):
+        tools = session.get("tool_events")
+    return {
+        "session_id": session.get("session_id") or session.get("id"),
+        "agent": session.get("agent"),
+        "tokens": tokens,
+        "cache_tokens": cache,
+        "cost": cost,
+        "tools": tools if isinstance(tools, list) else None,
+    }
+
+
+def child_usage_complete(sessions: list[dict[str, Any]], ids: set[Any]) -> bool:
+    """True only when every `task` dispatch has an exported child session.
+
+    A dispatch that never completed, or that returned no session identifier,
+    leaves the child's usage unobserved, so the attempt total is unverifiable
+    rather than undercounted.
+    """
+    for session in sessions:
+        tools = session.get("tools")
+        if not isinstance(tools, list):
+            # Tool events that were never parsed prove nothing about dispatches.
+            return False
+        for tool in tools:
+            if not isinstance(tool, dict) or tool.get("tool") != "task":
+                continue
+            child = tool.get("child_session_id")
+            if tool.get("status") != "completed" or not child or child not in ids:
+                return False
+    return True
+
+
 def relative_ref(value: object, label: str) -> str | None:
     if value is None:
         return None
@@ -82,6 +136,7 @@ def workflow_observation(
     }
     if capture_status != "captured" or not sessions:
         return absent
+    sessions = [normalized_session(session) for session in sessions]
     roots = [s for s in sessions if s.get("agent") == "delivery"]
     if len(roots) != 1:
         return absent
@@ -90,7 +145,7 @@ def workflow_observation(
     tools = root.get("tools")
     if not isinstance(tools, list):
         return absent
-    all_tools = [tool for session in sessions for tool in session.get("tools", [])]
+    all_tools = [tool for session in sessions for tool in (session.get("tools") or [])]
     skill_calls = [
         tool for tool in all_tools
         if tool.get("tool") == "skill" and tool.get("status") == "completed"
@@ -134,12 +189,20 @@ def workflow_observation(
 def complete_session_usage(
     capture_status: str, sessions: list[dict[str, Any]],
 ) -> dict[str, Any] | None:
+    """Sum measured session usage, or return None when any part is unproven.
+
+    Accepts both the report's session shape and the probe's export-index shape.
+    Per-agent totals sit inside this measured block so no consumer silently
+    drops them, and missing data is never replaced by zero.
+    """
     if capture_status != "captured" or not sessions:
         return None
+    sessions = [normalized_session(session) for session in sessions]
     ids = {session.get("session_id") for session in sessions}
     if None in ids or len(ids) != len(sessions):
         return None
     totals = {"input": 0, "output": 0, "reasoning": 0, "cache_read": 0, "cache_write": 0}
+    per_agent: dict[str, dict[str, Any]] = {}
     cost = Decimal(0)
     for session in sessions:
         tokens = session.get("tokens")
@@ -147,6 +210,11 @@ def complete_session_usage(
         session_cost = number(session.get("cost"))
         if not isinstance(tokens, dict) or not isinstance(cache, dict) or session_cost is None:
             return None
+        agent = session.get("agent")
+        label = agent if isinstance(agent, str) and IDENTIFIER.fullmatch(agent) else "unknown"
+        bucket = per_agent.setdefault(
+            label, {**{key: 0 for key in totals}, "runtime_estimated_cost_usd": Decimal(0)}
+        )
         for source, target in (
             (tokens.get("input"), "input"),
             (tokens.get("output"), "output"),
@@ -158,12 +226,101 @@ def complete_session_usage(
             if parsed is None:
                 return None
             totals[target] += parsed
+            bucket[target] += parsed
         cost += session_cost
-        for tool in session.get("tools", []):
-            if tool.get("tool") == "task" and tool.get("status") == "completed":
-                if not tool.get("child_session_id") or tool["child_session_id"] not in ids:
-                    return None
-    return {**totals, "runtime_estimated_cost_usd": str(cost)}
+        bucket["runtime_estimated_cost_usd"] += session_cost
+    if not child_usage_complete(sessions, ids):
+        return None
+    return {
+        **totals,
+        "runtime_estimated_cost_usd": str(cost),
+        "per_agent": {
+            label: {key: (str(value) if isinstance(value, Decimal) else value) for key, value in bucket.items()}
+            for label, bucket in sorted(per_agent.items())
+        },
+    }
+
+
+def missing_child_usage(capture_status: str, sessions: list[dict[str, Any]]) -> bool:
+    """True when a dispatch or export gap leaves some child usage unproven."""
+    if capture_status != "captured" or not sessions:
+        return True
+    sessions = [normalized_session(session) for session in sessions]
+    ids = {session.get("session_id") for session in sessions if session.get("session_id")}
+    return not child_usage_complete(sessions, ids)
+
+
+def usage_source_records(
+    raw: dict[str, Any],
+    usage: dict[str, Any] | None,
+    billed: Decimal | None,
+    billing_ref: str | None,
+) -> tuple[dict[str, Any], bool | None]:
+    """Label each usage source and flag BenchFlow undercounting.
+
+    BenchFlow 0.6.3 reported zero tokens and an unknown cost for an attempt
+    whose sessions recorded model use, so a zero in its flattened ACP view is
+    not proof of zero spend. Each source is reported separately and a
+    disagreement is flagged inside the attempt instead of being averaged away.
+    """
+    sources: dict[str, Any] = {
+        "session_export": {
+            "status": "measured" if usage is not None else "unavailable",
+            "runtime_estimated_cost_usd": (
+                usage["runtime_estimated_cost_usd"] if usage is not None else UNVERIFIABLE
+            ),
+            "per_agent": usage["per_agent"] if usage is not None else UNVERIFIABLE,
+        },
+    }
+    undercount: bool | None = None
+    benchflow = raw.get("benchflow_usage")
+    sources["benchflow_acp"] = {
+        "status": "unavailable",
+        "reported_status": None,
+        "input_tokens": None,
+        "output_tokens": None,
+        "cache_read_tokens": None,
+        "cost_usd": UNVERIFIABLE,
+    }
+    if isinstance(benchflow, dict):
+        bf_input = nonnegative_int(benchflow.get("input_tokens"))
+        bf_output = nonnegative_int(benchflow.get("output_tokens"))
+        bf_cost = number(benchflow.get("cost_usd"))
+        declared = benchflow.get("status")
+        reported = benchflow.get("reported_status")
+        reported = reported if isinstance(reported, str) else None
+        if reported == "unavailable":
+            status = "unavailable"
+        elif declared in ("measured", "partial", "unavailable"):
+            status = declared
+        elif (bf_input or bf_output) and bf_cost is not None:
+            status = "measured"
+        elif any(value is not None for value in (bf_input, bf_output, bf_cost)):
+            status = "partial"
+        else:
+            status = "unavailable"
+        sources["benchflow_acp"] = {
+            "status": status,
+            "reported_status": reported,
+            "input_tokens": bf_input,
+            "output_tokens": bf_output,
+            "cache_read_tokens": nonnegative_int(benchflow.get("cache_read_tokens")),
+            "cost_usd": str(bf_cost) if bf_cost is not None else UNVERIFIABLE,
+        }
+        if usage is not None:
+            session_tokens = sum(
+                usage[field] for field in ("input", "output", "reasoning", "cache_read", "cache_write")
+            )
+            session_cost = number(usage["runtime_estimated_cost_usd"])
+            undercount = bool(session_tokens and not (bf_input or bf_output)) or (
+                session_cost is not None and session_cost > 0 and bf_cost is None
+            )
+    sources["provider_billed"] = {
+        "status": "measured" if billed is not None else "unavailable",
+        "cost_usd": str(billed) if billed is not None else UNVERIFIABLE,
+        "billing_ref": billing_ref,
+    }
+    return sources, undercount
 
 
 def attempt_report(raw: dict[str, Any]) -> dict[str, Any]:
@@ -200,6 +357,8 @@ def attempt_report(raw: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("relevant_skills must be a list or null")
     trace_ref = relative_ref(raw.get("sanitized_trace_ref"), "sanitized_trace_ref")
+    tool_calls = nonnegative_int(result.get("n_tool_calls"))
+    sources, undercount = usage_source_records(raw, usage, billed, billing_ref)
     return {
         "task_id": raw["task_id"],
         "variant": raw["variant"],
@@ -212,7 +371,10 @@ def attempt_report(raw: dict[str, Any]) -> dict[str, Any]:
             "provider_billed_cost_usd": str(billed) if billed is not None else UNVERIFIABLE,
             "provider_billing_ref": billing_ref,
             "elapsed_seconds": str(elapsed) if elapsed is not None else UNVERIFIABLE,
-            "benchflow_tool_calls": nonnegative_int(result.get("n_tool_calls")),
+            "benchflow_tool_calls": tool_calls if tool_calls is not None else UNVERIFIABLE,
+            "sources": sources,
+            "benchflow_undercount": UNVERIFIABLE if undercount is None else undercount,
+            "missing_child_usage": missing_child_usage(raw["capture_status"], raw["sessions"]),
         },
         "relevant_skills": sorted(set(labels)) if labels is not None else None,
         "sanitized_trace_ref": trace_ref,

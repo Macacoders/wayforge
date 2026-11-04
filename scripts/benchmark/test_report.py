@@ -43,6 +43,50 @@ def complete_sessions():
     return [root, session("ses_code", "code"), session("ses_review", "reviewer")]
 
 
+def probe_index_sessions():
+    """Mirror the probe's session-export-index shape for the same attempt."""
+    root = session("ses_root", "delivery")
+    root["id"] = root.pop("session_id")
+    root["tool_events"] = root.pop("tools")
+    root["usage"] = {
+        "source": "session_export",
+        "status": "measured",
+        "tokens": {"input": 100, "output": 20, "reasoning": 0},
+        "cache_tokens": {"read": 10, "write": 0},
+        "cost_usd": "0",
+    }
+    root.pop("tokens")
+    root.pop("cache_tokens")
+    root.pop("cost")
+    child = probe_index_sessions_child()
+    return [root, child]
+
+
+def probe_index_sessions_child():
+    child = session("ses_code", "code")
+    child["id"] = child.pop("session_id")
+    child["parent_id"] = "ses_root"
+    child["tool_events"] = child.pop("tools")
+    child["usage"] = {
+        "source": "session_export",
+        "status": "measured",
+        "tokens": {"input": 100, "output": 20, "reasoning": 0},
+        "cache_tokens": {"read": 10, "write": 0},
+        "cost_usd": "0",
+    }
+    child.pop("tokens")
+    child.pop("cache_tokens")
+    child.pop("cost")
+    return child
+
+
+def dispatched_sessions():
+    """The 2026-11-02 shape: a delivery root, one code child, no reviewer."""
+    sessions = complete_sessions()[:2]
+    sessions[0]["tools"] = sessions[0]["tools"][:2]
+    return sessions
+
+
 def attempt(variant="baseline", reward=1.0, capture="captured", sessions=None, **extra):
     value = {
         "task_id": "dialogue-parser",
@@ -151,6 +195,138 @@ class ReportTests(unittest.TestCase):
     def test_untrusted_metadata_cannot_be_echoed(self):
         with self.assertRaisesRegex(ValueError, "variant"):
             build_report(bundle([attempt(variant="../../secret")]))
+
+    def test_probe_export_index_is_accepted_as_session_evidence(self):
+        report = build_report(bundle([attempt(sessions=probe_index_sessions())]))
+        row = report["attempts"][0]
+        sources = row["usage"]["sources"]
+        self.assertEqual(row["usage"]["all_session_tokens"]["input"], 200)
+        self.assertEqual(sources["session_export"]["status"], "measured")
+        self.assertEqual(sources["session_export"]["per_agent"]["code"]["input"], 100)
+        self.assertEqual(sources["provider_billed"]["status"], "measured")
+        self.assertFalse(row["usage"]["missing_child_usage"])
+        self.assertEqual(row["workflow"]["dispatch_chain"], "not_observed")
+
+    def test_benchflow_zero_usage_is_flagged_as_an_undercount(self):
+        raw = attempt(
+            sessions=dispatched_sessions(),
+            benchflow_usage={
+                "source": "benchflow_acp",
+                "status": "unavailable",
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_tokens": 0,
+                "cost_usd": None,
+            },
+        )
+        row = build_report(bundle([raw]))["attempts"][0]
+        self.assertTrue(row["usage"]["benchflow_undercount"])
+        self.assertEqual(row["usage"]["sources"]["benchflow_acp"]["status"], "unavailable")
+        self.assertEqual(row["usage"]["sources"]["benchflow_acp"]["cost_usd"], "unverifiable")
+        self.assertEqual(row["usage"]["all_session_tokens"]["input"], 200)
+
+    def test_benchflow_agreement_is_not_flagged(self):
+        raw = attempt(
+            provider_billed_cost_usd=None,
+            provider_billing_ref=None,
+            benchflow_usage={
+                "input_tokens": 300,
+                "output_tokens": 60,
+                "cost_usd": "0",
+            },
+        )
+        row = build_report(bundle([raw]))["attempts"][0]
+        self.assertFalse(row["usage"]["benchflow_undercount"])
+        self.assertEqual(row["usage"]["sources"]["benchflow_acp"]["status"], "measured")
+
+    def test_unfinished_dispatch_marks_child_usage_missing(self):
+        sessions = dispatched_sessions()
+        sessions[0]["tools"][1].update({"status": "error", "child_session_id": None})
+        row = build_report(bundle([attempt(sessions=sessions)]))["attempts"][0]
+        self.assertTrue(row["usage"]["missing_child_usage"])
+        self.assertEqual(row["usage"]["all_session_tokens"], "unverifiable")
+        self.assertEqual(row["usage"]["sources"]["session_export"]["status"], "unavailable")
+
+    def test_unavailable_billed_cost_is_not_a_zero_delta(self):
+        baseline = attempt(provider_billed_cost_usd=None, provider_billing_ref=None)
+        ablation = attempt(variant="ablation", provider_billed_cost_usd=None, provider_billing_ref=None)
+        report = build_report(bundle([baseline, ablation]))
+        delta = report["paired_comparison"][0]["variant_minus_baseline_usage"]
+        self.assertEqual(delta["provider_billed_cost_usd"], "unverifiable")
+        self.assertEqual(report["by_variant"]["baseline"]["provider_billed_cost_usd"], "unverifiable")
+        self.assertEqual(report["attempts"][0]["usage"]["sources"]["provider_billed"]["status"], "unavailable")
+
+    def test_usage_without_any_capture_reports_missing_child_usage(self):
+        raw = attempt(capture="metadata_unavailable", sessions=[], provider_billed_cost_usd=None, provider_billing_ref=None)
+        row = build_report(bundle([raw]))["attempts"][0]
+        self.assertTrue(row["usage"]["missing_child_usage"])
+        self.assertEqual(row["usage"]["benchflow_undercount"], "unverifiable")
+        self.assertEqual(row["usage"]["sources"]["session_export"]["status"], "unavailable")
+
+    def test_session_without_parsed_tools_is_unverifiable(self):
+        root = {key: value for key, value in session("ses_root", "delivery").items() if key != "tools"}
+        row = build_report(bundle([attempt(sessions=[root])]))["attempts"][0]
+        self.assertEqual(row["usage"]["all_session_tokens"], "unverifiable")
+        self.assertTrue(row["usage"]["missing_child_usage"])
+
+    def test_partial_session_usage_is_unverifiable_and_the_flag_is_about_dispatches(self):
+        sessions = complete_sessions()
+        sessions[1]["cost"] = None
+        row = build_report(bundle([attempt(sessions=sessions)]))["attempts"][0]
+        self.assertEqual(row["usage"]["all_session_tokens"], "unverifiable")
+        self.assertFalse(row["usage"]["missing_child_usage"])
+        self.assertEqual(row["usage"]["sources"]["session_export"]["status"], "unavailable")
+
+    def test_probe_record_with_unavailable_usage_is_unverifiable(self):
+        sessions = probe_index_sessions()
+        sessions[0]["usage"] = {
+            "source": "session_export",
+            "status": "unavailable",
+            "tokens": {"input": None, "output": None, "reasoning": None},
+            "cache_tokens": {"read": None, "write": None},
+            "cost_usd": None,
+        }
+        row = build_report(bundle([attempt(sessions=sessions)]))["attempts"][0]
+        self.assertEqual(row["usage"]["all_session_tokens"], "unverifiable")
+
+    def test_benchflow_source_status_is_not_overridden_by_its_own_counters(self):
+        raw = attempt(
+            sessions=dispatched_sessions(),
+            benchflow_usage={
+                "source": "benchflow_acp",
+                "status": "measured",
+                "reported_status": "unavailable",
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_tokens": 0,
+                "cost_usd": None,
+            },
+        )
+        source = build_report(bundle([raw]))["attempts"][0]["usage"]["sources"]["benchflow_acp"]
+        self.assertEqual(source["status"], "unavailable")
+        self.assertEqual(source["reported_status"], "unavailable")
+
+    def test_benchflow_cost_gap_triggers_the_undercount(self):
+        sessions = complete_sessions()
+        for item in sessions:
+            item["cost"] = "0.42"
+        raw = attempt(
+            sessions=sessions,
+            benchflow_usage={"input_tokens": 300, "output_tokens": 60, "cost_usd": None},
+        )
+        row = build_report(bundle([raw]))["attempts"][0]
+        self.assertTrue(row["usage"]["benchflow_undercount"])
+
+    def test_missing_benchflow_usage_still_reports_the_source(self):
+        row = build_report(bundle([attempt()]))["attempts"][0]
+        self.assertEqual(row["usage"]["sources"]["benchflow_acp"]["status"], "unavailable")
+        self.assertEqual(row["usage"]["sources"]["benchflow_acp"]["input_tokens"], None)
+
+    def test_unknown_tool_call_count_is_unverifiable_not_null(self):
+        raw = attempt()
+        raw["result"].pop("n_tool_calls")
+        row = build_report(bundle([raw]))["attempts"][0]
+        self.assertEqual(row["usage"]["benchflow_tool_calls"], "unverifiable")
 
 
 if __name__ == "__main__":

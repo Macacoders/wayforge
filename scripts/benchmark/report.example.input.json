@@ -25,6 +25,14 @@
       },
       "capture_status": "metadata_unavailable",
       "sessions": [],
+      "benchflow_usage": {
+        "source": "benchflow_acp",
+        "status": "unavailable",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cost_usd": null
+      },
       "provider_billed_cost_usd": null,
       "provider_billing_ref": null,
       "relevant_skills": null,
@@ -80,6 +88,14 @@
       ],
       "provider_billed_cost_usd": "0",
       "provider_billing_ref": "example/provider-billing.json",
+      "benchflow_usage": {
+        "source": "benchflow_acp",
+        "status": "available",
+        "input_tokens": 300,
+        "output_tokens": 60,
+        "cache_read_tokens": 30,
+        "cost_usd": "0"
+      },
       "relevant_skills": ["delivery-policy"],
       "sanitized_trace_ref": "example/sanitized-root.json"
     }
