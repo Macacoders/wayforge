@@ -1,8 +1,9 @@
 import fs from 'fs-extra'
 import path from 'path'
 import type { ManifestContext } from './context.js'
-import { CLAUDE_MEMORY_FILE } from './layout.js'
+import { CLAUDE_AGENT_DIR, CLAUDE_MEMORY_FILE } from './layout.js'
 import { syncManagedContent } from './manifest.js'
+import { parseAgentPermissions } from './permissions.js'
 
 /**
  * Write the Claude Code memory entrypoint (`CLAUDE.md`).
@@ -35,4 +36,178 @@ export function syncClaudeMemory(
 		content.join('\n'),
 		ctx,
 	)
+}
+
+/** Tools every projected Claude agent receives, before permission-based additions. */
+const BASE_CLAUDE_TOOLS = [
+	'Read',
+	'Grep',
+	'Glob',
+	'Bash',
+	'PowerShell',
+	'WebFetch',
+	'WebSearch',
+	'Skill',
+	'TodoWrite',
+]
+
+interface AgentFrontmatter {
+	description: string
+	mode?: string
+	temperature?: string
+}
+
+/**
+ * Minimal frontmatter reader for the fields the base agents use
+ * (`description`, `mode`, `temperature`). Reuses the line-scanning approach of
+ * `renderAgentPermissionBlock`; no YAML dependency.
+ */
+function readAgentFrontmatter(srcFile: string): AgentFrontmatter {
+	const lines = fs.readFileSync(srcFile, 'utf8').split('\n')
+	const frontmatter: AgentFrontmatter = { description: '' }
+	let inFrontmatter = false
+
+	for (const rawLine of lines) {
+		const line = rawLine.replace(/\r$/, '')
+		if (line === '---') {
+			if (!inFrontmatter) {
+				inFrontmatter = true
+				continue
+			}
+			break
+		}
+		if (!inFrontmatter) continue
+		const match = line.match(/^([A-Za-z_-]+):\s*(.*)$/)
+		if (!match) continue
+		if (match[1] === 'description') {
+			frontmatter.description = match[2].trim()
+		} else if (match[1] === 'mode' || match[1] === 'temperature') {
+			frontmatter[match[1]] = match[2].trim()
+		}
+	}
+
+	return frontmatter
+}
+
+/**
+ * Remove `permission:` blocks from body lines, mirroring the skip logic of
+ * `renderAgentWithCentralPermissions`; the body markdown is preserved
+ * otherwise.
+ */
+function stripPermissionBlocks(lines: string[]): string[] {
+	const output: string[] = []
+	let skipping = false
+	let skipIndent = 0
+
+	for (const rawLine of lines) {
+		const line = rawLine.replace(/\r$/, '')
+		const indent = line.length - line.trimStart().length
+
+		if (skipping) {
+			if (line.trim() === '' || indent > skipIndent) continue
+			skipping = false
+		}
+
+		if (line.trim() === 'permission:') {
+			skipping = true
+			skipIndent = indent
+			continue
+		}
+
+		output.push(line)
+	}
+
+	return output
+}
+
+/**
+ * Translate one base agent into a Claude Code subagent file: Claude-native
+ * frontmatter (`name`, `description`, `tools`, `disallowedTools`, `model`,
+ * `permissionMode`) derived from `agents.yml`, plus the source body with
+ * `permission:` blocks stripped. OpenCode-only fields (`mode`, `temperature`)
+ * are dropped.
+ */
+export function renderClaudeAgent(
+	agentName: string,
+	srcFile: string,
+	permissionsFile: string,
+	claudeModel: string | undefined,
+): string {
+	const perms = parseAgentPermissions(agentName, permissionsFile)
+	const frontmatter = readAgentFrontmatter(srcFile)
+
+	const tools = [...BASE_CLAUDE_TOOLS]
+	if (perms.question === 'allow') {
+		tools.push('AskUserQuestion')
+	}
+	if (perms.edit === 'allow') {
+		tools.push('Edit', 'Write', 'NotebookEdit')
+	} else if (perms.edit === 'ask') {
+		tools.push('Edit', 'Write')
+	}
+	if (perms.taskAllowList && perms.taskAllowList.length > 0) {
+		tools.push(`Agent(${perms.taskAllowList.join(', ')})`)
+	}
+
+	const lines = [
+		'---',
+		`name: ${agentName}`,
+		`description: ${frontmatter.description}`,
+		`model: ${claudeModel ?? 'inherit'}`,
+		`permissionMode: ${perms.edit === 'allow' ? 'acceptEdits' : 'default'}`,
+		`tools: ${tools.join(', ')}`,
+	]
+	if (perms.edit === 'deny') {
+		lines.push('disallowedTools: Edit, Write, NotebookEdit')
+	}
+	lines.push('---', '')
+
+	const sourceLines = fs.readFileSync(srcFile, 'utf8').split('\n')
+	const closingIndex = sourceLines.findIndex(
+		(line, index) => index > 0 && line.replace(/\r$/, '') === '---',
+	)
+	const body = closingIndex === -1 ? [] : sourceLines.slice(closingIndex + 1)
+	lines.push(...stripPermissionBlocks(body))
+
+	return lines.join('\n')
+}
+
+/**
+ * Project every base agent into `.claude/agents/<name>.md`. Generated files
+ * are build artifacts tracked through the managed-file lifecycle; the
+ * canonical `.agents/` tree stays the single source (ADR-0046).
+ */
+export function syncClaudeAgents(
+	repo: string,
+	sourceDir: string,
+	claudeModel: string | undefined,
+	ctx: ManifestContext,
+): void {
+	const agentsDir = path.join(sourceDir, 'base', 'agents')
+	const permissionsFile = path.join(
+		sourceDir,
+		'base',
+		'permissions',
+		'agents.yml',
+	)
+	if (!fs.pathExistsSync(agentsDir)) {
+		ctx.log(`error: source directory does not exist: ${agentsDir}`)
+		process.exit(1)
+	}
+
+	for (const entry of fs.readdirSync(agentsDir, { withFileTypes: true })) {
+		if (!entry.isFile() || !entry.name.endsWith('.md')) continue
+		const agentName = entry.name.slice(0, -3)
+		const content = renderClaudeAgent(
+			agentName,
+			path.join(agentsDir, entry.name),
+			permissionsFile,
+			claudeModel,
+		)
+		syncManagedContent(
+			path.join(repo, CLAUDE_AGENT_DIR, entry.name),
+			content,
+			ctx,
+		)
+	}
 }

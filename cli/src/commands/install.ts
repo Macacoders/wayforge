@@ -30,7 +30,7 @@ import {
 	validateModelOverride,
 	rejectClaudeSmallModel,
 } from '../lib/providers.js'
-import { syncClaudeMemory } from '../lib/claude.js'
+import { syncClaudeAgents, syncClaudeMemory } from '../lib/claude.js'
 import {
 	syncGeneratedOpenCodeJsonc,
 	isLayoutStaleConfig,
@@ -264,6 +264,7 @@ export async function doInstall(
 			)
 			if (options.runtime === 'claude') {
 				syncClaudeMemory(repo, sourceDir, ctx)
+				syncClaudeAgents(repo, sourceDir, options.claudeModel, ctx)
 			}
 			const blockedPointers = ensureRuntimePointers(
 				repo,
@@ -282,6 +283,7 @@ export async function doInstall(
 
 	if (options.runtime === 'claude') {
 		syncClaudeMemory(repo, sourceDir, ctx)
+		syncClaudeAgents(repo, sourceDir, options.claudeModel, ctx)
 	} else if (genOpts) {
 		syncGeneratedOpenCodeJsonc(repo, options.runtime, genOpts, ctx)
 	}

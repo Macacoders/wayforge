@@ -201,11 +201,54 @@ describe('install layout integration', () => {
 		const manifest = readManagedManifest(repo)
 		expect(manifest).toContain('CLAUDE.md')
 		expect(manifest).toContain('.agents/agents/planner.md')
+		expect(manifest).toContain('.claude/agents/planner.md')
+
+		const claudeAgentsDir = path.join(repo, '.claude', 'agents')
+		for (const name of [
+			'planner',
+			'delivery',
+			'research',
+			'code',
+			'troubleshooter',
+			'architect',
+		]) {
+			const agentFile = path.join(claudeAgentsDir, `${name}.md`)
+			expect(fs.pathExistsSync(agentFile)).toBe(true)
+			const content = fs.readFileSync(agentFile, 'utf8')
+			expect(content).toContain(`name: ${name}`)
+			expect(content).toMatch(/^tools: /m)
+			expect(content).toContain('model: inherit')
+			expect(content).not.toMatch(/^mode: /m)
+			expect(content).not.toMatch(/^permission: /m)
+			expect(content).not.toMatch(/^temperature: /m)
+			expect(content).not.toMatch(/\ntask: /)
+		}
+
+		const codeAgent = fs.readFileSync(
+			path.join(claudeAgentsDir, 'code.md'),
+			'utf8',
+		)
+		expect(codeAgent).toContain('permissionMode: acceptEdits')
+
+		const architectAgent = fs.readFileSync(
+			path.join(claudeAgentsDir, 'architect.md'),
+			'utf8',
+		)
+		expect(architectAgent).toContain('disallowedTools:')
+		expect(architectAgent).toMatch(/^tools: (?!.*NotebookEdit)/m)
 	})
 
 	it('accepts a Claude model alias and rejects provider models for claude', async () => {
 		await doInstall(installOptions(repo, 'claude', { model: 'sonnet' }))
 		expect(fs.pathExistsSync(path.join(repo, 'CLAUDE.md'))).toBe(true)
+		expect(
+			fs
+				.readFileSync(
+					path.join(repo, '.claude', 'agents', 'planner.md'),
+					'utf8',
+				)
+				.includes('model: sonnet'),
+		).toBe(true)
 
 		mockExit()
 		await expect(

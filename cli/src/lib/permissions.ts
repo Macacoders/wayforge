@@ -4,10 +4,16 @@ import type { ManifestContext } from './context.js'
 import { writeFile } from './files.js'
 import { isManagedFile, syncManagedTree } from './manifest.js'
 
-export function renderAgentPermissionBlock(
+/**
+ * Scan `agents.yml` for one agent's permission entries and return the block
+ * lines relative to the agent key (without the `permission:` header), or null
+ * when the agent has no entry. Shared by `renderAgentPermissionBlock` and
+ * `parseAgentPermissions` so both see the same parsed surface.
+ */
+function agentPermissionLines(
 	agentName: string,
 	permissionsFile: string,
-): string {
+): string[] | null {
 	const content = fs.readFileSync(permissionsFile, 'utf8')
 	const lines = content.split('\n')
 
@@ -46,7 +52,6 @@ export function renderAgentPermissionBlock(
 				if (agentMatch === agentName) {
 					capturing = true
 					targetIndent = indent
-					output.push('permission:')
 				} else if (capturing) {
 					break
 				} else {
@@ -71,13 +76,22 @@ export function renderAgentPermissionBlock(
 		output.push(line.slice(targetIndent))
 	}
 
-	if (output.length === 0) {
+	return capturing ? output : null
+}
+
+export function renderAgentPermissionBlock(
+	agentName: string,
+	permissionsFile: string,
+): string {
+	const blockLines = agentPermissionLines(agentName, permissionsFile)
+
+	if (blockLines === null) {
 		throw new Error(
 			`missing permissions in ${permissionsFile} for agent '${agentName}'`,
 		)
 	}
 
-	return output.join('\n')
+	return ['permission:', ...blockLines].join('\n')
 }
 
 function matchAgentKey(trimmed: string): string | null {
@@ -87,6 +101,104 @@ function matchAgentKey(trimmed: string): string | null {
 		return null
 	}
 	return match[1].trim()
+}
+
+/** Permission values parsed from one agent's `agents.yml` entry. */
+export interface AgentPermissions {
+	read: string
+	edit: string
+	question: string | null
+	bash: Record<string, string> | null
+	externalDirectory: Record<string, string> | null
+	/** Scalar `task` value (`deny`), or null when `task` is a map. */
+	task: string | null
+	/** Subagent names allowed by a `task` map, in file order. */
+	taskAllowList: string[] | null
+}
+
+type PermissionValue = string | Record<string, string>
+
+/**
+ * Parse the flat `key: value` / nested-map block lines produced by
+ * `agentPermissionLines`. Keys may be quoted (`"*": allow`); values are plain
+ * scalars. No YAML dependency: the file contract is flat YAML (ADR-0009).
+ */
+function parsePermissionBlock(
+	lines: string[],
+): Record<string, PermissionValue> {
+	const result: Record<string, PermissionValue> = {}
+	let currentKey: string | null = null
+
+	for (const line of lines) {
+		const trimmed = line.trim()
+		if (trimmed === '') continue
+		const match = trimmed.match(/^("[^"]+"|[^:#]+):\s*(.*)$/)
+		if (!match) continue
+		const key = match[1].replace(/^"|"$/g, '')
+		const value = match[2]
+		if (line.length - line.trimStart().length === 2) {
+			if (value === '') {
+				currentKey = key
+				result[key] = {}
+			} else {
+				currentKey = null
+				result[key] = value
+			}
+		} else if (currentKey) {
+			;(result[currentKey] as Record<string, string>)[key] = value
+		}
+	}
+
+	return result
+}
+
+function scalarValue(value: PermissionValue | undefined): string {
+	return typeof value === 'string' ? value : ''
+}
+
+function scalarOrNull(value: PermissionValue | undefined): string | null {
+	return typeof value === 'string' ? value : null
+}
+
+function mapOrNull(
+	value: PermissionValue | undefined,
+): Record<string, string> | null {
+	return value && typeof value === 'object' ? value : null
+}
+
+/**
+ * Structured view of one agent's `agents.yml` entry, for consumers that need
+ * permission semantics (the Claude projection) instead of the rendered block.
+ */
+export function parseAgentPermissions(
+	agentName: string,
+	permissionsFile: string,
+): AgentPermissions {
+	const blockLines = agentPermissionLines(agentName, permissionsFile)
+	if (blockLines === null) {
+		throw new Error(
+			`missing permissions in ${permissionsFile} for agent '${agentName}'`,
+		)
+	}
+
+	const parsed = parsePermissionBlock(blockLines)
+	const task = parsed.task
+	let taskAllowList: string[] | null = null
+	if (task && typeof task === 'object') {
+		taskAllowList = Object.entries(task)
+			.filter(([key, value]) => key !== '*' && value === 'allow')
+			.map(([key]) => key)
+	}
+
+	return {
+		read: scalarValue(parsed.read),
+		edit: scalarValue(parsed.edit),
+		question: scalarOrNull(parsed.question),
+		bash: mapOrNull(parsed.bash),
+		externalDirectory: mapOrNull(parsed.external_directory),
+		task: typeof task === 'string' ? task : null,
+		taskAllowList,
+	}
 }
 
 export function renderAgentWithCentralPermissions(
