@@ -196,6 +196,9 @@ export function ensureRuntimePointers(
 	// consult the manifest; real runs inspect what is actually present.
 	const manifestPaths = ctx.dryRun ? readManagedManifest(repo) : []
 	const pointerRoot = RUNTIME_POINTER_DIRS[runtime]
+	// Projection runtimes (Claude) have no pointer directories: their native
+	// surface is generated content, not links into `.agents/`.
+	if (!pointerRoot) return []
 	const residuals: string[] = []
 	const runtimeRoot = path.join(repo, pointerRoot)
 

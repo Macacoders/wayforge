@@ -379,6 +379,49 @@ export function syncManagedFile(
 	}
 }
 
+/**
+ * Write generated content to a managed file, applying the same managed/force/
+ * unmanaged-conflict checks as `syncManagedFile` for generated (non-copied)
+ * files such as the Claude projection.
+ */
+export function syncManagedContent(
+	dst: string,
+	content: string,
+	ctx: ManifestContext,
+): void {
+	if (fs.pathExistsSync(dst)) {
+		if (!ctx.force) {
+			if (isManagedFile(dst)) {
+				managedTrackFile(dst, ctx)
+				ctx.log(
+					`kept existing managed file (tracked in manifest): ${dst}`,
+				)
+				return
+			}
+			ctx.log(
+				`keep existing file (use --force to refresh managed file): ${dst}`,
+			)
+			return
+		}
+		if (!isManagedFile(dst) && !ctx.overrideUnmanaged.has(dst)) {
+			ctx.log(
+				`skip conflict with unmanaged file (preserving local content): ${dst}`,
+			)
+			return
+		}
+	}
+
+	ensureDir(path.dirname(dst), ctx)
+	writeFile(dst, content, ctx)
+	managedTrackFile(dst, ctx)
+
+	if (ctx.dryRun) {
+		ctx.log(`DRY-RUN: would write managed file: ${dst}`)
+	} else {
+		ctx.log(`wrote managed file: ${dst}`)
+	}
+}
+
 export function syncManagedTree(
 	srcDir: string,
 	dstDir: string,

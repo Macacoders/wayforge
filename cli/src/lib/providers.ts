@@ -40,12 +40,47 @@ export function validateFreeTierRuntime(
 	selected: Provider[],
 	runtime: Runtime,
 ): void {
+	// Claude Code manages authentication itself; providers are ignored.
+	if (runtime === 'claude') return
 	if (selected.includes('free-tier') && runtime !== 'opencode') {
 		console.error(
 			'error: free-tier provider is only available for opencode runtime',
 		)
 		process.exit(1)
 	}
+}
+
+/** Claude agent `model` aliases accepted by Claude Code subagent files. */
+const CLAUDE_MODEL_ALIASES = ['sonnet', 'opus', 'haiku', 'fable', 'inherit']
+
+/**
+ * Validate a Claude model override: an alias, `inherit`, or a full Claude
+ * model ID (`claude-*`). OpenCode provider IDs (`openai/...`) are rejected.
+ */
+export function validateClaudeModel(
+	value: string | undefined,
+	flagName: string,
+): void {
+	if (!value) return
+	if (CLAUDE_MODEL_ALIASES.includes(value)) return
+	if (value.startsWith('claude-')) return
+	console.error(
+		`error: ${flagName} must be a Claude model alias ` +
+			`(sonnet, opus, haiku, fable), 'inherit', or a full Claude model ID (claude-*)`,
+	)
+	process.exit(1)
+}
+
+/**
+ * Claude Code has no small-model concept, so `--small-model` is rejected
+ * instead of being silently ignored.
+ */
+export function rejectClaudeSmallModel(value: string | undefined): void {
+	if (!value) return
+	console.error(
+		'error: --small-model is not supported for the claude runtime; Claude Code has no small-model concept (use CLAUDE_CODE_SUBAGENT_MODEL for a session-wide subagent default)',
+	)
+	process.exit(1)
 }
 
 export function validateModelOverride(

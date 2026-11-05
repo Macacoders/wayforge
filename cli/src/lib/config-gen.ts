@@ -257,6 +257,7 @@ export function syncGeneratedOpenCodeJsonc(
 	ctx: ManifestContext,
 ): void {
 	const configFile = configFileFor(runtime)
+	if (!configFile) return
 	const dst = path.join(repo, configFile)
 	const parent = path.dirname(dst)
 

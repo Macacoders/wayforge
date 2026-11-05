@@ -26,8 +26,11 @@ import {
 import {
 	parseProviders,
 	validateFreeTierRuntime,
+	validateClaudeModel,
 	validateModelOverride,
+	rejectClaudeSmallModel,
 } from '../lib/providers.js'
+import { syncClaudeMemory } from '../lib/claude.js'
 import {
 	syncGeneratedOpenCodeJsonc,
 	isLayoutStaleConfig,
@@ -117,17 +120,26 @@ export async function doInstall(
 
 	const installRef = options.ref || 'develop'
 
-	const selected = parseProviders(options.providers)
-	validateFreeTierRuntime(selected, options.runtime)
-	validateModelOverride(options.model, '--model', selected)
-	validateModelOverride(options.smallModel, '--small-model', selected)
+	// Claude Code manages authentication itself: providers are ignored and the
+	// model is a Claude alias/ID, not a `<provider>/<model>` pair.
+	let genOpts: GenerateOptions | undefined
+	if (options.runtime === 'claude') {
+		rejectClaudeSmallModel(options.smallModel)
+		validateClaudeModel(options.model, '--model')
+		options.claudeModel = options.model ?? 'inherit'
+	} else {
+		const selected = parseProviders(options.providers)
+		validateFreeTierRuntime(selected, options.runtime)
+		validateModelOverride(options.model, '--model', selected)
+		validateModelOverride(options.smallModel, '--small-model', selected)
 
-	const genOpts: GenerateOptions = {
-		runtime: options.runtime,
-		selected,
-		modelOverride: options.model,
-		smallModelOverride: options.smallModel,
-		sourceDir,
+		genOpts = {
+			runtime: options.runtime,
+			selected,
+			modelOverride: options.model,
+			smallModelOverride: options.smallModel,
+			sourceDir,
+		}
 	}
 
 	initManagedManifest(repo, version, options.ref || undefined, ctx)
@@ -157,6 +169,9 @@ export async function doInstall(
 			// at plugin/skills paths the migration just deleted.
 			for (const runtime of RUNTIMES) {
 				const configFile = configFileFor(runtime)
+				// Projection runtimes (Claude) have no generated config file.
+				if (!configFile) continue
+				if (!genOpts) continue
 				const configPath = path.join(repo, configFile)
 				const exists = fs.pathExistsSync(configPath)
 				const selectedRuntime = runtime === options.runtime
@@ -247,6 +262,9 @@ export async function doInstall(
 				collectLegacyResiduals(repo, options.runtime),
 				ctx,
 			)
+			if (options.runtime === 'claude') {
+				syncClaudeMemory(repo, sourceDir, ctx)
+			}
 			const blockedPointers = ensureRuntimePointers(
 				repo,
 				options.runtime,
@@ -262,7 +280,11 @@ export async function doInstall(
 		}
 	}
 
-	syncGeneratedOpenCodeJsonc(repo, options.runtime, genOpts, ctx)
+	if (options.runtime === 'claude') {
+		syncClaudeMemory(repo, sourceDir, ctx)
+	} else if (genOpts) {
+		syncGeneratedOpenCodeJsonc(repo, options.runtime, genOpts, ctx)
+	}
 	syncManagedFile(
 		path.join(sourceDir, 'base', 'AGENTS.md'),
 		path.join(repo, 'AGENTS.md'),

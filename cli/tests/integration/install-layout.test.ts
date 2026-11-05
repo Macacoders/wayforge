@@ -10,6 +10,7 @@ import {
 	configFileFor,
 	expectPointer,
 	installOptions,
+	mockExit,
 	pointerRootFor,
 	seedLegacyConfig,
 	seedLegacyInstall,
@@ -166,6 +167,64 @@ describe('install layout integration', () => {
 		})
 	})
 
+	it('installs the claude runtime without config or pointer files', async () => {
+		await doInstall(installOptions(repo, 'claude'))
+
+		expect(
+			fs.pathExistsSync(
+				path.join(repo, '.agents', 'agents', 'planner.md'),
+			),
+		).toBe(true)
+		expect(
+			fs.pathExistsSync(
+				path.join(repo, '.agents', 'skills', 'intent', 'SKILL.md'),
+			),
+		).toBe(true)
+		expect(
+			fs.pathExistsSync(
+				path.join(repo, '.agents', 'commands', 'init.md'),
+			),
+		).toBe(true)
+		expect(fs.pathExistsSync(path.join(repo, 'AGENTS.md'))).toBe(true)
+
+		const claudeMemory = fs.readFileSync(
+			path.join(repo, 'CLAUDE.md'),
+			'utf8',
+		)
+		expect(claudeMemory).toContain('@AGENTS.md')
+
+		expect(fs.pathExistsSync(path.join(repo, 'opencode.jsonc'))).toBe(false)
+		expect(fs.pathExistsSync(path.join(repo, 'kilo.jsonc'))).toBe(false)
+		expect(fs.pathExistsSync(path.join(repo, '.opencode'))).toBe(false)
+		expect(fs.pathExistsSync(path.join(repo, '.kilo'))).toBe(false)
+
+		const manifest = readManagedManifest(repo)
+		expect(manifest).toContain('CLAUDE.md')
+		expect(manifest).toContain('.agents/agents/planner.md')
+	})
+
+	it('accepts a Claude model alias and rejects provider models for claude', async () => {
+		await doInstall(installOptions(repo, 'claude', { model: 'sonnet' }))
+		expect(fs.pathExistsSync(path.join(repo, 'CLAUDE.md'))).toBe(true)
+
+		mockExit()
+		await expect(
+			doInstall(
+				installOptions(path.join(tmpDir, 'repo-model'), 'claude', {
+					model: 'openai/gpt-6-sol',
+				}),
+			),
+		).rejects.toThrow('process.exit:1')
+
+		await expect(
+			doInstall(
+				installOptions(path.join(tmpDir, 'repo-small'), 'claude', {
+					smallModel: 'openai/gpt-5.6-luna',
+				}),
+			),
+		).rejects.toThrow('process.exit:1')
+	})
+
 	it('generates both configs and pointer sets for a mixed install', async () => {
 		await doInstall(installOptions(repo, 'opencode'))
 		await doInstall(installOptions(repo, 'kilocode'))
@@ -214,15 +273,23 @@ describe('install layout integration', () => {
 				'utf8',
 			)
 			expect(config).toContain(enabledProviders)
-			expect(fs.pathExistsSync(path.join(repo, '.agents', 'agents'))).toBe(
-				true,
-			)
 			expect(
-				fs.pathExistsSync(path.join(repo, '.agents', 'commands', 'init.md')),
+				fs.pathExistsSync(path.join(repo, '.agents', 'agents')),
 			).toBe(true)
 			expect(
 				fs.pathExistsSync(
-					path.join(repo, '.agents', 'plugins', 'ponytail', 'ponytail.mjs'),
+					path.join(repo, '.agents', 'commands', 'init.md'),
+				),
+			).toBe(true)
+			expect(
+				fs.pathExistsSync(
+					path.join(
+						repo,
+						'.agents',
+						'plugins',
+						'ponytail',
+						'ponytail.mjs',
+					),
 				),
 			).toBe(true)
 			expectPointer(repo, '.opencode/agents', '.agents/agents')
