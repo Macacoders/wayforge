@@ -14,6 +14,7 @@ import {
 	isManagedDir,
 	isManagedFile,
 	managedTrackFile,
+	readFileLines,
 	readManagedManifest,
 	syncManagedContent,
 	syncManagedTree,
@@ -73,42 +74,42 @@ const BASE_CLAUDE_TOOLS = [
 	'TodoWrite',
 ]
 
-interface AgentFrontmatter {
-	description: string
-	mode?: string
-	temperature?: string
+interface FrontmatterDocument {
+	/** Top-level `key: value` fields. */
+	fields: Record<string, string | undefined>
+	/** Raw lines from the opening `---` through the closing `---`; empty when absent. */
+	header: string[]
+	/** Lines after the closing `---`. */
+	body: string[]
 }
 
 /**
- * Minimal frontmatter reader for the fields the base agents use
- * (`description`, `mode`, `temperature`). Reuses the line-scanning approach of
- * `renderAgentPermissionBlock`; no YAML dependency.
+ * Minimal frontmatter reader shared by agent, command, and skill rendering.
+ * The base files use flat `key: value` frontmatter, so this scans lines instead
+ * of pulling in a YAML dependency.
  */
-function readAgentFrontmatter(srcFile: string): AgentFrontmatter {
-	const lines = fs.readFileSync(srcFile, 'utf8').split('\n')
-	const frontmatter: AgentFrontmatter = { description: '' }
-	let inFrontmatter = false
+function readFrontmatter(srcFile: string): FrontmatterDocument {
+	const lines = readFileLines(srcFile)
+	const fields: Record<string, string> = {}
+	let closingIndex = -1
 
-	for (const rawLine of lines) {
-		const line = rawLine.replace(/\r$/, '')
-		if (line === '---') {
-			if (!inFrontmatter) {
-				inFrontmatter = true
-				continue
+	if (lines[0] === '---') {
+		for (let i = 1; i < lines.length; i++) {
+			const line = lines[i]
+			if (line === '---') {
+				closingIndex = i
+				break
 			}
-			break
-		}
-		if (!inFrontmatter) continue
-		const match = line.match(/^([A-Za-z_-]+):\s*(.*)$/)
-		if (!match) continue
-		if (match[1] === 'description') {
-			frontmatter.description = match[2].trim()
-		} else if (match[1] === 'mode' || match[1] === 'temperature') {
-			frontmatter[match[1]] = match[2].trim()
+			const match = line.match(/^([A-Za-z_-]+):\s*(.*)$/)
+			if (match) fields[match[1]] = match[2].trim()
 		}
 	}
 
-	return frontmatter
+	return {
+		fields,
+		header: closingIndex === -1 ? [] : lines.slice(0, closingIndex + 1),
+		body: closingIndex === -1 ? lines : lines.slice(closingIndex + 1),
+	}
 }
 
 /**
@@ -121,8 +122,7 @@ function stripPermissionBlocks(lines: string[]): string[] {
 	let skipping = false
 	let skipIndent = 0
 
-	for (const rawLine of lines) {
-		const line = rawLine.replace(/\r$/, '')
+	for (const line of lines) {
 		const indent = line.length - line.trimStart().length
 
 		if (skipping) {
@@ -156,7 +156,7 @@ export function renderClaudeAgent(
 	claudeModel: string | undefined,
 ): string {
 	const perms = parseAgentPermissions(agentName, permissionsFile)
-	const frontmatter = readAgentFrontmatter(srcFile)
+	const source = readFrontmatter(srcFile)
 
 	const tools = [...BASE_CLAUDE_TOOLS]
 	if (perms.question === 'allow') {
@@ -174,7 +174,7 @@ export function renderClaudeAgent(
 	const lines = [
 		'---',
 		`name: ${agentName}`,
-		`description: ${frontmatter.description}`,
+		`description: ${source.fields.description ?? ''}`,
 		`model: ${claudeModel ?? 'inherit'}`,
 		`permissionMode: ${perms.edit === 'allow' ? 'acceptEdits' : 'default'}`,
 		`tools: ${tools.join(', ')}`,
@@ -183,13 +183,7 @@ export function renderClaudeAgent(
 		lines.push('disallowedTools: Edit, Write, NotebookEdit')
 	}
 	lines.push('---', '')
-
-	const sourceLines = fs.readFileSync(srcFile, 'utf8').split('\n')
-	const closingIndex = sourceLines.findIndex(
-		(line, index) => index > 0 && line.replace(/\r$/, '') === '---',
-	)
-	const body = closingIndex === -1 ? [] : sourceLines.slice(closingIndex + 1)
-	lines.push(...stripPermissionBlocks(body))
+	lines.push(...stripPermissionBlocks(source.body))
 
 	return lines.join('\n')
 }
@@ -234,60 +228,12 @@ export function syncClaudeAgents(
 	}
 }
 
-interface CommandFrontmatter {
-	description: string
-	agent?: string
-}
-
-/**
- * Minimal frontmatter reader for the fields the base commands use
- * (`description`, `agent`). Reuses the line-scanning approach of
- * `readAgentFrontmatter`; no YAML dependency.
- */
-function readCommandFrontmatter(srcFile: string): CommandFrontmatter {
-	const lines = fs.readFileSync(srcFile, 'utf8').split('\n')
-	const frontmatter: CommandFrontmatter = { description: '' }
-	let inFrontmatter = false
-
-	for (const rawLine of lines) {
-		const line = rawLine.replace(/\r$/, '')
-		if (line === '---') {
-			if (!inFrontmatter) {
-				inFrontmatter = true
-				continue
-			}
-			break
-		}
-		if (!inFrontmatter) continue
-		const match = line.match(/^([A-Za-z_-]+):\s*(.*)$/)
-		if (!match) continue
-		if (match[1] === 'description') {
-			frontmatter.description = match[2].trim()
-		} else if (match[1] === 'agent') {
-			frontmatter.agent = match[2].trim()
-		}
-	}
-
-	return frontmatter
-}
-
 /** Role line that re-attaches the command's `agent:` routing in Claude. */
 function claudeRoleLine(agent: string): string {
 	return (
 		`Act as the ${agent} agent. Read .claude/agents/${agent}.md ` +
 		'and follow its instructions.'
 	)
-}
-
-/** Body lines of a frontmatter file, after the closing `---`. */
-function bodyAfterFrontmatter(srcFile: string): string[] {
-	const lines = fs.readFileSync(srcFile, 'utf8').split('\n')
-	const closingIndex = lines.findIndex(
-		(line, index) => index > 0 && line.replace(/\r$/, '') === '---',
-	)
-	return closingIndex === -1
-		? []
-		: lines.slice(closingIndex + 1).map((line) => line.replace(/\r$/, ''))
 }
 
 /**
@@ -326,6 +272,7 @@ export function projectedSkillNames(sourceDir: string): SkillCommandProjection {
 		: []
 
 	const skillSet = new Set(skillNames)
+	const commandSet = new Set(commandNames)
 	const colliding: string[] = []
 	const commandOnly: string[] = []
 	for (const name of commandNames) {
@@ -335,7 +282,7 @@ export function projectedSkillNames(sourceDir: string): SkillCommandProjection {
 			commandOnly.push(name)
 		}
 	}
-	const skillOnly = skillNames.filter((name) => !commandNames.includes(name))
+	const skillOnly = skillNames.filter((name) => !commandSet.has(name))
 
 	return { colliding, commandOnly, skillOnly }
 }
@@ -348,28 +295,17 @@ export function projectedSkillNames(sourceDir: string): SkillCommandProjection {
  * emitted, because the skill would shadow it.
  */
 export function renderClaudeSkill(
-	name: string,
 	skillSrc: string,
 	commandSrc: string,
 ): string {
-	const command = readCommandFrontmatter(commandSrc)
-	const skillLines = fs
-		.readFileSync(skillSrc, 'utf8')
-		.split('\n')
-		.map((line) => line.replace(/\r$/, ''))
-	const closingIndex = skillLines.findIndex(
-		(line, index) => index > 0 && line.replace(/\r$/, '') === '---',
-	)
-	const frontmatter =
-		closingIndex === -1 ? [] : skillLines.slice(0, closingIndex + 1)
-	const body =
-		closingIndex === -1 ? skillLines : skillLines.slice(closingIndex + 1)
+	const command = readFrontmatter(commandSrc).fields
+	const skill = readFrontmatter(skillSrc)
 
-	const lines = [...frontmatter, '']
+	const lines = [...skill.header, '']
 	if (command.agent) {
 		lines.push(claudeRoleLine(command.agent), '')
 	}
-	lines.push(...body)
+	lines.push(...skill.body)
 	lines.push('', '## Additional scope or clarification', '', '$ARGUMENTS')
 
 	return lines.join('\n')
@@ -380,21 +316,21 @@ export function renderClaudeSkill(
  * `description`, the role line when `agent:` is present, and the source body
  * including `$ARGUMENTS`.
  */
-export function renderClaudeCommand(name: string, commandSrc: string): string {
-	const command = readCommandFrontmatter(commandSrc)
+export function renderClaudeCommand(commandSrc: string): string {
+	const command = readFrontmatter(commandSrc)
 
 	const lines = [
 		'---',
 		// JSON.stringify produces a valid YAML double-quoted scalar, which keeps
 		// descriptions containing `: ` (e.g. `init`) parseable.
-		`description: ${JSON.stringify(command.description)}`,
+		`description: ${JSON.stringify(command.fields.description ?? '')}`,
 		'---',
 		'',
 	]
-	if (command.agent) {
-		lines.push(claudeRoleLine(command.agent), '')
+	if (command.fields.agent) {
+		lines.push(claudeRoleLine(command.fields.agent), '')
 	}
-	lines.push(...bodyAfterFrontmatter(commandSrc))
+	lines.push(...command.body)
 
 	return lines.join('\n')
 }
@@ -415,6 +351,26 @@ function removeSkillPath(
 		rmRf(target, ctx)
 	}
 	ctx.log(`removed managed skill path: ${managedRel}`)
+}
+
+type SkillPathStatus = 'managed' | 'unmanaged' | 'preserve'
+
+/**
+ * Classify an existing skill path before replacing it. Unmanaged paths are
+ * preserved unless explicitly overridden; the skip is logged here so dry-run
+ * and real runs report the same decision.
+ */
+function classifySkillPath(
+	link: string,
+	managedRel: string,
+	ctx: ManifestContext,
+): SkillPathStatus {
+	if (isManagedDir(link) || isManagedFile(link)) return 'managed'
+	if (ctx.overrideUnmanaged.has(link)) return 'unmanaged'
+	ctx.log(
+		`skip conflict with unmanaged path (preserving local content): ${managedRel}`,
+	)
+	return 'preserve'
 }
 
 /**
@@ -449,14 +405,9 @@ function syncClaudeSkillLink(
 		}
 		// The unmanaged-conflict check precedes the dry-run branch so a
 		// dry-run predicts the same skip a real run performs.
-		if (!isManagedDir(link) && !isManagedFile(link)) {
-			if (!ctx.overrideUnmanaged.has(link)) {
-				ctx.log(
-					`skip conflict with unmanaged path (preserving local content): ${managedRel}`,
-				)
-				return
-			}
-		} else if (!ctx.force) {
+		const status = classifySkillPath(link, managedRel, ctx)
+		if (status === 'preserve') return
+		if (status === 'managed' && !ctx.force) {
 			managedTrackFile(link, ctx)
 			ctx.log(
 				`kept existing managed skill path (use --force to replace): ${managedRel}`,
@@ -510,13 +461,8 @@ function removeStaleSkillLink(
 		return true
 	}
 	const managedRel = posixPath(path.relative(repo, link))
-	if (!isManagedDir(link) && !isManagedFile(link)) {
-		if (!ctx.overrideUnmanaged.has(link)) {
-			ctx.log(
-				`skip conflict with unmanaged path (preserving local content): ${managedRel}`,
-			)
-			return false
-		}
+	if (classifySkillPath(link, managedRel, ctx) === 'preserve') {
+		return false
 	}
 	if (ctx.dryRun) {
 		ctx.log(
@@ -549,7 +495,6 @@ export function syncClaudeSkillsAndCommands(
 		syncManagedContent(
 			path.join(repo, CLAUDE_SKILLS_DIR, name, 'SKILL.md'),
 			renderClaudeSkill(
-				name,
 				path.join(skillsDir, name, 'SKILL.md'),
 				path.join(commandsDir, `${name}.md`),
 			),
@@ -560,7 +505,7 @@ export function syncClaudeSkillsAndCommands(
 	for (const name of projection.commandOnly) {
 		syncManagedContent(
 			path.join(repo, CLAUDE_COMMAND_DIR, `${name}.md`),
-			renderClaudeCommand(name, path.join(commandsDir, `${name}.md`)),
+			renderClaudeCommand(path.join(commandsDir, `${name}.md`)),
 			ctx,
 		)
 	}
@@ -633,10 +578,7 @@ export function pruneStaleClaudePaths(
 			ctx.log(`DRY-RUN: would remove stale claude path: ${relPath}`)
 			continue
 		}
-		if (
-			isLinkedDirectory(absolute) ||
-			fs.lstatSync(absolute).isSymbolicLink()
-		) {
+		if (isLinkedDirectory(absolute)) {
 			rm(absolute, ctx)
 		} else if (fs.statSync(absolute).isDirectory()) {
 			rmRf(absolute, ctx)

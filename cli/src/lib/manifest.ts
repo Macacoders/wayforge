@@ -11,7 +11,7 @@ import { cp, ensureDir, rm, rmRf, writeFile } from './files.js'
 import { posixPath, sourceForDest } from './layout.js'
 
 /** Read a file and split into lines, normalizing CRLF to LF. */
-function readFileLines(filePath: string): string[] {
+export function readFileLines(filePath: string): string[] {
 	return fs.readFileSync(filePath, 'utf8').replace(/\r/g, '').split('\n')
 }
 
@@ -314,6 +314,101 @@ export function managedTrackFile(dstFile: string, ctx: ManifestContext): void {
 	)
 }
 
+interface ManagedWriteOptions {
+	/** Refresh a managed file without --force when its rendered content changed. */
+	refreshManaged: boolean
+	/** Whether the existing file already matches the content being written. */
+	isUnchanged?: (dst: string) => boolean
+}
+
+interface ManagedWriteDecision {
+	action: 'write' | 'keep' | 'unchanged'
+	/** True when an existing regular file is replaced (changes the log wording). */
+	refreshed: boolean
+}
+
+/**
+ * Decide how to handle an existing destination before writing managed content:
+ * preserve unmanaged paths, replace symlinks/directories only under --force,
+ * and (for generated files) refresh a managed file whose content changed.
+ * `syncManagedFile` and `syncManagedContent` share this ladder.
+ */
+function resolveManagedWrite(
+	dst: string,
+	ctx: ManifestContext,
+	options: ManagedWriteOptions,
+): ManagedWriteDecision {
+	if (!fs.pathExistsSync(dst)) {
+		return { action: 'write', refreshed: false }
+	}
+
+	const lstat = fs.lstatSync(dst)
+	if (lstat.isSymbolicLink()) {
+		// Never write through a symlink: the target may live outside the
+		// managed surface (e.g. inside `.agents`). Only a managed or
+		// explicitly overridden link under --force is replaced by a real file.
+		if (
+			ctx.force &&
+			(isManagedFile(dst) || ctx.overrideUnmanaged.has(dst))
+		) {
+			rm(dst, ctx)
+			return { action: 'write', refreshed: false }
+		}
+		if (isManagedFile(dst)) {
+			managedTrackFile(dst, ctx)
+		}
+		ctx.log(`skip conflict with symlink (preserving link target): ${dst}`)
+		return { action: 'keep', refreshed: false }
+	}
+
+	if (lstat.isDirectory()) {
+		// Generated content cannot be written through a directory (a stale
+		// skill link would follow into `.agents`); only a managed or
+		// explicitly overridden directory under --force is replaced.
+		if (
+			ctx.force &&
+			(isManagedFile(dst) ||
+				isManagedDir(dst) ||
+				ctx.overrideUnmanaged.has(dst))
+		) {
+			rmRf(dst, ctx)
+			return { action: 'write', refreshed: false }
+		}
+		ctx.log(`skip conflict with existing directory: ${dst}`)
+		return { action: 'keep', refreshed: false }
+	}
+
+	if (!ctx.force) {
+		if (!isManagedFile(dst)) {
+			ctx.log(
+				`keep existing file (use --force to refresh managed file): ${dst}`,
+			)
+			return { action: 'keep', refreshed: false }
+		}
+		if (!options.refreshManaged) {
+			managedTrackFile(dst, ctx)
+			ctx.log(`kept existing managed file (tracked in manifest): ${dst}`)
+			return { action: 'keep', refreshed: false }
+		}
+		// Managed generated files refresh when the rendered content changes;
+		// --force is only required for unmanaged content.
+		if (options.isUnchanged?.(dst)) {
+			managedTrackFile(dst, ctx)
+			ctx.log(`kept existing managed file (content unchanged): ${dst}`)
+			return { action: 'unchanged', refreshed: false }
+		}
+		return { action: 'write', refreshed: true }
+	}
+
+	if (!isManagedFile(dst) && !ctx.overrideUnmanaged.has(dst)) {
+		ctx.log(
+			`skip conflict with unmanaged file (preserving local content): ${dst}`,
+		)
+		return { action: 'keep', refreshed: false }
+	}
+	return { action: 'write', refreshed: true }
+}
+
 export function syncManagedFile(
 	src: string,
 	dst: string,
@@ -324,49 +419,8 @@ export function syncManagedFile(
 		process.exit(1)
 	}
 
-	if (fs.pathExistsSync(dst) && fs.lstatSync(dst).isSymbolicLink()) {
-		if (!ctx.force) {
-			if (isManagedFile(dst)) {
-				managedTrackFile(dst, ctx)
-				ctx.log(
-					`kept existing managed file (tracked in manifest): ${dst}`,
-				)
-				return
-			}
-			ctx.log(
-				`keep existing file (use --force to refresh managed file): ${dst}`,
-			)
-			return
-		}
-		if (!isManagedFile(dst) && !ctx.overrideUnmanaged.has(dst)) {
-			ctx.log(
-				`skip conflict with unmanaged file (preserving local content): ${dst}`,
-			)
-			return
-		}
-		rm(dst, ctx)
-	} else if (fs.pathExistsSync(dst)) {
-		if (!ctx.force) {
-			if (isManagedFile(dst)) {
-				managedTrackFile(dst, ctx)
-				ctx.log(
-					`kept existing managed file (tracked in manifest): ${dst}`,
-				)
-				return
-			}
-			ctx.log(
-				`keep existing file (use --force to refresh managed file): ${dst}`,
-			)
-			return
-		}
-		if (!isManagedFile(dst) && !ctx.overrideUnmanaged.has(dst)) {
-			ctx.log(
-				`skip conflict with unmanaged file (preserving local content): ${dst}`,
-			)
-			return
-		}
-		rm(dst, ctx)
-	}
+	const decision = resolveManagedWrite(dst, ctx, { refreshManaged: false })
+	if (decision.action !== 'write') return
 
 	ensureDir(path.dirname(dst), ctx)
 	cp(src, dst, ctx)
@@ -389,62 +443,12 @@ export function syncManagedContent(
 	content: string,
 	ctx: ManifestContext,
 ): void {
-	let exists = false
-	if (fs.pathExistsSync(dst)) {
-		exists = true
-		const lstat = fs.lstatSync(dst)
-		if (lstat.isSymbolicLink()) {
-			// Never write through a symlink: the target may live outside the
-			// managed surface (e.g. inside `.agents`). Only a managed or
-			// explicitly overridden link under --force is replaced by a real
-			// file.
-			if (
-				ctx.force &&
-				(isManagedFile(dst) || ctx.overrideUnmanaged.has(dst))
-			) {
-				rm(dst, ctx)
-				exists = false
-			} else {
-				ctx.log(
-					`skip conflict with symlink (preserving link target): ${dst}`,
-				)
-				return
-			}
-		} else if (lstat.isDirectory()) {
-			// Generated content cannot be written through a directory (a stale
-			// skill link would follow into `.agents`); only a managed directory
-			// under --force is replaced.
-			if (ctx.force && isManagedDir(dst)) {
-				rmRf(dst, ctx)
-				exists = false
-			} else {
-				ctx.log(`skip conflict with existing directory: ${dst}`)
-				return
-			}
-		} else if (!ctx.force) {
-			if (isManagedFile(dst)) {
-				if (fs.readFileSync(dst, 'utf8') === `${content}\n`) {
-					managedTrackFile(dst, ctx)
-					ctx.log(
-						`kept existing managed file (content unchanged): ${dst}`,
-					)
-					return
-				}
-				// Managed generated files refresh when the rendered content
-				// changes; --force is only required for unmanaged content.
-			} else {
-				ctx.log(
-					`keep existing file (use --force to refresh managed file): ${dst}`,
-				)
-				return
-			}
-		} else if (!isManagedFile(dst) && !ctx.overrideUnmanaged.has(dst)) {
-			ctx.log(
-				`skip conflict with unmanaged file (preserving local content): ${dst}`,
-			)
-			return
-		}
-	}
+	const decision = resolveManagedWrite(dst, ctx, {
+		refreshManaged: true,
+		isUnchanged: (existing) =>
+			fs.readFileSync(existing, 'utf8') === `${content}\n`,
+	})
+	if (decision.action !== 'write') return
 
 	ensureDir(path.dirname(dst), ctx)
 	writeFile(dst, content, ctx)
@@ -452,13 +456,13 @@ export function syncManagedContent(
 
 	if (ctx.dryRun) {
 		ctx.log(
-			exists
+			decision.refreshed
 				? `DRY-RUN: would refresh managed file: ${dst}`
 				: `DRY-RUN: would write managed file: ${dst}`,
 		)
 	} else {
 		ctx.log(
-			exists
+			decision.refreshed
 				? `refreshed managed file: ${dst}`
 				: `wrote managed file: ${dst}`,
 		)

@@ -2,7 +2,7 @@ import fs from 'fs-extra'
 import path from 'path'
 import type { ManifestContext } from './context.js'
 import { writeFile } from './files.js'
-import { isManagedFile, syncManagedTree } from './manifest.js'
+import { isManagedFile, readFileLines, syncManagedTree } from './manifest.js'
 
 /**
  * Scan `agents.yml` for one agent's permission entries and return the block
@@ -14,8 +14,7 @@ function agentPermissionLines(
 	agentName: string,
 	permissionsFile: string,
 ): string[] | null {
-	const content = fs.readFileSync(permissionsFile, 'utf8')
-	const lines = content.split('\n')
+	const lines = readFileLines(permissionsFile)
 
 	let inAgents = false
 	let agentsIndent = 0
@@ -23,9 +22,7 @@ function agentPermissionLines(
 	let targetIndent = 0
 	const output: string[] = []
 
-	for (const rawLine of lines) {
-		const line = rawLine.replace(/\r$/, '')
-
+	for (const line of lines) {
 		if (!inAgents) {
 			const trimmed = line.trim()
 			if (trimmed === 'agents:') {
@@ -230,8 +227,7 @@ export function renderAgentWithCentralPermissions(
 		return
 	}
 
-	const content = fs.readFileSync(srcFile, 'utf8')
-	const lines = content.split('\n')
+	const lines = readFileLines(srcFile)
 	const output: string[] = []
 
 	let inFrontmatter = false
@@ -240,12 +236,7 @@ export function renderAgentWithCentralPermissions(
 	let permissionIndent = -1
 	let inserted = false
 
-	for (const rawLine of lines) {
-		// ponytail: debt — CR-strip duplicated with renderAgentPermissionBlock and
-		// config-gen readFragment; promote to a shared stripCR helper if a 4th site
-		// appears — rung 2 — low
-		const line = rawLine.replace(/\r$/, '')
-
+	for (const line of lines) {
 		if (line === '---') {
 			if (!inFrontmatter) {
 				inFrontmatter = true

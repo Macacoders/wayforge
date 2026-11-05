@@ -40,8 +40,6 @@ export function validateFreeTierRuntime(
 	selected: Provider[],
 	runtime: Runtime,
 ): void {
-	// Claude Code manages authentication itself; providers are ignored.
-	if (runtime === 'claude') return
 	if (selected.includes('free-tier') && runtime !== 'opencode') {
 		console.error(
 			'error: free-tier provider is only available for opencode runtime',

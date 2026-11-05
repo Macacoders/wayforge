@@ -226,7 +226,6 @@ describe('renderClaudeSkill', () => {
 		'%s keeps the skill frontmatter and folds in the role line and $ARGUMENTS',
 		(name) => {
 			const content = renderClaudeSkill(
-				name,
 				path.join(skillsDir, name, 'SKILL.md'),
 				path.join(commandsDir, `${name}.md`),
 			)
@@ -246,7 +245,6 @@ describe('renderClaudeCommand', () => {
 		'%s keeps the description, role line, and $ARGUMENTS body',
 		(name) => {
 			const content = renderClaudeCommand(
-				name,
 				path.join(commandsDir, `${name}.md`),
 			)
 			expect(content).toMatch(/^description: "/m)
@@ -260,10 +258,7 @@ describe('renderClaudeCommand', () => {
 			.readFileSync(path.join(commandsDir, 'init.md'), 'utf8')
 			.match(/^description:\s*(.+)$/m)![1]
 			.trim()
-		const content = renderClaudeCommand(
-			'init',
-			path.join(commandsDir, 'init.md'),
-		)
+		const content = renderClaudeCommand(path.join(commandsDir, 'init.md'))
 		expect(content.split('\n')[1]).toBe(
 			`description: ${JSON.stringify(sourceDescription)}`,
 		)
