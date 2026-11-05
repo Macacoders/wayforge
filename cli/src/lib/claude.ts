@@ -1,8 +1,28 @@
 import fs from 'fs-extra'
 import path from 'path'
 import type { ManifestContext } from './context.js'
-import { CLAUDE_AGENT_DIR, CLAUDE_MEMORY_FILE } from './layout.js'
-import { syncManagedContent } from './manifest.js'
+import {
+	ARTIFACT_ROOT,
+	CLAUDE_AGENT_DIR,
+	CLAUDE_COMMAND_DIR,
+	CLAUDE_MEMORY_FILE,
+	CLAUDE_SKILLS_DIR,
+	posixPath,
+} from './layout.js'
+import {
+	isManagedDir,
+	isManagedFile,
+	managedTrackFile,
+	syncManagedContent,
+	syncManagedTree,
+} from './manifest.js'
+import { ensureDir, rmRf } from './files.js'
+import {
+	canSymlink,
+	createPointer,
+	isLinkedDirectory,
+	pointsAt,
+} from './pointers.js'
 import { parseAgentPermissions } from './permissions.js'
 
 /**
@@ -209,5 +229,264 @@ export function syncClaudeAgents(
 			content,
 			ctx,
 		)
+	}
+}
+
+interface CommandFrontmatter {
+	description: string
+	agent?: string
+}
+
+/**
+ * Minimal frontmatter reader for the fields the base commands use
+ * (`description`, `agent`). Reuses the line-scanning approach of
+ * `readAgentFrontmatter`; no YAML dependency.
+ */
+function readCommandFrontmatter(srcFile: string): CommandFrontmatter {
+	const lines = fs.readFileSync(srcFile, 'utf8').split('\n')
+	const frontmatter: CommandFrontmatter = { description: '' }
+	let inFrontmatter = false
+
+	for (const rawLine of lines) {
+		const line = rawLine.replace(/\r$/, '')
+		if (line === '---') {
+			if (!inFrontmatter) {
+				inFrontmatter = true
+				continue
+			}
+			break
+		}
+		if (!inFrontmatter) continue
+		const match = line.match(/^([A-Za-z_-]+):\s*(.*)$/)
+		if (!match) continue
+		if (match[1] === 'description') {
+			frontmatter.description = match[2].trim()
+		} else if (match[1] === 'agent') {
+			frontmatter.agent = match[2].trim()
+		}
+	}
+
+	return frontmatter
+}
+
+/** Role line that re-attaches the command's `agent:` routing in Claude. */
+function claudeRoleLine(agent: string): string {
+	return (
+		`Act as the ${agent} agent. Read .claude/agents/${agent}.md ` +
+		'and follow its instructions.'
+	)
+}
+
+/** Body lines of a frontmatter file, after the closing `---`. */
+function bodyAfterFrontmatter(srcFile: string): string[] {
+	const lines = fs.readFileSync(srcFile, 'utf8').split('\n')
+	const closingIndex = lines.findIndex(
+		(line, index) => index > 0 && line.replace(/\r$/, '') === '---',
+	)
+	return closingIndex === -1
+		? []
+		: lines.slice(closingIndex + 1).map((line) => line.replace(/\r$/, ''))
+}
+
+/**
+ * Classify base command and skill names for the Claude projection. The
+ * collision set is derived at install time from `base/commands/*.md` and
+ * `base/skills/<name>/SKILL.md`, never hardcoded, so new commands/skills follow
+ * the same skill-first rule.
+ */
+export interface SkillCommandProjection {
+	colliding: string[]
+	commandOnly: string[]
+	skillOnly: string[]
+}
+
+export function projectedSkillNames(sourceDir: string): SkillCommandProjection {
+	const commandsDir = path.join(sourceDir, 'base', 'commands')
+	const skillsDir = path.join(sourceDir, 'base', 'skills')
+
+	const commandNames = fs.pathExistsSync(commandsDir)
+		? fs
+				.readdirSync(commandsDir)
+				.filter((name) => name.endsWith('.md'))
+				.map((name) => name.slice(0, -3))
+		: []
+	const skillNames = fs.pathExistsSync(skillsDir)
+		? fs
+				.readdirSync(skillsDir, { withFileTypes: true })
+				.filter(
+					(entry) =>
+						entry.isDirectory() &&
+						fs.pathExistsSync(
+							path.join(skillsDir, entry.name, 'SKILL.md'),
+						),
+				)
+				.map((entry) => entry.name)
+		: []
+
+	const skillSet = new Set(skillNames)
+	const colliding: string[] = []
+	const commandOnly: string[] = []
+	for (const name of commandNames) {
+		if (skillSet.has(name)) {
+			colliding.push(name)
+		} else {
+			commandOnly.push(name)
+		}
+	}
+	const skillOnly = skillNames.filter((name) => !commandNames.includes(name))
+
+	return { colliding, commandOnly, skillOnly }
+}
+
+/**
+ * Render one colliding name as a Claude skill: the base skill's frontmatter
+ * and body are preserved, the colliding command's `agent:` routing is
+ * re-attached as a role line, and an explicit `$ARGUMENTS` section gives the
+ * user's argument text a predictable place. The command file itself is never
+ * emitted, because the skill would shadow it.
+ */
+export function renderClaudeSkill(
+	name: string,
+	skillSrc: string,
+	commandSrc: string,
+): string {
+	const command = readCommandFrontmatter(commandSrc)
+	const skillLines = fs
+		.readFileSync(skillSrc, 'utf8')
+		.split('\n')
+		.map((line) => line.replace(/\r$/, ''))
+	const closingIndex = skillLines.findIndex(
+		(line, index) => index > 0 && line.replace(/\r$/, '') === '---',
+	)
+	const frontmatter =
+		closingIndex === -1 ? [] : skillLines.slice(0, closingIndex + 1)
+	const body =
+		closingIndex === -1 ? skillLines : skillLines.slice(closingIndex + 1)
+
+	const lines = [...frontmatter, '']
+	if (command.agent) {
+		lines.push(claudeRoleLine(command.agent), '')
+	}
+	lines.push(...body)
+	lines.push('', '## Additional scope or clarification', '', '$ARGUMENTS')
+
+	return lines.join('\n')
+}
+
+/**
+ * Render one command-only name as a Claude command file: the source
+ * `description`, the role line when `agent:` is present, and the source body
+ * including `$ARGUMENTS`.
+ */
+export function renderClaudeCommand(name: string, commandSrc: string): string {
+	const command = readCommandFrontmatter(commandSrc)
+
+	const lines = ['---', `description: ${command.description}`, '---', '']
+	if (command.agent) {
+		lines.push(claudeRoleLine(command.agent), '')
+	}
+	lines.push(...bodyAfterFrontmatter(commandSrc))
+
+	return lines.join('\n')
+}
+
+/**
+ * Expose one skill-only name under `.claude/skills/<name>` as a relative
+ * symlink into `.agents/skills/<name>`, falling back to a junction and then a
+ * managed copy. Reuses the pointer link helpers; dry-run never probes
+ * symlink capability and never writes.
+ */
+function syncClaudeSkillLink(
+	repo: string,
+	sourceSkillDir: string,
+	name: string,
+	ctx: ManifestContext,
+): void {
+	const link = path.join(repo, CLAUDE_SKILLS_DIR, name)
+	const managedRel = posixPath(path.relative(repo, link))
+	const relativeTarget = posixPath(
+		path.join('..', '..', ARTIFACT_ROOT, 'skills', name),
+	)
+
+	if (fs.pathExistsSync(link)) {
+		try {
+			if (isLinkedDirectory(link) && pointsAt(link, relativeTarget)) {
+				managedTrackFile(link, ctx)
+				ctx.log(`skill link already present: ${managedRel}`)
+				return
+			}
+		} catch {
+			// fall through to the conflict handling below
+		}
+		if (ctx.dryRun) {
+			ctx.log(
+				`DRY-RUN: would replace skill path with link: ${managedRel}`,
+			)
+			return
+		}
+		if (!isManagedDir(link) && !isManagedFile(link)) {
+			ctx.log(
+				`skip conflict with unmanaged path (preserving local content): ${managedRel}`,
+			)
+			return
+		}
+		rmRf(link, ctx)
+	} else if (ctx.dryRun) {
+		ctx.log(
+			`DRY-RUN: would create skill link: ${managedRel} -> ${relativeTarget}`,
+		)
+		return
+	}
+
+	ensureDir(path.dirname(link), ctx)
+	const type = canSymlink(repo) ? 'dir' : 'junction'
+	if (createPointer(link, managedRel, relativeTarget, type, ctx)) {
+		return
+	}
+
+	// Neither symlinks nor junctions work on this filesystem: copy the skill
+	// tree and track the copied files through the managed lifecycle.
+	ctx.log(`falling back to managed copy for skill: ${managedRel}`)
+	syncManagedTree(sourceSkillDir, link, ctx)
+}
+
+/**
+ * Project base skills and commands into the Claude surface with the
+ * skill-first collision policy: exactly one entrypoint per name. Colliding
+ * names become generated skills (command routing folded in), command-only
+ * names become `.claude/commands/*.md`, and skill-only names become links
+ * into `.agents/skills`. No name is ever emitted in both locations.
+ */
+export function syncClaudeSkillsAndCommands(
+	repo: string,
+	sourceDir: string,
+	ctx: ManifestContext,
+): void {
+	const commandsDir = path.join(sourceDir, 'base', 'commands')
+	const skillsDir = path.join(sourceDir, 'base', 'skills')
+	const projection = projectedSkillNames(sourceDir)
+
+	for (const name of projection.colliding) {
+		syncManagedContent(
+			path.join(repo, CLAUDE_SKILLS_DIR, name, 'SKILL.md'),
+			renderClaudeSkill(
+				name,
+				path.join(skillsDir, name, 'SKILL.md'),
+				path.join(commandsDir, `${name}.md`),
+			),
+			ctx,
+		)
+	}
+
+	for (const name of projection.commandOnly) {
+		syncManagedContent(
+			path.join(repo, CLAUDE_COMMAND_DIR, `${name}.md`),
+			renderClaudeCommand(name, path.join(commandsDir, `${name}.md`)),
+			ctx,
+		)
+	}
+
+	for (const name of projection.skillOnly) {
+		syncClaudeSkillLink(repo, path.join(skillsDir, name), name, ctx)
 	}
 }

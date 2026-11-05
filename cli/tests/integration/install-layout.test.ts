@@ -236,6 +236,83 @@ describe('install layout integration', () => {
 		)
 		expect(architectAgent).toContain('disallowedTools:')
 		expect(architectAgent).toMatch(/^tools: (?!.*NotebookEdit)/m)
+
+		const colliding = [
+			'intent',
+			'plan',
+			'triage',
+			'ponytail',
+			'ponytail-audit',
+			'ponytail-debt',
+			'ponytail-gain',
+			'ponytail-help',
+			'ponytail-review',
+		]
+		const commandOnly = [
+			'init',
+			'issue',
+			'memory',
+			'load-plan',
+			'implement-task',
+			'review-task',
+		]
+		const skillOnly = [
+			'ai-memory',
+			'create-skill',
+			'memory-maintenance',
+			'shared-task',
+		]
+
+		const commandFiles = fs
+			.readdirSync(path.join(repo, '.claude', 'commands'))
+			.sort()
+		expect(commandFiles).toEqual(
+			[...commandOnly].sort().map((name) => `${name}.md`),
+		)
+
+		const skillEntries = fs
+			.readdirSync(path.join(repo, '.claude', 'skills'))
+			.sort()
+		expect(skillEntries).toEqual([...colliding, ...skillOnly].sort())
+
+		for (const name of colliding) {
+			expect(
+				fs.pathExistsSync(
+					path.join(repo, '.claude', 'commands', `${name}.md`),
+				),
+			).toBe(false)
+			const content = fs.readFileSync(
+				path.join(repo, '.claude', 'skills', name, 'SKILL.md'),
+				'utf8',
+			)
+			expect(content).toContain('$ARGUMENTS')
+			expect(content).toContain('## Additional scope or clarification')
+			expect(content).toMatch(/^Act as the \w+ agent\./m)
+		}
+
+		for (const name of commandOnly) {
+			expect(
+				fs.pathExistsSync(path.join(repo, '.claude', 'skills', name)),
+			).toBe(false)
+			const content = fs.readFileSync(
+				path.join(repo, '.claude', 'commands', `${name}.md`),
+				'utf8',
+			)
+			expect(content).toContain('$ARGUMENTS')
+			expect(content).toMatch(/^Act as the \w+ agent\./m)
+		}
+
+		for (const name of skillOnly) {
+			expectPointer(
+				repo,
+				`.claude/skills/${name}`,
+				`.agents/skills/${name}`,
+			)
+		}
+
+		const finalManifest = readManagedManifest(repo)
+		expect(finalManifest).toContain('.claude/skills/intent/SKILL.md')
+		expect(finalManifest).toContain('.claude/commands/init.md')
 	})
 
 	it('accepts a Claude model alias and rejects provider models for claude', async () => {

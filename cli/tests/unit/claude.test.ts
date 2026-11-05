@@ -1,12 +1,49 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'fs-extra'
+import os from 'os'
 import path from 'path'
-import { renderClaudeAgent } from '../../src/lib/claude.js'
+import {
+	projectedSkillNames,
+	renderClaudeAgent,
+	renderClaudeCommand,
+	renderClaudeSkill,
+	syncClaudeSkillsAndCommands,
+} from '../../src/lib/claude.js'
+import { ManifestContext } from '../../src/lib/context.js'
+import { initManagedManifest } from '../../src/lib/manifest.js'
 import { parseAgentPermissions } from '../../src/lib/permissions.js'
 
 const repoRoot = path.resolve(__dirname, '../../..')
 const agentsDir = path.join(repoRoot, 'base', 'agents')
+const commandsDir = path.join(repoRoot, 'base', 'commands')
+const skillsDir = path.join(repoRoot, 'base', 'skills')
 const permissionsFile = path.join(repoRoot, 'base', 'permissions', 'agents.yml')
+
+const COLLIDING = [
+	'intent',
+	'plan',
+	'triage',
+	'ponytail',
+	'ponytail-audit',
+	'ponytail-debt',
+	'ponytail-gain',
+	'ponytail-help',
+	'ponytail-review',
+]
+const COMMAND_ONLY = [
+	'init',
+	'issue',
+	'memory',
+	'load-plan',
+	'implement-task',
+	'review-task',
+]
+const SKILL_ONLY = [
+	'ai-memory',
+	'create-skill',
+	'memory-maintenance',
+	'shared-task',
+]
 
 interface ExpectedAgent {
 	tools: string
@@ -169,5 +206,136 @@ describe('parseAgentPermissions', () => {
 		expect(() =>
 			parseAgentPermissions('nonexistent-agent', permissionsFile),
 		).toThrow(/missing permissions in .* for agent 'nonexistent-agent'/)
+	})
+})
+
+describe('projectedSkillNames', () => {
+	it('derives the collision sets from base commands and skills', () => {
+		const projection = projectedSkillNames(repoRoot)
+		expect(projection.colliding.sort()).toEqual([...COLLIDING].sort())
+		expect(projection.commandOnly.sort()).toEqual([...COMMAND_ONLY].sort())
+		expect(projection.skillOnly.sort()).toEqual([...SKILL_ONLY].sort())
+	})
+})
+
+describe('renderClaudeSkill', () => {
+	it.each(COLLIDING)(
+		'%s keeps the skill frontmatter and folds in the role line and $ARGUMENTS',
+		(name) => {
+			const content = renderClaudeSkill(
+				name,
+				path.join(skillsDir, name, 'SKILL.md'),
+				path.join(commandsDir, `${name}.md`),
+			)
+			expect(content.startsWith('---\nname: ')).toBe(true)
+			expect(content).toContain('## Additional scope or clarification')
+			expect(content).toContain('$ARGUMENTS')
+			expect(content).toMatch(
+				/^Act as the \w+ agent\. Read \.claude\/agents\/\w+\.md and follow its instructions\.$/m,
+			)
+			expect(content).not.toMatch(/^agent: /m)
+		},
+	)
+})
+
+describe('renderClaudeCommand', () => {
+	it.each(COMMAND_ONLY)(
+		'%s keeps the description, role line, and $ARGUMENTS body',
+		(name) => {
+			const content = renderClaudeCommand(
+				name,
+				path.join(commandsDir, `${name}.md`),
+			)
+			expect(content).toMatch(/^description: /m)
+			expect(content).toContain('$ARGUMENTS')
+			expect(content).toMatch(/^Act as the \w+ agent\./m)
+		},
+	)
+})
+
+describe('syncClaudeSkillsAndCommands', () => {
+	function skillCommandRepo(): string {
+		const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'wayforge-claude-'))
+		// The link/copy targets must exist: mirror base skills into .agents.
+		fs.copySync(skillsDir, path.join(repo, '.agents', 'skills'))
+		return repo
+	}
+
+	it('writes exactly one entrypoint per name', () => {
+		const repo = skillCommandRepo()
+		try {
+			const ctx = new ManifestContext(false, false, true)
+			initManagedManifest(repo, '0.0.0', undefined, ctx)
+			syncClaudeSkillsAndCommands(repo, repoRoot, ctx)
+
+			const commandFiles = fs
+				.readdirSync(path.join(repo, '.claude', 'commands'))
+				.sort()
+			expect(commandFiles).toEqual(
+				[...COMMAND_ONLY].sort().map((name) => `${name}.md`),
+			)
+
+			const skillEntries = fs
+				.readdirSync(path.join(repo, '.claude', 'skills'))
+				.sort()
+			expect(skillEntries).toEqual([...COLLIDING, ...SKILL_ONLY].sort())
+
+			for (const name of COLLIDING) {
+				expect(
+					fs.pathExistsSync(
+						path.join(repo, '.claude', 'commands', `${name}.md`),
+					),
+				).toBe(false)
+				const content = fs.readFileSync(
+					path.join(repo, '.claude', 'skills', name, 'SKILL.md'),
+					'utf8',
+				)
+				expect(content).toContain('$ARGUMENTS')
+				expect(content).toContain('Act as the ')
+			}
+
+			for (const name of COMMAND_ONLY) {
+				expect(
+					fs.pathExistsSync(
+						path.join(repo, '.claude', 'skills', name),
+					),
+				).toBe(false)
+			}
+
+			for (const name of SKILL_ONLY) {
+				const entry = path.join(repo, '.claude', 'skills', name)
+				expect(fs.statSync(entry).isDirectory()).toBe(true)
+				expect(fs.pathExistsSync(path.join(entry, 'SKILL.md'))).toBe(
+					true,
+				)
+			}
+
+			const duplicated = [...COLLIDING, ...COMMAND_ONLY].filter(
+				(name) =>
+					fs.pathExistsSync(
+						path.join(repo, '.claude', 'commands', `${name}.md`),
+					) &&
+					fs.pathExistsSync(
+						path.join(repo, '.claude', 'skills', name),
+					),
+			)
+			expect(duplicated).toEqual([])
+		} finally {
+			fs.removeSync(repo)
+		}
+	})
+
+	it('dry-run writes nothing and does not probe symlinks', () => {
+		const repo = skillCommandRepo()
+		try {
+			syncClaudeSkillsAndCommands(
+				repo,
+				repoRoot,
+				new ManifestContext(true, false, true),
+			)
+			expect(fs.pathExistsSync(path.join(repo, '.claude'))).toBe(false)
+		} finally {
+			fs.removeSync(repo)
+		}
 	})
 })
