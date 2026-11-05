@@ -31,9 +31,9 @@ import {
 	rejectClaudeSmallModel,
 } from '../lib/providers.js'
 import {
-	syncClaudeAgents,
-	syncClaudeMemory,
-	syncClaudeSkillsAndCommands,
+	expectedClaudePaths,
+	pruneStaleClaudePaths,
+	syncClaudeSurface,
 } from '../lib/claude.js'
 import {
 	syncGeneratedOpenCodeJsonc,
@@ -46,6 +46,8 @@ import { resolveSourceDir } from '../lib/source-dir.js'
 import { checkNode } from '../lib/prereq.js'
 import {
 	ARTIFACT_ROOT,
+	CLAUDE_MEMORY_FILE,
+	CLAUDE_ROOT,
 	CONTENT_CATEGORIES,
 	LEGACY_ARTIFACT_ROOT,
 	RUNTIMES,
@@ -148,7 +150,7 @@ export async function doInstall(
 
 	initManagedManifest(repo, version, options.ref || undefined, ctx)
 
-	const conflicts = findUnmanagedConflicts(repo, sourceDir)
+	const conflicts = findUnmanagedConflicts(repo, sourceDir, options.runtime)
 	ctx.overrideUnmanaged = await resolveUnmanagedConflicts(
 		conflicts,
 		ctx,
@@ -202,6 +204,14 @@ export async function doInstall(
 			}
 
 			for (const relPath of manifestPaths) {
+				if (
+					relPath === CLAUDE_MEMORY_FILE ||
+					relPath.startsWith(`${CLAUDE_ROOT}/`)
+				) {
+					// The Claude surface is re-projected wholesale below; the
+					// generic manifest loop only handles `.agents` content.
+					continue
+				}
 				if (isPointerPath(relPath)) {
 					if (isValidRuntimePointer(repo, relPath)) {
 						managedTrackFile(path.join(repo, relPath), ctx)
@@ -267,9 +277,8 @@ export async function doInstall(
 				ctx,
 			)
 			if (options.runtime === 'claude') {
-				syncClaudeMemory(repo, sourceDir, ctx)
-				syncClaudeAgents(repo, sourceDir, options.claudeModel, ctx)
-				syncClaudeSkillsAndCommands(repo, sourceDir, ctx)
+				syncClaudeSurface(repo, sourceDir, options.claudeModel, ctx)
+				pruneStaleClaudePaths(repo, expectedClaudePaths(sourceDir), ctx)
 			}
 			const blockedPointers = ensureRuntimePointers(
 				repo,
@@ -286,10 +295,7 @@ export async function doInstall(
 		}
 	}
 
-	if (options.runtime === 'claude') {
-		syncClaudeMemory(repo, sourceDir, ctx)
-		syncClaudeAgents(repo, sourceDir, options.claudeModel, ctx)
-	} else if (genOpts) {
+	if (genOpts) {
 		syncGeneratedOpenCodeJsonc(repo, options.runtime, genOpts, ctx)
 	}
 	syncManagedFile(
@@ -313,7 +319,8 @@ export async function doInstall(
 	}
 
 	if (options.runtime === 'claude') {
-		syncClaudeSkillsAndCommands(repo, sourceDir, ctx)
+		syncClaudeSurface(repo, sourceDir, options.claudeModel, ctx)
+		pruneStaleClaudePaths(repo, expectedClaudePaths(sourceDir), ctx)
 	}
 
 	const blockedPointers = ensureRuntimePointers(repo, options.runtime, ctx)

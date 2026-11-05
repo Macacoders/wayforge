@@ -7,7 +7,7 @@ import {
 	type ManifestContext,
 	type SyncTreeResult,
 } from './context.js'
-import { cp, ensureDir, rm, writeFile } from './files.js'
+import { cp, ensureDir, rm, rmRf, writeFile } from './files.js'
 import { posixPath, sourceForDest } from './layout.js'
 
 /** Read a file and split into lines, normalizing CRLF to LF. */
@@ -389,21 +389,56 @@ export function syncManagedContent(
 	content: string,
 	ctx: ManifestContext,
 ): void {
+	let exists = false
 	if (fs.pathExistsSync(dst)) {
-		if (!ctx.force) {
-			if (isManagedFile(dst)) {
-				managedTrackFile(dst, ctx)
+		exists = true
+		const lstat = fs.lstatSync(dst)
+		if (lstat.isSymbolicLink()) {
+			// Never write through a symlink: the target may live outside the
+			// managed surface (e.g. inside `.agents`). Only a managed or
+			// explicitly overridden link under --force is replaced by a real
+			// file.
+			if (
+				ctx.force &&
+				(isManagedFile(dst) || ctx.overrideUnmanaged.has(dst))
+			) {
+				rm(dst, ctx)
+				exists = false
+			} else {
 				ctx.log(
-					`kept existing managed file (tracked in manifest): ${dst}`,
+					`skip conflict with symlink (preserving link target): ${dst}`,
 				)
 				return
 			}
-			ctx.log(
-				`keep existing file (use --force to refresh managed file): ${dst}`,
-			)
-			return
-		}
-		if (!isManagedFile(dst) && !ctx.overrideUnmanaged.has(dst)) {
+		} else if (lstat.isDirectory()) {
+			// Generated content cannot be written through a directory (a stale
+			// skill link would follow into `.agents`); only a managed directory
+			// under --force is replaced.
+			if (ctx.force && isManagedDir(dst)) {
+				rmRf(dst, ctx)
+				exists = false
+			} else {
+				ctx.log(`skip conflict with existing directory: ${dst}`)
+				return
+			}
+		} else if (!ctx.force) {
+			if (isManagedFile(dst)) {
+				if (fs.readFileSync(dst, 'utf8') === `${content}\n`) {
+					managedTrackFile(dst, ctx)
+					ctx.log(
+						`kept existing managed file (content unchanged): ${dst}`,
+					)
+					return
+				}
+				// Managed generated files refresh when the rendered content
+				// changes; --force is only required for unmanaged content.
+			} else {
+				ctx.log(
+					`keep existing file (use --force to refresh managed file): ${dst}`,
+				)
+				return
+			}
+		} else if (!isManagedFile(dst) && !ctx.overrideUnmanaged.has(dst)) {
 			ctx.log(
 				`skip conflict with unmanaged file (preserving local content): ${dst}`,
 			)
@@ -416,9 +451,17 @@ export function syncManagedContent(
 	managedTrackFile(dst, ctx)
 
 	if (ctx.dryRun) {
-		ctx.log(`DRY-RUN: would write managed file: ${dst}`)
+		ctx.log(
+			exists
+				? `DRY-RUN: would refresh managed file: ${dst}`
+				: `DRY-RUN: would write managed file: ${dst}`,
+		)
 	} else {
-		ctx.log(`wrote managed file: ${dst}`)
+		ctx.log(
+			exists
+				? `refreshed managed file: ${dst}`
+				: `wrote managed file: ${dst}`,
+		)
 	}
 }
 
@@ -592,7 +635,14 @@ export function syncManagedPathFromManifest(
 ): void {
 	let srcFile = ''
 
-	if (relativePath === 'opencode.jsonc' || relativePath === 'kilo.jsonc') {
+	if (
+		relativePath === 'opencode.jsonc' ||
+		relativePath === 'kilo.jsonc' ||
+		relativePath === 'CLAUDE.md' ||
+		relativePath.startsWith('.claude/')
+	) {
+		// Generated configs and the Claude projection are re-synced by their
+		// own install branches, not from the manifest path list.
 		return
 	} else if (relativePath === 'AGENTS.md') {
 		srcFile = path.join(rootDir, 'base', 'AGENTS.md')

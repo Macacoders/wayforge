@@ -1,7 +1,13 @@
 import fs from 'fs-extra'
 import path from 'path'
 import { ManifestContext } from './context.js'
-import { isManagedFile, walkFiles } from './manifest.js'
+import {
+	isManagedDir,
+	isManagedFile,
+	isManagedPath,
+	walkFiles,
+} from './manifest.js'
+import { expectedClaudePaths } from './claude.js'
 import {
 	CONTENT_CATEGORIES,
 	destRelFor,
@@ -9,6 +15,7 @@ import {
 	sourceDirFor,
 } from './layout.js'
 import { isInteractive } from './prompt.js'
+import type { Runtime } from '../types.js'
 
 export interface UnmanagedConflict {
 	relPath: string
@@ -18,6 +25,7 @@ export interface UnmanagedConflict {
 export function findUnmanagedConflicts(
 	repo: string,
 	sourceDir: string,
+	runtime: Runtime,
 ): UnmanagedConflict[] {
 	const conflicts: UnmanagedConflict[] = []
 
@@ -32,6 +40,24 @@ export function findUnmanagedConflicts(
 			const dstPath = path.join(repo, relPath)
 			if (fs.pathExistsSync(dstPath) && !isManagedFile(dstPath)) {
 				conflicts.push({ relPath, dstPath })
+			}
+		}
+	}
+
+	if (runtime === 'claude') {
+		const seen = new Set(conflicts.map((conflict) => conflict.relPath))
+		for (const rel of expectedClaudePaths(sourceDir)) {
+			if (seen.has(rel)) {
+				continue
+			}
+			const dstPath = path.join(repo, rel)
+			if (
+				fs.pathExistsSync(dstPath) &&
+				!isManagedPath(repo, rel) &&
+				!isManagedFile(dstPath) &&
+				!isManagedDir(dstPath)
+			) {
+				conflicts.push({ relPath: rel, dstPath })
 			}
 		}
 	}

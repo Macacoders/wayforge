@@ -490,4 +490,124 @@ describe('install layout integration', () => {
 		)
 		expect(fs.pathExistsSync(path.join(repo, 'AGENTS.md'))).toBe(false)
 	})
+
+	it('reinstalls claude idempotently', async () => {
+		await doInstall(installOptions(repo, 'claude'))
+		const manifestBefore = readManagedManifest(repo).sort()
+		const plannerPath = path.join(repo, '.claude', 'agents', 'planner.md')
+		const plannerBefore = fs.readFileSync(plannerPath, 'utf8')
+
+		await doInstall(installOptions(repo, 'claude'))
+
+		const manifestAfter = readManagedManifest(repo)
+		expect(manifestAfter.sort()).toEqual(manifestBefore)
+		expect(new Set(manifestAfter).size).toBe(manifestAfter.length)
+		expect(fs.readFileSync(plannerPath, 'utf8')).toBe(plannerBefore)
+	})
+
+	it('force reinstall restores an edited claude generated file', async () => {
+		await doInstall(installOptions(repo, 'claude'))
+		const plannerPath = path.join(repo, '.claude', 'agents', 'planner.md')
+		fs.writeFileSync(plannerPath, '# user edited\n')
+
+		await doInstall(installOptions(repo, 'claude', { force: true }))
+
+		const content = fs.readFileSync(plannerPath, 'utf8')
+		expect(content).toContain('name: planner')
+		expect(content).not.toContain('# user edited')
+	})
+
+	it('preserves an unmanaged user-authored claude file across reinstalls', async () => {
+		await doInstall(installOptions(repo, 'claude'))
+		const userFile = path.join(repo, '.claude', 'agents', 'user.md')
+		fs.writeFileSync(userFile, '# user agent\n')
+
+		await doInstall(installOptions(repo, 'claude'))
+
+		expect(fs.readFileSync(userFile, 'utf8')).toBe('# user agent\n')
+	})
+
+	it('claude dry-run writes nothing', async () => {
+		await doInstall(installOptions(repo, 'claude', { dryRun: true }))
+
+		expect(fs.pathExistsSync(path.join(repo, 'CLAUDE.md'))).toBe(false)
+		expect(fs.pathExistsSync(path.join(repo, '.claude'))).toBe(false)
+		expect(fs.pathExistsSync(path.join(repo, '.agents'))).toBe(false)
+		expect(fs.pathExistsSync(path.join(repo, '.wayforge-managed'))).toBe(
+			false,
+		)
+	})
+
+	it('uninstall removes the claude surface and preserves user files', async () => {
+		await doInstall(installOptions(repo, 'claude'))
+		const userFile = path.join(repo, '.claude', 'agents', 'user.md')
+		fs.writeFileSync(userFile, '# user agent\n')
+
+		uninstallCommand({ repo, dryRun: false })
+
+		expect(fs.pathExistsSync(path.join(repo, 'CLAUDE.md'))).toBe(false)
+		expect(
+			fs.pathExistsSync(
+				path.join(repo, '.claude', 'agents', 'planner.md'),
+			),
+		).toBe(false)
+		expect(
+			fs.pathExistsSync(
+				path.join(repo, '.claude', 'commands', 'init.md'),
+			),
+		).toBe(false)
+		expect(
+			fs.pathExistsSync(
+				path.join(repo, '.claude', 'skills', 'intent', 'SKILL.md'),
+			),
+		).toBe(false)
+		expect(
+			fs.pathExistsSync(
+				path.join(repo, '.claude', 'skills', 'ai-memory'),
+			),
+		).toBe(false)
+		expect(fs.readFileSync(userFile, 'utf8')).toBe('# user agent\n')
+		expect(fs.pathExistsSync(path.join(repo, '.wayforge-managed'))).toBe(
+			false,
+		)
+	})
+
+	it('isolates mixed opencode and claude installs', async () => {
+		await doInstall(installOptions(repo, 'opencode'))
+		const configPath = path.join(repo, 'opencode.jsonc')
+		const configBefore = fs.readFileSync(configPath, 'utf8')
+		expectPointer(repo, '.opencode/agents', '.agents/agents')
+
+		await doInstall(installOptions(repo, 'claude'))
+
+		expect(fs.readFileSync(configPath, 'utf8')).toBe(configBefore)
+		expectPointer(repo, '.opencode/agents', '.agents/agents')
+		expect(fs.pathExistsSync(path.join(repo, '.kilo'))).toBe(false)
+
+		const claudeMemory = fs.readFileSync(
+			path.join(repo, 'CLAUDE.md'),
+			'utf8',
+		)
+		const claudePlanner = fs.readFileSync(
+			path.join(repo, '.claude', 'agents', 'planner.md'),
+			'utf8',
+		)
+
+		await doInstall(installOptions(repo, 'opencode', { force: true }))
+
+		expect(fs.readFileSync(path.join(repo, 'CLAUDE.md'), 'utf8')).toBe(
+			claudeMemory,
+		)
+		expect(
+			fs.readFileSync(
+				path.join(repo, '.claude', 'agents', 'planner.md'),
+				'utf8',
+			),
+		).toBe(claudePlanner)
+
+		await doInstall(installOptions(repo, 'claude', { force: true }))
+
+		expect(fs.readFileSync(configPath, 'utf8')).toBe(configBefore)
+		expectPointer(repo, '.opencode/agents', '.agents/agents')
+	})
 })

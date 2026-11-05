@@ -3,6 +3,8 @@ import fs from 'fs-extra'
 import os from 'os'
 import path from 'path'
 import {
+	expectedClaudePaths,
+	pruneStaleClaudePaths,
 	projectedSkillNames,
 	renderClaudeAgent,
 	renderClaudeCommand,
@@ -12,6 +14,7 @@ import {
 import { ManifestContext } from '../../src/lib/context.js'
 import { initManagedManifest } from '../../src/lib/manifest.js'
 import { parseAgentPermissions } from '../../src/lib/permissions.js'
+import { isLinkedDirectory } from '../../src/lib/pointers.js'
 
 const repoRoot = path.resolve(__dirname, '../../..')
 const agentsDir = path.join(repoRoot, 'base', 'agents')
@@ -348,6 +351,131 @@ describe('syncClaudeSkillsAndCommands', () => {
 				new ManifestContext(true, false, true),
 			)
 			expect(fs.pathExistsSync(path.join(repo, '.claude'))).toBe(false)
+		} finally {
+			fs.removeSync(repo)
+		}
+	})
+})
+
+describe('syncClaudeSkillsAndCommands stale link safety', () => {
+	/** Seed `.agents/skills` from base so link targets exist, with a sentinel. */
+	function linkSafetyRepo(): { repo: string; target: string; link: string } {
+		const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'wayforge-link-'))
+		const target = path.join(repo, '.agents', 'skills', 'intent')
+		fs.copySync(skillsDir, path.join(repo, '.agents', 'skills'))
+		fs.writeFileSync(path.join(target, 'SKILL.md'), '# sentinel\n')
+		const link = path.join(repo, '.claude', 'skills', 'intent')
+		fs.mkdirpSync(path.join(repo, '.claude', 'skills'))
+		try {
+			fs.symlinkSync(
+				path.join('..', '..', '.agents', 'skills', 'intent'),
+				link,
+				'dir',
+			)
+		} catch {
+			// Windows without symlink privilege: a junction is still a linked
+			// directory, so the same safety rules apply.
+			fs.symlinkSync(path.resolve(target), link, 'junction')
+		}
+		return { repo, target, link }
+	}
+
+	it('preserves an unmanaged colliding link and never writes through it', () => {
+		const { repo, target, link } = linkSafetyRepo()
+		try {
+			const ctx = new ManifestContext(false, true, true)
+			syncClaudeSkillsAndCommands(repo, repoRoot, ctx)
+
+			expect(isLinkedDirectory(link)).toBe(true)
+			expect(fs.readFileSync(path.join(target, 'SKILL.md'), 'utf8')).toBe(
+				'# sentinel\n',
+			)
+		} finally {
+			fs.removeSync(repo)
+		}
+	})
+
+	it('replaces an overridden colliding link without touching .agents', () => {
+		const { repo, target, link } = linkSafetyRepo()
+		try {
+			const ctx = new ManifestContext(false, true, true)
+			ctx.overrideUnmanaged.add(link)
+			syncClaudeSkillsAndCommands(repo, repoRoot, ctx)
+
+			expect(fs.lstatSync(link).isSymbolicLink()).toBe(false)
+			expect(
+				fs.readFileSync(path.join(link, 'SKILL.md'), 'utf8'),
+			).toContain('Act as the ')
+			expect(fs.readFileSync(path.join(target, 'SKILL.md'), 'utf8')).toBe(
+				'# sentinel\n',
+			)
+		} finally {
+			fs.removeSync(repo)
+		}
+	})
+})
+
+describe('expectedClaudePaths', () => {
+	it('lists every current claude destination without duplicates', () => {
+		const expected = expectedClaudePaths(repoRoot)
+		expect(expected).toContain('CLAUDE.md')
+		expect(expected).toContain('.claude/agents/planner.md')
+		expect(expected).toContain('.claude/skills/intent/SKILL.md')
+		expect(expected).toContain('.claude/commands/init.md')
+		expect(expected).toContain('.claude/skills/ai-memory')
+		// colliding names never emit a command file
+		expect(expected).not.toContain('.claude/commands/intent.md')
+		expect(new Set(expected).size).toBe(expected.length)
+	})
+})
+
+describe('pruneStaleClaudePaths', () => {
+	it('removes stale managed claude paths and keeps expected and unmanaged files', () => {
+		const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'wayforge-prune-'))
+		try {
+			fs.mkdirpSync(path.join(repo, '.claude', 'agents'))
+			fs.writeFileSync(
+				path.join(repo, '.claude', 'agents', 'removed.md'),
+				'# stale',
+			)
+			fs.writeFileSync(
+				path.join(repo, '.claude', 'agents', 'planner.md'),
+				'# planner',
+			)
+			fs.writeFileSync(
+				path.join(repo, '.claude', 'agents', 'user.md'),
+				'# user',
+			)
+			fs.writeFileSync(
+				path.join(repo, '.wayforge-managed'),
+				'managed_paths:\n' +
+					'  - .claude/agents/removed.md\n' +
+					'  - .claude/agents/planner.md\n',
+			)
+
+			pruneStaleClaudePaths(
+				repo,
+				expectedClaudePaths(repoRoot),
+				new ManifestContext(false, false, true),
+			)
+
+			expect(
+				fs.pathExistsSync(
+					path.join(repo, '.claude', 'agents', 'removed.md'),
+				),
+			).toBe(false)
+			expect(
+				fs.readFileSync(
+					path.join(repo, '.claude', 'agents', 'planner.md'),
+					'utf8',
+				),
+			).toBe('# planner')
+			expect(
+				fs.readFileSync(
+					path.join(repo, '.claude', 'agents', 'user.md'),
+					'utf8',
+				),
+			).toBe('# user')
 		} finally {
 			fs.removeSync(repo)
 		}

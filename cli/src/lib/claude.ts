@@ -6,6 +6,7 @@ import {
 	CLAUDE_AGENT_DIR,
 	CLAUDE_COMMAND_DIR,
 	CLAUDE_MEMORY_FILE,
+	CLAUDE_ROOT,
 	CLAUDE_SKILLS_DIR,
 	posixPath,
 } from './layout.js'
@@ -13,10 +14,11 @@ import {
 	isManagedDir,
 	isManagedFile,
 	managedTrackFile,
+	readManagedManifest,
 	syncManagedContent,
 	syncManagedTree,
 } from './manifest.js'
-import { ensureDir, rmRf } from './files.js'
+import { ensureDir, rm, rmRf } from './files.js'
 import {
 	canSymlink,
 	createPointer,
@@ -398,6 +400,24 @@ export function renderClaudeCommand(name: string, commandSrc: string): string {
 }
 
 /**
+ * Remove an existing managed skill path: a linked directory (symlink or
+ * Windows junction) is unlinked with the link-aware `rm`; a real directory
+ * (copy fallback) or file is removed recursively.
+ */
+function removeSkillPath(
+	target: string,
+	managedRel: string,
+	ctx: ManifestContext,
+): void {
+	if (isLinkedDirectory(target)) {
+		rm(target, ctx)
+	} else {
+		rmRf(target, ctx)
+	}
+	ctx.log(`removed managed skill path: ${managedRel}`)
+}
+
+/**
  * Expose one skill-only name under `.claude/skills/<name>` as a relative
  * symlink into `.agents/skills/<name>`, falling back to a junction and then a
  * managed copy. Reuses the pointer link helpers; dry-run never probes
@@ -416,14 +436,32 @@ function syncClaudeSkillLink(
 	)
 
 	if (fs.pathExistsSync(link)) {
+		let linked = false
 		try {
-			if (isLinkedDirectory(link) && pointsAt(link, relativeTarget)) {
-				managedTrackFile(link, ctx)
-				ctx.log(`skill link already present: ${managedRel}`)
+			linked = isLinkedDirectory(link) && pointsAt(link, relativeTarget)
+		} catch {
+			linked = false
+		}
+		if (linked) {
+			managedTrackFile(link, ctx)
+			ctx.log(`skill link already present: ${managedRel}`)
+			return
+		}
+		// The unmanaged-conflict check precedes the dry-run branch so a
+		// dry-run predicts the same skip a real run performs.
+		if (!isManagedDir(link) && !isManagedFile(link)) {
+			if (!ctx.overrideUnmanaged.has(link)) {
+				ctx.log(
+					`skip conflict with unmanaged path (preserving local content): ${managedRel}`,
+				)
 				return
 			}
-		} catch {
-			// fall through to the conflict handling below
+		} else if (!ctx.force) {
+			managedTrackFile(link, ctx)
+			ctx.log(
+				`kept existing managed skill path (use --force to replace): ${managedRel}`,
+			)
+			return
 		}
 		if (ctx.dryRun) {
 			ctx.log(
@@ -431,14 +469,10 @@ function syncClaudeSkillLink(
 			)
 			return
 		}
-		if (!isManagedDir(link) && !isManagedFile(link)) {
-			ctx.log(
-				`skip conflict with unmanaged path (preserving local content): ${managedRel}`,
-			)
-			return
-		}
-		rmRf(link, ctx)
-	} else if (ctx.dryRun) {
+		removeSkillPath(link, managedRel, ctx)
+	}
+
+	if (ctx.dryRun) {
 		ctx.log(
 			`DRY-RUN: would create skill link: ${managedRel} -> ${relativeTarget}`,
 		)
@@ -458,6 +492,43 @@ function syncClaudeSkillLink(
 }
 
 /**
+ * A name that used to be skill-only but now collides may still have a link at
+ * `.claude/skills/<name>`; remove it first so the generated SKILL.md becomes a
+ * real file instead of being written through the link into `.agents`.
+ *
+ * Returns whether it is safe to write the generated skill at that path: an
+ * unmanaged link that is not overridden is preserved and blocks the write, so
+ * the link target (possibly inside `.agents`) is never modified.
+ */
+function removeStaleSkillLink(
+	repo: string,
+	name: string,
+	ctx: ManifestContext,
+): boolean {
+	const link = path.join(repo, CLAUDE_SKILLS_DIR, name)
+	if (!fs.pathExistsSync(link) || !isLinkedDirectory(link)) {
+		return true
+	}
+	const managedRel = posixPath(path.relative(repo, link))
+	if (!isManagedDir(link) && !isManagedFile(link)) {
+		if (!ctx.overrideUnmanaged.has(link)) {
+			ctx.log(
+				`skip conflict with unmanaged path (preserving local content): ${managedRel}`,
+			)
+			return false
+		}
+	}
+	if (ctx.dryRun) {
+		ctx.log(
+			`DRY-RUN: would replace skill link with generated skill: ${managedRel}`,
+		)
+		return true
+	}
+	removeSkillPath(link, managedRel, ctx)
+	return true
+}
+
+/**
  * Project base skills and commands into the Claude surface with the
  * skill-first collision policy: exactly one entrypoint per name. Colliding
  * names become generated skills (command routing folded in), command-only
@@ -474,6 +545,7 @@ export function syncClaudeSkillsAndCommands(
 	const projection = projectedSkillNames(sourceDir)
 
 	for (const name of projection.colliding) {
+		if (!removeStaleSkillLink(repo, name, ctx)) continue
 		syncManagedContent(
 			path.join(repo, CLAUDE_SKILLS_DIR, name, 'SKILL.md'),
 			renderClaudeSkill(
@@ -496,4 +568,120 @@ export function syncClaudeSkillsAndCommands(
 	for (const name of projection.skillOnly) {
 		syncClaudeSkillLink(repo, path.join(skillsDir, name), name, ctx)
 	}
+}
+
+/**
+ * Repo-relative posix paths for every current Claude destination: the memory
+ * entrypoint, one generated agent file per base agent, one generated skill per
+ * colliding name, one command file per command-only name, and one link path
+ * per skill-only name. Stale projections are pruned against this set.
+ */
+export function expectedClaudePaths(sourceDir: string): string[] {
+	const paths = [CLAUDE_MEMORY_FILE]
+
+	const agentsDir = path.join(sourceDir, 'base', 'agents')
+	if (fs.pathExistsSync(agentsDir)) {
+		for (const entry of fs.readdirSync(agentsDir, {
+			withFileTypes: true,
+		})) {
+			if (entry.isFile() && entry.name.endsWith('.md')) {
+				paths.push(posixPath(path.join(CLAUDE_AGENT_DIR, entry.name)))
+			}
+		}
+	}
+
+	const projection = projectedSkillNames(sourceDir)
+	for (const name of projection.colliding) {
+		paths.push(posixPath(path.join(CLAUDE_SKILLS_DIR, name, 'SKILL.md')))
+	}
+	for (const name of projection.commandOnly) {
+		paths.push(posixPath(path.join(CLAUDE_COMMAND_DIR, `${name}.md`)))
+	}
+	for (const name of projection.skillOnly) {
+		paths.push(posixPath(path.join(CLAUDE_SKILLS_DIR, name)))
+	}
+
+	return paths
+}
+
+/**
+ * Remove Claude-managed paths that no longer have a source in `base/**`:
+ * manifest paths under the Claude surface that are absent from `expected` are
+ * deleted (link-aware for skill links) and their emptied ancestor directories
+ * under `.claude` are pruned, never past the repo root and never touching
+ * unmanaged siblings.
+ */
+export function pruneStaleClaudePaths(
+	repo: string,
+	expected: string[],
+	ctx: ManifestContext,
+): void {
+	const expectedSet = new Set(expected)
+	const claudeRoot = path.join(repo, CLAUDE_ROOT)
+	const stale = readManagedManifest(repo).filter(
+		(relPath) =>
+			(relPath === CLAUDE_MEMORY_FILE ||
+				relPath.startsWith(`${CLAUDE_ROOT}/`)) &&
+			!expectedSet.has(relPath) &&
+			fs.pathExistsSync(path.join(repo, relPath)),
+	)
+
+	const dirs = new Set<string>()
+	for (const relPath of stale) {
+		const absolute = path.join(repo, relPath)
+		if (ctx.dryRun) {
+			ctx.log(`DRY-RUN: would remove stale claude path: ${relPath}`)
+			continue
+		}
+		if (
+			isLinkedDirectory(absolute) ||
+			fs.lstatSync(absolute).isSymbolicLink()
+		) {
+			rm(absolute, ctx)
+		} else if (fs.statSync(absolute).isDirectory()) {
+			rmRf(absolute, ctx)
+		} else {
+			rm(absolute, ctx)
+		}
+		ctx.log(`removed stale claude path: ${relPath}`)
+
+		// Collect ancestor directories under `.claude` for empty-dir pruning.
+		let dir = path.dirname(absolute)
+		while (dir.startsWith(claudeRoot) && dir !== claudeRoot) {
+			dirs.add(dir)
+			dir = path.dirname(dir)
+		}
+	}
+
+	// Deepest first, so a chain of emptied directories collapses in one pass.
+	const ordered = [...dirs].sort((a, b) => b.length - a.length)
+	for (const dir of ordered) {
+		if (
+			fs.existsSync(dir) &&
+			fs.statSync(dir).isDirectory() &&
+			fs.readdirSync(dir).length === 0
+		) {
+			try {
+				fs.rmdirSync(dir)
+				ctx.log(`removed empty directory: ${dir}`)
+			} catch {
+				// Directory not empty or already removed; leave it in place.
+			}
+		}
+	}
+}
+
+/**
+ * Compose the full Claude projection (memory, agents, skills/commands) once
+ * for both install branches; the individual functions stay exported for tests.
+ */
+export function syncClaudeSurface(
+	repo: string,
+	sourceDir: string,
+	claudeModel: string | undefined,
+	ctx: ManifestContext,
+): void {
+	syncClaudeMemory(repo, sourceDir, ctx)
+	syncClaudeAgents(repo, sourceDir, claudeModel, ctx)
+	syncClaudeSkillsAndCommands(repo, sourceDir, ctx)
 }
