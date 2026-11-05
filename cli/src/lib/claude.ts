@@ -381,7 +381,14 @@ export function renderClaudeSkill(
 export function renderClaudeCommand(name: string, commandSrc: string): string {
 	const command = readCommandFrontmatter(commandSrc)
 
-	const lines = ['---', `description: ${command.description}`, '---', '']
+	const lines = [
+		'---',
+		// JSON.stringify produces a valid YAML double-quoted scalar, which keeps
+		// descriptions containing `: ` (e.g. `init`) parseable.
+		`description: ${JSON.stringify(command.description)}`,
+		'---',
+		'',
+	]
 	if (command.agent) {
 		lines.push(claudeRoleLine(command.agent), '')
 	}

@@ -246,11 +246,25 @@ describe('renderClaudeCommand', () => {
 				name,
 				path.join(commandsDir, `${name}.md`),
 			)
-			expect(content).toMatch(/^description: /m)
+			expect(content).toMatch(/^description: "/m)
 			expect(content).toContain('$ARGUMENTS')
 			expect(content).toMatch(/^Act as the \w+ agent\./m)
 		},
 	)
+
+	it('emits a valid YAML description for init (colon inside the text)', () => {
+		const sourceDescription = fs
+			.readFileSync(path.join(commandsDir, 'init.md'), 'utf8')
+			.match(/^description:\s*(.+)$/m)![1]
+			.trim()
+		const content = renderClaudeCommand(
+			'init',
+			path.join(commandsDir, 'init.md'),
+		)
+		expect(content.split('\n')[1]).toBe(
+			`description: ${JSON.stringify(sourceDescription)}`,
+		)
+	})
 })
 
 describe('syncClaudeSkillsAndCommands', () => {
