@@ -9,7 +9,7 @@ required_gates:
 
 # Issue #288: Refine `/issue edit` documentation — Implementation plan
 
-**Goal:** Rewrite the `### edit` section of `base/skills/shared-task/SKILL.md` into scannable, grouped bullets that describe `cmdEdit` accurately and do not contradict `Output conventions` or `Safety minimums`.
+**Goal:** Replace the dense `### edit` paragraph in `base/skills/shared-task/SKILL.md` with one condensed reference paragraph that matches the sibling operation style, describes `cmdEdit` accurately, and delegates shared semantics to `Output conventions` and `Safety minimums` instead of restating them.
 
 **Architecture:** Documentation-only change to the shared-task skill source template. The content is derived from `cmdEdit` and its helpers in `base/skills/shared-task/scripts/gh-issue.ts`. The generated `.opencode/skills/shared-task/SKILL.md` is not edited; it is rebuilt from `base/**` by the installer.
 
@@ -23,7 +23,7 @@ required_gates:
 
 ### Task 1: Rewrite the `edit` reference section
 
-**Objective:** Replace the dense `### edit` paragraph with grouped bullets covering fields, preflight validation, execution order, dry-run semantics, and output.
+**Objective:** Replace the dense `### edit` paragraph with a single condensed paragraph covering fields, preflight validation, dry-run semantics, and output, linking shared behavior to `Output conventions` and `Safety minimums`.
 
 **Files:**
 - Modify: `base/skills/shared-task/SKILL.md:25-27` (the `### edit` section only)
@@ -58,7 +58,7 @@ Read `cmdEdit` and confirm the documented contract before writing. Verified fact
 
 No new tests: issue #288 explicitly limits the change to the skill document and forbids code/test changes.
 
-Validation is a consistency read-through of every rewritten bullet against the symbols listed above, plus the existing suite:
+Validation is a consistency read-through of every rewritten statement against the symbols listed above, plus the existing suite:
 
 - `npx vitest run tests/typescript/gh-issue` proves the documented behavior still matches the implementation.
 - `make check` proves the workspace remains green and no unrelated files changed.
@@ -67,15 +67,12 @@ Do not add a documentation-snapshot test; that would exceed this issue's scope a
 
 **Step 3: Write minimal implementation**
 
-Replace only the `### edit` section (keep the heading line and its usage signature). Use this structure:
+Replace only the `### edit` section (keep the heading line and its usage signature). Delivered as one condensed paragraph matching the other operations' style, covering the open-issue/PR constraint, at-least-one-field rule, label flag behavior, preflight and required-label validation, no auto-create, and argument-only `--dry-run`, then referencing `Output conventions` and `Safety minimums`.
 
-1. **Intro** — one sentence: updates title, body, and/or labels on an open issue; at least one field is required.
-2. **Fields** — bullets for `--title`, `--body-file`, `--add-label`/`--remove-label`, including non-empty rules, cwd-relative path, empty-file-clears-body, repeatability/deduplication, and case-sensitive labels.
-3. **Preflight** — bullets for argument validation (issue number, unknown/missing flags, empty values, add/remove conflict, at-least-one-field) and real-run validation (open issue only; additions exist in repo; removals present on issue; full required label set when adding labels).
-4. **Execution and dry-run** — title/body in one `PATCH`, then label adds, then removals; `--dry-run` validates arguments but skips issue/repo/label-state resolution and prints to stderr.
-5. **Output** — issue URL on success; `{ number, url, updated_fields }` under `--json`; stderr + exit 1 on failure; link to `Output conventions` and `Safety minimums` for shared behavior.
-
-Keep the section scannable: short bullets, no dense paragraph, no examples section. Every statement must be traceable to `cmdEdit` or its helpers.
+Deliberate compression (confirmed by the ponytail review):
+- Grouped bullets were dropped because every sibling operation is a single paragraph; one line keeps the diff minimal and consistent.
+- Shared output, failure, credential, and cross-operation rules stay in the referenced sections rather than being restated.
+- These accurate details were intentionally left out of the paragraph and remain true of `cmdEdit`: `--title` rejects empty values, an empty `--body-file` clears the body, unknown options and missing flag values are rejected, and title/body are applied in one `PATCH` before label mutations.
 
 **Step 4: Run test to verify pass**
 
@@ -86,16 +83,28 @@ npx vitest run tests/typescript/gh-issue
 make check
 ```
 
-Expected:
-- All `gh-issue` tests pass; no test file changed.
-- `make check` is green.
-- Manual read-through: every bullet maps to a code path above; no claim contradicts `Output conventions` or `Safety minimums`; no mention of unrelated operations.
+Result:
+- `npx vitest run tests/typescript/gh-issue` — 143 tests passed (2 files); no test file changed.
+- `make check` — green (typecheck, lint, format, duplication; 5.24% duplicated lines, under the 8% threshold).
+- Read-through confirmed every statement maps to `cmdEdit` or its helpers and no claim contradicts `Output conventions` or `Safety minimums`.
 
 **Step 5: Commit**
 
-Start from `develop` on a dedicated branch (for example `feature/issue-288-refine-edit-docs`) so this docs change does not ride on the open #293 branch.
+Done on `feature/issue-288-refine-edit-docs`, branched from `develop` (not the open #293 branch), as four incremental commits that progressively condensed the paragraph:
 
-```bash
-git add base/skills/shared-task/SKILL.md
-git commit -m "docs(shared-task): refine edit operation reference (Issue #288)"
+```text
+0e4fe0b docs(shared-task): refine edit operation reference (Issue #288)
+ef50dd0 docs(shared-task): match edit reference to operation paragraph style (Issue #288)
+35a835f docs(shared-task): condense edit reference (Issue #288)
+b84b0b0 docs(shared-task): shorten edit reference (Issue #288)
 ```
+
+## Outcome
+
+Delivered a one-line replacement of the `### edit` paragraph in `base/skills/shared-task/SKILL.md`; no code, tests, or generated artifacts changed. The final text covers the open-issue/PR constraint, at-least-one-field rule, label flag behavior, preflight and required-label validation, no auto-create, and argument-only `--dry-run`, then delegates output and safety rules to the existing sections.
+
+Deviations from the original plan:
+- Grouped bullets became a single condensed paragraph to match the other operations and keep the diff minimal.
+- These accurate details were intentionally omitted and are listed above in Step 3: `--title` non-empty validation, empty-file-clears-body, unknown/missing-value flag rejection, and the single-`PATCH`-before-labels mutation order.
+
+Validation: `npx vitest run tests/typescript/gh-issue` (143 passed) and `make check` (green).
