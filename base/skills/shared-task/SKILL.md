@@ -24,7 +24,36 @@ Create an issue. `--body-file` reads the body from a file (e.g. `temp/issue-<slu
 
 ### edit `<issue-number>` [`--title <title>`] [`--body-file <path>`] [`--add-label <name>`]... [`--remove-label <name>`]...
 
-Update the title, body, and/or labels of an existing open issue. Requires at least one of `--title`, `--body-file`, `--add-label`, or `--remove-label`. Rejects pull request numbers. Rejects empty or whitespace-only `--title`, `--add-label`, and `--remove-label` values, and rejects supplying the same label to both `--add-label` and `--remove-label` — all before any API call (including `--dry-run`). `--body-file` requires a non-empty path (an empty file is a valid way to clear the body) and behaves like `create` (path relative to cwd unless absolute). Title and/or body are applied in a single PATCH; label additions must already exist in the repo and removals must be present on the issue — all label validation happens before any mutation (no auto-create), and repeated `--add-label`/`--remove-label` values are deduplicated. Prints the issue URL.
+Update the title, body, and/or labels of an existing open issue. At least one of `--title`, `--body-file`, `--add-label`, or `--remove-label` is required.
+
+Fields:
+
+- `--title <title>` — new title; rejects empty or whitespace-only values.
+- `--body-file <path>` — new body read from a file (like `create`); path is relative to cwd unless absolute; an empty file is a valid way to clear the body.
+- `--add-label <name>` / `--remove-label <name>` — repeatable; repeated values are deduplicated; supplying the same label to both is rejected. Label names are matched case-sensitively (see `Safety minimums`).
+- All four value flags also accept `--flag=value` syntax.
+
+Preflight (before any API call, including `--dry-run`):
+
+- `<issue-number>` must be a positive integer; unknown options and options missing their value are rejected.
+- Empty/whitespace-only `--title`, `--add-label`, and `--remove-label` values are rejected; `--body-file` requires a non-empty path.
+- The add/remove conflict and the at-least-one-field rule are checked.
+
+Real-run validation (skipped by `--dry-run`):
+
+- The target must be an open issue; pull requests and closed issues are rejected.
+- If any label is added, the repository must contain the full required label set (even when the added label is not itself required).
+- Added labels must already exist in the repo and removed labels must already be present on the issue (no auto-create).
+
+Execution and dry-run:
+
+- Title and/or body are applied together in a single PATCH; then labels are added one request at a time; then labels are removed one request at a time (no transaction — see `Safety minimums`).
+- `--dry-run` validates the arguments above, prints the intended actions to stderr, and does not fetch the issue or check any label state.
+
+Output:
+
+- Prints the issue URL on success; `--json` prints `{ number, url, updated_fields }` where `updated_fields` lists `title`, `body`, `label+<name>`, and `label-<name>` in applied order.
+- Failures print to stderr with exit 1. See `Output conventions` for shared behavior.
 
 ### claim `<issue-number>`
 
