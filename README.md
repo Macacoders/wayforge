@@ -151,25 +151,26 @@ flowchart LR
 
 ### `/intent`
 
-Formalize an ambiguous request into a bounded intent: problem, outcome, and acceptance criteria.
+Formalize an ambiguous request into a bounded intent: problem, outcome, and acceptance criteria. Clear direct-path work skips this artifact and routes to `/deliver`.
 
 ```mermaid
 flowchart LR
     A["User request"] --> B{"Ambiguous?"}
     B -- "clarify" --> C["Ask one question"]
     C --> B
-    B -- "clear" --> D["Intent: problem, outcome, criteria"]
-    D --> E["Approve"] --> F["/issue or /plan"]
+    B -- "clear direct work" --> D["Compact criteria + /deliver"]
+    B -- "clear full work" --> E["Intent: problem, outcome, criteria"]
+    E --> F["Approve"] --> G["/issue or /plan"]
 
     classDef user fill:#1f2937,stroke:#6b7280,color:#e5e7eb
     classDef planner fill:#1e3a8a,stroke:#60a5fa,color:#dbeafe
-    class A,E user
-    class B,C,D,F planner
+    class A,F user
+    class B,C,D,E,G planner
 ```
 
 ### `/plan`
 
-Turn an approved intent into a concrete, task-based implementation plan.
+Turn an approved full-path intent into a concrete, task-based implementation plan. Direct work skips planning unless a user or downstream workflow explicitly needs a compact one-task plan.
 
 ```mermaid
 flowchart LR

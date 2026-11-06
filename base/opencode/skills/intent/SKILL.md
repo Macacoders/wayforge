@@ -11,6 +11,10 @@ metadata:
 
 Use this skill to formalize an ambiguous or raw user request into a precise, bounded technical intent before writing any implementation plan or filing a GitHub issue. The intent is the bridge between "what the user wants" and "what gets built": it captures the problem and the desired outcome, not the implementation.
 
+## Triage First
+
+Before formalizing, classify the request with `delivery-policy`. If it is clear, localized, low-risk, and has observable local evidence, do not create an intent or plan: return a compact direct handoff (objective, numbered criteria, and `/deliver` recommendation). Use intent only when the outcome, scope, or acceptance criteria need alignment. An explicit request for a plan or a downstream workflow that requires one is an exception; use the compact direct-plan format in `plan` for those cases.
+
 ## Intent Formalization
 
 For this turn, you are formalizing intent only.
@@ -51,5 +55,6 @@ Once the user accepts the intent, offer exactly one of:
 
 1. **GitHub issue** — hand off to the `shared-task` skill.
 2. **Implementation plan** — hand off to the `plan` skill to turn the intent into a grounded, executable plan.
+3. **Direct delivery** — when the clarified result is direct-path work, route it to `/deliver` without persisting an intent or plan.
 
 Do not begin planning or implementation until the user chooses a next step.

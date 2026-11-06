@@ -12,6 +12,12 @@ metadata:
 Use this skill to turn an approved intent into an implementation plan made of outcome-based task
 contracts.
 
+## Plan Eligibility
+
+Classify with `delivery-policy` before investigating. Do not create a plan for a clear direct-path request unless the user explicitly asks for a plan or a downstream workflow requires one. Otherwise return a compact direct handoff and route to `/deliver`.
+
+For an explicitly requested direct plan, use one task and include only frontmatter, goal, scope limits, the task contract, and needed validation. Omit architecture, tech-stack, phase, follow-up, and task-budget prose unless it changes execution. This compact plan is appropriate for disposable fixtures such as a `coach` walkthrough.
+
 ## Planning
 
 For this turn, you are planning only.
