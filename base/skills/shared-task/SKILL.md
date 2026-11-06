@@ -24,7 +24,7 @@ Create an issue. `--body-file` reads the body from a file (e.g. `temp/issue-<slu
 
 ### edit `<issue-number>` [`--title <title>`] [`--body-file <path>`] [`--add-label <name>`]... [`--remove-label <name>`]...
 
-Update title, body, and/or labels on an open issue (not a PR or closed issue); at least one field is required. `--body-file` takes a non-empty cwd-relative or absolute path; an empty file clears the body. Label flags repeat, deduplicate, accept `--flag=value`, and reject empty values and add/remove conflicts. `--dry-run` validates arguments and prints planned actions to stderr without issue or label lookups. Real runs require added labels to exist (and the full required label set), removed labels to be on the issue, and no auto-create; title/body use one PATCH, then additions and removals one request each. Success prints the issue URL; `--json` emits `{ number, url, updated_fields }`; failures exit 1 on stderr. See `Safety minimums` and `Output conventions`.
+Update title, body, and/or labels on an open issue (not a PR or closed issue); at least one field required. `--body-file` behaves like `create`; label flags repeat, dedupe, accept `--flag=value`, and reject empty values and add/remove conflicts. Validates label changes (including required labels) before mutation; no auto-create; `--dry-run` validates arguments only. See `Output conventions` and `Safety minimums`.
 
 ### claim `<issue-number>`
 
