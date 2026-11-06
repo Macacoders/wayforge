@@ -7,7 +7,7 @@ source "${SCRIPT_DIR}/_helpers.sh"
 
 # Install shellcheck, shfmt, bats, nodejs, npm, git, bun for your platform.
 # bun is verified and auto-installed if missing.
-# See https://github.com/laberit/ai-config/issues/131 for a future portable installer.
+# See https://github.com/Macacoders/wayforge/issues/131 for a future portable installer.
 
 echo "==> Checking PowerShell"
 

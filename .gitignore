@@ -13,6 +13,7 @@ Thumbs.db
 # Environment / secrets
 .env
 .env.*
+.envrc
 !.env.example
 !.env.*.example
 
@@ -38,6 +39,7 @@ build/
 tmp/
 temp/
 .test-tracking/
+.test-upgrade/
 
 .devcontainer
 .gh-config
@@ -45,10 +47,12 @@ temp/
 # Agent Teams Lite skill registry (generated/local state)
 .atl/
 
-# OpenCode generated/local runtime output
+# Runtime generated/local output (do not blanket-ignore .kilo/; it may hold user config)
 .opencode/
-AGENTS.md.*
+.agents/
+.kilo/agents/
+.kilo/commands/
 opencode.jsonc
 kilo.jsonc
-.ai-config-managed
+.wayforge-managed
 installed-projects.json

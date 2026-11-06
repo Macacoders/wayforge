@@ -1,46 +1,108 @@
-# ai-config
+# wayforge
 
-`ai-config` installs a repeatable, task-based AI-assisted workflow into OpenCode projects. It provides shared agents, commands, skills, and a `docs/ai/` memory convention, managed from a single CLI.
+`wayforge` installs a repeatable, task-based AI-assisted workflow into OpenCode projects. It provides shared agents, commands, skills, and a `docs/ai/` memory convention, managed from a single CLI.
 
-## Install
+## Getting started
+
+Five steps: install the CLI, connect providers, install the runtime into your repo, review the generated files, and onboard the repository with `/init`.
+
+### 1. Install the CLI
 
 Install the CLI with the one-shot installer:
 
 **Linux / macOS**
 
 ```bash
-curl -fsSL https://github.com/Macacoders/ai-config/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/Macacoders/wayforge/releases/latest/download/install.sh | sh
 ```
 
 **Windows** (PowerShell)
 
 ```powershell
-powershell -c "irm https://github.com/Macacoders/ai-config/releases/latest/download/install.ps1 | iex"
+powershell -c "irm https://github.com/Macacoders/wayforge/releases/latest/download/install.ps1 | iex"
 ```
 
-Default prefix: `~/.ai-config` (Linux/macOS) or `%LOCALAPPDATA%\ai-config` (Windows).
+Default prefix: `~/.wayforge` (Linux/macOS) or `%LOCALAPPDATA%\wayforge` (Windows).
 
-Install the runtime into a target repository:
+The installer downloads the platform binary and share archive together with the release's `wayforge-checksums.txt` and verifies both SHA-256 hashes before installing anything; a mismatch aborts with no changes. Releases that predate the checksum asset (confirmed by an HTTP 404) install unverified with a warning instead; any other checksum download failure aborts with no changes.
+
+### Code signing policy
+
+Windows release artifacts are Authenticode-signed via SignPath Foundation. See the [Code signing policy](./CODE_SIGNING_POLICY.md).
+
+### Requirements
+
+- **Node.js >= 18** is required to run the installed workflow (skills and commands execute via `npx tsx`).
+- The one-shot installer provisions Node.js (>= 18) user-locally into the prefix when it is missing or too old — no manual install needed.
+- `wfg install --repo` requires Node.js >= 18 on PATH; pass `--skip-node-check` to bypass the check.
+
+### 2. Connect providers
+
+Open the OpenCode TUI with `opencode`, then run `/connect` to authenticate a provider (API key or OAuth) and `/models` to pick a model. Credentials are stored by OpenCode outside the repo — nothing lands in your project.
+
+The provider IDs you connect must match the `enabled_providers` list and the `provider` block in `opencode.jsonc` (see step 4). See the [OpenCode providers doc](https://opencode.ai/docs/providers) for supported providers.
+
+### 3. Install the runtime into your repo
+
+Install the workflow into a target repository:
 
 ```bash
-ai-config install --repo /path/to/repo --providers openai
+wfg install --repo /path/to/repo --providers openai
 ```
 
 | Command | Purpose |
 |---|---|
-| `ai-config install --repo <path>` | Install runtime config into a repo |
-| `ai-config uninstall --repo <path>` | Remove ai-config managed files from a repo |
-| `ai-config interactive` | Guided interactive installer |
+| `wfg install --repo <path>` | Install runtime config into a repo |
+| `wfg uninstall --repo <path>` | Remove wayforge managed files from a repo |
+| `wfg interactive` | Guided interactive installer |
 
 Use `--dry-run` to preview and `--force` to refresh managed files. Remove the CLI itself with `install.sh --uninstall` or `install.ps1 -Uninstall`.
+
+#### Laberit environment variables
+
+When installed with `--providers laberit`, both runtimes (OpenCode and Kilo Code) emit the same provider shape: `env: ["OPENAI_API_KEY"]` plus `options.baseURL: "${OPENAI_BASE_URL}"`. You must set both variables in the process environment before launching either runtime — a project `.env` file is not picked up:
+
+```bash
+export OPENAI_BASE_URL="https://<laberit-endpoint>/v1"
+export OPENAI_API_KEY="<laberit-key>"
+```
+
+Both variables are required. If one is missing, `${VAR}` stays a literal placeholder and the request fails loudly (it is not silently sent with an empty key).
+
+For Kilo Code, run `kilo config check` after setting the variables. It validates the config shape but not the presence of the variables. Kilo treats a project-level `kilo.jsonc` as untrusted and rejects active `{env:VAR}` references, which is why the generated config uses the unified form above.
+
+Existing installs that used `{env:}` in OpenCode switch to the unified form on the next `wfg install --repo <path> --force`; the environment variable names do not change.
+
+### 4. Review the generated files
+
+`wfg install` installs wayforge artifacts into one canonical `.agents/` tree and wires each runtime to it:
+
+- **`.agents/`** — installed agents, commands, skills, and plugins under `.agents/{agents,commands,skills,plugins}`. Runtime content lives here; `.opencode/` and `.kilo/` no longer hold wayforge copies.
+- **`opencode.jsonc` / `kilo.jsonc`** — generated runtime config. Skills and the ponytail plugin point at `.agents/skills` and `.agents/plugins/ponytail/ponytail.mjs`.
+- **`.opencode/agents` + `.opencode/commands`** — OpenCode directory pointers to the matching `.agents/` categories (relative symlink, or Windows junction fallback).
+- **`.kilo/agents` + `.kilo/commands`** — Kilo Code directory pointers to `.agents/` (Kilo no longer reads `.opencode/`).
+- **`.wayforge-managed`** — the manifest of managed paths (with a `project_id` header) that tracks everything wayforge owns.
+
+Pi reads `.agents/skills/**/SKILL.md` natively and needs no installer step. Per-runtime materialization of `.agents/` into native trees is future work. See [`docs/compatibility-matrix.md`](./docs/compatibility-matrix.md) for verified runtime support.
+
+All of these are generated output, not source, and must not be hand-edited. To refresh managed artifacts and regenerate config after a template update, re-run `wfg install --repo <path> --force`.
+
+### 5. Onboard the repository with `/init`
+
+From the repo root, run `/init` in the OpenCode TUI. This is wayforge's overridden command (owned by the `planner` agent) and it initializes **both**:
+
+- **`docs/ai/` memory** — scaffolds and populates the durable memory convention: `architecture.md`, `decisions/` (ADRs), `logs/`, and `plans/`. See [`docs/ai/README.md`](./docs/ai/README.md).
+- **Root `AGENTS.md`** — generated from the `base/AGENTS.md` placeholder template, with every `[FILL IN]` placeholder filled with project-specific guidance. See [`AGENTS.md`](./AGENTS.md).
+
+If `AGENTS.md` already exists with useful content, `/init` improves it in place rather than replacing it.
 
 ### Use from source
 
 Prefer a clone over the release? Run the installer straight from TypeScript source:
 
 ```bash
-git clone https://github.com/Macacoders/ai-config.git
-cd ai-config
+git clone https://github.com/Macacoders/wayforge.git
+cd wayforge
 npm install
 npx tsx cli/src/index.ts install --repo /path/to/your-project --providers openai
 ```
@@ -49,9 +111,25 @@ Build a standalone binary with `make cli-binary` (no Node.js needed).
 
 See [`RELEASE.md`](./RELEASE.md) and [`CHANGELOG.md`](./CHANGELOG.md) for release and version history.
 
+### Update the CLI
+
+An installed `wfg` can check for and install newer releases with two explicit commands:
+
+```bash
+wfg update        # report current and latest versions; changes nothing
+wfg upgrade       # confirm, verify, then install the latest release
+wfg upgrade --yes # skip the confirmation prompt
+```
+
+`wfg update` only reports whether a newer release exists; it never downloads or writes. `wfg upgrade` downloads the platform binary, the share archive, and `wayforge-checksums.txt`, verifies both SHA-256 checksums before changing the installed binary or `share/wayforge` contents, then replaces them with temporary backup/rollback. Missing or mismatched checksums abort with no changes. The share is extracted to a temporary directory that is removed if validation fails. No `wfg` command other than `update` and `upgrade` checks for releases, and there is no automatic notice or cache.
+
+`wfg upgrade` requires an installed binary and a resolvable prefix. From a source checkout it refuses and points at `git pull` or the one-shot installer (`install.sh` / `install.ps1`). The `*.old-<pid>` backups are a failure-recovery measure only: there is no user-facing backup, restore, or downgrade command. On Windows, the running executable's backup may remain until a later verified upgrade removes it after 7 days.
+
+Exit codes: `wfg update` exits `0` whether a newer release is available or not, and `1` on a release-lookup or parse error. `wfg upgrade` exits `0` when it updates, finds the install up to date, or the user declines, and `1` for a source checkout, a missing install prefix, a verification failure, or an install failure. Non-interactive `wfg upgrade` without `--yes` auto-declines through `promptYesNo`; automation must pass `--yes`.
+
 ## Use
 
-Work flows through four workflows: formalize intent, plan approved intent, track via issues, and deliver task by task.
+Work flows through five workflows: formalize intent, plan approved intent, track via issues, deliver task by task, and keep durable memory current.
 
 Node colors: gray = you · blue = `planner` · orange = `delivery` · green = `code` · purple = `research`.
 
@@ -96,6 +174,30 @@ flowchart LR
     class G delivery
 ```
 
+### GitHub authentication for `/issue`
+
+`/issue` resolves credentials in this order: `GITHUB_TOKEN`, `GH_TOKEN`, then
+an internal GitHub CLI lookup. Prefer a fine-grained, repository-scoped PAT
+for the environment variables. Grant **Issues** and **Pull requests** read and
+write access, plus **Contents** read access for PR operations. Alternatively,
+run `gh auth login` when a machine-wide GitHub CLI credential for all of that
+machine's repositories is appropriate.
+
+Inject credentials through a secret manager, direnv, or OS keyring-backed
+environment integration; do not commit tokens, put them in generated config,
+or paste them into agent prompts. Verify the configured repository access with:
+
+```bash
+npx tsx .agents/skills/shared-task/scripts/gh-issue.ts check
+```
+
+**Breaking change:** `/issue` no longer reads, refreshes, or removes legacy
+`.gh-config/github-token.json` or `.gh-config/app.yml` files. Existing users
+must configure an environment token or authenticate the GitHub CLI; remove old
+credential files manually only after confirming they are no longer needed.
+
+Helper operations (list, create, claim, close, PR creation) are documented in [`base/skills/shared-task/SKILL.md`](./base/skills/shared-task/SKILL.md).
+
 ### `/issue`
 
 Create and track a shared GitHub Issue for a problem or idea.
@@ -138,10 +240,32 @@ flowchart LR
     class G planner
 ```
 
+### `/memory`
+
+Find, check, and update durable `docs/ai/` memory with low-token routing — load only the smallest relevant files, never the whole memory tree.
+
+```mermaid
+flowchart LR
+    A["Question or finished task"] --> B{"/memory"}
+    B -- "find <topic>" --> C["Route to smallest docs/ai/ file(s)"]
+    B -- "check" --> D["Freshness check before review"]
+    B -- "update <summary>" --> E["Minimal durable update"]
+    C --> F["docs/ai/ stays compact"]
+    D --> F
+    E --> F
+
+    classDef user fill:#1f2937,stroke:#6b7280,color:#e5e7eb
+    classDef planner fill:#1e3a8a,stroke:#60a5fa,color:#dbeafe
+    class A user
+    class B,C,D,E,F planner
+```
+
+Deep memory guidance is in [`docs/ai/README.md`](./docs/ai/README.md); deterministic bookkeeping (`status`, `list-plans`, `list-adrs`, `close-check`, `init`) is in the [`ai-memory` skill](./base/skills/ai-memory/SKILL.md).
+
 ## Contribute
 
-Edit source templates under `base/opencode/**`. Never edit generated `.opencode/` files (they are gitignored and overwritten on reinstall).
+Edit source templates under `base/**`. `base/{agents,commands,skills,plugins}` are installed into `.agents/`; `base/{config,permissions}` are installer inputs and are never installed. Never edit generated `.agents/` content, runtime pointer directories (`.opencode/agents`, `.opencode/commands`, `.kilo/agents`, `.kilo/commands`), or generated config files — they are gitignored and overwritten on reinstall.
 
-> **Protection rule:** Agents must never merge changes to `develop` that touch `base/opencode` markdown files for skills, agents, or commands — `base/opencode/skills/**/SKILL.md`, `base/opencode/agents/**/*.md`, and `base/opencode/commands/**/*.md`. Changes to these files must always be validated through a pull request.
+> **Protection rule:** Agents must never merge changes to `develop` that touch `base/` markdown files for skills, agents, or commands — `base/skills/**/SKILL.md`, `base/agents/**/*.md`, and `base/commands/**/*.md`. Changes to these files must always be validated through a pull request.
 
 Deep workflow and memory guidance is in [`docs/ai/README.md`](./docs/ai/README.md) and [`AGENTS.md`](./AGENTS.md).

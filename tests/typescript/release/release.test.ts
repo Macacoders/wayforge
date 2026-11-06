@@ -117,7 +117,7 @@ describe('updateChangelogContent', () => {
     );
 
     expect(result).toContain(
-      '[0.2.0]: https://github.com/Macacoders/ai-config/releases/tag/v0.2.0',
+      '[0.2.0]: https://github.com/Macacoders/wayforge/releases/tag/v0.2.0',
     );
     expect(result).toContain('[0.1.0]: https://github.com/Macacoders/ai-config/releases/tag/v0.1.0');
     // New link before old link

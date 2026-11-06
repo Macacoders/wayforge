@@ -1,0 +1,26 @@
+"agent": {
+    "planner": {
+      "model": "openai/gpt-6-sol",
+      "steps": 30
+    },
+    "delivery": {
+      "model": "openai/gpt-6-sol",
+      "steps": 30
+    },
+    "research": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 20
+    },
+    "code": {
+      "model": "github-copilot/gpt-5.3-codex",
+      "steps": 16
+    },
+    "troubleshooter": {
+      "model": "openai/gpt-6-sol",
+      "steps": 10
+    },
+    "architect": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 20
+    }
+  }

@@ -24,7 +24,7 @@ import type { Provider, Runtime } from "../../src/types.js";
 // Probe symlink capability once (Windows without Developer Mode/admin lacks it).
 const canSymlink = (() => {
   try {
-    const d = fs.mkdtempSync(path.join(os.tmpdir(), "ai-config-symlink-probe-"));
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), "wayforge-symlink-probe-"));
     const t = path.join(d, "target");
     fs.writeFileSync(t, "probe");
     fs.symlinkSync(t, path.join(d, "link"));
@@ -36,6 +36,7 @@ const canSymlink = (() => {
 })();
 
 const sourceDir = path.resolve(__dirname, '../../..');
+const RUNTIMES: Runtime[] = ["opencode", "kilocode"];
 
 function makeCtx(dryRun = false, force = false): ManifestContext {
   return new ManifestContext(dryRun, force, false);
@@ -95,19 +96,19 @@ describe("parseProviders", () => {
 });
 
 describe("resolveDefaultModels", () => {
-  it("returns openai defaults as fallback", () => {
-    expect(resolveDefaultModels(["openai"])).toEqual({
-      model: "openai/gpt-5.5",
-      smallModel: "openai/gpt-5.4-mini",
-    });
-  });
+	it("returns openai defaults as fallback", () => {
+		expect(resolveDefaultModels(["openai"])).toEqual({
+			model: "openai/gpt-6-sol",
+			smallModel: "openai/gpt-5.6-luna",
+		});
+	});
 
-  it("returns openai+laberit fallback (openai defaults)", () => {
-    expect(resolveDefaultModels(["openai", "laberit"])).toEqual({
-      model: "openai/gpt-5.5",
-      smallModel: "openai/gpt-5.4-mini",
-    });
-  });
+	it("returns openai+laberit fallback (openai defaults)", () => {
+		expect(resolveDefaultModels(["openai", "laberit"])).toEqual({
+			model: "openai/gpt-6-sol",
+			smallModel: "openai/gpt-5.6-luna",
+		});
+	});
 
   it("returns github-copilot only defaults", () => {
     expect(resolveDefaultModels(["github-copilot"])).toEqual({
@@ -116,12 +117,12 @@ describe("resolveDefaultModels", () => {
     });
   });
 
-  it("returns openai+github-copilot mixed defaults", () => {
-    expect(resolveDefaultModels(["openai", "github-copilot"])).toEqual({
-      model: "openai/gpt-5.5",
-      smallModel: "github-copilot/gemini-3.5-flash",
-    });
-  });
+	it("returns openai+github-copilot mixed defaults", () => {
+		expect(resolveDefaultModels(["openai", "github-copilot"])).toEqual({
+			model: "openai/gpt-6-sol",
+			smallModel: "github-copilot/gemini-3.5-flash",
+		});
+	});
 
   it("returns laberit only defaults", () => {
     expect(resolveDefaultModels(["laberit"])).toEqual({
@@ -130,12 +131,23 @@ describe("resolveDefaultModels", () => {
     });
   });
 
-  it("returns opencode-go only defaults", () => {
-    expect(resolveDefaultModels(["opencode-go"])).toEqual({
-      model: "opencode-go/deepseek-v4-pro",
-      smallModel: "opencode-go/deepseek-v4-flash",
-    });
-  });
+	it("returns opencode-go only defaults", () => {
+		expect(resolveDefaultModels(["opencode-go"])).toEqual({
+			model: "opencode-go/deepseek-v4.1-flash",
+			smallModel: "opencode-go/muse-spark-1.3-contributor",
+		});
+	});
+
+	it("returns opencode-go+laberit combo defaults (either order)", () => {
+		expect(resolveDefaultModels(["opencode-go", "laberit"])).toEqual({
+			model: "opencode-go/deepseek-v4.1-flash",
+			smallModel: "opencode-go/muse-spark-1.3-contributor",
+		});
+		expect(resolveDefaultModels(["laberit", "opencode-go"])).toEqual({
+			model: "opencode-go/deepseek-v4.1-flash",
+			smallModel: "opencode-go/muse-spark-1.3-contributor",
+		});
+	});
 
   it("returns empty strings for free-tier only", () => {
     expect(resolveDefaultModels(["free-tier"])).toEqual({
@@ -207,7 +219,7 @@ describe("readFragment", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-config-frag-test-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "wayforge-frag-test-"));
   });
 
   afterEach(() => {
@@ -218,7 +230,6 @@ describe("readFragment", () => {
     const fragmentDir = path.join(
       tmpDir,
       "base",
-      "opencode",
       "config",
       "providers",
     );
@@ -265,6 +276,29 @@ describe("buildProviderBlockJson", () => {
     expect(block).toBe("");
   });
 
+  // The laberit fragment is runtime-agnostic and read verbatim for both
+  // runtimes; a single `env` name keeps the provider key-injection path active.
+  for (const runtime of RUNTIMES) {
+    it(`emits unified env-based laberit block for ${runtime}`, () => {
+      const block = buildProviderBlockJson(["laberit"], runtime, sourceDir);
+      // Exact array text guards the env.length === 1 key-injection rule.
+      expect(block).toContain('"env": ["OPENAI_API_KEY"]');
+      expect(block).toContain('"${OPENAI_BASE_URL}"');
+      expect(block).not.toContain("{env:");
+      expect(block).not.toContain("{file:");
+    });
+  }
+
+  it("produces identical laberit block text for both runtimes", () => {
+    // The opencode runtime prepends the "opencode" free-provider fragment;
+    // laberit is the last fragment in both cases, so compare from its key on.
+    const laberitSlice = (runtime: Runtime) => {
+      const block = buildProviderBlockJson(["laberit"], runtime, sourceDir);
+      return block.slice(block.indexOf('"laberit": {'));
+    };
+    expect(laberitSlice("opencode")).toBe(laberitSlice("kilocode"));
+  });
+
   it("joins multiple provider fragments with comma-newline", () => {
     const block = buildProviderBlockJson(
       ["openai", "github-copilot"],
@@ -278,6 +312,24 @@ describe("buildProviderBlockJson", () => {
     // Boundary between fragments: "},\n    " (closing brace + comma + newline + indent)
     expect(block.match(/},\n    "/g)?.length).toBeGreaterThanOrEqual(2);
   });
+
+  it("omits textVerbosity for opencode-go glm-5.3-flash but keeps other model options", () => {
+    const block = buildProviderBlockJson(["opencode-go"], "opencode", sourceDir);
+    const opencodeGo = JSON.parse(`{${block}}`)["opencode-go"];
+
+    expect(opencodeGo.models["glm-5.3-flash"].options).toEqual({
+      reasoningEffort: "medium",
+    });
+    expect(
+      opencodeGo.models["deepseek-v4.1-flash"].options.textVerbosity,
+    ).toBe("medium");
+    expect(opencodeGo.models["mimo-v2.6-flash"].options.textVerbosity).toBe(
+      "low",
+    );
+    expect(
+      opencodeGo.models["muse-spark-1.3-contributor"].options.textVerbosity,
+    ).toBe("low");
+  });
 });
 
 describe("buildAgentBlockJson", () => {
@@ -290,7 +342,7 @@ describe("buildAgentBlockJson", () => {
   it("selects openai-only agent block", () => {
     const block = buildAgentBlockJson(["openai"], sourceDir, "opencode");
     expect(block).toContain('"planner":');
-    expect(block).toContain('"model": "openai/gpt-5.5"');
+		expect(block).toContain('"model": "openai/gpt-6-sol"');
   });
 
   it("selects mixed agent block for openai+github-copilot", () => {
@@ -305,6 +357,18 @@ describe("buildAgentBlockJson", () => {
   it("selects github-copilot-only agent block", () => {
     const block = buildAgentBlockJson(["github-copilot"], sourceDir, "opencode");
     expect(block).toContain('"planner":');
+  });
+
+  it("selects opencode-go+laberit combo agent block", () => {
+    const block = buildAgentBlockJson(
+      ["opencode-go", "laberit"],
+      sourceDir,
+      "opencode",
+    );
+    expect(block).toContain('"planner":');
+    expect(block).toContain('"model": "opencode-go/glm-5.3-flash"');
+    expect(block).toContain('"steps": 16');
+    expect(block).not.toContain('"model": "openai/');
   });
 
   it("returns kilocode hidden agents for kilocode runtime", () => {
@@ -330,6 +394,33 @@ describe("buildAgentBlockJson", () => {
   });
 });
 
+describe("agent block step floors", () => {
+  const agentBlockFragments = [
+    "balanced-github-copilot-only-agent-block.jsonc",
+    "balanced-openai-only-agent-block.jsonc",
+    "balanced-openai-github-copilot-agent-block.jsonc",
+    "balanced-opencode-go-only-agent-block.jsonc",
+    "balanced-opencode-go-laberit-agent-block.jsonc",
+    "free-tier-agent-block.jsonc",
+    "balanced-laberit-only-agent-block.jsonc",
+  ];
+
+  it.each(agentBlockFragments)("gives code at least 16 steps in %s", (file) => {
+    const fragment = readFragment(sourceDir, `agents/${file}`);
+    const parsed = JSON.parse(`{${fragment}}`);
+    expect(parsed.agent.code.steps).toBeGreaterThanOrEqual(16);
+  });
+
+  it("keeps laberit-only code model unpinned to laberit-ai", () => {
+    const fragment = readFragment(
+      sourceDir,
+      "agents/balanced-laberit-only-agent-block.jsonc",
+    );
+    const parsed = JSON.parse(`{${fragment}}`);
+    expect(parsed.agent.code.model).toBe("laberit/laberit-ai");
+  });
+});
+
 describe("generateOpenCodeJsonc", () => {
   it("generates free-tier opencode config with hidden agent entries", () => {
     const content = generateOpenCodeJsonc(
@@ -348,10 +439,10 @@ describe("generateOpenCodeJsonc", () => {
   it("generates openai-only config", () => {
     const content = generateOpenCodeJsonc(makeOpts("opencode", ["openai"]));
     expect(content).toContain('"enabled_providers": ["opencode", "openai"]');
-    expect(content).toContain('"model": "openai/gpt-5.5"');
-    expect(content).toContain('"small_model": "openai/gpt-5.4-mini"');
-    expect(content).toContain('"agent": {');
-    expect(content).toContain('"model": "openai/gpt-5.5"');
+		expect(content).toContain('"model": "openai/gpt-6-sol"');
+		expect(content).toContain('"small_model": "openai/gpt-5.6-luna"');
+		expect(content).toContain('"agent": {');
+		expect(content).toContain('"model": "openai/gpt-6-sol"');
   });
 
   it("generates github-copilot-only config", () => {
@@ -372,7 +463,7 @@ describe("generateOpenCodeJsonc", () => {
     expect(content).toContain(
       '"enabled_providers": ["opencode", "openai", "github-copilot"]',
     );
-    expect(content).toContain('"model": "openai/gpt-5.5"');
+		expect(content).toContain('"model": "openai/gpt-6-sol"');
     expect(content).toContain('"small_model": "github-copilot/gemini-3.5-flash"');
   });
 
@@ -383,7 +474,26 @@ describe("generateOpenCodeJsonc", () => {
     expect(content).toContain(
       '"enabled_providers": ["opencode", "opencode-go"]',
     );
-    expect(content).toContain('"model": "opencode-go/deepseek-v4-pro"');
+		expect(content).toContain('"model": "opencode-go/deepseek-v4.1-flash"');
+		expect(content).toContain(
+			'"small_model": "opencode-go/muse-spark-1.3-contributor"',
+		);
+  });
+
+  it("generates opencode-go+laberit combo config", () => {
+    const content = generateOpenCodeJsonc(
+      makeOpts("opencode", ["opencode-go", "laberit"]),
+    );
+    expect(content).toContain(
+      '"enabled_providers": ["opencode", "opencode-go", "laberit"]',
+    );
+    expect(content).toContain('"model": "opencode-go/deepseek-v4.1-flash"');
+    expect(content).toContain(
+      '"small_model": "opencode-go/muse-spark-1.3-contributor"',
+    );
+    expect(content).toContain('"opencode-go": {');
+    expect(content).toContain('"laberit": {');
+    expect(content).toContain('"muse-spark-1.3-contributor"');
   });
 
   it("uses kilocode schema for kilocode runtime", () => {
@@ -440,6 +550,28 @@ describe("generateOpenCodeJsonc", () => {
     );
     exitSpy.mockRestore();
   });
+
+  for (const runtime of RUNTIMES) {
+    it(`emits no env/file references for ${runtime} across all providers`, () => {
+      // Generation concatenates per-provider fragments, so one combination
+      // containing every fragment (including laberit) guards the global
+      // invariant.
+      const content = generateOpenCodeJsonc(
+        makeOpts(runtime, [
+          "openai",
+          "github-copilot",
+          "laberit",
+          "opencode-go",
+        ]),
+      );
+      expect(content).not.toContain("{env:");
+      expect(content).not.toContain("{file:");
+      // Strip the single-line generated header comment, then the rest must
+      // parse as strict JSON (no JSONC comments/refs leaked into output).
+      const json = content.slice(content.indexOf("\n") + 1);
+      expect(() => JSON.parse(json)).not.toThrow();
+    });
+  }
 });
 
 describe("syncGeneratedOpenCodeJsonc", () => {
@@ -447,7 +579,7 @@ describe("syncGeneratedOpenCodeJsonc", () => {
   let repo: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-config-cfg-test-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "wayforge-cfg-test-"));
     repo = path.join(tmpDir, "repo");
     fs.mkdirpSync(repo);
   });
@@ -466,8 +598,12 @@ describe("syncGeneratedOpenCodeJsonc", () => {
     const dst = path.join(repo, "opencode.jsonc");
     expect(fs.pathExistsSync(dst)).toBe(true);
     const content = fs.readFileSync(dst, "utf8");
-    expect(content).toContain("// Generated by ai-config bootstrap");
+    expect(content).toContain("// Generated by wayforge bootstrap");
     expect(content).toContain('"opencode": {');
+    expect(content).toContain(
+      '"plugin": ["./.agents/plugins/ponytail/ponytail.mjs"]',
+    );
+    expect(content).toContain('"skills": ["./.agents/skills"]');
   });
 
   it("writes kilo.jsonc for kilocode runtime", () => {
@@ -480,7 +616,25 @@ describe("syncGeneratedOpenCodeJsonc", () => {
     const dst = path.join(repo, "kilo.jsonc");
     expect(fs.pathExistsSync(dst)).toBe(true);
     const content = fs.readFileSync(dst, "utf8");
-    expect(content).toContain("// Generated by ai-config bootstrap");
+    expect(content).toContain("// Generated by wayforge bootstrap");
+  });
+
+  it("writes a missing target config without force when the other runtime config exists", () => {
+    fs.writeFileSync(path.join(repo, "opencode.jsonc"), "existing");
+    syncGeneratedOpenCodeJsonc(
+      repo,
+      "kilocode",
+      makeOpts("kilocode", ["openai"]),
+      makeCtx(),
+    );
+    const dst = path.join(repo, "kilo.jsonc");
+    expect(fs.pathExistsSync(dst)).toBe(true);
+    expect(fs.readFileSync(dst, "utf8")).toContain(
+      "// Generated by wayforge bootstrap",
+    );
+    expect(fs.readFileSync(path.join(repo, "opencode.jsonc"), "utf8")).toBe(
+      "existing",
+    );
   });
 
   it("skips existing file without force", () => {
@@ -505,7 +659,7 @@ describe("syncGeneratedOpenCodeJsonc", () => {
       makeCtx(false, true),
     );
     const content = fs.readFileSync(dst, "utf8");
-    expect(content).toContain("// Generated by ai-config bootstrap");
+    expect(content).toContain("// Generated by wayforge bootstrap");
   });
 
   it.skipIf(!canSymlink)("skips existing symlink without force", () => {
@@ -534,6 +688,6 @@ describe("syncGeneratedOpenCodeJsonc", () => {
     expect(fs.pathExistsSync(dst)).toBe(true);
     expect(fs.lstatSync(dst).isSymbolicLink()).toBe(false);
     const content = fs.readFileSync(dst, "utf8");
-    expect(content).toContain("// Generated by ai-config bootstrap");
+    expect(content).toContain("// Generated by wayforge bootstrap");
   });
 });

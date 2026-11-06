@@ -1,12 +1,12 @@
 {
-  "name": "ai-config-cli",
+  "name": "wayforge-cli",
   "version": "0.1.0",
   "private": true,
-  "description": "Cross-platform CLI installer for ai-config",
+  "description": "Cross-platform CLI installer for wayforge",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "ai-config": "./dist/index.js"
+    "wfg": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",

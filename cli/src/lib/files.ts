@@ -17,9 +17,17 @@ export function rm(path: string, ctx: ManifestContext): void {
 	try {
 		fs.unlinkSync(path)
 	} catch (err) {
-		if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-			throw err
+		const code = (err as NodeJS.ErrnoException).code
+		if (code === 'ENOENT') {
+			return
 		}
+		// A Windows junction is a directory reparse point, which unlink refuses
+		// (EPERM) or treats as a directory (EISDIR); rmdir removes only the link.
+		if (code === 'EPERM' || code === 'EISDIR') {
+			fs.rmdirSync(path)
+			return
+		}
+		throw err
 	}
 }
 

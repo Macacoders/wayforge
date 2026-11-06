@@ -14,6 +14,6 @@ export interface InstallOptions {
 	ref?: string
 	dryRun: boolean
 	force: boolean
-	ghAppClientId?: string
+	skipNodeCheck?: boolean
 	noTrack: boolean
 }

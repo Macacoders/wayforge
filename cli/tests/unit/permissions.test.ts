@@ -12,7 +12,6 @@ const permissionsFile = path.resolve(
   __dirname,
   '../../..',
   "base",
-  "opencode",
   "permissions",
   "agents.yml",
 );
@@ -21,7 +20,6 @@ const agentsDir = path.resolve(
   __dirname,
   "../../..",
   "base",
-  "opencode",
   "agents",
 );
 
@@ -169,7 +167,7 @@ describe("renderAgentWithCentralPermissions", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-config-perm-test-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "wayforge-perm-test-"));
   });
 
   afterEach(() => {

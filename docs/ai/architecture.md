@@ -7,16 +7,16 @@ This repository provides reusable OpenCode source configuration and installs gen
 ## Runtime Boundary
 
 - OpenCode (default) and Kilo Code are supported AI runtimes, selectable at install time via the `--runtime` parameter.
-- Guided interactive installs are handled by the TypeScript CLI only (`ai-config interactive`); non-interactive installs use `ai-config install --repo <path>`. Users first install the CLI via the one-shot installer (`curl | sh` / `irm | iex`), then install configuration into each target repository.
-- Supported provider sets during installation include `free-tier` (default for opencode), `openai`, `github-copilot`, `laberit`, `opencode-go`, and comma-separated combinations of those providers. `free-tier` is only available for the opencode runtime and installs the default OpenCode structure without configuring an external provider.
+- Guided interactive installs are handled by the TypeScript CLI only (`wfg interactive`); non-interactive installs use `wfg install --repo <path>`. Users first install the CLI via the one-shot installer (`curl | sh` / `irm | iex`), then install configuration into each target repository. `wfg install --repo` requires Node.js >= 18 on PATH (the one-shot installer provisions it user-locally when missing).
+- Supported provider sets during installation include `free-tier` (default for opencode), `openai`, `github-copilot`, `laberit`, `opencode-go`, and comma-separated combinations of those providers (e.g. `openai,laberit`, `opencode-go,laberit`). `free-tier` is only available for the opencode runtime and installs the default OpenCode structure without configuring an external provider.
 - OpenAI authentication is handled in OpenCode with `/connect` (ChatGPT Plus/Pro or Azure credentials).
 - GitHub Copilot authentication is handled in OpenCode with `/connect` (device login flow).
-- laberit is configured via environment variables (`OPENAI_BASE_URL`, `OPENAI_API_KEY`).
+- laberit is configured via `OPENAI_BASE_URL` and `OPENAI_API_KEY`, both required in the process environment before launch (a project `.env` file is not picked up). Both runtimes emit the same unified provider shape — `env: ["OPENAI_API_KEY"]` + `options.baseURL: "${OPENAI_BASE_URL}"` — and generated project config never emits `{env:}`/`{file:}` references (invariant, candidate for a future ADR). This avoids Kilo's trusted-config guard: project-level `kilo.jsonc` is untrusted and rejects active `{env:VAR}` references. Fallback if Kilo stops honoring project-level `provider.env`: move `options` with `{env:...}` into the trusted global `~/.config/kilo/kilo.jsonc` (manual; the installer never writes it). A missing variable leaves `${VAR}` literal and the request fails loudly; see README for setup.
 - Model IDs are recommendations and may need adjustment with `/models` depending on account availability.
-- The default OpenAI model policy uses documented general GPT models (`openai/gpt-5.5` plus lightweight `openai/gpt-5.4-mini`) instead of Codex or undocumented fast-model IDs so ChatGPT Plus/Pro installs avoid known account-availability failures.
+- The default OpenAI model policy uses the current configured OpenAI model set (`openai/gpt-6-sol` plus lightweight `openai/gpt-5.6-luna`) and keeps installer defaults aligned with the provider fragment.
 - Generated `opencode.jsonc` (or `kilo.jsonc` for Kilo Code) is the provider/model brain for each target repository and centralizes per-agent model assignments under `agent`.
 - Generated runtime config includes `enabled_providers` based on installer provider selection. Agent presets (`balanced`, `fast`, `thorough`) were removed (ADR-0015); the interactive installer instead offers a model preset choice (installer defaults vs faster responses).
-- Users can switch providers interactively: `/model openai/gpt-5.5`, `/model github-copilot/gpt-5.4`, `/model laberit/laberit-ai-preview`, or `/model opencode-go/deepseek-v4-pro`.
+- Users can switch providers interactively: `/model openai/gpt-6-sol`, `/model github-copilot/gpt-5.4`, `/model laberit/laberit-ai-preview`, `/model laberit/laberit-kimi-k2.7-code`, or `/model opencode-go/deepseek-v4.1-flash`.
 
 ## Installed Surface
 
@@ -25,29 +25,31 @@ This repository provides reusable OpenCode source configuration and installs gen
 The installer surface is a TypeScript CLI under `cli/src/`, distributed as a prebuilt binary plus a static source snapshot.
 
 - **Framework**: TypeScript + Commander for argument parsing
-- **Source**: `cli/src/index.ts` (entrypoint), `cli/src/commands/` (install, uninstall, interactive), `cli/src/lib/` (shared libraries)
+- **Source**: `cli/src/index.ts` (entrypoint), `cli/src/commands/` (install, uninstall, update, upgrade, interactive), `cli/src/lib/` (shared libraries)
 - **Binary compilation**: `make cli-binary` produces a standalone executable via `bun build --compile` (~100MB)
-- **One-shot installer**: `install/install.sh` (POSIX) and `install/install.ps1` (PowerShell 5.1+) download the compiled binary and share archive into a dedicated prefix and register `bin` on the user PATH. No administrator privileges are required.
+- **One-shot installer**: `install/install.sh` (POSIX) and `install/install.ps1` (PowerShell 5.1+) download the compiled binary and share archive into a dedicated prefix and register `bin` on the user PATH. Both installers verify the platform binary and share archive SHA-256 against the release's `wayforge-checksums.txt` before any prefix mutation; a mismatch or missing entry aborts with the prefix untouched, while releases predating the checksum asset (HTTP 404 only) warn and install unverified; any other checksum download failure aborts. When Node.js >= 18 is absent (or too old), the installer provisions a pinned user-local Node.js into the prefix (`node/`) and adds it to PATH; `--skip-node-check` / `-SkipNodeCheck` bypasses this. No administrator privileges are required.
 - **Dedicated prefix / layout**:
-  - Linux / macOS: `~/.ai-config`
-  - Windows: `%LOCALAPPDATA%\ai-config`
-  - Layout: `bin/ai-config` (`ai-config.exe` on Windows), `share/ai-config/base/**`, `share/ai-config/VERSION`, and `installed-projects.json`
-- **Release workflow**: `.github/workflows/release.yml` builds binaries for linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64, produces share archives (`ai-config-share-<version>.tar.gz` / `.zip`), and uploads `install.sh` / `install.ps1` as release assets
-- **Legacy references**: `install/legacy/bootstrap-legacy.sh` and `install/legacy/bootstrap-legacy.ps1` preserve the original full installers; `install/legacy/bootstrap-thin.sh` and `install/legacy/bootstrap-thin.ps1` preserve the retired thin entrypoints. All legacy scripts are frozen.
+  - Linux / macOS: `~/.wayforge`
+  - Windows: `%LOCALAPPDATA%\wayforge`
+  - Layout: `bin/wfg` (`wfg.exe` on Windows), `node/` (provisioned Node.js, when installed), `share/wayforge/base/**`, `share/wayforge/VERSION`, and `installed-projects.json`
+- **Release workflow**: `.github/workflows/release.yml` builds binaries for linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64, produces share archives (`wayforge-share-<version>.tar.gz` / `.zip`), generates `wayforge-checksums.txt` (SHA-256 over every binary and both share archives), and uploads `install.sh` / `install.ps1` as release assets
+- **Update and upgrade**: `wfg update` reports the current and latest versions without downloading or writing anything; `wfg update` is reserved for the CLI release check (#238's managed-project refresh must adopt a different verb). `wfg upgrade` (installed binaries only) resolves the latest release, prompts unless `--yes`, downloads the platform binary, share archive, and `wayforge-checksums.txt`, verifies both SHA-256 hashes before changing the installed binary or `share/wayforge` contents, then replaces `share/wayforge` and `bin/wfg[.exe]` with `*.old-<pid>` backups and rollback; stale backup/temp artifacts are cleaned only after verification on the replacement path (older than 7 days). Commands other than `update`/`upgrade` never check for releases, and there is no automatic notice or cache. From a source checkout `wfg upgrade` refuses and points at `git pull` or the one-shot installer.
 
-Reusable versioned source lives in this repository under `base/opencode/**`.
+Reusable versioned source lives in this repository under `base/`. `base/{agents,commands,skills,plugins}` are installed content; `base/{config,permissions}` are generation inputs that are read and never installed.
 
-Agent permissions are centrally maintained in `base/opencode/permissions/agents.yml`. The installer renders those permissions into generated target `.opencode/agents/*.md` frontmatter because OpenCode consumes native agent metadata and does not natively import shared permission fragments from secondary files.
+Agent permissions are centrally maintained in `base/permissions/agents.yml`. The installer renders those permissions into installed `.agents/agents/*.md` frontmatter because OpenCode consumes native agent metadata and does not natively import shared permission fragments from secondary files.
 
-Target projects receive generated/local runtime output:
+Target projects receive one canonical installed tree plus runtime indirection:
 
-- `opencode.jsonc` (generated per install)
-- `.opencode/agents/**` (copied/generated local output)
-- `.opencode/commands/**` (copied/generated local output)
-- `.opencode/skills/**` (copied/generated local output)
-- `.opencode/plugins/**` (copied/generated local output); shared plugin utilities may live under `lib/` within the plugin tree
+- `.agents/agents/**`, `.agents/commands/**`, `.agents/skills/**`, `.agents/plugins/**` — canonical installed artifacts
+- `opencode.jsonc` / `kilo.jsonc` (generated per install); skills and plugin entries point at `.agents/skills` and `.agents/plugins/ponytail/ponytail.mjs`
+- `.opencode/agents` + `.opencode/commands` — OpenCode directory pointers to `.agents/` (relative symlink; Windows junction fallback)
+- `.kilo/agents` + `.kilo/commands` — Kilo Code directory pointers to `.agents/` (Kilo no longer reads `.opencode/`)
 - `AGENTS.md` (repo-specific entrypoint generated/curated per repository)
-- The ponytail plugin (`.opencode/plugins/ponytail/ponytail.mjs`) injects the reuse-first ladder into the system prompt via `experimental.chat.system.transform` and persists intensity mode via `command.execute.before`. Disable with `/ponytail off` or `PONYTAIL_DEFAULT_MODE=off`.
+- `.wayforge-managed` (manifest of managed paths, including pointer entries)
+- The ponytail plugin (`.agents/plugins/ponytail/ponytail.mjs`) injects the reuse-first ladder into the system prompt via `experimental.chat.system.transform` and persists intensity mode via `command.execute.before`. Disable with `/ponytail off` or `PONYTAIL_DEFAULT_MODE=off`.
+
+`.agents/` is the single source of installed content; `.opencode/` and the generated pointer directories under `.kilo/` contain only runtime indirection. Pi reads `.agents/skills/**/SKILL.md` natively and needs no installer step. Per-runtime materialization of `.agents/` into native trees is future work (ADR-0046).
 
 ### AGENTS.md vs docs/ai/README.md Relationship
 
@@ -55,54 +57,76 @@ Target projects receive generated/local runtime output:
 - **docs/ai/README.md**: Durable AI memory index. Persistent across work sessions. Contains architecture, decisions, plans, and logs. Load when the task touches structure, boundaries, or historical decisions.
 - **Relationship**: AGENTS.md is the "how to work in this repo" guide; docs/ai/README.md is the "what we've decided and built" memory. Both use progressive disclosure.
 
-The `.opencode/` directory in consuming repositories is local/generated runtime output, not the reusable source-of-truth for this repository.
+The `.agents/` directory and generated runtime pointers in consuming repositories are local/generated runtime output, not the reusable source-of-truth for this repository.
 
 ## Repository-Self Editing Rule
 
-- In the `ai-config` repository itself, durable workflow changes should normally be made in `base/opencode/**`, `base/AGENTS.md`, and the installer scripts.
-- Root `.opencode/` and root `opencode.jsonc` are local/generated artifacts and are gitignored in this repository.
-- `base/AGENTS.md` is now a general Coldtea-shaped template (project sections + `[FILL IN]` placeholders + a fixed `## Working with ai-config` section) used for onboarding target repositories.
+- In the `wayforge` repository itself, durable workflow changes should normally be made in `base/**`, `base/AGENTS.md`, and the installer scripts.
+- Root `.agents/`, `.opencode/`, `.kilo/agents`, `.kilo/commands`, `opencode.jsonc`, and `kilo.jsonc` are local/generated artifacts and are gitignored in this repository. Do not blanket-ignore `.kilo/` because it may hold user-authored Kilo configuration.
+- `base/AGENTS.md` is now a general Coldtea-shaped template (project sections + `[FILL IN]` placeholders + a fixed `## Working with wayforge` section) used for onboarding target repositories.
 - `/init` (overriding the built-in command) + `research` are responsible for full onboarding: scaffolding/populating `docs/ai/` and filling each target repository root `AGENTS.md`.
-- Root `AGENTS.md` in this `ai-config` repository is curated repo-specific guidance and may be tracked/updated directly when repository guidance changes.
+- Root `AGENTS.md` in this `wayforge` repository is curated repo-specific guidance and may be tracked/updated directly when repository guidance changes.
 
-The installer must not overwrite unmanaged existing files by default and supports dry-run preview. With force enabled, it refreshes generated OpenCode runtime trees (`.opencode/agents`, `.opencode/commands`, `.opencode/skills`) plus managed output and legacy symlink targets when encountered.
+The installer must not overwrite unmanaged existing files by default and supports dry-run preview. With force enabled, it refreshes the managed `.agents/` tree (`.agents/agents`, `.agents/commands`, `.agents/skills`, `.agents/plugins`), regenerates runtime config, and repairs runtime pointers when encountered.
 
-Portable workflow helpers used by shared commands should be packaged under `.opencode/skills/**` so they are available through the installed surface; consuming repositories should not require a top-level `scripts/` directory for those helpers.
+Portable workflow helpers used by shared commands should be packaged under `base/skills/**` so they are installed to `.agents/skills/**` and available through the installed surface; consuming repositories should not require a top-level `scripts/` directory for those helpers.
+
+### GitHub shared-task credentials
+
+`/issue` keeps GitHub API calls in the TypeScript helper and resolves its
+credential in this order: `GITHUB_TOKEN`, `GH_TOKEN`, then an internal
+`gh auth token` lookup. A fine-grained, repository-scoped PAT needs Issues and
+Pull requests read/write plus Contents read access for PR operations; `gh auth
+login` is the alternative for a machine-wide CLI credential. Inject either
+environment variable through a secret manager, direnv, or keyring-backed
+environment integration, never through versioned files or agent prompts.
+
+```bash
+gh auth login
+npx tsx .agents/skills/shared-task/scripts/gh-issue.ts check
+```
+
+The helper alone invokes `gh auth token` and never emits its credential output.
+Existing `.gh-config/github-token.json` and `.gh-config/app.yml` files are
+legacy artifacts: the helper neither reads nor cleans them up, so users migrate
+by configuring one of the supported credential sources and validating with the
+helper's `check` operation.
 
 ### Installed Projects Tracking
 
-`installed-projects.json` lives in the per-user ai-config prefix (`~/.ai-config/installed-projects.json` on Linux/macOS, `%LOCALAPPDATA%\ai-config\installed-projects.json` on Windows). It is excluded from version control via `.gitignore`.
+`installed-projects.json` lives in the per-user wayforge prefix (`~/.wayforge/installed-projects.json` on Linux/macOS, `%LOCALAPPDATA%\wayforge\installed-projects.json` on Windows). It is excluded from version control via `.gitignore`.
 
 - **Format**: Structured JSON with `schemaVersion` and `projects` array. Each entry contains:
-  - `projectId`: UUIDv4 identifying the logical project. Stored in `.ai-config-managed` as `project_id: <uuid>` so the installer can recognize the same project after a rename or move.
+  - `projectId`: UUIDv4 identifying the logical project. Stored in `.wayforge-managed` as `project_id: <uuid>` so the installer can recognize the same project after a rename or move.
   - `name`: Project directory basename.
   - `path`: Canonical absolute path (Windows-native format `C:\DEV\project` on WSL).
   - `lastUpdated`: ISO 8601 timestamp of the install.
-  - `aiConfigVersion`: ai-config version used for the install.
+  - `wayforgeVersion`: wayforge version used for the install.
   - `installRef`: Git ref (branch, tag, or commit) used for the install.
-- **Created by**: `ai-config install --repo` appends to the tracking file after a successful first install.
+- **Created by**: `wfg install --repo` appends to the tracking file after a successful first install.
 - **Identity matching** (3-tier): On reinstall, the installer matches existing entries in this order:
-  1. **`projectId` match** → update existing entry in-place (name, path, lastUpdated, aiConfigVersion, installRef). This handles project renames and moves.
+  1. **`projectId` match** → update existing entry in-place (name, path, lastUpdated, wayforgeVersion, installRef). This handles project renames and moves.
   2. **Path match** (fallback) → idempotent no-op. Backward-compatible with pre-projectId entries.
   3. **No match** → append new entry.
-- **Upgrade path**: Existing projects without `projectId` (installed before this feature) receive a generated UUID on next reinstall, written to `.ai-config-managed` for future matching.
+- **Upgrade path**: Existing projects without `projectId` (installed before this feature) receive a generated UUID on next reinstall, written to `.wayforge-managed` for future matching.
 - **`--force`/`-Force` behavior**: Force refreshes skip tracking entirely.
 - **`--dry-run`/`-DryRun` behavior**: Dry runs never write to the tracking file.
 - **Cross-platform paths**: The TS CLI normalizes paths internally; on WSL it writes Windows-native paths for consistency.
 
 ### Bootstrap Scripts
 
-The canonical install surface is the one-shot installer (`install/install.sh` / `install/install.ps1`) plus the `ai-config install --repo <path>` command. The retired thin entrypoints `install/bootstrap.sh` and `install/bootstrap.ps1` have been moved to `install/legacy/bootstrap-thin.{sh,ps1}` as frozen reference.
+The canonical install surface is the one-shot installer (`install/install.sh` / `install/install.ps1`) plus the `wfg install --repo <path>` command. The former frozen legacy installers were removed after ADR-0033's deletion trigger was executed; no legacy bootstrap entrypoints remain.
 
 - **No Administrator privileges required** (PowerShell): The one-shot installer uses file writes and updates the User PATH — no symbolic link creation and no elevation.
-- **Managed sync**: Deployed by the TS CLI — agents, commands, and skill files are synced with `.ai-config-managed` markers for safe refresh without clobbering local additions.
+- **Managed sync**: Deployed by the TS CLI — agents, commands, skill, and plugin files are synced into `.agents/` with `.wayforge-managed` markers for safe refresh without clobbering local additions.
+- **Legacy retirement**: `install/legacy/**` and its legacy-only tests were removed after the flat-source transition (ADR-0033, ADR-0046); only the TypeScript CLI is supported for repository installation.
 
 ### Runtime source-directory resolution
 
-`resolveSourceDir()` (`cli/src/lib/source-dir.ts`) resolves the reusable `base/opencode/**` source tree at runtime using this precedence:
+`resolveSourceDir()` (`cli/src/lib/source-dir.ts`) resolves the reusable `base/**` source tree at runtime using this precedence:
 
-1. `AI_CONFIG_HOME` if non-empty.
-2. A location-based fallback: `path.join(path.dirname(process.execPath), '..', 'share', 'ai-config')`, but only when `base/` exists there. This lets a compiled binary at `<prefix>/bin/ai-config` find `<prefix>/share/ai-config/base` without an env var.
+1. `WAYFORGE_HOME` if non-empty.
+2. A location-based fallback: `path.join(path.dirname(process.execPath), '..', 'share', 'wayforge')`, but only when `base/` exists there. This lets a compiled binary at `<prefix>/bin/wfg` find `<prefix>/share/wayforge/base` without an env var.
 3. Dev fallback: `path.resolve(__dirname, '..', '..', '..')` (checkout via `npx tsx`).
 
 If no source tree is found, `install` raises a clear error rather than silently installing nothing. `--ref` continues to override `sourceDir` with a cloned checkout.
@@ -162,6 +186,7 @@ The shared issue creation workflow is:
 - Keep plans above 8 apparent tasks out of single-task planning; split them into smaller tasks first.
 - Keep manual validation checkpoints between atomic steps.
 - Keep durable memory under `docs/ai/`.
+- Keep `.agents/` as the single installed artifact tree; runtime-native pointer directories contain only indirection, and unmanaged files are never deleted to force a pointer into place.
 - Keep GitHub Issues as the operational shared source of truth for team tasks.
 - Keep shared tasks in GitHub Issues rather than a local JSONL backlog.
 - Keep reuse-first guidance explicit: avoid unnecessary copying and speculative abstraction, and justify or flag new duplication.

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
-# Source this file from your ~/.bashrc to expose ai-config helper functions.
+# Source this file from your ~/.bashrc to expose wayforge helper functions.
 # Note: install aliases delegate to the TypeScript CLI directly (npx tsx).
 # Uninstall already uses the TS CLI directly.
 
-_ai_config_root() {
-	if [[ -n "${AI_CONFIG_HOME:-}" && -d "${AI_CONFIG_HOME}" ]]; then
-		printf '%s\n' "$AI_CONFIG_HOME"
+_wayforge_root() {
+	if [[ -n "${WAYFORGE_HOME:-}" && -d "${WAYFORGE_HOME}" ]]; then
+		printf '%s\n' "$WAYFORGE_HOME"
 		return
 	fi
 
@@ -15,11 +15,11 @@ _ai_config_root() {
 	printf '%s\n' "$(cd "$script_dir/.." && pwd)"
 }
 
-ai-setup-repo() {
+wayforge-setup-repo() {
 	local repo_path="${1:-}"
 
 	if [[ -z "$repo_path" ]]; then
-		printf '%s\n' "usage: ai-setup-repo <path>"
+		printf '%s\n' "usage: wayforge-setup-repo <path>"
 		return 1
 	fi
 
@@ -29,28 +29,28 @@ ai-setup-repo() {
 	fi
 
 	local root
-	root="$(_ai_config_root)"
+	root="$(_wayforge_root)"
 	npx tsx "$root/cli/src/index.ts" install --repo "$repo_path"
 }
 
-ai-setup-repo-dry-run() {
+wayforge-setup-repo-dry-run() {
 	local repo_path="${1:-}"
 
 	if [[ -z "$repo_path" ]]; then
-		printf '%s\n' "usage: ai-setup-repo-dry-run <path>"
+		printf '%s\n' "usage: wayforge-setup-repo-dry-run <path>"
 		return 1
 	fi
 
 	local root
-	root="$(_ai_config_root)"
+	root="$(_wayforge_root)"
 	npx tsx "$root/cli/src/index.ts" install --repo "$repo_path" --dry-run
 }
 
-ai-uninstall-repo() {
+wayforge-uninstall-repo() {
 	local repo_path="${1:-}"
 
 	if [[ -z "$repo_path" ]]; then
-		printf '%s\n' "usage: ai-uninstall-repo <path>"
+		printf '%s\n' "usage: wayforge-uninstall-repo <path>"
 		return 1
 	fi
 
@@ -60,19 +60,19 @@ ai-uninstall-repo() {
 	fi
 
 	local root
-	root="$(_ai_config_root)"
+	root="$(_wayforge_root)"
 	npx tsx "$root/cli/src/index.ts" uninstall --repo "$repo_path"
 }
 
-ai-uninstall-repo-dry-run() {
+wayforge-uninstall-repo-dry-run() {
 	local repo_path="${1:-}"
 
 	if [[ -z "$repo_path" ]]; then
-		printf '%s\n' "usage: ai-uninstall-repo-dry-run <path>"
+		printf '%s\n' "usage: wayforge-uninstall-repo-dry-run <path>"
 		return 1
 	fi
 
 	local root
-	root="$(_ai_config_root)"
+	root="$(_wayforge_root)"
 	npx tsx "$root/cli/src/index.ts" uninstall --repo "$repo_path" --dry-run
 }

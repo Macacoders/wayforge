@@ -10,39 +10,43 @@ permissions:
 
 jobs:
   build-binaries:
-    runs-on: ${{ matrix.runner }}
+    runs-on: [self-hosted, linux, x64]
     strategy:
       matrix:
         include:
           - os: linux
             arch: x64
-            runner: ubuntu-latest
+            target: bun-linux-x64
             ext: ''
           - os: linux
             arch: arm64
-            runner: ubuntu-24.04-arm
+            target: bun-linux-arm64
             ext: ''
           - os: darwin
             arch: x64
-            runner: macos-13
+            target: bun-darwin-x64
             ext: ''
           - os: darwin
             arch: arm64
-            runner: macos-latest
+            target: bun-darwin-arm64
             ext: ''
           - os: win32
             arch: x64
-            runner: windows-latest
+            target: bun-windows-x64
             ext: .exe
           - os: win32
             arch: arm64
-            runner: windows-latest
+            target: bun-windows-arm64
             ext: .exe
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        shell: bash
+        run: bun install --frozen-lockfile
 
       - name: Read version
         id: version
@@ -55,15 +59,18 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          bun build ./cli/src/index.ts --compile --outfile "dist/ai-config-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}" --define "process.env.AI_CONFIG_VERSION:$(cat VERSION)"
+          bun build ./cli/src/index.ts --compile \
+            --target=${{ matrix.target }} \
+            --outfile "dist/wayforge-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}" \
+            --define "process.env.WAYFORGE_VERSION:'$(cat VERSION)'"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ai-config-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
-          path: dist/ai-config-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
+          name: wayforge-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
+          path: dist/wayforge-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
 
   release:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     needs: build-binaries
     steps:
       - uses: actions/checkout@v4
@@ -83,15 +90,19 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          pattern: ai-config-*
+          pattern: wayforge-*
           path: dist/
           merge-multiple: true
 
       - name: Create share archive
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          tar -czf "ai-config-share-${VERSION}.tar.gz" base VERSION
-          python3 -m zipfile -c "ai-config-share-${VERSION}.zip" base VERSION
+          tar -czf "wayforge-share-${VERSION}.tar.gz" base VERSION
+          python3 -m zipfile -c "wayforge-share-${VERSION}.zip" base VERSION
+
+      - name: Generate checksums
+        run: |
+          sha256sum dist/wayforge-* wayforge-share-*.tar.gz wayforge-share-*.zip > wayforge-checksums.txt
 
       - name: Create Release
         run: |
@@ -105,6 +116,6 @@ jobs:
             --title "$TAG" \
             --notes-file "${{ steps.changelog.outputs.body_file }}" \
             --repo ${{ github.repository }}
-          gh release upload "$TAG" dist/ai-config-* ai-config-share-${{ steps.version.outputs.version }}.tar.gz ai-config-share-${{ steps.version.outputs.version }}.zip install/install.sh install/install.ps1 --repo ${{ github.repository }}
+          gh release upload "$TAG" dist/wayforge-* wayforge-share-${{ steps.version.outputs.version }}.tar.gz wayforge-share-${{ steps.version.outputs.version }}.zip wayforge-checksums.txt install/install.sh install/install.ps1 --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ github.token }}

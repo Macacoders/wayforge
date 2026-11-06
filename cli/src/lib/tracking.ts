@@ -7,9 +7,9 @@ import type { ManifestContext } from './context.js'
 export function resolveStateDir(): string {
 	const localAppData = process.env.LOCALAPPDATA
 	if (localAppData) {
-		return path.join(localAppData, 'ai-config')
+		return path.join(localAppData, 'wayforge')
 	}
-	return path.join(os.homedir(), '.ai-config')
+	return path.join(os.homedir(), '.wayforge')
 }
 
 export function isTempPath(absolutePath: string): boolean {
@@ -77,7 +77,7 @@ export function trackInstalledProject(
 		name,
 		path: toTrackedPath(canonical), // JSON.stringify auto-escapes backslashes; no manual escaping needed
 		lastUpdated: timestamp,
-		aiConfigVersion: version,
+		wayforgeVersion: version,
 		installRef: installRef_,
 	}
 

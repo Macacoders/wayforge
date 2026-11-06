@@ -1,0 +1,17 @@
+# Wayforge — required reviewers for protected source templates.
+# Enforced by the "protect-main-develop" ruleset (require_code_owner_review: true).
+# Syntax: <pattern>  <owner>...   — a path may match several patterns; the last match wins.
+
+# The CODEOWNERS file itself — stops writers from deleting the protections below.
+/.github/CODEOWNERS            @Macacoders/wayforge-maintainers
+
+# Agent, command, and skill templates — the protection rule stated in AGENTS.md.
+/base/agents/                  @Macacoders/wayforge-maintainers
+/base/commands/                @Macacoders/wayforge-maintainers
+/base/skills/                  @Macacoders/wayforge-maintainers
+
+# Other source templates shipped to consumers.
+/base/AGENTS.md                @Macacoders/wayforge-maintainers
+/base/permissions/             @Macacoders/wayforge-maintainers
+/base/config/                  @Macacoders/wayforge-maintainers
+/base/plugins/                 @Macacoders/wayforge-maintainers

@@ -3,19 +3,23 @@
 import { Command } from 'commander'
 import { installCommand } from './commands/install.js'
 import { uninstallCommand } from './commands/uninstall.js'
+import { updateCommand } from './commands/update.js'
+import { upgradeCommand } from './commands/upgrade.js'
 import { interactiveCommand } from './commands/interactive.js'
+import { errorMessage } from './lib/errors.js'
+import { getCurrentVersion } from './lib/version.js'
 import type { InstallOptions, Runtime } from './types.js'
 
-const program = new Command('ai-config')
+const program = new Command('wayforge')
 
 program
-	.name('ai-config')
-	.description('Cross-platform CLI installer for ai-config')
-	.version(process.env.AI_CONFIG_VERSION || '0.1.0', '-v, --version')
+	.name('wayforge')
+	.description('Cross-platform CLI installer for wayforge')
+	.version(getCurrentVersion(), '-v, --version')
 
 program
 	.command('install')
-	.description('Install ai-config managed files into a target repository')
+	.description('Install wayforge managed files into a target repository')
 	.requiredOption(
 		'--repo <path>',
 		'Link OpenCode config into a target project.',
@@ -44,11 +48,7 @@ program
 	)
 	.option(
 		'--ref <ref>',
-		'Fetch source from a specific Git ref (tag, branch, commit) on GitHub. Without --ref, installs from the local ai-config source tree.',
-	)
-	.option(
-		'--gh-app-client-id <id>',
-		'GitHub App Client ID for issue management (Iv1...). Creates .gh-config/app.yml.',
+		'Fetch source from a specific Git ref (tag, branch, commit) on GitHub. Without --ref, installs from the local wayforge source tree.',
 	)
 	.option(
 		'--dry-run',
@@ -60,6 +60,7 @@ program
 		'Refresh managed targets and generated runtime trees; preserve unmanaged local files.',
 		false,
 	)
+	.option('--skip-node-check', 'Skip the Node.js prerequisite check', false)
 	.option(
 		'--no-track',
 		'Skip recording this project in installed-projects.json.',
@@ -72,9 +73,9 @@ program
 			smallModel: options.smallModel as string | undefined,
 			runtime: options.runtime as Runtime,
 			ref: options.ref as string | undefined,
-			ghAppClientId: options.ghAppClientId as string | undefined,
 			dryRun: Boolean(options.dryRun),
 			force: Boolean(options.force),
+			skipNodeCheck: Boolean(options.skipNodeCheck),
 			noTrack: options.track === false,
 		}
 		await installCommand(installOptions)
@@ -82,10 +83,10 @@ program
 
 program
 	.command('uninstall')
-	.description('Uninstall ai-config managed files from a target repository')
+	.description('Uninstall wayforge managed files from a target repository')
 	.requiredOption(
 		'--repo <path>',
-		'Uninstall ai-config managed files from the target project.',
+		'Uninstall wayforge managed files from the target project.',
 	)
 	.option(
 		'--dry-run',
@@ -100,6 +101,23 @@ program
 	})
 
 program
+	.command('update')
+	.description('Check for a newer wayforge CLI release without installing it')
+	.action(async () => {
+		await updateCommand()
+	})
+
+program
+	.command('upgrade')
+	.description(
+		'Download, verify, and install the latest wayforge CLI release',
+	)
+	.option('--yes', 'Skip the confirmation prompt', false)
+	.action(async (options: { yes: boolean }) => {
+		await upgradeCommand(options)
+	})
+
+program
 	.command('interactive')
 	.description(
 		'Guided interactive installer that collects safe preset choices',
@@ -109,6 +127,6 @@ program
 	})
 
 program.parseAsync(process.argv).catch((error: unknown) => {
-	console.error(error instanceof Error ? error.message : String(error))
+	console.error(errorMessage(error))
 	process.exit(1)
 })

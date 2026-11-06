@@ -17,7 +17,9 @@ export function uninstallCommand(options: UninstallOptions): void {
 
 function doUninstall(options: UninstallOptions): void {
 	const ctx = new ManifestContext(options.dryRun, false, false)
-	const repo = options.repo
+	// Resolve once so the empty-directory walk below can never climb past the
+	// repository when `--repo .` or a relative path with `..` segments is used.
+	const repo = path.resolve(options.repo)
 
 	if (!fs.pathExistsSync(repo)) {
 		ctx.log(`error: repo path does not exist: ${repo}`)
@@ -26,7 +28,7 @@ function doUninstall(options: UninstallOptions): void {
 
 	const manifestPaths = readManagedManifest(repo)
 	if (manifestPaths.length === 0) {
-		ctx.log(`error: no .ai-config-managed found in ${repo}`)
+		ctx.log(`error: no .wayforge-managed found in ${repo}`)
 		process.exit(1)
 	}
 
@@ -42,7 +44,7 @@ function doUninstall(options: UninstallOptions): void {
 		rm(absPath, ctx)
 	}
 
-	const manifestPath = path.join(repo, '.ai-config-managed')
+	const manifestPath = path.join(repo, '.wayforge-managed')
 	if (fs.pathExistsSync(manifestPath)) {
 		rm(manifestPath, ctx)
 	}
@@ -51,9 +53,8 @@ function doUninstall(options: UninstallOptions): void {
 	for (const relPath of manifestPaths) {
 		const absPath = path.join(repo, relPath)
 		let dir = path.dirname(absPath)
-		const resolvedRepo = path.resolve(repo)
 
-		while (dir !== resolvedRepo) {
+		while (dir !== repo) {
 			if (ctx.dryRun) {
 				if (
 					fs.pathExistsSync(dir) &&

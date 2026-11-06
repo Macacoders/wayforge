@@ -8,7 +8,7 @@ import { trackInstalledProject } from "../../src/lib/tracking.js";
 // Use workspace-local dir for repo/root so isTempPath won't skip them.
 // Only the temp-path-skip test intentionally uses os.tmpdir().
 const BASE = path.resolve(__dirname, "..", "..", ".test-tracking");
-const STATE_DIR_NAME = ".ai-config";
+const STATE_DIR_NAME = ".wayforge";
 
 function makeCtx(
   overrides: { dryRun?: boolean; force?: boolean; noTrack?: boolean; projectId?: string } = {},
@@ -74,7 +74,7 @@ describe("trackInstalledProject", () => {
     expect(data.projects).toHaveLength(1);
     expect(data.projects[0].projectId).toBe("11111111-1111-4111-8111-111111111111");
     expect(data.projects[0].name).toBe("project");
-    expect(data.projects[0].aiConfigVersion).toBe("0.2.0");
+    expect(data.projects[0].wayforgeVersion).toBe("0.2.0");
     expect(data.projects[0].installRef).toBe("develop");
     expect(data.projects[0].lastUpdated).toMatch(/\d{4}-\d{2}-\d{2}T/);
   });
@@ -97,7 +97,7 @@ describe("trackInstalledProject", () => {
     expect(data.projects[0].projectId).toBe(projectId);
     expect(data.projects[0].name).toBe("renamed-project");
     expect(data.projects[0].path).toBe(fs.realpathSync(newRepoDir));
-    expect(data.projects[0].aiConfigVersion).toBe("0.3.0");
+    expect(data.projects[0].wayforgeVersion).toBe("0.3.0");
     expect(data.projects[0].installRef).toBe("v2");
   });
 
@@ -119,7 +119,7 @@ describe("trackInstalledProject", () => {
           name: "old-project",
           path: "/some/old/path",
           lastUpdated: "2025-01-01T12:00:00+01:00",
-          aiConfigVersion: "0.1.0",
+          wayforgeVersion: "0.1.0",
           installRef: "develop",
         },
       ],
@@ -165,7 +165,7 @@ describe("trackInstalledProject", () => {
     // On Windows, os.tmpdir() is under process.env.TEMP which isTempPath matches.
     // We need a path that exists (for realpathSync) and is recognized as temp.
     const tempBase = os.tmpdir();
-    const tempProj = fs.mkdtempSync(path.join(tempBase, "ai-config-temp-skip-"));
+    const tempProj = fs.mkdtempSync(path.join(tempBase, "wayforge-temp-skip-"));
 
     try {
       const ctx = makeCtx({ projectId: "88888888-8888-4888-8888-888888888888" });

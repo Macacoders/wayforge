@@ -14,7 +14,7 @@ function printUsage(): void {
   console.error([
     'Usage: scripts/release.ts --set-version <semver> [--dry-run]',
     '',
-    'Prepare a new ai-config release.',
+    'Prepare a new wayforge release.',
     '',
     'Options:',
     '  --set-version <semver>  New version (e.g., 0.2.0)',
@@ -69,7 +69,7 @@ export function updateChangelogContent(
 
   // Prepend new version link before the current version's link
   const oldLink = `[${currentVersion}]:`;
-  const newLink = `[${newVersion}]: https://github.com/Macacoders/ai-config/releases/tag/v${newVersion}`;
+  const newLink = `[${newVersion}]: https://github.com/Macacoders/wayforge/releases/tag/v${newVersion}`;
   if (updated.includes(oldLink)) {
     updated = updated.replace(oldLink, `${newLink}\n${oldLink}`);
   }
