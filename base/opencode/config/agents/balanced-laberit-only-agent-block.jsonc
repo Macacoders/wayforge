@@ -20,5 +20,15 @@
     },
     "reviewer": {
       "model": "laberit/laberit-ai-preview"
+    },
+    "implementer": {
+      "model": "laberit/laberit-ai",
+      "steps": 16
+    },
+    "auditor": {
+      "model": "laberit/laberit-ai-preview"
+    },
+    "scout": {
+      "model": "laberit/laberit-ai-preview"
     }
   }

@@ -26,5 +26,17 @@
     "reviewer": {
       "model": "openai/gpt-6-sol",
       "steps": 20
+    },
+    "implementer": {
+      "model": "openai/gpt-5.6-terra",
+      "steps": 16
+    },
+    "auditor": {
+      "model": "openai/gpt-6-sol",
+      "steps": 20
+    },
+    "scout": {
+      "model": "openai/gpt-5.6-luna",
+      "steps": 15
     }
   }

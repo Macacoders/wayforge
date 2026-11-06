@@ -19,7 +19,7 @@ Do **not** load all `docs/ai/**` by default.
 1. Read this index first.
 2. Load one route file at a time.
 3. Stop when you have enough context to proceed safely.
-4. Ask `planner` to run `/memory` when you need memory lookup, freshness review, or durable updates.
+4. Ask `planner` to run `/memory` when you need memory lookup, freshness review, or durable updates outside an active experimental implementation run.
 
 ## What To Persist
 
@@ -38,9 +38,10 @@ Do **not** load all `docs/ai/**` by default.
 
 ## Ownership
 
-- `delivery` owns plan progress state (`status:`, `task:`, per-task `**Status:**`) and acceptance evidence within a run; it does not persist worker results as memory files.
-- `planner` is the final memory owner.
-- Other agents may propose updates, but `planner` decides what gets persisted.
+- `delivery` owns legacy-plan progress state (`status:`, `task:`, per-task `**Status:**`) and acceptance evidence within a run; it does not persist worker results as memory files.
+- For an ADR-0049 experimental plan, `implementer` owns active-plan evolution (`Experimental status:`, implementation amendments, and execution changelog) and may update factual implementation memory under `docs/ai/**`. It asks the user directly for unresolved material decisions rather than returning routine drift to `planner`.
+- `auditor` appends final audit evidence to the experimental plan and may record durable outcomes under `docs/ai/logs/**`; it does not change architecture notes or ADRs.
+- `planner` creates initial plans and remains the default owner for plans, architecture notes, and ADRs outside an active experimental run.
 
 ## Handoff Rule
 

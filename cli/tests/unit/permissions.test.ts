@@ -41,29 +41,32 @@ describe("renderAgentPermissionBlock", () => {
 
     expect(block.startsWith("permission:")).toBe(true);
     expect(block).toContain("read: allow");
-    expect(block).toContain("edit: ask");
-    expect(block).toContain("bash:");
-    expect(block).toContain('"*": allow');
-    expect(block).not.toContain("agents:");
-    expect(block.indexOf('"*": allow')).toBeLessThan(
-      block.indexOf('"sudo*": deny'),
-    );
-    expect(block).toContain('"sudo*": deny');
-    expect(block).toContain('"rm -rf*": deny');
-    expect(block).toContain('"git push --force*": deny');
-    expect(block).toContain('"git push -f*": deny');
-    expect(block).toContain("external_directory:");
+    expect(block).toContain("glob: allow");
+    expect(block).toContain("grep: allow");
+    expect(block).toContain("skill:");
     expect(block).toContain('"*": deny');
-    expect(block).toContain('"/tmp/**": allow');
+    expect(block).toContain("intent: allow");
+    expect(block).toContain("plan: allow");
+    expect(block).toContain("webfetch: allow");
+    expect(block).toContain("websearch: allow");
+    expect(block).toContain("edit:");
+    expect(block).toContain('"docs/ai/**": allow');
+    expect(block).toContain("bash: ask");
+    expect(block).toContain("external_directory: deny");
+    expect(block).not.toContain("agents:");
+    expect(block).not.toContain('"*": allow');
   });
 
   it("renders the correct edit permission for each agent", () => {
     expect(renderAgentPermissionBlock("code", permissionsFile)).toContain(
       "edit: allow",
     );
-    expect(renderAgentPermissionBlock("planner", permissionsFile)).toContain(
-      "edit: ask",
+    expect(renderAgentPermissionBlock("implementer", permissionsFile)).toContain(
+      "edit: allow",
     );
+    const planner = renderAgentPermissionBlock("planner", permissionsFile);
+    expect(planner).toContain("edit:");
+    expect(planner).toContain('"docs/ai/**": allow');
     expect(renderAgentPermissionBlock("delivery", permissionsFile)).toContain(
       "edit: ask",
     );
@@ -76,32 +79,37 @@ describe("renderAgentPermissionBlock", () => {
     expect(renderAgentPermissionBlock("reviewer", permissionsFile)).toContain(
       "edit: deny",
     );
+    const auditor = renderAgentPermissionBlock("auditor", permissionsFile);
+    expect(auditor).toContain("edit:");
+    expect(auditor).toContain('"docs/ai/plans/**": allow');
+    expect(auditor).toContain('"docs/ai/logs/**": allow');
   });
 
-  it("denies mutating shell commands for the read-only reviewer", () => {
+  it("uses native inspection tools and prompts before reviewer shell commands", () => {
     const block = renderAgentPermissionBlock("reviewer", permissionsFile);
 
-    for (const denied of [
-      '"git commit*": deny',
-      '"git push*": deny',
-      '"git checkout*": deny',
-      '"rm *": deny',
-      '"sed -i*": deny',
-    ]) {
-      expect(block).toContain(denied);
-    }
-    // read-only inspection must stay available without prompts
-    expect(block).not.toContain('"git diff*"');
-    expect(block).not.toContain('"git log*"');
+    expect(block).toContain("read: allow");
+    expect(block).toContain("glob: allow");
+    expect(block).toContain("grep: allow");
+    expect(block).toContain("skill: deny");
+    expect(block).toContain("edit: deny");
+    expect(block).toContain("bash: ask");
   });
 
-  it("renders question: allow only for planner, delivery, and troubleshooter", () => {
-    for (const agent of ["planner", "delivery", "troubleshooter"]) {
+  it("renders question: allow only for primary decision roles", () => {
+    for (const agent of ["planner", "delivery", "troubleshooter", "implementer"]) {
       expect(renderAgentPermissionBlock(agent, permissionsFile)).toContain(
         "question: allow",
       );
     }
-    for (const agent of ["code", "research", "architect", "reviewer"]) {
+    for (const agent of [
+      "code",
+      "research",
+      "architect",
+      "reviewer",
+      "auditor",
+      "scout",
+    ]) {
       expect(renderAgentPermissionBlock(agent, permissionsFile)).not.toContain(
         "question: allow",
       );
@@ -133,38 +141,69 @@ describe("coarse permission guards", () => {
     }
   });
 
-  it('starts every bash map with the "*": allow catch-all', () => {
+  it("uses native inspection tools instead of automatic shell access", () => {
     for (const agent of allAgents) {
-      const lines = renderAgentPermissionBlock(agent, permissionsFile).split(
-        "\n",
+      const block = renderAgentPermissionBlock(agent, permissionsFile);
+      expect(block).toContain("glob: allow");
+      expect(block).toContain("grep: allow");
+      expect(block).not.toContain('"*": allow');
+    }
+
+    for (const agent of ["research", "scout", "architect"]) {
+      expect(renderAgentPermissionBlock(agent, permissionsFile)).toContain(
+        "bash: deny",
       );
-      const bashIdx = lines.findIndex((line) => line.trim() === "bash:");
-      expect(bashIdx).toBeGreaterThan(-1);
-      expect(lines[bashIdx + 1].trim()).toBe('"*": allow');
+    }
+    for (const agent of ["planner", "code", "auditor", "reviewer", "troubleshooter"]) {
+      expect(renderAgentPermissionBlock(agent, permissionsFile)).toContain(
+        "bash: ask",
+      );
     }
   });
 
-  it("renders the bash deny-list in every agent", () => {
-    for (const agent of allAgents) {
-      const block = renderAgentPermissionBlock(agent, permissionsFile);
-      expect(block).toContain('"sudo*": deny');
-      expect(block).toContain('"rm -rf*": deny');
-      expect(block).toContain('"git push --force*": deny');
-      expect(block).toContain('"git push -f*": deny');
-    }
-  });
+  it("allows only each role's owned skills", () => {
+    const expectedSkills: Record<string, string[]> = {
+      planner: [
+        "ai-memory",
+        "create-skill",
+        "delivery-policy",
+        "intent",
+        "memory-maintenance",
+        "plan",
+        "ponytail",
+        "ponytail-audit",
+        "ponytail-debt",
+        "ponytail-gain",
+        "ponytail-help",
+        "shared-task",
+        "triage",
+      ],
+      delivery: [
+        "ai-memory",
+        "delivery-policy",
+        "memory-maintenance",
+        "ponytail-review",
+      ],
+      implementer: [
+        "ai-memory",
+        "implementation-quality",
+        "memory-maintenance",
+      ],
+      auditor: ["ai-memory", "memory-maintenance", "review-triage"],
+    };
 
-  it("places the bash catch-all before the deny-list entries", () => {
     for (const agent of allAgents) {
       const block = renderAgentPermissionBlock(agent, permissionsFile);
-      const catchAllIdx = block.indexOf('"*": allow');
-      expect(catchAllIdx).toBeGreaterThan(-1);
-      expect(catchAllIdx).toBeLessThan(block.indexOf('"sudo*": deny'));
-      expect(catchAllIdx).toBeLessThan(block.indexOf('"rm -rf*": deny'));
-      expect(catchAllIdx).toBeLessThan(
-        block.indexOf('"git push --force*": deny'),
-      );
-      expect(catchAllIdx).toBeLessThan(block.indexOf('"git push -f*": deny'));
+      const expected = expectedSkills[agent] ?? [];
+      if (expected.length === 0) {
+        expect(block).toContain("skill: deny");
+        continue;
+      }
+      expect(block).toContain("skill:");
+      expect(block).toContain('"*": deny');
+      for (const skill of expected) {
+        expect(block).toContain(`${skill}: allow`);
+      }
     }
   });
 
@@ -178,9 +217,7 @@ describe("coarse permission guards", () => {
   it("renders the external_directory boundary for every agent", () => {
     for (const agent of allAgents) {
       const block = renderAgentPermissionBlock(agent, permissionsFile);
-      expect(block).toContain("external_directory:");
-      expect(block).toContain('"*": deny');
-      expect(block).toContain('"/tmp/**": allow');
+      expect(block).toContain("external_directory: deny");
     }
   });
 
@@ -203,20 +240,53 @@ describe("coarse permission guards", () => {
     );
   });
 
+  it("allows only experimental primary agents to dispatch scout", () => {
+    for (const agent of ["implementer", "auditor"]) {
+      const block = renderAgentPermissionBlock(agent, permissionsFile);
+      const taskBlock = block.slice(block.indexOf("task:"));
+      expect(taskBlock).toContain('"*": deny');
+      expect(taskBlock).toContain("scout: allow");
+    }
+    for (const agent of [
+      "planner",
+      "delivery",
+      "research",
+      "code",
+      "troubleshooter",
+      "architect",
+      "reviewer",
+      "scout",
+    ]) {
+      const block = renderAgentPermissionBlock(agent, permissionsFile);
+      expect(block).not.toContain("scout: allow");
+    }
+  });
+
   it("keeps subagent dispatch out of read-only and worker roles", () => {
-    for (const agent of ["code", "reviewer", "architect", "research"]) {
+    for (const agent of ["code", "reviewer", "architect", "research", "scout"]) {
       expect(renderAgentPermissionBlock(agent, permissionsFile)).toContain(
         "task: deny",
       );
     }
   });
 
-  it("denies commit, push, and tag for the implementer", () => {
-    const block = renderAgentPermissionBlock("code", permissionsFile);
+  it("prompts legacy code validation and allows only required autonomous commits", () => {
+    expect(renderAgentPermissionBlock("code", permissionsFile)).toContain(
+      "bash: ask",
+    );
 
-    expect(block).toContain('"git commit*": deny');
-    expect(block).toContain('"git push*": deny');
-    expect(block).toContain('"git tag*": deny');
+    for (const agent of ["delivery", "implementer"]) {
+      const block = renderAgentPermissionBlock(agent, permissionsFile);
+      expect(block).toContain('"*": ask');
+      expect(block).toContain('"git commit*": allow');
+    }
+    const auditor = renderAgentPermissionBlock("auditor", permissionsFile);
+    expect(auditor).toContain('"docs/ai/plans/**": allow');
+    expect(auditor).not.toContain('"git commit*": allow');
+
+    const scout = renderAgentPermissionBlock("scout", permissionsFile);
+    expect(scout).toContain("edit: deny");
+    expect(scout).not.toContain('"git commit*": allow');
   });
 });
 

@@ -26,5 +26,17 @@
     "reviewer": {
       "model": "openai/gpt-6-sol",
       "steps": 24
+    },
+    "implementer": {
+      "model": "github-copilot/gpt-5.3-codex",
+      "steps": 16
+    },
+    "auditor": {
+      "model": "openai/gpt-6-sol",
+      "steps": 24
+    },
+    "scout": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 20
     }
   }

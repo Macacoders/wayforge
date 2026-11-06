@@ -260,6 +260,38 @@ flowchart LR
     class I planner
 ```
 
+### Experimental implement-then-audit workflow
+
+An opt-in experimental workflow can be run directly through the primary `implementer` and `auditor` agents. `implementer` completes an approved plan marked `workflow: implement-then-audit`, validates and commits each task, and records a final execution changelog. When repository evidence changes the plan's direction, it records an implementation amendment and continues; only unresolved material public-contract, persistence, security, deployment, or user-visible scope choices pause for a direct user decision. `auditor` independently audits the completed plan, amendments, and commit range once, using bounded read-only `scout` investigations where needed, and reports evidence-ranked findings. This does not replace `/deliver-plan`, has no slash commands or deterministic orchestrator yet, and legacy delivery commands must not run experimental-marked plans. See the installed agent files and their `implementation-quality` and `review-triage` skills for the operating contracts.
+
+```mermaid
+flowchart LR
+    A["Experimental approved plan"] --> B["implementer: select ready task"]
+    B --> C{"Missing bounded fact?"}
+    C -- "yes" --> D["scout: evidence-only investigation"] --> B
+    C -- "no" --> E["implementer: implement + agent QA"]
+    E --> N{"Evidence changes plan direction?"}
+    N -- "yes" --> O["Record amendment + update plan/memory"] --> F
+    N -- "no" --> F{"Validation passes?"}
+    F -- "no / blocked" --> G["Record blocker; request decision"]
+    F -- "yes" --> H["Commit task + mark completed"]
+    H --> I{"More ready tasks?"}
+    I -- "yes" --> B
+    I -- "no" --> J["Execution changelog + commit range"]
+    J --> K["auditor: review plan, amendments, and commits"]
+    K --> L["scout(s): focused evidence"]
+    L --> M["Deduplicated high / medium / low findings"]
+
+    classDef user fill:#1f2937,stroke:#6b7280,color:#e5e7eb
+    classDef implementer fill:#14532d,stroke:#4ade80,color:#dcfce7
+    classDef auditor fill:#134e4a,stroke:#2dd4bf,color:#ccfbf1
+    classDef scout fill:#581c87,stroke:#c084fc,color:#f3e8ff
+    class A,G user
+    class B,C,E,F,H,I,J,N,O implementer
+    class K,M auditor
+    class D,L scout
+```
+
 The manual steps below stay available when you want to drive one task at a time.
 
 ### Delivery loop (manual)

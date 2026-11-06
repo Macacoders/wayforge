@@ -1,7 +1,7 @@
 # ADR-0036: Simplify Agent Permissions to Coarse Allow + Deny-List Model
 
 **Date**: 2026-08-26
-**Status**: Accepted
+**Status**: Superseded by ADR-0050
 
 ## Context
 

@@ -2,24 +2,37 @@
 # Parsed by the TypeScript CLI (cli/src/lib/permissions.ts) and the legacy bash/ps1
 # managed_sync renderers — see ADR-0009 and ADR-0014.
 #
-# Permission model: coarse last-match-wins bash rules. "*": allow is the catch-all
-# (prompting on every benign command such as rg/ls/cat would be too slow); a short
-# deny-list below it blocks known high-risk prefixes. Destructive commands are also
-# gated by the user's shell/profile permissions.
+# Permission model: native tools and named skills are explicitly allowed; shell commands
+# require approval unless a role needs one narrow automatic exception. edit controls edit,
+# write, and apply_patch. External paths are denied for every role.
 agents:
   planner:
     read: allow
-    edit: ask
-    question: allow
-    bash:
-      "*": allow
-      "sudo*": deny
-      "rm -rf*": deny
-      "git push --force*": deny
-      "git push -f*": deny
-    external_directory:
+    glob: allow
+    grep: allow
+    skill:
       "*": deny
-      "/tmp/**": allow
+      ai-memory: allow
+      create-skill: allow
+      delivery-policy: allow
+      intent: allow
+      memory-maintenance: allow
+      plan: allow
+      ponytail: allow
+      ponytail-audit: allow
+      ponytail-debt: allow
+      ponytail-gain: allow
+      ponytail-help: allow
+      shared-task: allow
+      triage: allow
+    webfetch: allow
+    websearch: allow
+    edit:
+      "*": deny
+      "docs/ai/**": allow
+    question: allow
+    bash: ask
+    external_directory: deny
     task:
       "*": deny
       research: allow
@@ -28,17 +41,20 @@ agents:
 
   delivery:
     read: allow
+    glob: allow
+    grep: allow
+    skill:
+      "*": deny
+      ai-memory: allow
+      delivery-policy: allow
+      memory-maintenance: allow
+      ponytail-review: allow
     edit: ask
     question: allow
     bash:
-      "*": allow
-      "sudo*": deny
-      "rm -rf*": deny
-      "git push --force*": deny
-      "git push -f*": deny
-    external_directory:
-      "*": deny
-      "/tmp/**": allow
+      "*": ask
+      "git commit*": allow
+    external_directory: deny
     task:
       "*": deny
       research: allow
@@ -48,97 +64,105 @@ agents:
 
   research:
     read: allow
+    glob: allow
+    grep: allow
+    skill: deny
+    webfetch: allow
+    websearch: allow
     edit: ask
-    bash:
-      "*": allow
-      "sudo*": deny
-      "rm -rf*": deny
-      "git push --force*": deny
-      "git push -f*": deny
-    external_directory:
-      "*": deny
-      "/tmp/**": allow
+    bash: deny
+    external_directory: deny
     task: deny
 
   code:
     read: allow
+    glob: allow
+    grep: allow
+    skill: deny
     edit: allow
-    bash:
-      "*": allow
-      "sudo*": deny
-      "rm -rf*": deny
-      "git push --force*": deny
-      "git push -f*": deny
-      "git commit*": deny
-      "git push*": deny
-      "git tag*": deny
-    external_directory:
-      "*": deny
-      "/tmp/**": allow
+    bash: ask
+    external_directory: deny
     task: deny
 
-  # reviewer is the independent verification agent: it must be able to inspect git evidence
-  # and run read-only checks, but never modify product code. edit: deny is the primary control;
-  # the extra bash denies cover the common shell write paths (see ADR-0036 and ADR-0048's
-  # residual-risk notes).
+  implementer:
+    read: allow
+    glob: allow
+    grep: allow
+    skill:
+      "*": deny
+      ai-memory: allow
+      implementation-quality: allow
+      memory-maintenance: allow
+    edit: allow
+    question: allow
+    bash:
+      "*": ask
+      "git commit*": allow
+    external_directory: deny
+    task:
+      "*": deny
+      scout: allow
+
+  auditor:
+    read: allow
+    glob: allow
+    grep: allow
+    skill:
+      "*": deny
+      ai-memory: allow
+      memory-maintenance: allow
+      review-triage: allow
+    webfetch: allow
+    websearch: allow
+    edit:
+      "*": deny
+      "docs/ai/plans/**": allow
+      "docs/ai/logs/**": allow
+    bash: ask
+    external_directory: deny
+    task:
+      "*": deny
+      scout: allow
+
+  scout:
+    read: allow
+    glob: allow
+    grep: allow
+    skill: deny
+    webfetch: allow
+    websearch: allow
+    edit: deny
+    bash: deny
+    external_directory: deny
+    task: deny
+
   reviewer:
     read: allow
+    glob: allow
+    grep: allow
+    skill: deny
     edit: deny
-    bash:
-      "*": allow
-      "sudo*": deny
-      "rm -rf*": deny
-      "rm *": deny
-      "mv *": deny
-      "cp *": deny
-      "tee*": deny
-      "truncate*": deny
-      "sed -i*": deny
-      "git add*": deny
-      "git commit*": deny
-      "git push*": deny
-      "git push --force*": deny
-      "git push -f*": deny
-      "git merge*": deny
-      "git rebase*": deny
-      "git reset*": deny
-      "git checkout*": deny
-      "git switch*": deny
-      "git restore*": deny
-      "git stash*": deny
-      "git apply*": deny
-      "git rm*": deny
-      "git tag*": deny
-    external_directory:
-      "*": deny
-      "/tmp/**": allow
+    bash: ask
+    external_directory: deny
     task: deny
 
   troubleshooter:
     read: allow
+    glob: allow
+    grep: allow
+    skill: deny
     edit: ask
     question: allow
-    bash:
-      "*": allow
-      "sudo*": deny
-      "rm -rf*": deny
-      "git push --force*": deny
-      "git push -f*": deny
-    external_directory:
-      "*": deny
-      "/tmp/**": allow
+    bash: ask
+    external_directory: deny
     task: deny
 
   architect:
     read: allow
+    glob: allow
+    grep: allow
+    skill: deny
     edit: deny
-    bash:
-      "*": allow
-      "sudo*": deny
-      "rm -rf*": deny
-      "git push --force*": deny
-      "git push -f*": deny
-    external_directory:
-      "*": deny
-      "/tmp/**": allow
+    bash: deny
+    external_directory: deny
     task: deny

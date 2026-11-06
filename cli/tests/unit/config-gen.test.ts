@@ -388,10 +388,21 @@ describe("agent block step floors", () => {
     "balanced-laberit-only-agent-block.jsonc",
   ];
 
-  it.each(agentBlockFragments)("gives code at least 16 steps in %s", (file) => {
+  it.each(agentBlockFragments)("configures experimental agent identities in %s", (file) => {
+    const fragment = readFragment(sourceDir, `agents/${file}`);
+    const parsed = JSON.parse(`{${fragment}}`);
+
+    for (const agent of ["implementer", "auditor", "scout"]) {
+      expect(parsed.agent[agent]).toBeDefined();
+      expect(parsed.agent[agent].model).toBeTruthy();
+    }
+  });
+
+  it.each(agentBlockFragments)("gives code and implementer at least 16 steps in %s", (file) => {
     const fragment = readFragment(sourceDir, `agents/${file}`);
     const parsed = JSON.parse(`{${fragment}}`);
     expect(parsed.agent.code.steps).toBeGreaterThanOrEqual(16);
+    expect(parsed.agent.implementer.steps).toBeGreaterThanOrEqual(16);
   });
 
   it("keeps laberit-only code model unpinned to laberit-ai", () => {

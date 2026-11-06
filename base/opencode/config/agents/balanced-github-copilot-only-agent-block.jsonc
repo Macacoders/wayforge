@@ -26,5 +26,17 @@
     "reviewer": {
       "model": "github-copilot/gpt-5.4",
       "steps": 16
+    },
+    "implementer": {
+      "model": "github-copilot/gpt-5.3-codex",
+      "steps": 16
+    },
+    "auditor": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 16
+    },
+    "scout": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 10
     }
   }

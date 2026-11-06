@@ -26,5 +26,17 @@
     "reviewer": {
       "model": "opencode-go/deepseek-v4.1-flash",
       "steps": 20
+    },
+    "implementer": {
+      "model": "opencode-go/glm-5.3-flash",
+      "steps": 16
+    },
+    "auditor": {
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "steps": 20
+    },
+    "scout": {
+      "model": "opencode-go/muse-spark-1.3-contributor",
+      "steps": 16
     }
   }

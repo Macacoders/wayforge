@@ -26,5 +26,17 @@
     "reviewer": {
       "model": "opencode/mimo-v2.6-flash-free",
       "steps": 20
+    },
+    "implementer": {
+      "model": "opencode/big-pickle",
+      "steps": 16
+    },
+    "auditor": {
+      "model": "opencode/mimo-v2.6-flash-free",
+      "steps": 20
+    },
+    "scout": {
+      "model": "opencode/muse-spark-1.3-contributor-free",
+      "steps": 16
     }
   }

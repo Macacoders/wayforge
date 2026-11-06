@@ -122,6 +122,21 @@ nothing outside the criteria can block it.
 - `reviewer` is a read-only subagent that answers an acceptance-criteria list `pass | fail | unverifiable`, criterion by criterion, with the evidence for each. It does not grade quality, does not repair, and has no source-editing authority.
 - `architect` is a read-only review subagent that flags architectural-boundary conflicts against ADRs and proposes new ADRs. It is dispatched as an `architecture_review` work order at plan time, because a contradiction is cheapest to resolve before code exists.
 - `troubleshooter` is a `mode: primary` chat agent reachable via `/troubleshooter` that provides command-first, safe, non-destructive diagnostic troubleshooting guidance. It is opt-in (not the default agent; default stays `planner`) and does not implement changes, but it can hand a confirmed root cause to `/deliver` instead of restarting the planning chain.
+- The opt-in experimental workflow (ADR-0049) adds primary `implementer` and `auditor` agents plus a read-only `scout` subagent. `implementer` completes an explicitly marked experimental plan, validates and commits each task, then emits an execution changelog; `auditor` independently audits that completed commit range once and triages evidence-backed findings. Completion is not acceptance, and the existing delivery path is unchanged.
+
+### Skill ownership
+
+OpenCode discovers installed skills globally, but ADR-0050 uses per-agent `permission.skill` allowlists so unavailable skills are hidden from an agent. Skill metadata is descriptive only; the permission matrix is the enforcement point.
+
+| Agent | Allowed skills |
+| --- | --- |
+| `planner` | `ai-memory`, `create-skill`, `delivery-policy`, `intent`, `memory-maintenance`, `plan`, `ponytail`, `ponytail-audit`, `ponytail-debt`, `ponytail-gain`, `ponytail-help`, `shared-task`, `triage` |
+| `delivery` | `ai-memory`, `delivery-policy`, `memory-maintenance`, `ponytail-review` |
+| `implementer` | `ai-memory`, `implementation-quality`, `memory-maintenance` |
+| `auditor` | `ai-memory`, `memory-maintenance`, `review-triage` |
+| `research`, `code`, `reviewer`, `architect`, `troubleshooter`, `scout` | None; their standing contract and bounded work order are sufficient |
+
+Memory writes are path-scoped: `planner` may update `docs/ai/**`; an active ADR-0049 `implementer` may evolve its experimental plan and factual implementation memory under `docs/ai/**`; `auditor` may append audit evidence to `docs/ai/plans/**` and durable outcomes to `docs/ai/logs/**`. Auditor product, architecture, and ADR paths remain denied.
 
 ## Context Strategy
 
@@ -131,7 +146,7 @@ The system uses progressive disclosure:
 - Read `docs/ai/README.md` first as the memory router before loading other `docs/ai/**` files.
 - `docs/ai/README.md` is intentionally tiny and acts as a route map, not a summary corpus.
 - Load only routed memory files that are task-relevant.
-- Memory lookup/maintenance should route through planner-owned `/memory` intents (`find`, `check`, `update`) to keep context and writes minimal.
+- Memory lookup/maintenance should route through planner-owned `/memory` intents (`find`, `check`, `update`) outside an active experimental run. An ADR-0049 implementer uses its scoped memory skills for active-plan amendments and closeout.
 - Handoffs contain compact briefs and reference paths.
 - Subagents do not inherit whole planning transcripts.
 - Persistent memory stores durable decisions, not chat history.
@@ -163,7 +178,7 @@ No intent document, plan artifact, or per-step approval is required on this path
 6. Check reasonable existing patterns, utilities, scripts, helpers, commands, tests, and conventions before creating new repeatable logic.
 7. Update docs, decisions, and logs at plan close via `/memory`.
 
-Both paths stop only for the stop conditions defined in `delivery-policy`.
+Both paths stop only for the stop conditions defined in `delivery-policy`. The opt-in experimental path is separate: only plans marked `workflow: implement-then-audit` use it, and legacy delivery commands must not consume their experimental completion state. Its concise operational contracts live in `implementation-quality` and `review-triage`; it has no deterministic orchestrator yet.
 
 The shared issue creation workflow is:
 
@@ -182,7 +197,7 @@ The shared issue creation workflow is:
 - Keep plans above 8 apparent tasks out of single-task planning; split them into smaller tasks first.
 - Keep independent verification: the implementer never approves its own work, and `delivery` never substitutes its own reading of the diff for evidence.
 - Keep acceptance criteria as the only bar: what is not a criterion is not required, and a criterion that cannot be evidenced is a plan defect, not an extra review round.
-- Keep write authority narrow: `code` writes product code under a work order; `planner` writes plans; `delivery` writes plan progress and commits; `reviewer`, `architect`, and `research` do not write product code.
+- Keep write authority narrow: `code` writes product code under a work order; `planner` writes plans; `delivery` writes plan progress and commits; `reviewer`, `architect`, and `research` do not write product code. In the opt-in ADR-0049 experiment, only `implementer` writes and commits task work; `auditor` and `scout` are read-only.
 - Keep the loop converging: a criterion that fails twice, or a round with no change in evidence, escalates to the user with both rounds of evidence; no workflow step may repeat without a user-facing decision.
 - Keep durable memory under `docs/ai/`.
 - Keep GitHub Issues as the operational shared source of truth for team tasks.
