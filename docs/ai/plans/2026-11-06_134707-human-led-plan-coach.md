@@ -56,7 +56,7 @@ required_gates:
 ### Task 2: Ship an opt-in plan coach with safe permissions and a usable walkthrough
 
 **Status:** pending
-**Experimental status:** in-progress
+**Experimental status:** completed
 **Depends on:** Task 1
 
 **Objective:** Install a selectable human-led coaching agent with a concrete, incremental task dialogue and evidence checks, and document how users choose it instead of autonomous delivery.
@@ -106,3 +106,18 @@ required_gates:
   ADR-0048 for individually approved coach Git writes while preserving native
   edit denial and all delivery/experimental authority. Residual risk: `bash:
   ask` prompts but cannot provide a read-only shell sandbox.
+- **Task 2 — completed:** `b472c4d` (`feat: add opt-in human-led plan coach`).
+  Validation: targeted Vitest passed (2 files, 90 tests); `make check` passed
+  (16 files, 419 tests; typecheck, ESLint, Prettier, and duplication checks);
+  installer dry run advertised `.opencode/agents/coach.md` as a new managed
+  path. Decision: the directly selectable coach has native `edit: deny`,
+  `task: deny`, `bash: ask`, and no automatic Git-write exception; its contract
+  requires separate conversational consent before every branch, staging/commit,
+  or push action. Residual risk: the human-owned interactive walkthrough was
+  not run by the agent and must confirm refusal/approval, rework, and resume
+  behavior before relying on the role in a live repository.
+
+**Audit request:** Audit `4341d99^..b472c4d` against this plan, ADR-0051, and
+the recorded agent-owned validation evidence. The range also contains unrelated
+commit `500ef1d`; preserve it and do not attribute it to this plan. Confirm the
+human-owned walkthrough separately; it is not delivery acceptance.
