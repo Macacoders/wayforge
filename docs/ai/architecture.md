@@ -48,6 +48,7 @@ Target projects receive one canonical installed tree plus runtime indirection:
 - `AGENTS.md` (repo-specific entrypoint generated/curated per repository)
 - `.wayforge-managed` (manifest of managed paths, including pointer entries)
 - The ponytail plugin (`.agents/plugins/ponytail/ponytail.mjs`) injects the reuse-first ladder into the system prompt via `experimental.chat.system.transform` and persists intensity mode via `command.execute.before`. Disable with `/ponytail off` or `PONYTAIL_DEFAULT_MODE=off`.
+- `/help` (`base/commands/help.md`) discovers installed commands, skills, and agents at runtime from `.agents/commands/*.md`, `.agents/skills/*/SKILL.md`, and `.agents/agents/*.md`, grouping commands and skills by `metadata.workflow` and agents by `mode`.
 
 `.agents/` is the single source of installed content; `.opencode/` and the generated pointer directories under `.kilo/` contain only runtime indirection. Pi reads `.agents/skills/**/SKILL.md` natively and needs no installer step. Per-runtime materialization of `.agents/` into native trees is future work (ADR-0046).
 

@@ -17,7 +17,7 @@ Enumerate (use `rg`/`glob`, do not assume a fixed set):
 
 For each file read ONLY the YAML frontmatter and extract:
 
-- Commands: `description` and `metadata.workflow` (fallback to `agent` if `workflow` is absent).
+- Commands: `description` and `metadata.workflow` (if absent, list under `uncategorized`).
 - Skills: `name`, `description`, `metadata.workflow`.
 - Agents: `description` and `mode` (`primary` or `subagent`).
 
