@@ -13,7 +13,7 @@ Require the experimental plan, its `## Implementation amendments`, final executi
 
 ## Bounded Scouting
 
-Dispatch one `scout` call per distinct unanswered question. Every handoff includes a lens, question, allowed paths/references, and expected evidence. Useful lenses include acceptance/regression, codebase, docs, ADR/architecture, security, and simplicity. Do not ask scouts to grade risk, decide disposition, or propose repairs.
+First inspect the plan, commit range, diff, and applicable contracts yourself. Dispatch no scout when that evidence answers the audit. Otherwise dispatch one scout per distinct unanswered question, up to three independent questions concurrently in the same assistant turn. Keep dependent questions sequential; do not create a second scout round—report remaining gaps as unknown. Every handoff includes a lens, question, allowed paths/references, and expected evidence. Useful lenses include acceptance/regression, codebase, docs, ADR/architecture, security, and simplicity. Do not ask scouts to grade risk, decide disposition, or propose repairs.
 
 ## Findings
 
@@ -26,4 +26,4 @@ Deduplicate reports by underlying cause and return one table:
 - **Medium:** a demonstrated, bounded in-scope concern. Request correction only when its impact and fix boundary are clear; otherwise record follow-up.
 - **Low:** preference, speculative edge case, unrelated/pre-existing observation, or deferred improvement. Record follow-up only.
 
-Append the final table to the experimental plan and log a durable outcome only when warranted. State `pass` when there are no high findings. Do not invent criteria, block on missing future counterparts, or make a medium/low finding a routine release gate. Flag insufficient evidence as unknown with its owner rather than as a defect.
+Return the final table and propose any durable-memory update to its authorized owner; do not edit persistent audit artifacts. State `pass` when there are no high findings. Do not invent criteria, block on missing future counterparts, or make a medium/low finding a routine release gate. Flag insufficient evidence as unknown with its owner rather than as a defect.

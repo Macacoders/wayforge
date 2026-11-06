@@ -82,10 +82,9 @@ describe("renderAgentPermissionBlock", () => {
     expect(renderAgentPermissionBlock("reviewer", permissionsFile)).toContain(
       "edit: deny",
     );
-    const auditor = renderAgentPermissionBlock("auditor", permissionsFile);
-    expect(auditor).toContain("edit:");
-    expect(auditor).toContain('"docs/ai/plans/**": allow');
-    expect(auditor).toContain('"docs/ai/logs/**": allow');
+    expect(renderAgentPermissionBlock("auditor", permissionsFile)).toContain(
+      "edit: deny",
+    );
   });
 
   it("uses native inspection tools and prompts before reviewer shell commands", () => {
@@ -144,13 +143,19 @@ describe("coarse permission guards", () => {
     }
   });
 
-  it("uses native inspection tools instead of automatic shell access", () => {
+  it("uses native inspection tools and limits automatic shell access", () => {
     for (const agent of allAgents) {
       const block = renderAgentPermissionBlock(agent, permissionsFile);
       expect(block).toContain("glob: allow");
       expect(block).toContain("grep: allow");
-      expect(block).not.toContain('"*": allow');
+      if (agent !== "implementer") {
+        expect(block).not.toContain('"*": allow');
+      }
     }
+
+    expect(renderAgentPermissionBlock("implementer", permissionsFile)).toContain(
+      "bash: allow",
+    );
 
     for (const agent of ["research", "scout", "architect"]) {
       expect(renderAgentPermissionBlock(agent, permissionsFile)).toContain(
@@ -274,27 +279,20 @@ describe("coarse permission guards", () => {
     }
   });
 
-  it("prompts legacy code validation and allows only required autonomous commits", () => {
+  it("allows autonomous experimental implementation and prompts legacy validation", () => {
     expect(renderAgentPermissionBlock("code", permissionsFile)).toContain(
       "bash: ask",
     );
 
-    for (const agent of ["delivery", "implementer"]) {
-      const block = renderAgentPermissionBlock(agent, permissionsFile);
-      expect(block).toContain('"*": ask');
-      expect(block).toContain('"git commit*": allow');
-    }
-    const implementer = renderAgentPermissionBlock("implementer", permissionsFile);
-    for (const command of [
-      '"git status --short": allow',
-      '"git log --oneline -10": allow',
-      '"npx tsx .opencode/skills/ai-memory/scripts/ai-memory.ts status --json": allow',
-      '"npx tsx .opencode/skills/ai-memory/scripts/ai-memory.ts close-check": allow',
-    ]) {
-      expect(implementer).toContain(command);
-    }
+    const delivery = renderAgentPermissionBlock("delivery", permissionsFile);
+    expect(delivery).toContain('"*": ask');
+    expect(delivery).toContain('"git commit*": allow');
+    expect(renderAgentPermissionBlock("implementer", permissionsFile)).toContain(
+      "bash: allow",
+    );
+
     const auditor = renderAgentPermissionBlock("auditor", permissionsFile);
-    expect(auditor).toContain('"docs/ai/plans/**": allow');
+    expect(auditor).toContain("edit: deny");
     expect(auditor).not.toContain('"git commit*": allow');
 
     const scout = renderAgentPermissionBlock("scout", permissionsFile);

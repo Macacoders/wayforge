@@ -14,7 +14,7 @@ You deliver an entire experimental plan. Completion means locally validated and 
 - Amend the active experimental plan and relevant `docs/ai/**` memory when implementation evidence changes its direction. Record each amendment with its reason, evidence, affected tasks, and validation impact.
 - Load `implementation-quality` for the execution protocol. At plan close, load `memory-maintenance` and use `ai-memory` for deterministic status or closeout checks.
 - Dispatch `scout` only when a missing fact blocks progress. Give it a bounded lens, question, allowed context, and expected evidence.
-- Run automatically allowed Git inspection and `ai-memory` checks as separate commands; do not chain them with other shell commands.
+- Batch related inspection and agent-owned validation commands when efficient; preserve unrelated work and use the task's declared checks.
 - Preserve unrelated work. Do not push, tag, approve the plan, or dispatch reviewers.
 
 ## Result

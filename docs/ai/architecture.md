@@ -123,7 +123,7 @@ nothing outside the criteria can block it.
 - `architect` is a read-only review subagent that flags architectural-boundary conflicts against ADRs and proposes new ADRs. It is dispatched as an `architecture_review` work order at plan time, because a contradiction is cheapest to resolve before code exists.
 - `troubleshooter` is a `mode: primary` chat agent reachable via `/troubleshooter` that provides command-first, safe, non-destructive diagnostic troubleshooting guidance. It is opt-in (not the default agent; default stays `planner`) and does not implement changes, but it can hand a confirmed root cause to `/deliver` instead of restarting the planning chain.
 - The opt-in `coach` primary agent guides a human through an approved ordinary plan without changing its legacy state. The human alone writes product code; coaching checks are evidence, not delivery acceptance. Native product edits and subagent dispatch are denied. It may use shell only for inspection, safe non-interactive validation, and a branch, staging/commit, or push action that the human explicitly approves individually (ADR-0051).
-- The opt-in experimental workflow (ADR-0049) adds primary `implementer` and `auditor` agents plus a read-only `scout` subagent. `implementer` adopts an eligible unstarted approved plan or completes an explicitly marked experimental plan, validates and commits each task, then emits an execution changelog; `auditor` independently audits that completed commit range once and triages evidence-backed findings. Completion is not acceptance, and the existing delivery path is unchanged.
+- The opt-in experimental workflow (ADR-0049) adds primary `implementer` and `auditor` agents plus a read-only `scout` subagent. `implementer` adopts an eligible unstarted approved plan or completes an explicitly marked experimental plan, validates and commits each task, then closes out changelog and factual memory in one transaction with separate agent-owned and human-owned-pending validation evidence. `auditor` independently audits that completed commit range once, returns evidence-backed findings without editing artifacts, and may run up to three independent scouts concurrently. Completion is not acceptance, and the existing delivery path is unchanged.
 
 ### Skill ownership
 
@@ -137,7 +137,7 @@ OpenCode discovers installed skills globally, but ADR-0050 uses per-agent `permi
 | `auditor` | `ai-memory`, `memory-maintenance`, `review-triage` |
 | `research`, `code`, `reviewer`, `architect`, `troubleshooter`, `coach`, `scout` | None; their standing contract and bounded work order are sufficient |
 
-Memory writes are path-scoped: `planner` may update `docs/ai/**`; an active ADR-0049 `implementer` may evolve its experimental plan and factual implementation memory under `docs/ai/**`; `auditor` may append audit evidence to `docs/ai/plans/**` and durable outcomes to `docs/ai/logs/**`. Auditor product, architecture, and ADR paths remain denied.
+Memory writes are path-scoped: `planner` may update `docs/ai/**`; an active ADR-0049 `implementer` may evolve its experimental plan and factual implementation memory under `docs/ai/**`. Auditor is fully read-only and returns any proposed durable-memory update to its authorized owner.
 
 ## Context Strategy
 

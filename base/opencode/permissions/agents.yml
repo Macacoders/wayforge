@@ -3,7 +3,7 @@
 # managed_sync renderers — see ADR-0009 and ADR-0014.
 #
 # Permission model: native tools and named skills are explicitly allowed; shell commands
-# require approval unless a role needs one narrow automatic exception. edit controls edit,
+# require approval unless a role has a deliberate execution exception. edit controls edit,
 # write, and apply_patch. External paths are denied for every role.
 agents:
   planner:
@@ -95,13 +95,7 @@ agents:
       memory-maintenance: allow
     edit: allow
     question: allow
-    bash:
-      "*": ask
-      "git status --short": allow
-      "git log --oneline -10": allow
-      "npx tsx .opencode/skills/ai-memory/scripts/ai-memory.ts status --json": allow
-      "npx tsx .opencode/skills/ai-memory/scripts/ai-memory.ts close-check": allow
-      "git commit*": allow
+    bash: allow
     external_directory: deny
     task:
       "*": deny
@@ -129,10 +123,7 @@ agents:
       review-triage: allow
     webfetch: allow
     websearch: allow
-    edit:
-      "*": deny
-      "docs/ai/plans/**": allow
-      "docs/ai/logs/**": allow
+    edit: deny
     bash: ask
     external_directory: deny
     task:
