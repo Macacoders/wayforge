@@ -6,13 +6,14 @@ This repository provides reusable OpenCode source configuration and installs gen
 
 ## Runtime Boundary
 
-- OpenCode (default) and Kilo Code are supported AI runtimes, selectable at install time via the `--runtime` parameter.
+- OpenCode (default), Kilo Code, and Claude Code are supported AI runtimes, selectable at install time via the `--runtime` parameter (`opencode`, `kilocode`, `claude`).
 - Guided interactive installs are handled by the TypeScript CLI only (`wfg interactive`); non-interactive installs use `wfg install --repo <path>`. Users first install the CLI via the one-shot installer (`curl | sh` / `irm | iex`), then install configuration into each target repository. `wfg install --repo` requires Node.js >= 18 on PATH (the one-shot installer provisions it user-locally when missing).
 - Supported provider sets during installation include `free-tier` (default for opencode), `openai`, `github-copilot`, `laberit`, `opencode-go`, and comma-separated combinations of those providers (e.g. `openai,laberit`, `opencode-go,laberit`). `free-tier` is only available for the opencode runtime and installs the default OpenCode structure without configuring an external provider.
 - OpenAI authentication is handled in OpenCode with `/connect` (ChatGPT Plus/Pro or Azure credentials).
 - GitHub Copilot authentication is handled in OpenCode with `/connect` (device login flow).
 - laberit is configured via `OPENAI_BASE_URL` and `OPENAI_API_KEY`, both required in the process environment before launch (a project `.env` file is not picked up). Both runtimes emit the same unified provider shape — `env: ["OPENAI_API_KEY"]` + `options.baseURL: "${OPENAI_BASE_URL}"` — and generated project config never emits `{env:}`/`{file:}` references (invariant, candidate for a future ADR). This avoids Kilo's trusted-config guard: project-level `kilo.jsonc` is untrusted and rejects active `{env:VAR}` references. Fallback if Kilo stops honoring project-level `provider.env`: move `options` with `{env:...}` into the trusted global `~/.config/kilo/kilo.jsonc` (manual; the installer never writes it). A missing variable leaves `${VAR}` literal and the request fails loudly; see README for setup.
 - Model IDs are recommendations and may need adjustment with `/models` depending on account availability.
+- Claude Code manages its own authentication, so `--providers` is ignored for `--runtime claude`. `--model` accepts a Claude alias (`sonnet`, `opus`, `haiku`, `fable`), `inherit` (default; subagents follow the session model), or a full Claude model ID; OpenCode provider IDs are rejected for Claude and `--small-model` is rejected because Claude Code has no small-model concept (ADR-0048).
 - The default OpenAI model policy uses the current configured OpenAI model set (`openai/gpt-6-sol` plus lightweight `openai/gpt-5.6-luna`) and keeps installer defaults aligned with the provider fragment.
 - Generated `opencode.jsonc` (or `kilo.jsonc` for Kilo Code) is the provider/model brain for each target repository and centralizes per-agent model assignments under `agent`.
 - Generated runtime config includes `enabled_providers` based on installer provider selection. Agent presets (`balanced`, `fast`, `thorough`) were removed (ADR-0015); the interactive installer instead offers a model preset choice (installer defaults vs faster responses).
@@ -45,11 +46,26 @@ Target projects receive one canonical installed tree plus runtime indirection:
 - `opencode.jsonc` / `kilo.jsonc` (generated per install); skills and plugin entries point at `.agents/skills` and `.agents/plugins/ponytail/ponytail.mjs`
 - `.opencode/agents` + `.opencode/commands` — OpenCode directory pointers to `.agents/` (relative symlink; Windows junction fallback)
 - `.kilo/agents` + `.kilo/commands` — Kilo Code directory pointers to `.agents/` (Kilo no longer reads `.opencode/`)
+- `.claude/agents/**`, `.claude/commands/**`, `.claude/skills/**`, `CLAUDE.md` — Claude Code projection generated at install time from `base/**` (ADR-0048): six agents with translated frontmatter, generated skills for the 9 colliding command+skill names (skill-first policy; the command's `agent:` routing is re-attached as a role line and `$ARGUMENTS` gets an explicit section), generated command files for the 6 command-only names, and skill-only entries linked into `.agents/skills` (relative symlink, junction fallback, managed-copy fallback). `CLAUDE.md` imports `@AGENTS.md`; no workflow rules are duplicated.
 - `AGENTS.md` (repo-specific entrypoint generated/curated per repository)
 - `.wayforge-managed` (manifest of managed paths, including pointer entries)
 - The ponytail plugin (`.agents/plugins/ponytail/ponytail.mjs`) injects the reuse-first ladder into the system prompt via `experimental.chat.system.transform` and persists intensity mode via `command.execute.before`. Disable with `/ponytail off` or `PONYTAIL_DEFAULT_MODE=off`.
 
-`.agents/` is the single source of installed content; `.opencode/` and the generated pointer directories under `.kilo/` contain only runtime indirection. Pi reads `.agents/skills/**/SKILL.md` natively and needs no installer step. Per-runtime materialization of `.agents/` into native trees is future work (ADR-0046).
+`.agents/` is the single source of installed content; `.opencode/` and the generated pointer directories under `.kilo/` contain only runtime indirection. Pi reads `.agents/skills/**/SKILL.md` natively and needs no installer step. Claude Code is the exception: its translated projection is generated (ADR-0048, amending ADR-0046 Decisions 3, 6, and 7), while OpenCode/Kilo keep pointers plus generated config and per-runtime materialization of `.agents/` remains future work for them.
+
+### Claude Code projection
+
+The Claude surface is generated from `sourceDir/base/**` at install time — the same source as the generated configs — and is a build artifact, not a second source; there is no `base/claude/**` mirror. The cross-runtime matrix:
+
+| Name type | OpenCode | Kilo Code | Claude Code |
+| --- | --- | --- | --- |
+| Colliding command + skill (9) | `.opencode/commands` pointer + `.opencode/agents` pointer; skills via `opencode.jsonc` | `.kilo/commands` pointer + `.kilo/agents` pointer; skills via `kilo.jsonc` | Generated `.claude/skills/<name>/SKILL.md` with role line and `$ARGUMENTS`; **no** `.claude/commands/<name>.md` |
+| Command-only (6) | `.agents/commands/<name>.md` through the pointer | same through the `.kilo` pointer | Generated `.claude/commands/<name>.md` |
+| Skill-only (4) | `.agents/skills/<name>/SKILL.md` via `opencode.jsonc` | same via `kilo.jsonc` | `.claude/skills/<name>` link to `.agents/skills/<name>` (symlink → junction → managed copy) |
+| Memory | `AGENTS.md` (managed) | `AGENTS.md` (managed) | `CLAUDE.md` importing `@AGENTS.md` (managed) |
+| Plugins | `.agents/plugins/**` via generated config | same via `kilo.jsonc` | n/a — no plugin projection; ponytail plugin port is a follow-up |
+
+The projection is additive and isolated: it writes only `.claude/**` and `CLAUDE.md` plus manifest entries, and never edits `base/**`, `.agents/**`, or the OpenCode/Kilo surfaces. Permission translation, the accepted-loss register, and the collision policy are recorded in ADR-0048.
 
 ### AGENTS.md vs docs/ai/README.md Relationship
 
@@ -186,7 +202,7 @@ The shared issue creation workflow is:
 - Keep plans above 8 apparent tasks out of single-task planning; split them into smaller tasks first.
 - Keep manual validation checkpoints between atomic steps.
 - Keep durable memory under `docs/ai/`.
-- Keep `.agents/` as the single installed artifact tree; runtime-native pointer directories contain only indirection, and unmanaged files are never deleted to force a pointer into place.
+- Keep `.agents/` as the single installed artifact tree for OpenCode/Kilo; runtime-native pointer directories contain only indirection for runtimes that use pointers, and unmanaged files are never deleted to force a pointer into place. Claude Code is the documented exception: its translated projection is generated under `.claude/**` plus `CLAUDE.md` (ADR-0048, amending ADR-0046 Decisions 3, 6, and 7); materialization is allowed only for Claude's projection, not as a general OpenCode/Kilo fallback.
 - Keep GitHub Issues as the operational shared source of truth for team tasks.
 - Keep shared tasks in GitHub Issues rather than a local JSONL backlog.
 - Keep reuse-first guidance explicit: avoid unnecessary copying and speculative abstraction, and justify or flag new duplication.

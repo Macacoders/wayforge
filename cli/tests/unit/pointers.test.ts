@@ -8,11 +8,13 @@ import {
 	finalizeManagedManifest,
 	readManagedManifest,
 } from '../../src/lib/manifest.js'
+import { canSymlink, ensureRuntimePointers } from '../../src/lib/pointers.js'
 import {
-	canSymlink,
-	ensureRuntimePointers,
-} from '../../src/lib/pointers.js'
-import { isPointerPath } from '../../src/lib/layout.js'
+	RUNTIMES,
+	configFileFor,
+	isPointerPath,
+	pointerPathsFor,
+} from '../../src/lib/layout.js'
 import type { Runtime } from '../../src/types.js'
 
 const symlinks = canSymlink()
@@ -225,16 +227,19 @@ describe('ensureRuntimePointers', () => {
 		expect(fs.readdirSync(repo)).toEqual(['.agents'])
 	})
 
-	it.skipIf(!symlinks)('real runs inspect legacy files that remain on disk', () => {
-		seedLegacyPointerDir()
+	it.skipIf(!symlinks)(
+		'real runs inspect legacy files that remain on disk',
+		() => {
+			seedLegacyPointerDir()
 
-		const blocked = track('opencode')
+			const blocked = track('opencode')
 
-		expect(blocked.sort()).toEqual([
-			'.opencode/agents/local.md',
-			'.opencode/agents/planner.md',
-		])
-	})
+			expect(blocked.sort()).toEqual([
+				'.opencode/agents/local.md',
+				'.opencode/agents/planner.md',
+			])
+		},
+	)
 
 	it.skipIf(!symlinks)(
 		'blocks on a pointer path that is the wrong symlink',
@@ -268,7 +273,9 @@ describe('ensureRuntimePointers', () => {
 		expect(fs.pathExistsSync(path.join(repo, '.opencode'))).toBe(false)
 		expect(
 			logSpy.mock.calls.some(([message]) =>
-				String(message).includes('DRY-RUN: would create runtime pointer'),
+				String(message).includes(
+					'DRY-RUN: would create runtime pointer',
+				),
 			),
 		).toBe(true)
 	})
@@ -286,10 +293,15 @@ describe('ensureRuntimePointers', () => {
 
 			expect(dryBlocked).toEqual(['.opencode'])
 			expect(realBlocked).toEqual(dryBlocked)
-			expect(fs.readFileSync(path.join(target, 'agents', 'local.md'), 'utf8')).toBe(
-				'# local',
-			)
-			expect(fs.pathExistsSync(path.join(target, 'agents', 'empty'))).toBe(true)
+			expect(
+				fs.readFileSync(
+					path.join(target, 'agents', 'local.md'),
+					'utf8',
+				),
+			).toBe('# local')
+			expect(
+				fs.pathExistsSync(path.join(target, 'agents', 'empty')),
+			).toBe(true)
 			expect(fs.pathExistsSync(path.join(target, 'commands'))).toBe(false)
 		},
 	)
@@ -374,6 +386,17 @@ describe('ensureRuntimePointers', () => {
 		expect(path.resolve(agentsTarget ?? '')).toBe(
 			path.join(repo, '.agents', 'agents'),
 		)
+	})
+})
+
+describe('claude runtime layout', () => {
+	it('includes claude in the supported runtimes', () => {
+		expect(RUNTIMES).toContain('claude')
+	})
+
+	it('has no generated config file or pointer paths for claude', () => {
+		expect(configFileFor('claude')).toBeNull()
+		expect(pointerPathsFor('claude')).toEqual([])
 	})
 })
 

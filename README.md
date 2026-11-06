@@ -50,6 +50,14 @@ Install the workflow into a target repository:
 wfg install --repo /path/to/repo --providers openai
 ```
 
+`--runtime` selects the target runtime: `opencode` (default), `kilocode`, or `claude`:
+
+```bash
+wfg install --repo /path/to/repo --runtime claude
+```
+
+Claude Code manages its own authentication, so `--providers` is ignored for `--runtime claude`. `--model` accepts a Claude alias (`sonnet`, `opus`, `haiku`, `fable`), `inherit` (the default, so subagents follow the session model), or a full Claude model ID; `--small-model` is rejected for Claude because Claude Code has no small-model concept. See [`docs/ai/decisions/ADR-0048-claude-code-runtime-projection.md`](./docs/ai/decisions/ADR-0048-claude-code-runtime-projection.md).
+
 | Command | Purpose |
 |---|---|
 | `wfg install --repo <path>` | Install runtime config into a repo |
@@ -60,7 +68,7 @@ Use `--dry-run` to preview and `--force` to refresh managed files. Remove the CL
 
 #### Laberit environment variables
 
-When installed with `--providers laberit`, both runtimes (OpenCode and Kilo Code) emit the same provider shape: `env: ["OPENAI_API_KEY"]` plus `options.baseURL: "${OPENAI_BASE_URL}"`. You must set both variables in the process environment before launching either runtime — a project `.env` file is not picked up:
+When installed with `--providers laberit`, the provider-based runtimes (OpenCode and Kilo Code) emit the same provider shape: `env: ["OPENAI_API_KEY"]` plus `options.baseURL: "${OPENAI_BASE_URL}"`. You must set both variables in the process environment before launching either runtime — a project `.env` file is not picked up:
 
 ```bash
 export OPENAI_BASE_URL="https://<laberit-endpoint>/v1"
@@ -81,11 +89,25 @@ Existing installs that used `{env:}` in OpenCode switch to the unified form on t
 - **`opencode.jsonc` / `kilo.jsonc`** — generated runtime config. Skills and the ponytail plugin point at `.agents/skills` and `.agents/plugins/ponytail/ponytail.mjs`.
 - **`.opencode/agents` + `.opencode/commands`** — OpenCode directory pointers to the matching `.agents/` categories (relative symlink, or Windows junction fallback).
 - **`.kilo/agents` + `.kilo/commands`** — Kilo Code directory pointers to `.agents/` (Kilo no longer reads `.opencode/`).
+- **`.claude/agents`, `.claude/commands`, `.claude/skills`, `CLAUDE.md`** — Claude Code projection generated at install time from `base/**`. Agents, commands, and colliding skills are generated copies; skill-only entries link to `.agents/skills`. `CLAUDE.md` imports `@AGENTS.md`. These are build artifacts, not source.
 - **`.wayforge-managed`** — the manifest of managed paths (with a `project_id` header) that tracks everything wayforge owns.
 
-Pi reads `.agents/skills/**/SKILL.md` natively and needs no installer step. Per-runtime materialization of `.agents/` into native trees is future work. See [`docs/compatibility-matrix.md`](./docs/compatibility-matrix.md) for verified runtime support.
+Pi reads `.agents/skills/**/SKILL.md` natively and needs no installer step. OpenCode and Kilo still use pointers plus generated config; Claude Code is the exception — its translated projection is generated because its frontmatter must be translated (ADR-0048). Per-runtime materialization of `.agents/` for other runtimes is future work. See [`docs/compatibility-matrix.md`](./docs/compatibility-matrix.md) for verified runtime support.
 
-All of these are generated output, not source, and must not be hand-edited. To refresh managed artifacts and regenerate config after a template update, re-run `wfg install --repo <path> --force`.
+All of these are generated output, not source, and must not be hand-edited. To refresh managed artifacts and regenerate config after a template update, re-run `wfg install --repo <path> --force`. In a mixed install, changing `base/**` also requires `wfg install --repo <path> --runtime claude --force` to regenerate the Claude copies; symlinked skill-only entries update automatically.
+
+### Known limitations (Claude Code projection)
+
+The Claude projection accepts documented losses (full register in [ADR-0048](./docs/ai/decisions/ADR-0048-claude-code-runtime-projection.md); status in the [compatibility matrix](./docs/compatibility-matrix.md)):
+
+- Bash/PowerShell per-command deny prefixes and `external_directory` rules cannot be expressed per subagent; broad Bash/PowerShell stay allowed.
+- `permissionMode` is ignored when the main session runs in `bypassPermissions`, `acceptEdits`, or auto mode.
+- No default-agent setting: primary agents and hard `agent:` routing require `claude --agent <name>`; commands use an instruction role line instead.
+- `AskUserQuestion` is removed from subagents; `Agent(research, code, architect)` allow-lists are only enforced in main-session `--agent` mode.
+- No per-agent provider models: `model: inherit` or one `--model` for all agents; `--small-model` is unavailable.
+- Ponytail plugin hooks are not ported; `/ponytail` is guidance-only and `/ponytail-help` paths are annotated.
+- Colliding command bodies are dropped except `agent:` + `$ARGUMENTS` (notably the `plan` command's body guidance).
+- `temperature: 0.1` on `code` is dropped; Claude Code has no temperature control.
 
 ### 5. Onboard the repository with `/init`
 

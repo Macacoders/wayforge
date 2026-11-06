@@ -84,7 +84,7 @@ describe('findUnmanagedConflicts', () => {
 	})
 
 	it('returns unmanaged matching files across agents, commands, skills, plugins', () => {
-		const conflicts = findUnmanagedConflicts(repo, sourceDir)
+		const conflicts = findUnmanagedConflicts(repo, sourceDir, 'opencode')
 		const relPaths = conflicts.map((c) => c.relPath).sort()
 
 		expect(relPaths).toEqual([
@@ -96,7 +96,7 @@ describe('findUnmanagedConflicts', () => {
 	})
 
 	it('excludes managed files and user-only files', () => {
-		const conflicts = findUnmanagedConflicts(repo, sourceDir)
+		const conflicts = findUnmanagedConflicts(repo, sourceDir, 'opencode')
 		const relPaths = new Set(conflicts.map((c) => c.relPath))
 
 		expect(relPaths.has('.agents/agents/tracked.md')).toBe(false)
@@ -106,12 +106,56 @@ describe('findUnmanagedConflicts', () => {
 	})
 
 	it('returns absolute dstPath for each conflict', () => {
-		const conflicts = findUnmanagedConflicts(repo, sourceDir)
+		const conflicts = findUnmanagedConflicts(repo, sourceDir, 'opencode')
 
 		for (const conflict of conflicts) {
 			expect(conflict.dstPath).toBe(path.join(repo, conflict.relPath))
 			expect(fs.pathExistsSync(conflict.dstPath)).toBe(true)
 		}
+	})
+
+	it('includes claude destinations only for the claude runtime', () => {
+		fs.mkdirpSync(path.join(repo, '.claude', 'agents'))
+		// unmanaged file at a projected destination
+		fs.writeFileSync(
+			path.join(repo, '.claude', 'agents', 'managed.md'),
+			'# local planner',
+		)
+		// managed file at a projected destination (sidecar marker)
+		fs.writeFileSync(
+			path.join(repo, '.claude', 'agents', 'tracked.md'),
+			'# tracked',
+		)
+		fs.writeFileSync(
+			path.join(repo, '.claude', 'agents', 'tracked.md.wayforge-managed'),
+			'generated-by=wayforge-bootstrap',
+		)
+		// unmanaged root memory entrypoint
+		fs.writeFileSync(path.join(repo, 'CLAUDE.md'), '# local claude memory')
+		// user-only path that is never projected
+		fs.writeFileSync(
+			path.join(repo, '.claude', 'agents', 'user.md'),
+			'# user',
+		)
+
+		const claudeConflicts = findUnmanagedConflicts(
+			repo,
+			sourceDir,
+			'claude',
+		)
+		const relPaths = claudeConflicts.map((conflict) => conflict.relPath)
+		expect(relPaths).toContain('.claude/agents/managed.md')
+		expect(relPaths).toContain('CLAUDE.md')
+		expect(relPaths).not.toContain('.claude/agents/tracked.md')
+		expect(relPaths).not.toContain('.claude/agents/user.md')
+
+		const openCodeRelPaths = findUnmanagedConflicts(
+			repo,
+			sourceDir,
+			'opencode',
+		).map((conflict) => conflict.relPath)
+		expect(openCodeRelPaths).not.toContain('CLAUDE.md')
+		expect(openCodeRelPaths).not.toContain('.claude/agents/managed.md')
 	})
 })
 
@@ -121,8 +165,14 @@ describe('resolveUnmanagedConflicts', () => {
 
 	beforeEach(() => {
 		conflicts = [
-			{ relPath: '.agents/agents/managed.md', dstPath: '/repo/.agents/agents/managed.md' },
-			{ relPath: '.agents/commands/plan.md', dstPath: '/repo/.agents/commands/plan.md' },
+			{
+				relPath: '.agents/agents/managed.md',
+				dstPath: '/repo/.agents/agents/managed.md',
+			},
+			{
+				relPath: '.agents/commands/plan.md',
+				dstPath: '/repo/.agents/commands/plan.md',
+			},
 		]
 		ctx = makeCtx()
 		vi.mocked(isInteractive).mockReset()

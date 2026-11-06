@@ -48,6 +48,39 @@ export function validateFreeTierRuntime(
 	}
 }
 
+/** Claude agent `model` aliases accepted by Claude Code subagent files. */
+const CLAUDE_MODEL_ALIASES = ['sonnet', 'opus', 'haiku', 'fable', 'inherit']
+
+/**
+ * Validate a Claude model override: an alias, `inherit`, or a full Claude
+ * model ID (`claude-*`). OpenCode provider IDs (`openai/...`) are rejected.
+ */
+export function validateClaudeModel(
+	value: string | undefined,
+	flagName: string,
+): void {
+	if (!value) return
+	if (CLAUDE_MODEL_ALIASES.includes(value)) return
+	if (value.startsWith('claude-')) return
+	console.error(
+		`error: ${flagName} must be a Claude model alias ` +
+			`(sonnet, opus, haiku, fable), 'inherit', or a full Claude model ID (claude-*)`,
+	)
+	process.exit(1)
+}
+
+/**
+ * Claude Code has no small-model concept, so `--small-model` is rejected
+ * instead of being silently ignored.
+ */
+export function rejectClaudeSmallModel(value: string | undefined): void {
+	if (!value) return
+	console.error(
+		'error: --small-model is not supported for the claude runtime; Claude Code has no small-model concept (use CLAUDE_CODE_SUBAGENT_MODEL for a session-wide subagent default)',
+	)
+	process.exit(1)
+}
+
 export function validateModelOverride(
 	value: string | undefined,
 	flagName: string,
@@ -123,7 +156,6 @@ export function resolveDefaultModels(selected: Provider[]): {
 	}
 }
 
-// ponytail: extracted from interactive.ts; eliminates 56-line duplicate of model mapping (rung 2)
 /** Model names for the "faster responses" preset, keyed by provider. */
 export const FAST_MODELS: Record<
 	Provider,
@@ -158,7 +190,6 @@ const FAST_SMALL_MODEL_PRIORITY: Provider[] = [
 	'laberit',
 ]
 
-// ponytail: rung 2 — shared with interactive.ts; prevents model-name duplication across 2 files
 export function resolveFastModels(selected: Provider[]): {
 	model?: string
 	smallModel?: string
