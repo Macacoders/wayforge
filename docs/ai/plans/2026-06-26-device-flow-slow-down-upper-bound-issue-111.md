@@ -1,5 +1,5 @@
 ---
-status: planned
+status: superseded
 created: 2026-06-26
 phase: 0/1
 required_gates:
@@ -36,3 +36,7 @@ Single-phase. All changes localized to `doDeviceFlow()` in `gh-app-auth.ts` and 
 ## Decisions
 
 - ADR-0016 will be amended with a consequence bullet for the slow_down upper bound.
+
+## Closure
+
+Superseded on 2026-11-06: `gh-app-auth.ts` was removed in Issue #252 / PR #258, and GitHub auth is now delegated to environment tokens or `gh auth token`. The device-flow `slow_down` code this plan targeted no longer exists.

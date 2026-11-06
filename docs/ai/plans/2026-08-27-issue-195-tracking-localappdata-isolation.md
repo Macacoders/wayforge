@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: completed
 created: 2026-08-27
 phase: 1/1
 required_gates:
@@ -64,3 +64,7 @@ Make `cli/tests/unit/tracking.test.ts` pass on native Windows (and all platforms
 ## Plan Status Convention
 
 `status: planned`, `phase: 1/1`. On handoff to quick delivery, set `status: in-progress`; on completion and review, set `status: completed`.
+
+## Closure
+
+Completed: the fix landed in `970e1bc` (`vi.stubEnv("LOCALAPPDATA", "")` in `cli/tests/unit/tracking.test.ts`). Verified present on 2026-11-06.
