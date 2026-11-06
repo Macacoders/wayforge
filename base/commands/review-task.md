@@ -1,6 +1,8 @@
 ---
 description: Review the completed task against the plan and redirect if changes are insufficient.
 agent: delivery
+metadata:
+  workflow: deliver
 ---
 
 Review the completed task using git evidence. Inspect changed and added files and compare them against the task's acceptance criteria from the plan.

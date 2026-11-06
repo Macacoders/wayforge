@@ -44,6 +44,9 @@ temp/
 .devcontainer
 .gh-config
 
+# Agent Teams Lite skill registry (generated/local state)
+.atl/
+
 # Runtime generated/local output (do not blanket-ignore .kilo/; it may hold user config)
 .opencode/
 .agents/

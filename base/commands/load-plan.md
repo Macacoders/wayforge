@@ -1,6 +1,8 @@
 ---
 description: Load an approved implementation plan and identify the current task to implement.
 agent: delivery
+metadata:
+  workflow: deliver
 ---
 
 Load the implementation plan named below and identify the current task to implement.

@@ -3,7 +3,7 @@ name: memory-maintenance
 description: Keep docs/ai memory current with low-token routing and freshness checks.
 compatibility: opencode
 metadata:
-  workflow: memory-maintenance
+  workflow: memory
   owner: planner
 ---
 

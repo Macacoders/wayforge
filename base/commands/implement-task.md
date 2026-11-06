@@ -1,6 +1,8 @@
 ---
 description: Hand off the current plan task to the code agent.
 agent: delivery
+metadata:
+  workflow: deliver
 ---
 
 Hand off the current task from the loaded plan to `code`.
