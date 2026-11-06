@@ -156,7 +156,6 @@ export function resolveDefaultModels(selected: Provider[]): {
 	}
 }
 
-// ponytail: extracted from interactive.ts; eliminates 56-line duplicate of model mapping (rung 2)
 /** Model names for the "faster responses" preset, keyed by provider. */
 export const FAST_MODELS: Record<
 	Provider,
@@ -191,7 +190,6 @@ const FAST_SMALL_MODEL_PRIORITY: Provider[] = [
 	'laberit',
 ]
 
-// ponytail: rung 2 — shared with interactive.ts; prevents model-name duplication across 2 files
 export function resolveFastModels(selected: Provider[]): {
 	model?: string
 	smallModel?: string

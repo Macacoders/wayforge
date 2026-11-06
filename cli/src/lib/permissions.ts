@@ -149,15 +149,11 @@ function parsePermissionBlock(
 	return result
 }
 
-function scalarValue(value: PermissionValue | undefined): string {
-	return typeof value === 'string' ? value : ''
-}
-
-function scalarOrNull(value: PermissionValue | undefined): string | null {
+function asString(value: PermissionValue | undefined): string | null {
 	return typeof value === 'string' ? value : null
 }
 
-function mapOrNull(
+function asMap(
 	value: PermissionValue | undefined,
 ): Record<string, string> | null {
 	return value && typeof value === 'object' ? value : null
@@ -188,12 +184,12 @@ export function parseAgentPermissions(
 	}
 
 	return {
-		read: scalarValue(parsed.read),
-		edit: scalarValue(parsed.edit),
-		question: scalarOrNull(parsed.question),
-		bash: mapOrNull(parsed.bash),
-		externalDirectory: mapOrNull(parsed.external_directory),
-		task: typeof task === 'string' ? task : null,
+		read: asString(parsed.read) ?? '',
+		edit: asString(parsed.edit) ?? '',
+		question: asString(parsed.question),
+		bash: asMap(parsed.bash),
+		externalDirectory: asMap(parsed.external_directory),
+		task: asString(task),
 		taskAllowList,
 	}
 }

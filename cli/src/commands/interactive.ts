@@ -4,7 +4,6 @@ import { doInstall } from './install.js'
 import type { InstallOptions, Provider } from '../types.js'
 import { parseProviders, resolveFastModels } from '../lib/providers.js'
 
-// ponytail: rung 2 — data-driven menu helper; eliminates 7× repeated prompt+switch pattern
 async function promptMenu<T>(
 	rl: readline.Interface,
 	title: string,
@@ -157,15 +156,12 @@ export async function interactiveCommand(): Promise<void> {
 			providers = await promptMenu(
 				rl,
 				'Provider set',
-				// ponytail: hints derived from one map; combo sets join per-provider requirements
 				providerChoices.map((c) => ({
 					...c,
 					hint: providerHint(c.value),
 				})),
 				0,
 			)
-			// ponytail: rung 2 — resolveFastModels lives in providers.ts; resolved up front so the
-			// preset menu hint can show exactly which models the fast preset selects.
 			const fast = resolveFastModels(parseProviders(providers))
 			const fastHint =
 				fast.model && fast.smallModel

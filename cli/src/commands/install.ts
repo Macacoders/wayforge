@@ -443,8 +443,8 @@ function pruneEmptyDirs(dir: string, ctx: ManifestContext): void {
  * Non-managed files still under the legacy tree. Managed files are excluded so
  * a dry-run reports the same residuals it would leave after a real cleanup.
  * Paths under this runtime's pointer directories are excluded too, because
- * `ensureRuntimePointers` already reports them (ponytail: resolved rung 2 —
- * both share the pointer list declared in `layout.ts`).
+ * `ensureRuntimePointers` already reports them (both share the pointer list
+ * declared in `layout.ts`).
  */
 function collectLegacyResiduals(repo: string, runtime: Runtime): string[] {
 	const root = path.join(repo, LEGACY_ARTIFACT_ROOT)
