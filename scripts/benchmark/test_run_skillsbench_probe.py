@@ -189,5 +189,75 @@ class CaptureIndexTests(unittest.TestCase):
         self.assertEqual(capture["status"], "captured")
 
 
+def capture_fixture(count, *, listed=None, children=None, fail_ids=()):
+    """Actual shared helper with finite synthetic exec responses."""
+    ids = [f"ses_{number}" for number in range(count)]
+    listing = [{"id": item} for item in ids] if listed is None else listed
+    responses = [ExecResult(stdout=probe.OPENCODE_VERSION), ExecResult(stdout=json.dumps(listing))]
+    for session_id in ids[:50]:
+        if session_id in fail_ids:
+            responses.append(ExecResult(return_code=1))
+            continue
+        tools = [{"tool": "task", "child_session_id": child} for child in (children or {}).get(session_id, [])]
+        responses.extend([
+            ExecResult(stdout=json.dumps({"info": {"id": session_id}, "messages": []})),
+            ExecResult(stdout=json.dumps(evidence(session_id=session_id, tools=tools))),
+        ])
+    return FakeEnv(responses)
+
+
+class CaptureCompletenessTests(unittest.TestCase):
+    def capture(self, env):
+        with tempfile.TemporaryDirectory() as temp:
+            result = asyncio.run(probe.capture_sessions(env, Path(temp), "offline-key"))
+            index = json.loads((Path(temp) / "session-export-index.json").read_text())
+            self.assertEqual(index, result["sessions"])
+            return result
+
+    def test_below_cap_is_complete_but_50_and_51_are_uncertain(self):
+        from report import complete_session_usage
+        for count in (49, 50, 51):
+            with self.subTest(count=count):
+                result = self.capture(capture_fixture(count))
+                self.assertEqual(len(result["sessions"]), min(count, 50))
+                if count == 49:
+                    self.assertEqual(result["status"], "captured")
+                    self.assertIsNotNone(complete_session_usage(result["status"], result["sessions"]))
+                else:
+                    self.assertEqual(result["status"], "incomplete")
+                    self.assertIn("listing_at_cap", result["incomplete_reasons"])
+                    self.assertIsNone(complete_session_usage(result["status"], result["sessions"]))
+        self.assertIn("export_cap_pending", result["incomplete_reasons"])
+
+    def test_duplicate_ids_do_not_make_below_cap_incomplete(self):
+        result = self.capture(capture_fixture(1, listed=[{"id": "ses_0"}] * 2))
+        self.assertEqual(result["status"], "captured")
+        self.assertEqual(len(result["sessions"]), 1)
+
+    def test_invalid_ids_fail_closed(self):
+        for invalid in ({}, {"id": "../unsafe"}, None):
+            result = self.capture(capture_fixture(1, listed=[{"id": "ses_0"}, invalid]))
+            self.assertEqual(result["status"], "incomplete")
+            self.assertIn("invalid_session_identity", result["incomplete_reasons"])
+
+    def test_children_beyond_cap_and_duplicate_children(self):
+        listed = [{"id": f"ses_{n}"} for n in range(49)]
+        result = self.capture(capture_fixture(50, listed=listed, children={"ses_0": ["ses_49", "ses_50"]}))
+        self.assertEqual(len(result["sessions"]), 50)
+        self.assertEqual(result["status"], "incomplete")
+        self.assertIn("export_cap_pending", result["incomplete_reasons"])
+        result = self.capture(capture_fixture(1, children={"ses_0": ["ses_0", "ses_0"]}))
+        self.assertEqual(result["status"], "captured")
+        result = self.capture(capture_fixture(50, listed=listed, children={"ses_0": ["ses_49", "ses_49"]}))
+        self.assertEqual(len(result["sessions"]), 50)
+        self.assertEqual(result["status"], "captured")
+
+    def test_missing_child_export_and_unresolved_dispatch_are_not_complete(self):
+        result = self.capture(capture_fixture(2, listed=[{"id": "ses_0"}], children={"ses_0": ["ses_1"]}, fail_ids={"ses_1"}))
+        self.assertNotEqual(result["status"], "captured")
+        result = self.capture(capture_fixture(1, children={"ses_0": [None]}))
+        self.assertIn("unresolved_child_session", result["incomplete_reasons"])
+
+
 if __name__ == "__main__":
     unittest.main()

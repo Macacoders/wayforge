@@ -32,27 +32,33 @@ def within(path: Path, root: Path) -> bool:
     return True
 
 
-def pin_shared_model(path: Path) -> None:
+def pin_shared_model(path: Path, model: str = MODEL, *, prune_models: bool = True) -> None:
     """Apply the same evaluation-only model pin to both disposable variants."""
     raw = path.read_text()
     if raw.startswith("//"):
         raw = raw.partition("\n")[2]
     config = json.loads(raw)
+    if not isinstance(config, dict):
+        raise ValueError("Prepared config must be an object")
     if config.get("enabled_providers") != ["opencode"] or config.get("default_agent") != "delivery":
         raise ValueError("Unexpected prepared OpenCode config")
+    model_id = model.partition("/")[2]
     provider = config.get("provider", {}).get("opencode", {})
     models = provider.get("models", {})
-    if "big-pickle" not in models:
-        raise ValueError("Prepared config does not define Big Pickle")
-    config["model"] = MODEL
-    config["small_model"] = MODEL
+    if prune_models and model_id not in models:
+        raise ValueError("Prepared config does not define the selected model")
+    config["model"] = model
+    config["small_model"] = model
     agents = config.get("agent")
     if not isinstance(agents, dict):
         raise ValueError("Prepared config has no agent models")
     for agent in agents.values():
-        if isinstance(agent, dict) and "model" in agent:
-            agent["model"] = MODEL
-    provider["models"] = {"big-pickle": models["big-pickle"]}
+        if not isinstance(agent, dict):
+            raise ValueError("Prepared agent config must be an object")
+        if "model" in agent:
+            agent["model"] = model
+    if prune_models:
+        provider["models"] = {model_id: models[model_id]}
     path.write_text(json.dumps(config, indent=2) + "\n")
 
 

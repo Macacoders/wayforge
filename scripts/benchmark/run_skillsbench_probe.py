@@ -370,14 +370,22 @@ async def capture_sessions(env: object, jobs_dir: Path, key: str) -> dict[str, o
     exported: list[dict[str, object]] = []
     pending = list(sessions)
     seen: set[str] = set()
-    while pending and len(seen) < 50:
+    reasons: set[str] = set()
+    if len(sessions) >= 50:
+        reasons.add("listing_at_cap")
+    while pending:
         session = pending.pop(0)
         if not isinstance(session, dict):
+            reasons.add("invalid_session_identity")
             continue
         session_id = session.get("id")
         if not isinstance(session_id, str) or not re.fullmatch(r"ses_[A-Za-z0-9_-]+", session_id):
+            reasons.add("invalid_session_identity")
             continue
         if session_id in seen:
+            continue
+        if len(seen) >= 50:
+            reasons.add("export_cap_pending")
             continue
         seen.add(session_id)
         output = await env.exec(
@@ -431,6 +439,8 @@ async def capture_sessions(env: object, jobs_dir: Path, key: str) -> dict[str, o
             if summary.return_code == 0:
                 try:
                     evidence = parse_summary_output(summary_stdout)
+                    if evidence.get("session_id") != session_id:
+                        reasons.add("unresolved_session_identity")
                     (export_dir / f"{session_id}.evidence.json").write_text(
                         json.dumps(evidence, indent=2) + "\n"
                     )
@@ -440,6 +450,8 @@ async def capture_sessions(env: object, jobs_dir: Path, key: str) -> dict[str, o
                     record["evidence_file"] = f"session-exports/{session_id}.evidence.json"
                     for tool_event in evidence["tools"]:
                         child_id = tool_event.get("child_session_id") if isinstance(tool_event, dict) else None
+                        if isinstance(tool_event, dict) and tool_event.get("tool") == "task" and not child_id:
+                            reasons.add("unresolved_child_session")
                         if child_id and child_id not in seen:
                             pending.append({"id": child_id, "parentID": session_id})
                 except (json.JSONDecodeError, TypeError, ValueError) as exc:
@@ -462,8 +474,11 @@ async def capture_sessions(env: object, jobs_dir: Path, key: str) -> dict[str, o
         json.dumps(exported, indent=2) + "\n"
     )
     complete = bool(exported) and all("evidence_file" in x for x in exported)
+    if not complete:
+        reasons.add("session_metadata_unavailable")
     return {
-        "status": "captured" if complete else "metadata_unavailable",
+        "status": "incomplete" if reasons - {"session_metadata_unavailable"} else ("captured" if complete else "metadata_unavailable"),
+        "incomplete_reasons": sorted(reasons),
         "runtime_version": runtime_version,
         "sessions": exported,
     }

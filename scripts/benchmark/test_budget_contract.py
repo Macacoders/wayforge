@@ -75,9 +75,15 @@ class BudgetContractTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Remaining run budget"):
             ledger.reserve("ablation")
 
+    def test_one_hour_evaluation_allowance_is_supported(self) -> None:
+        for seconds in (900, 901, 3600):
+            self.assertEqual(limits(attempt_seconds=seconds).attempt_seconds, seconds)
+
     def test_invalid_or_unenforceable_limits_fail_closed(self) -> None:
         for change in (
-            {"attempt_seconds": 901},
+            {"attempt_seconds": 3601},
+            {"attempt_seconds": 0},
+            {"attempt_seconds": True},
             {"attempt_input_tokens": 0},
             {"attempt_usd": "NaN"},
             {"run_usd": "4"},

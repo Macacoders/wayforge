@@ -71,8 +71,8 @@ class Limits:
             variant_attempts=_positive_int(raw["variant_attempts"], "variant_attempts"),
             run_attempts=_positive_int(raw["run_attempts"], "run_attempts"),
         )
-        if limits.attempt_seconds > 900:
-            raise ValueError("attempt_seconds must not exceed the pinned probe limit of 900")
+        if limits.attempt_seconds > 3600:
+            raise ValueError("attempt_seconds must not exceed the evaluation limit of 3600")
         if limits.attempt_usd > limits.variant_usd or limits.attempt_usd > limits.run_usd:
             raise ValueError("One attempt exceeds a variant or run cost ceiling")
         if limits.run_usd > limits.provider_ceiling_usd:
