@@ -14,7 +14,7 @@ OpenCode v1 exposes native `read`, `glob`, `grep`, `skill`, `webfetch`, `websear
 2. Explicitly allow native read tools (`read`, `glob`, `grep`, `skill`) for every agent.
 3. Allow `webfetch` and `websearch` only for roles that perform bounded research: `planner`, `research`, `auditor`, and `scout`.
 4. Default shell commands to `ask`, not automatic `allow`. `research`, `scout`, and `architect` receive `bash: deny` because their roles need no shell.
-5. Retain only two automatic shell exceptions: `delivery` and experimental `implementer` may run `git commit*`. All builds, tests, linters, E2E checks, and other project-specific commands require approval.
+5. Retain narrow automatic shell exceptions: `delivery` may run `git commit*`; experimental `implementer` may run `git commit*`, exact safe Git inspection commands, and exact read-only `ai-memory` status/close-check commands. All builds, tests, linters, E2E checks, and other project-specific commands require approval.
 6. Keep existing `edit` and `task` authority boundaries. In particular, `edit: deny` blocks `edit`, `write`, and `apply_patch`; only `implementer` and `auditor` may dispatch the experimental `scout`.
 7. Use `permission.skill` allowlists for each agent. The installed skill catalog remains global, but denied skills are hidden; skill frontmatter metadata remains descriptive rather than authoritative.
 8. Scope durable-memory edits by path: `planner` may write `docs/ai/**`; `auditor` may write only `docs/ai/plans/**` and `docs/ai/logs/**` to record audit evidence and durable outcomes. `implementer` retains product-write authority and may evolve active experimental plans and factual `docs/ai/**` memory under ADR-0049.

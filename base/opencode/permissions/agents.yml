@@ -97,6 +97,10 @@ agents:
     question: allow
     bash:
       "*": ask
+      "git status --short": allow
+      "git log --oneline -10": allow
+      "npx tsx .opencode/skills/ai-memory/scripts/ai-memory.ts status --json": allow
+      "npx tsx .opencode/skills/ai-memory/scripts/ai-memory.ts close-check": allow
       "git commit*": allow
     external_directory: deny
     task:

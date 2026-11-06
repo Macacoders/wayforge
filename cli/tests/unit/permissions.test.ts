@@ -280,6 +280,15 @@ describe("coarse permission guards", () => {
       expect(block).toContain('"*": ask');
       expect(block).toContain('"git commit*": allow');
     }
+    const implementer = renderAgentPermissionBlock("implementer", permissionsFile);
+    for (const command of [
+      '"git status --short": allow',
+      '"git log --oneline -10": allow',
+      '"npx tsx .opencode/skills/ai-memory/scripts/ai-memory.ts status --json": allow',
+      '"npx tsx .opencode/skills/ai-memory/scripts/ai-memory.ts close-check": allow',
+    ]) {
+      expect(implementer).toContain(command);
+    }
     const auditor = renderAgentPermissionBlock("auditor", permissionsFile);
     expect(auditor).toContain('"docs/ai/plans/**": allow');
     expect(auditor).not.toContain('"git commit*": allow');
