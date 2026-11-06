@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: completed
 created: 2026-10-27
 task: 3/3
 required_gates:
@@ -116,3 +116,7 @@ required_gates:
 - `memory_update`: append the final outcome/evidence and scope disposition to the current monthly log; correct living ADR/matrix statements without retroactively modifying historical plans.
 - Human-owned validations above must be reported and confirmed or explicitly waived; delivery must not run them autonomously. No per-task approval is needed once this plan and its scope disposition are approved.
 - The maintainer has approved retention of both out-of-plan changes; no further scope approval is needed to dispatch implementation. Preserve the pre-existing `package-lock.json` worktree modification.
+
+## Closure
+
+Completed: the review findings were cleared and PR #253 merged into `develop` as `8589948`; the remaining human validations were closed or waived in `2026-10-28_110000-issue-227-final-review-closure.md`. Closed on 2026-11-06.

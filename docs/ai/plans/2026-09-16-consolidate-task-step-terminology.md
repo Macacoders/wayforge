@@ -1,5 +1,5 @@
 ---
-status: complete
+status: completed
 created: 2026-09-16
 task: 3/3
 required_gates:

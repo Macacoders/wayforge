@@ -1,6 +1,6 @@
 # Unmanaged agent/command/skill/plugin reconciliation during install
 
-**Status:** complete
+**Status:** completed
 
 ## Goal
 

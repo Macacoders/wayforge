@@ -1,7 +1,7 @@
 # Plan: TypeScript CLI Migration with Zero-Dep Binary Distribution
 
 **Created**: 2026-06-26
-**Status**: Approved
+**Status:** Superseded
 **Related**: Issue #131, supersedes `2026-06-22-node-cli-installer-migration.md`
 
 ## Goal
@@ -279,3 +279,7 @@ Shell entrypoint (thin shim):
 - **npm publishing**: Publish CLI to npm for `npx ai-config install` usage
 - **`installed-projects.json` UI**: A `list` subcommand showing all installed projects
 - **Config diff/drift detection**: Compare installed config against source templates
+
+## Closure
+
+Superseded on 2026-11-06: the CLI ships via `bun build --compile` (`make cli-binary`), not `deno compile`, and the `cli/` workspace plus one-shot `install/` scripts already replaced the legacy shell surface this plan proposed to migrate.

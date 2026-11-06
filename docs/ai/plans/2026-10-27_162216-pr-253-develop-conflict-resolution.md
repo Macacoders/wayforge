@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: completed
 created: 2026-10-27
 task: 1/1
 required_gates:
@@ -60,3 +60,7 @@ required_gates:
 - `architect_review`: independently verify ADR-0046/ADR-0033 alignment, canonical layout, ownership and dry-run safety across the combined revision.
 - `memory_update`: append integration evidence to the current monthly log and correct *living* references to retained frozen scripts; preserve historical plans and entries.
 - Task review must cover actual integrated diff and the combined test surface; no per-task approval is needed after this plan is approved. If `develop` changes materially before integration, recheck scope and conflicts before dispatch. The existing Issue #227 plan remains in progress for its outstanding human validations.
+
+## Closure
+
+Completed: the integration merged into `develop` as `8589948` (PR #253), and the remaining review items were handled in `2026-10-28_110000-issue-227-final-review-closure.md`. Closed on 2026-11-06.

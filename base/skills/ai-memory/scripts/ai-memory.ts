@@ -174,7 +174,7 @@ function getActivePlans(): { file: string; status: string; isActive: boolean }[]
   return planFiles.map((entry) => {
     const filePath = path.join(plansDir, entry.name);
     const { title, status } = parsePlanFile(filePath);
-    const isActive = !/completed|cancelled|done/i.test(status);
+    const isActive = !/completed|cancelled|done|superseded/i.test(status);
     return { file: entry.name, status, isActive };
   });
 }
