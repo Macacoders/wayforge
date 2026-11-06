@@ -217,7 +217,9 @@ export function isManagedFile(absolutePath: string): boolean {
 
 	let dir = path.dirname(absolutePath)
 	while (dir !== '/') {
-		for (const name of [MANAGED_DIR_MARKER, `${MANAGED_DIR_MARKER}.tmp`]) {
+		// During a refresh both manifests exist. The temporary manifest contains
+		// newly discovered paths, so it must take precedence over the prior final one.
+		for (const name of [`${MANAGED_DIR_MARKER}.tmp`, MANAGED_DIR_MARKER]) {
 			const manifest = path.join(dir, name)
 			if (fs.pathExistsSync(manifest)) {
 				const relPath = absolutePath.slice(dir.length + 1)
@@ -248,7 +250,9 @@ export function isManagedDir(absolutePath: string): boolean {
 
 	let dir = absolutePath
 	while (dir !== '/') {
-		for (const name of [MANAGED_DIR_MARKER, `${MANAGED_DIR_MARKER}.tmp`]) {
+		// During a refresh both manifests exist. The temporary manifest contains
+		// newly discovered paths, so it must take precedence over the prior final one.
+		for (const name of [`${MANAGED_DIR_MARKER}.tmp`, MANAGED_DIR_MARKER]) {
 			const manifest = path.join(dir, name)
 			if (fs.pathExistsSync(manifest)) {
 				const relPath = absolutePath.slice(dir.length + 1)

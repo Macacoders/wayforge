@@ -282,6 +282,24 @@ describe("managed detection", () => {
     ).toBe(true);
   });
 
+  it("prefers the active temporary manifest during a refresh", () => {
+    const agentsDir = path.join(repo, ".opencode", "agents");
+    const auditor = path.join(agentsDir, "auditor.md");
+    fs.mkdirpSync(agentsDir);
+    fs.writeFileSync(auditor, "");
+    fs.writeFileSync(
+      path.join(repo, ".wayforge-managed"),
+      "managed_paths:\n\n- .opencode/agents/planner.md\n",
+    );
+    fs.writeFileSync(
+      path.join(repo, ".wayforge-managed.tmp"),
+      "managed_paths:\n\n- .opencode/agents/planner.md\n- .opencode/agents/auditor.md\n",
+    );
+
+    expect(isManagedFile(auditor)).toBe(true);
+    expect(isManagedDir(agentsDir)).toBe(true);
+  });
+
   it("isManagedDir detects per-dir marker", () => {
     fs.mkdirpSync(path.join(repo, "sub"));
     fs.writeFileSync(
