@@ -1,6 +1,6 @@
 ---
 name: implementation-quality
-description: Execute an explicitly experimental approved plan end to end with bounded scouting, per-task validation and commits, and a final execution changelog. Use when the implementer runs an experimental plan.
+description: Adopt an eligible approved plan or execute an experimental one end to end with bounded scouting, per-task validation and commits, and a final execution changelog. Use when the implementer runs a plan.
 compatibility: opencode
 metadata:
   workflow: experimental-implementation
@@ -9,7 +9,11 @@ metadata:
 
 # Implementation Quality
 
-Use only for a plan whose frontmatter declares `workflow: implement-then-audit`. This is separate from the legacy delivery workflow; do not load `delivery-policy` or interpret `Status:` as delivery acceptance.
+Use this for a plan whose frontmatter declares `workflow: implement-then-audit`, or adopt an eligible unstarted ordinary approved plan before execution. This is separate from the legacy delivery workflow; do not load `delivery-policy` or interpret legacy `Status:` as delivery acceptance.
+
+## Plan Adoption
+
+An ordinary plan is eligible only when its frontmatter is `status: planned` and no task has started: every task is `Status: pending`, or it is a legacy plan at `task: 0/<total>`. Add `workflow: implement-then-audit`, add `Experimental status: pending` to every task, and record the adoption under `## Implementation amendments` with the source state. Preserve legacy fields; do not adopt an in-progress, accepted, blocked, or completed delivery plan. Report the conflicting state instead of guessing.
 
 ## Execute the Plan
 

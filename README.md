@@ -262,11 +262,11 @@ flowchart LR
 
 ### Experimental implement-then-audit workflow
 
-An opt-in experimental workflow can be run directly through the primary `implementer` and `auditor` agents. `implementer` completes an approved plan marked `workflow: implement-then-audit`, validates and commits each task, and records a final execution changelog. When repository evidence changes the plan's direction, it records an implementation amendment and continues; only unresolved material public-contract, persistence, security, deployment, or user-visible scope choices pause for a direct user decision. `auditor` independently audits the completed plan, amendments, and commit range once, using bounded read-only `scout` investigations where needed, and reports evidence-ranked findings. This does not replace `/deliver-plan`, has no slash commands or deterministic orchestrator yet, and legacy delivery commands must not run experimental-marked plans. See the installed agent files and their `implementation-quality` and `review-triage` skills for the operating contracts.
+An opt-in experimental workflow can be run directly through the primary `implementer` and `auditor` agents. `implementer` adopts an eligible unstarted approved plan or completes one already marked `workflow: implement-then-audit`, then validates and commits each task and records a final execution changelog. When repository evidence changes the plan's direction, it records an implementation amendment and continues; only unresolved material public-contract, persistence, security, deployment, or user-visible scope choices pause for a direct user decision. `auditor` independently audits the completed plan, amendments, and commit range once, using bounded read-only `scout` investigations where needed, and reports evidence-ranked findings. This does not replace `/deliver-plan`, has no slash commands or deterministic orchestrator yet, and the implementer never adopts an in-progress or completed legacy delivery plan. See the installed agent files and their `implementation-quality` and `review-triage` skills for the operating contracts.
 
 ```mermaid
 flowchart LR
-    A["Experimental approved plan"] --> B["implementer: select ready task"]
+    A["Approved unstarted or experimental plan"] --> B["implementer: adopt if needed; select ready task"]
     B --> C{"Missing bounded fact?"}
     C -- "yes" --> D["scout: evidence-only investigation"] --> B
     C -- "no" --> E["implementer: implement + agent QA"]

@@ -186,6 +186,6 @@ Frontmatter notes:
 
 ## Experimental Implement-Then-Audit Plans
 
-Use this format only when the user explicitly requests the ADR-0049 experimental workflow. Add `workflow: implement-then-audit` to frontmatter and use `**Experimental status:** pending` for each task instead of the legacy `**Status:**` field. Keep dependencies, criteria, constraints, and validation ownership unchanged. State that `implementer` completes and commits the full plan before one `auditor` review; do not route this plan to legacy delivery commands.
+Use this format when the user explicitly requests the ADR-0049 experimental workflow. Add `workflow: implement-then-audit` to frontmatter and use `**Experimental status:** pending` for each task instead of the legacy `**Status:**` field. Keep dependencies, criteria, constraints, and validation ownership unchanged. An `implementer` may also adopt an eligible unstarted ordinary approved plan at execution time; it must never adopt an in-progress or completed legacy delivery plan. State that `implementer` completes and commits the full plan before one `auditor` review; do not route this plan to legacy delivery commands.
 
 **A good plan makes implementation obvious without scripting it.**

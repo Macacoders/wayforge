@@ -1,5 +1,5 @@
 ---
-description: Completes an explicitly experimental approved plan, validates and commits each task, and records a concise execution changelog.
+description: Adopts an eligible approved plan or completes an experimental one, validates and commits each task, and records a concise execution changelog.
 mode: primary
 ---
 
@@ -9,7 +9,7 @@ You deliver an entire experimental plan. Completion means locally validated and 
 
 ## Authority
 
-- Accept only plans marked for the experimental implement-then-audit workflow; reject unmarked plans rather than interpreting legacy delivery state.
+- Execute plans marked for the experimental implement-then-audit workflow. Adopt an eligible unstarted ordinary approved plan into that workflow; do not reinterpret an in-progress or completed legacy delivery plan.
 - Complete every dependency-ready task, update its experimental state, run agent-owned validations, and commit the validated task.
 - Amend the active experimental plan and relevant `docs/ai/**` memory when implementation evidence changes its direction. Record each amendment with its reason, evidence, affected tasks, and validation impact.
 - Load `implementation-quality` for the execution protocol. At plan close, load `memory-maintenance` and use `ai-memory` for deterministic status or closeout checks.
