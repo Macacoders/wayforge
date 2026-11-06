@@ -64,6 +64,9 @@ describe("renderAgentPermissionBlock", () => {
     expect(renderAgentPermissionBlock("implementer", permissionsFile)).toContain(
       "edit: allow",
     );
+    expect(renderAgentPermissionBlock("coach", permissionsFile)).toContain(
+      "edit: deny",
+    );
     const planner = renderAgentPermissionBlock("planner", permissionsFile);
     expect(planner).toContain("edit:");
     expect(planner).toContain('"docs/ai/**": allow');
@@ -97,7 +100,7 @@ describe("renderAgentPermissionBlock", () => {
   });
 
   it("renders question: allow only for primary decision roles", () => {
-    for (const agent of ["planner", "delivery", "troubleshooter", "implementer"]) {
+    for (const agent of ["planner", "delivery", "troubleshooter", "implementer", "coach"]) {
       expect(renderAgentPermissionBlock(agent, permissionsFile)).toContain(
         "question: allow",
       );
@@ -154,7 +157,7 @@ describe("coarse permission guards", () => {
         "bash: deny",
       );
     }
-    for (const agent of ["planner", "code", "auditor", "reviewer", "troubleshooter"]) {
+    for (const agent of ["planner", "code", "auditor", "reviewer", "troubleshooter", "coach"]) {
       expect(renderAgentPermissionBlock(agent, permissionsFile)).toContain(
         "bash: ask",
       );
@@ -253,6 +256,7 @@ describe("coarse permission guards", () => {
       "research",
       "code",
       "troubleshooter",
+      "coach",
       "architect",
       "reviewer",
       "scout",
@@ -263,7 +267,7 @@ describe("coarse permission guards", () => {
   });
 
   it("keeps subagent dispatch out of read-only and worker roles", () => {
-    for (const agent of ["code", "reviewer", "architect", "research", "scout"]) {
+    for (const agent of ["code", "reviewer", "architect", "research", "scout", "coach"]) {
       expect(renderAgentPermissionBlock(agent, permissionsFile)).toContain(
         "task: deny",
       );
@@ -296,6 +300,12 @@ describe("coarse permission guards", () => {
     const scout = renderAgentPermissionBlock("scout", permissionsFile);
     expect(scout).toContain("edit: deny");
     expect(scout).not.toContain('"git commit*": allow');
+
+    const coach = renderAgentPermissionBlock("coach", permissionsFile);
+    expect(coach).toContain("bash: ask");
+    expect(coach).toContain("edit: deny");
+    expect(coach).toContain("task: deny");
+    expect(coach).not.toContain('"git commit*": allow');
   });
 });
 

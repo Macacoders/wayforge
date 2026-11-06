@@ -392,7 +392,7 @@ describe("agent block step floors", () => {
     const fragment = readFragment(sourceDir, `agents/${file}`);
     const parsed = JSON.parse(`{${fragment}}`);
 
-    for (const agent of ["implementer", "auditor", "scout"]) {
+    for (const agent of ["implementer", "auditor", "scout", "coach"]) {
       expect(parsed.agent[agent]).toBeDefined();
       expect(parsed.agent[agent].model).toBeTruthy();
     }

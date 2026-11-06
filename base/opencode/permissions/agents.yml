@@ -107,6 +107,17 @@ agents:
       "*": deny
       scout: allow
 
+  coach:
+    read: allow
+    glob: allow
+    grep: allow
+    skill: deny
+    edit: deny
+    question: allow
+    bash: ask
+    external_directory: deny
+    task: deny
+
   auditor:
     read: allow
     glob: allow

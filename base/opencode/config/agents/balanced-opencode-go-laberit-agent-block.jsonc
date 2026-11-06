@@ -19,6 +19,10 @@
       "model": "opencode-go/mimo-v2.6-flash",
       "steps": 10
     },
+    "coach": {
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "steps": 20
+    },
     "architect": {
       "model": "opencode-go/mimo-v2.6-flash",
       "steps": 16

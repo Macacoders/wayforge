@@ -122,6 +122,7 @@ nothing outside the criteria can block it.
 - `reviewer` is a read-only subagent that answers an acceptance-criteria list `pass | fail | unverifiable`, criterion by criterion, with the evidence for each. It does not grade quality, does not repair, and has no source-editing authority.
 - `architect` is a read-only review subagent that flags architectural-boundary conflicts against ADRs and proposes new ADRs. It is dispatched as an `architecture_review` work order at plan time, because a contradiction is cheapest to resolve before code exists.
 - `troubleshooter` is a `mode: primary` chat agent reachable via `/troubleshooter` that provides command-first, safe, non-destructive diagnostic troubleshooting guidance. It is opt-in (not the default agent; default stays `planner`) and does not implement changes, but it can hand a confirmed root cause to `/deliver` instead of restarting the planning chain.
+- The opt-in `coach` primary agent guides a human through an approved ordinary plan without changing its legacy state. The human alone writes product code; coaching checks are evidence, not delivery acceptance. Native product edits and subagent dispatch are denied. It may use shell only for inspection, safe non-interactive validation, and a branch, staging/commit, or push action that the human explicitly approves individually (ADR-0051).
 - The opt-in experimental workflow (ADR-0049) adds primary `implementer` and `auditor` agents plus a read-only `scout` subagent. `implementer` adopts an eligible unstarted approved plan or completes an explicitly marked experimental plan, validates and commits each task, then emits an execution changelog; `auditor` independently audits that completed commit range once and triages evidence-backed findings. Completion is not acceptance, and the existing delivery path is unchanged.
 
 ### Skill ownership
@@ -134,7 +135,7 @@ OpenCode discovers installed skills globally, but ADR-0050 uses per-agent `permi
 | `delivery` | `ai-memory`, `delivery-policy`, `memory-maintenance`, `ponytail-review` |
 | `implementer` | `ai-memory`, `implementation-quality`, `memory-maintenance` |
 | `auditor` | `ai-memory`, `memory-maintenance`, `review-triage` |
-| `research`, `code`, `reviewer`, `architect`, `troubleshooter`, `scout` | None; their standing contract and bounded work order are sufficient |
+| `research`, `code`, `reviewer`, `architect`, `troubleshooter`, `coach`, `scout` | None; their standing contract and bounded work order are sufficient |
 
 Memory writes are path-scoped: `planner` may update `docs/ai/**`; an active ADR-0049 `implementer` may evolve its experimental plan and factual implementation memory under `docs/ai/**`; `auditor` may append audit evidence to `docs/ai/plans/**` and durable outcomes to `docs/ai/logs/**`. Auditor product, architecture, and ADR paths remain denied.
 
@@ -179,6 +180,22 @@ No intent document, plan artifact, or per-step approval is required on this path
 7. Update docs, decisions, and logs at plan close via `/memory`.
 
 Both paths stop only for the stop conditions defined in `delivery-policy`. The opt-in experimental path is separate: `implementer` may first mark an eligible unstarted approved plan `workflow: implement-then-audit`, but it must never adopt an in-progress or completed legacy delivery plan. Legacy delivery commands must not consume experimental completion state. Its concise operational contracts live in `implementation-quality` and `review-triage`; it has no deterministic orchestrator yet.
+
+**Human-led coaching path** — an opt-in alternative for a person who remains
+the sole product-code author:
+
+1. Select `coach` and provide an approved ordinary plan path; it reads the
+   plan, dependencies, diff, and current evidence without changing plan state.
+2. The coach offers one concrete human-owned coding increment and waits for the
+   person to edit. It may inspect the resulting diff and run safe,
+   non-interactive agent-owned validation; human-owned validation is proposed,
+   never run or claimed.
+3. Checkpoints communicate evidence and next choices only. They do not confer
+   ADR-0048 acceptance or ADR-0049 experimental completion; later delivery
+   follows its own rules.
+4. The coach discusses deviations before direction changes. Each branch,
+   staging/commit, and push action needs separate explicit human approval under
+   ADR-0051; shell prompting is not a technical read-only guarantee.
 
 The shared issue creation workflow is:
 

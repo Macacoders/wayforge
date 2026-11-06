@@ -19,6 +19,10 @@
       "model": "github-copilot/gpt-5.4",
       "steps": 10
     },
+    "coach": {
+      "model": "github-copilot/gpt-5.4",
+      "steps": 16
+    },
     "architect": {
       "model": "github-copilot/gpt-5.4",
       "steps": 10

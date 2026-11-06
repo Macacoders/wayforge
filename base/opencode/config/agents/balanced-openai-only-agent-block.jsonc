@@ -19,6 +19,10 @@
       "model": "openai/gpt-6-sol",
       "steps": 10
     },
+    "coach": {
+      "model": "openai/gpt-6-sol",
+      "steps": 20
+    },
     "architect": {
       "model": "openai/gpt-6-sol",
       "steps": 10

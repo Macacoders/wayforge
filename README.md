@@ -118,7 +118,7 @@ Exit codes: `wfg update` exits `0` whether a newer release is available or not, 
 
 ## Use
 
-Work flows through six workflows: deliver a small fix directly, formalize intent, plan approved intent, track via issues, deliver an approved plan, and keep durable memory current. Process matches risk: a localized fix needs no intent or plan artifact, while boundary-affecting work keeps the full rigour.
+Work flows through seven workflows: deliver a small fix directly, formalize intent, plan approved intent, track via issues, deliver an approved plan, coach a human through an approved plan, and keep durable memory current. Process matches risk: a localized fix needs no intent or plan artifact, while boundary-affecting work keeps the full rigour.
 
 Node colors: gray = you · blue = `planner` · orange = `delivery` · green = `code` · teal = `reviewer` · purple = `research`.
 
@@ -293,6 +293,23 @@ flowchart LR
 ```
 
 The manual steps below stay available when you want to drive one task at a time.
+
+### Human-led plan coach
+
+Select the opt-in `coach` primary agent when you want to implement an approved
+ordinary plan yourself, one small increment at a time. Give it the plan path;
+it reads the plan and current evidence, suggests a concrete human-owned edit,
+then inspects the diff and proposes bounded checks after you make the change.
+Its checkpoints are coaching evidence, not `/deliver-plan` acceptance, and it
+does not create a new command, plan marker, or execution store. Resume by
+selecting `coach` again with the same plan path and current repository state.
+
+The coach never writes product code or dispatches implementation. It discusses
+course corrections before direction changes and asks for explicit approval for
+each branch creation, staging/commit, and push action; approving one Git action
+does not approve another. Choose `/deliver-plan` for autonomous implementation
+and independent per-task acceptance, or `implementer` for the separate
+experimental implement-then-audit workflow.
 
 ### Delivery loop (manual)
 

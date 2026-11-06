@@ -28,7 +28,7 @@ required_gates:
 ### Task 1: Record the human-led authority boundary
 
 **Status:** pending
-**Experimental status:** in-progress
+**Experimental status:** completed
 **Depends on:** none
 
 **Objective:** Establish the durable exception that permits the new opt-in coach to run specifically approved Git write actions without inheriting `delivery` acceptance or product-code-edit authority.
@@ -56,7 +56,7 @@ required_gates:
 ### Task 2: Ship an opt-in plan coach with safe permissions and a usable walkthrough
 
 **Status:** pending
-**Experimental status:** pending
+**Experimental status:** in-progress
 **Depends on:** Task 1
 
 **Objective:** Install a selectable human-led coaching agent with a concrete, incremental task dialogue and evidence checks, and document how users choose it instead of autonomous delivery.
@@ -97,3 +97,12 @@ required_gates:
   changing legacy delivery state. Affected tasks: 1 and 2. Validation impact:
   execution follows `implementation-quality`; the plan will receive an
   execution changelog and one final audit rather than legacy task acceptance.
+
+## Execution changelog
+
+- **Task 1 — completed:** `4341d99` (`docs: define human-led coaching
+  authority`). Validation: staged `git diff -- docs/ai/decisions` showed only
+  new ADR-0051; `git diff --check` passed. Decision: ADR-0051 narrowly excepts
+  ADR-0048 for individually approved coach Git writes while preserving native
+  edit denial and all delivery/experimental authority. Residual risk: `bash:
+  ask` prompts but cannot provide a read-only shell sandbox.

@@ -15,6 +15,9 @@
     "troubleshooter": {
       "model": "laberit/laberit-ai-preview"
     },
+    "coach": {
+      "model": "laberit/laberit-ai-preview"
+    },
     "architect": {
       "model": "laberit/laberit-ai-preview"
     },
