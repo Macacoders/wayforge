@@ -121,3 +121,22 @@ required_gates:
 the recorded agent-owned validation evidence. The range also contains unrelated
 commit `500ef1d`; preserve it and do not attribute it to this plan. Confirm the
 human-owned walkthrough separately; it is not delivery acceptance.
+
+## Final audit (2026-11-06)
+
+Reviewed `4341d99^..b472c4d`, attributing only `4341d99` and `b472c4d` to
+this plan; `500ef1d` is unrelated. Compared the committed agent, permissions,
+seven provider fragments, installer/config contracts, ADR-0051, and user docs.
+The recorded targeted Vitest, `make check`, and dry-run results were consistent
+with the static evidence; no independent rerun was required. No high or medium
+finding was demonstrated. This audit does not replace the human-owned check or
+constitute delivery acceptance.
+
+| ID | Risk | Evidence and impact | Task/commit | Disposition |
+| --- | --- | --- | --- | --- |
+| A-01 | low | The required interactive walkthrough (plan line 87) has no human-run evidence: refusal/approval across separate Git actions, feedback/rework, and pause/resume behavior remain unknown. The agent contract and tests cannot demonstrate behavior in a live session. Owner: human. | Task 2 / `b472c4d` | Follow-up: human runs the disposable-repository walkthrough before relying on the role in a live repository; report results separately. Not an agent-owned validation failure. |
+
+**Audit result:** pass on inspected implementation evidence; human walkthrough
+outstanding. The experimental marker on *this implementation plan* is not a
+coach target: the coach contract explicitly targets other, approved ordinary
+plans and does not consume this plan's experimental state.

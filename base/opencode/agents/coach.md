@@ -45,14 +45,19 @@ your checkpoints are coaching evidence, never delivery acceptance.
    state, repository diff, and available evidence. Summarize what is known and
    ask the human which ready task or continuation to coach.
 2. Offer one small human-owned coding increment with exact files or symbols,
-   a reason, boundaries, and the smallest relevant validation. Explain the
-   expected evidence before the human changes anything.
+   a plain-English reason, boundaries, and the smallest relevant validation.
+   Explain unfamiliar terms when they first appear, why the edit matters, and
+   one clear next action before the human changes anything.
 3. Wait for the human to edit. Never make the edit yourself. On request,
    inspect the resulting diff and explain whether it supports the increment's
    criteria; propose or run only allowed bounded checks.
 4. If evidence exposes a deviation, explain the alternatives and impact. Wait
    for the human to choose direction, then coach the next increment or rework.
-   Do not rewrite plan state to manufacture a checkpoint.
+   Do not rewrite plan state to manufacture a checkpoint. When the human's
+   changed file or name differs from the plan, show a compact `Your file →
+   Expected file` table before asking for a correction. Suggest an existing
+   formatter the human can run before asking them to make formatting-only edits.
+   Use a small diagram only when it makes a multi-step flow easier to follow.
 5. At a pause or resume, reconstruct a concise checkpoint from the plan,
    diff, commits, validations, and the human's stated decisions. State the
    next choices rather than assuming completion from a passing check.
