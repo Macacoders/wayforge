@@ -4,7 +4,6 @@ import { doInstall } from './install.js'
 import type { InstallOptions, Provider } from '../types.js'
 import { parseProviders, resolveFastModels } from '../lib/providers.js'
 
-// ponytail: rung 2 — data-driven menu helper; eliminates 7× repeated prompt+switch pattern
 async function promptMenu<T>(
 	rl: readline.Interface,
 	title: string,
@@ -73,65 +72,10 @@ export async function interactiveCommand(): Promise<void> {
 			[
 				{ label: 'opencode (default)', value: 'opencode' as const },
 				{ label: 'kilocode', value: 'kilocode' as const },
-			],
-			0,
-		)
-
-		// Provider selection: opencode includes free-tier, kilocode does not
-		const fullProviderChoices = [
-			{
-				label: 'free-tier (default, no external provider)',
-				value: 'free-tier',
-			},
-			{ label: 'openai', value: 'openai' },
-			{ label: 'github-copilot', value: 'github-copilot' },
-			{ label: 'laberit', value: 'laberit' },
-			{ label: 'opencode-go', value: 'opencode-go' },
-			{ label: 'opencode-go,laberit', value: 'opencode-go,laberit' },
-			{ label: 'openai,github-copilot', value: 'openai,github-copilot' },
-			{ label: 'openai,laberit', value: 'openai,laberit' },
-			{
-				label: 'github-copilot,laberit',
-				value: 'github-copilot,laberit',
-			},
-			{
-				label: 'openai,github-copilot,laberit',
-				value: 'openai,github-copilot,laberit',
-			},
-		]
-		const providerChoices =
-			runtime === 'opencode'
-				? fullProviderChoices
-				: fullProviderChoices.filter((c) => c.value !== 'free-tier')
-		const providers = await promptMenu(
-			rl,
-			'Provider set',
-			// ponytail: hints derived from one map; combo sets join per-provider requirements
-			providerChoices.map((c) => ({ ...c, hint: providerHint(c.value) })),
-			0,
-		)
-
-		// ponytail: rung 2 — resolveFastModels lives in providers.ts; resolved up front so the
-		// preset menu hint can show exactly which models the fast preset selects.
-		const fast = resolveFastModels(parseProviders(providers))
-		const fastHint =
-			fast.model && fast.smallModel
-				? `overrides models for speed — main: ${fast.model}, small: ${fast.smallModel}`
-				: 'no faster models available for this provider set'
-
-		const modelPreset = await promptMenu(
-			rl,
-			'Model preset',
-			[
 				{
-					label: 'installer defaults (recommended)',
-					value: 'default' as const,
-					hint: 'keeps the models the installer assigns by default',
-				},
-				{
-					label: 'faster responses',
-					value: 'fast' as const,
-					hint: fastHint,
+					label: 'claude',
+					value: 'claude' as const,
+					hint: 'Claude Code manages authentication; no provider setup needed',
 				},
 			],
 			0,
@@ -139,9 +83,113 @@ export async function interactiveCommand(): Promise<void> {
 
 		let modelOverride: string | undefined
 		let smallModelOverride: string | undefined
-		if (modelPreset === 'fast') {
-			modelOverride = fast.model
-			smallModelOverride = fast.smallModel
+		let modelPreset: 'default' | 'fast' = 'default'
+		// Ignored for claude (Claude Code manages authentication).
+		let providers = 'free-tier'
+
+		if (runtime === 'claude') {
+			console.log(
+				'\nClaude Code manages authentication itself; providers are ignored.',
+			)
+			// Optional Claude model choice: inherit follows the main
+			// conversation's model; an alias/ID pins every generated agent.
+			const claudeModel = await promptMenu(
+				rl,
+				'Claude model',
+				[
+					{ label: 'inherit (default)', value: 'inherit' },
+					{ label: 'sonnet', value: 'sonnet' },
+					{ label: 'opus', value: 'opus' },
+					{ label: 'haiku', value: 'haiku' },
+					{ label: 'fable', value: 'fable' },
+					{
+						label: 'full Claude model ID (claude-*)',
+						value: 'custom',
+					},
+				],
+				0,
+			)
+			if (claudeModel === 'custom') {
+				for (;;) {
+					const input = (
+						await rl.question('Claude model ID [claude-...]: ')
+					).trim()
+					if (input.startsWith('claude-')) {
+						modelOverride = input
+						break
+					}
+					console.log('please enter a model ID starting with claude-')
+				}
+			} else if (claudeModel !== 'inherit') {
+				modelOverride = claudeModel
+			}
+		} else {
+			// Provider selection: opencode includes free-tier, kilocode does not
+			const fullProviderChoices = [
+				{
+					label: 'free-tier (default, no external provider)',
+					value: 'free-tier',
+				},
+				{ label: 'openai', value: 'openai' },
+				{ label: 'github-copilot', value: 'github-copilot' },
+				{ label: 'laberit', value: 'laberit' },
+				{ label: 'opencode-go', value: 'opencode-go' },
+				{ label: 'opencode-go,laberit', value: 'opencode-go,laberit' },
+				{
+					label: 'openai,github-copilot',
+					value: 'openai,github-copilot',
+				},
+				{ label: 'openai,laberit', value: 'openai,laberit' },
+				{
+					label: 'github-copilot,laberit',
+					value: 'github-copilot,laberit',
+				},
+				{
+					label: 'openai,github-copilot,laberit',
+					value: 'openai,github-copilot,laberit',
+				},
+			]
+			const providerChoices =
+				runtime === 'opencode'
+					? fullProviderChoices
+					: fullProviderChoices.filter((c) => c.value !== 'free-tier')
+			providers = await promptMenu(
+				rl,
+				'Provider set',
+				providerChoices.map((c) => ({
+					...c,
+					hint: providerHint(c.value),
+				})),
+				0,
+			)
+			const fast = resolveFastModels(parseProviders(providers))
+			const fastHint =
+				fast.model && fast.smallModel
+					? `overrides models for speed — main: ${fast.model}, small: ${fast.smallModel}`
+					: 'no faster models available for this provider set'
+
+			modelPreset = await promptMenu(
+				rl,
+				'Model preset',
+				[
+					{
+						label: 'installer defaults (recommended)',
+						value: 'default' as const,
+						hint: 'keeps the models the installer assigns by default',
+					},
+					{
+						label: 'faster responses',
+						value: 'fast' as const,
+						hint: fastHint,
+					},
+				],
+				0,
+			)
+
+			if (modelPreset === 'fast') {
+				modelOverride = fast.model
+				smallModelOverride = fast.smallModel
+			}
 		}
 
 		const dryRun = await promptMenu(
@@ -164,43 +212,49 @@ export async function interactiveCommand(): Promise<void> {
 			0,
 		)
 
-		console.log('\nProvider connection instructions (not automated):')
-		if (providers.includes('openai')) {
-			console.log(
-				'  - OpenAI: in OpenCode/Kilo Code, run /connect and complete OpenAI auth.',
-			)
-		}
-		if (providers.includes('github-copilot')) {
-			console.log(
-				'  - GitHub Copilot: in OpenCode/Kilo Code, run /connect and complete device login.',
-			)
-		}
-		if (providers.includes('laberit')) {
-			console.log(
-				'  - laberit: set OPENAI_BASE_URL and OPENAI_API_KEY in your local environment before use.',
-			)
-		}
-		if (providers.includes('opencode-go')) {
-			console.log(
-				'  - OpenCode Go: in OpenCode/Kilo Code, run /connect and complete OpenCode Go auth.',
-			)
+		if (runtime !== 'claude') {
+			console.log('\nProvider connection instructions (not automated):')
+			if (providers.includes('openai')) {
+				console.log(
+					'  - OpenAI: in OpenCode/Kilo Code, run /connect and complete OpenAI auth.',
+				)
+			}
+			if (providers.includes('github-copilot')) {
+				console.log(
+					'  - GitHub Copilot: in OpenCode/Kilo Code, run /connect and complete device login.',
+				)
+			}
+			if (providers.includes('laberit')) {
+				console.log(
+					'  - laberit: set OPENAI_BASE_URL and OPENAI_API_KEY in your local environment before use.',
+				)
+			}
+			if (providers.includes('opencode-go')) {
+				console.log(
+					'  - OpenCode Go: in OpenCode/Kilo Code, run /connect and complete OpenCode Go auth.',
+				)
+			}
 		}
 
 		console.log('\nSummary:')
 		console.log(`  Repo: ${repoPath}`)
 		console.log(`  Runtime: ${runtime}`)
-		console.log(`  Providers: ${providers}`)
-		if (modelPreset === 'fast') {
-			console.log('  Model preset: faster responses')
-			console.log(
-				`    Main model override: ${modelOverride ?? '(none resolved for this provider set)'}`,
-			)
-			console.log(
-				`    Small model override: ${smallModelOverride ?? '(none resolved for this provider set)'}`,
-			)
+		if (runtime === 'claude') {
+			console.log(`  Model: ${modelOverride ?? 'inherit'}`)
 		} else {
-			console.log('  Model preset: installer defaults')
-			console.log('    Model overrides: none (installer defaults)')
+			console.log(`  Providers: ${providers}`)
+			if (modelPreset === 'fast') {
+				console.log('  Model preset: faster responses')
+				console.log(
+					`    Main model override: ${modelOverride ?? '(none resolved for this provider set)'}`,
+				)
+				console.log(
+					`    Small model override: ${smallModelOverride ?? '(none resolved for this provider set)'}`,
+				)
+			} else {
+				console.log('  Model preset: installer defaults')
+				console.log('    Model overrides: none (installer defaults)')
+			}
 		}
 		console.log(`  Dry run: ${String(dryRun)}`)
 		console.log(`  Force: ${String(force)}`)

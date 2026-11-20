@@ -51,5 +51,7 @@ temp/
 .kilo/commands/
 opencode.jsonc
 kilo.jsonc
+.claude/
+CLAUDE.md
 .wayforge-managed
 installed-projects.json

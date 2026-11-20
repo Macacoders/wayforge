@@ -7,6 +7,17 @@ export const ARTIFACT_ROOT = '.agents'
 /** Legacy installed tree written by earlier installer versions. */
 export const LEGACY_ARTIFACT_ROOT = '.opencode'
 
+/** Claude Code projection root (generated build artifacts, never source). */
+export const CLAUDE_ROOT = '.claude'
+/** Claude Code subagent directory. */
+export const CLAUDE_AGENT_DIR = '.claude/agents'
+/** Claude Code command directory. */
+export const CLAUDE_COMMAND_DIR = '.claude/commands'
+/** Claude Code skill directory. */
+export const CLAUDE_SKILLS_DIR = '.claude/skills'
+/** Claude Code memory entrypoint that imports `AGENTS.md`. */
+export const CLAUDE_MEMORY_FILE = 'CLAUDE.md'
+
 /** Categories installed into the artifact tree. */
 export const CONTENT_CATEGORIES = [
 	'agents',
@@ -21,31 +32,32 @@ type ContentCategory = (typeof CONTENT_CATEGORIES)[number]
 export type InputCategory = 'config' | 'permissions'
 
 /** Runtime-specific native directory used to reach the artifact tree. */
-export const RUNTIME_POINTER_DIRS: Record<Runtime, string> = {
+export const RUNTIME_POINTER_DIRS: Partial<Record<Runtime, string>> = {
 	opencode: '.opencode',
 	kilocode: '.kilo',
 }
 
 /** Generated runtime config filename. */
-const CONFIG_FILES: Record<Runtime, string> = {
+const CONFIG_FILES: Partial<Record<Runtime, string>> = {
 	opencode: 'opencode.jsonc',
 	kilocode: 'kilo.jsonc',
 }
 
 /** Every supported runtime. */
-export const RUNTIMES = Object.keys(CONFIG_FILES) as Runtime[]
+export const RUNTIMES: Runtime[] = ['opencode', 'kilocode', 'claude']
 
-/** Repo-relative generated config path for a runtime. */
-export function configFileFor(runtime: Runtime): string {
-	return CONFIG_FILES[runtime]
+/** Repo-relative generated config path for a runtime, or null when the runtime has no generated config file (Claude projects native files instead). */
+export function configFileFor(runtime: Runtime): string | null {
+	return CONFIG_FILES[runtime] ?? null
 }
 
 /** Categories reached through a runtime directory pointer. */
 export const POINTER_CATEGORIES = ['agents', 'commands'] as const
 
-/** Repo-relative pointer directories for a runtime. */
+/** Repo-relative pointer directories for a runtime; empty for projection runtimes like Claude. */
 export function pointerPathsFor(runtime: Runtime): string[] {
 	const root = RUNTIME_POINTER_DIRS[runtime]
+	if (!root) return []
 	return POINTER_CATEGORIES.map((category) => `${root}/${category}`)
 }
 

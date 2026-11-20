@@ -26,8 +26,15 @@ import {
 import {
 	parseProviders,
 	validateFreeTierRuntime,
+	validateClaudeModel,
 	validateModelOverride,
+	rejectClaudeSmallModel,
 } from '../lib/providers.js'
+import {
+	expectedClaudePaths,
+	pruneStaleClaudePaths,
+	syncClaudeSurface,
+} from '../lib/claude.js'
 import {
 	syncGeneratedOpenCodeJsonc,
 	isLayoutStaleConfig,
@@ -39,6 +46,8 @@ import { resolveSourceDir } from '../lib/source-dir.js'
 import { checkNode } from '../lib/prereq.js'
 import {
 	ARTIFACT_ROOT,
+	CLAUDE_MEMORY_FILE,
+	CLAUDE_ROOT,
 	CONTENT_CATEGORIES,
 	LEGACY_ARTIFACT_ROOT,
 	RUNTIMES,
@@ -117,22 +126,31 @@ export async function doInstall(
 
 	const installRef = options.ref || 'develop'
 
-	const selected = parseProviders(options.providers)
-	validateFreeTierRuntime(selected, options.runtime)
-	validateModelOverride(options.model, '--model', selected)
-	validateModelOverride(options.smallModel, '--small-model', selected)
+	// Claude Code manages authentication itself: providers are ignored and the
+	// model is a Claude alias/ID, not a `<provider>/<model>` pair.
+	let genOpts: GenerateOptions | undefined
+	if (options.runtime === 'claude') {
+		rejectClaudeSmallModel(options.smallModel)
+		validateClaudeModel(options.model, '--model')
+		options.claudeModel = options.model ?? 'inherit'
+	} else {
+		const selected = parseProviders(options.providers)
+		validateFreeTierRuntime(selected, options.runtime)
+		validateModelOverride(options.model, '--model', selected)
+		validateModelOverride(options.smallModel, '--small-model', selected)
 
-	const genOpts: GenerateOptions = {
-		runtime: options.runtime,
-		selected,
-		modelOverride: options.model,
-		smallModelOverride: options.smallModel,
-		sourceDir,
+		genOpts = {
+			runtime: options.runtime,
+			selected,
+			modelOverride: options.model,
+			smallModelOverride: options.smallModel,
+			sourceDir,
+		}
 	}
 
 	initManagedManifest(repo, version, options.ref || undefined, ctx)
 
-	const conflicts = findUnmanagedConflicts(repo, sourceDir)
+	const conflicts = findUnmanagedConflicts(repo, sourceDir, options.runtime)
 	ctx.overrideUnmanaged = await resolveUnmanagedConflicts(
 		conflicts,
 		ctx,
@@ -157,6 +175,9 @@ export async function doInstall(
 			// at plugin/skills paths the migration just deleted.
 			for (const runtime of RUNTIMES) {
 				const configFile = configFileFor(runtime)
+				// Projection runtimes (Claude) have no generated config file.
+				if (!configFile) continue
+				if (!genOpts) continue
 				const configPath = path.join(repo, configFile)
 				const exists = fs.pathExistsSync(configPath)
 				const selectedRuntime = runtime === options.runtime
@@ -183,6 +204,14 @@ export async function doInstall(
 			}
 
 			for (const relPath of manifestPaths) {
+				if (
+					relPath === CLAUDE_MEMORY_FILE ||
+					relPath.startsWith(`${CLAUDE_ROOT}/`)
+				) {
+					// The Claude surface is re-projected wholesale below; the
+					// generic manifest loop only handles `.agents` content.
+					continue
+				}
 				if (isPointerPath(relPath)) {
 					if (isValidRuntimePointer(repo, relPath)) {
 						managedTrackFile(path.join(repo, relPath), ctx)
@@ -247,6 +276,10 @@ export async function doInstall(
 				collectLegacyResiduals(repo, options.runtime),
 				ctx,
 			)
+			if (options.runtime === 'claude') {
+				syncClaudeSurface(repo, sourceDir, options.claudeModel, ctx)
+				pruneStaleClaudePaths(repo, expectedClaudePaths(sourceDir), ctx)
+			}
 			const blockedPointers = ensureRuntimePointers(
 				repo,
 				options.runtime,
@@ -262,7 +295,9 @@ export async function doInstall(
 		}
 	}
 
-	syncGeneratedOpenCodeJsonc(repo, options.runtime, genOpts, ctx)
+	if (genOpts) {
+		syncGeneratedOpenCodeJsonc(repo, options.runtime, genOpts, ctx)
+	}
 	syncManagedFile(
 		path.join(sourceDir, 'base', 'AGENTS.md'),
 		path.join(repo, 'AGENTS.md'),
@@ -281,6 +316,11 @@ export async function doInstall(
 			path.join(repo, destRelFor(category)),
 			ctx,
 		)
+	}
+
+	if (options.runtime === 'claude') {
+		syncClaudeSurface(repo, sourceDir, options.claudeModel, ctx)
+		pruneStaleClaudePaths(repo, expectedClaudePaths(sourceDir), ctx)
 	}
 
 	const blockedPointers = ensureRuntimePointers(repo, options.runtime, ctx)
@@ -403,8 +443,8 @@ function pruneEmptyDirs(dir: string, ctx: ManifestContext): void {
  * Non-managed files still under the legacy tree. Managed files are excluded so
  * a dry-run reports the same residuals it would leave after a real cleanup.
  * Paths under this runtime's pointer directories are excluded too, because
- * `ensureRuntimePointers` already reports them (ponytail: resolved rung 2 —
- * both share the pointer list declared in `layout.ts`).
+ * `ensureRuntimePointers` already reports them (both share the pointer list
+ * declared in `layout.ts`).
  */
 function collectLegacyResiduals(repo: string, runtime: Runtime): string[] {
 	const root = path.join(repo, LEGACY_ARTIFACT_ROOT)

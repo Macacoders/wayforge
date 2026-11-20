@@ -41,9 +41,9 @@ program
 		new Command()
 			.createOption(
 				'--runtime <name>',
-				'Runtime to configure: opencode (default) or kilocode.',
+				'Runtime to configure: opencode (default), kilocode, or claude. Claude Code manages authentication itself; for claude, --model accepts a Claude alias (sonnet, opus, haiku, fable), inherit, or a full Claude model ID instead of <provider>/<model>.',
 			)
-			.choices(['opencode', 'kilocode'])
+			.choices(['opencode', 'kilocode', 'claude'])
 			.default('opencode'),
 	)
 	.option(

@@ -170,7 +170,6 @@ export function removeTrackingEntry(
 }
 
 function isWsl(): boolean {
-	// ponytail: resolved rung 6 — /proc fallback never needed in practice; WSL_DISTRO_NAME alone suffices
 	return !!process.env.WSL_DISTRO_NAME
 }
 
@@ -189,7 +188,6 @@ function toTrackedPath(canonical: string): string {
 }
 
 function formatBerlinTimestamp(date: Date): string {
-	// ponytail: resolved rung 3 — Intl.DateTimeFormat replaces manual TZ offset arithmetic
 	const fmt = new Intl.DateTimeFormat('sv-SE', {
 		timeZone: 'Europe/Berlin',
 		year: 'numeric',

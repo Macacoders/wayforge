@@ -10,7 +10,6 @@ export interface UninstallOptions {
 	dryRun: boolean
 }
 
-// ponytail: resolved rung 6 — removed Promise.resolve() wrapper; Commander accepts void
 export function uninstallCommand(options: UninstallOptions): void {
 	doUninstall(options)
 }

@@ -2,6 +2,7 @@
 
 Date: 2026-10-26
 Status: Accepted
+**Amended**: 2026-11-05 — see ADR-0048 (Claude Code projection runtime; Decisions 3, 6, and 7).
 
 ## Context
 
